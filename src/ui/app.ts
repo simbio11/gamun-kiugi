@@ -150,8 +150,28 @@ const nl = (t: string) => esc(t).replace(/\n/g, '<br>');
 let root: HTMLElement;
 let hasSave = false;
 
+/**
+ * 안드로이드 뒤로 가기 (앱 WebView가 부른다): 열린 창을 닫고, 다른 탭이면 가계도로. 처리했으면 true.
+ * 이벤트(선택이 필요한 창)와 게임 오버 창은 닫지 않는다.
+ */
+function back(): boolean {
+  const g = ui.game;
+  if (!g) return false;
+  if (ui.settings || ui.sheet) return (ui.settings = ui.confirmReset = false), (ui.sheet = undefined), render(), true;
+  if (ui.outcome) return (ui.outcome = undefined), (fx.modalKey = ''), render(), true;
+  if (ui.report) return (ui.report = undefined), (fx.modalKey = ''), render(), true;
+  if (g.events.length || g.gameOver) return true;
+  if (ui.tab !== 'tree') return (ui.tab = 'tree'), render(), true;
+  return false;
+}
+
 export function mount(el: HTMLElement) {
   root = el;
+  (window as unknown as { __back: () => boolean }).__back = () => {
+    const r = back();
+    save();
+    return r;
+  };
   hasSave = !!ui.game;
   ui.game = null;
   root.addEventListener('click', onClick);
