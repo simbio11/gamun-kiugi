@@ -8,43 +8,8 @@ export interface Talent {
   discovered: boolean;
 }
 
-export type JobId =
-  // 무직·기타
-  | 'none'
-  | 'parttime'
-  | 'pension'
-  // 직장 (시험·공채)
-  | 'office'
-  | 'corp'
-  | 'civil'
-  | 'police'
-  | 'firefighter'
-  | 'teacher'
-  | 'public_corp'
-  | 'officer'
-  | 'developer'
-  | 'journalist'
-  | 'pilot'
-  // 전문직
-  | 'doctor'
-  | 'pharmacist'
-  | 'nurse'
-  | 'lawyer'
-  | 'accountant'
-  | 'professor'
-  // 사업
-  | 'founder'
-  | 'shopkeeper'
-  // 창작·연예·스포츠
-  | 'youtuber'
-  | 'entertainer'
-  | 'gamer'
-  | 'writer'
-  | 'musician'
-  | 'painter'
-  | 'athlete'
-  // 정치
-  | 'politician';
+/** 직업 id (jobs.ts 의 JOBS 키) */
+export type JobId = string;
 
 /** 진로 성향. 자녀의 '꿈'과 이벤트 선택지의 태그. */
 export type CareerTag = 'study' | 'sport' | 'stage' | 'business' | 'public' | 'free';
@@ -94,10 +59,18 @@ export interface Person {
   cash: number;
   /** 결혼할 때 가문에 들어온 사람 */
   inLaw: boolean;
+  /** 성격 (TRAITS id) */
+  traits?: string[];
+  /** 부부 금슬 0~100 (배우자와 같은 값) */
+  bond?: number;
+  /** 학업 성적 누적 0~100 (수능에 반영) */
+  study?: number;
+  /** 지금까지 들어간 사교육비 (만원) */
+  eduSpent?: number;
 }
 
 export type RealEstateKind = 'apt_seoul' | 'apt_local' | 'land';
-export type AssetKind = RealEstateKind | 'stock' | 'coin' | 'art';
+export type AssetKind = RealEstateKind | 'building' | 'stock' | 'coin' | 'art';
 export interface Asset {
   id: string;
   kind: AssetKind;
@@ -150,10 +123,19 @@ export interface LogEntry {
   kind?: 'birth' | 'death' | 'money' | 'market' | 'life' | 'achv' | 'succession';
 }
 
-export type MarketKey = 'apt_seoul' | 'apt_local' | 'land' | 'stock' | 'coin' | 'art';
+export interface Mission {
+  id: string;
+  /** 부여된 세대 */
+  gen: number;
+  state: 'open' | 'done' | 'failed';
+  /** 시작 시점 기준값 (자산 2배 등) */
+  base?: number;
+}
+
+export type MarketKey = 'apt_seoul' | 'apt_local' | 'land' | 'building' | 'stock' | 'coin' | 'art';
 
 export interface GameState {
-  version: 2;
+  version: 3;
   rng: number;
   seed: number;
   year: number;
@@ -175,6 +157,8 @@ export interface GameState {
   policy: Policy;
   heirId?: string;
   will: WillMode;
+  /** 가주가 유언장을 써뒀는가 */
+  willWritten?: boolean;
   /** 세무 주목도 (v0.3에서 사용) */
   taxHeat: number;
   events: PendingEvent[];
@@ -182,5 +166,9 @@ export interface GameState {
   idSeq: number;
   log: LogEntry[];
   achievements: string[];
+  /** 가문에서 거쳐 간 직업 (직업 도감) */
+  jobsSeen?: string[];
+  /** 세대 미션 */
+  missions?: Mission[];
   gameOver?: { reason: string; score: number };
 }

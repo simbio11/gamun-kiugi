@@ -227,3 +227,10 @@ small.down { color: #2d6fb5; }
 .achv span { font-size: 11px; color: var(--muted); }
 
 .toast { position: fixed; bottom: 130px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--gold); padding: 10px 16px; z-index: 30; box-shadow: 0 0 0 3px var(--gold); max-width: calc(100% - 32px); font-size: 13px; }
+
+.chip.bad { background: #d9a3a3; }
+.dex { display: flex; flex-wrap: wrap; gap: 4px; }
+.dex .chip { font-size: 11px; }
+.achv-cat summary { cursor: pointer; font-size: 13px; padding: 6px 0; border-top: 2px solid #cbb58c; list-style: none; }
+.achv-cat summary::-webkit-details-marker { display: none; }
+.achv-cat summary small { color: var(--muted); }

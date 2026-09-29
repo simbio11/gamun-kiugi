@@ -9,9 +9,11 @@ function autoplay(seed: number, years: number): GameState {
   const s = newGame({ seed, familyName: '김', sex: 'M', origin: 'middle' });
   for (let y = 0; y < years && !s.gameOver; y++) {
     let guard = 0;
-    while (s.events.length && guard++ < 50) {
+    while (s.events.length && guard++ < 300) {
       const cur = currentEvent(s)!;
-      const enabled = cur.choices.map((c, i) => [c, i] as const).filter(([c]) => !c.disabled);
+      const all = cur.choices.map((c, i) => [c, i] as const).filter(([c]) => !c.disabled);
+      const fwd = all.filter(([c]) => !c.label.startsWith('←'));
+      const enabled = fwd.length ? fwd : all;
       // 청혼은 적극적으로, 나머지는 무작위
       const propose = enabled.find(([c]) => c.label.includes('프러포즈') || c.label.includes('청혼'));
       const pickI = propose && next({ rng: seed + y } as any) < 0.8 ? propose[1] : enabled[Math.floor(next(s) * enabled.length)][1];
@@ -65,7 +67,7 @@ describe('시뮬레이션', () => {
     delete s.policy.taxAdvisor;
     for (const p of Object.values(s.people) as any[]) delete p.genes.face;
     const m = migrate(JSON.parse(JSON.stringify(s)));
-    expect(m.version).toBe(2);
+    expect(m.version).toBe(3);
     expect(m.market.coin).toBe(100);
     for (const p of Object.values(m.people)) expect(p.genes.face).toBeTypeOf('number');
     for (let i = 0; i < 5; i++) {

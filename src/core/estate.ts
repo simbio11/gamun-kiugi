@@ -2,6 +2,8 @@ import { assessedValue, assetsOf, formatMoney } from './economy';
 import { alive, age, childrenOf, clamp, fullName, head, isDescendantOf, parentsOf, siblingsOf, spouseOf, addFlag } from './people';
 import { giftTax, inheritanceTax, type GiftTaxOpts } from './tax';
 import { unlock } from './achievements';
+import { rollMissions } from './missions';
+import { chance } from './rng';
 import type { GameState, Person } from './types';
 
 export interface EstateReport {
@@ -62,7 +64,7 @@ const LIQUID: Record<string, number> = { stock: 0, coin: 0 };
  * 사망자 재산 정산: 상속세 계산 → 납부(현금 부족 시 자산 매각) → 분배.
  * 가주였던 사람이면 유언(s.will)을 따르고, 실물 자산은 가장 큰 지분을 받는 사람(동률이면 후계자)에게.
  */
-export function settleEstate(s: GameState, d: Person, successorId?: string): EstateReport {
+export function settleEstate(s: GameState, d: Person, successorId?: string, override?: Map<string, number>): EstateReport {
   const wasHead = d.id === s.headId;
   const { tax, deduction, base, gross, assessed, priorGifts, advisorCut, assets } = estateTax(s, d);
 
@@ -84,9 +86,26 @@ export function settleEstate(s: GameState, d: Person, successorId?: string): Est
     s.assets = s.assets.filter((x) => x.id !== a.id);
     lines.push(`세금 납부를 위해 ${a.name}(${formatMoney(got)}) 매각` + (a.fake ? ' — 감정 결과 위작이었다!' : ''));
   }
-  const kept = sorted;
+  let kept = sorted;
 
-  const shares = wasHead ? willShares(s, d, successorId) : legalShares(s, d);
+  const shares = override ?? (wasHead ? willShares(s, d, successorId) : legalShares(s, d));
+  // 유언 없이 떠난 가주: 상속인끼리 합의가 안 돼 실물 자산을 헐값에 팔아 현금으로 나누고, 다툼이 생긴다
+  const chaos = wasHead && !override && !s.willWritten && shares.size > 1;
+  if (chaos) {
+    lines.push('📜 유언장이 없었다. 상속인들의 합의가 틀어졌다.');
+    for (const a of kept) {
+      const got = Math.round((a.fake ? a.value * 0.05 : a.value) * 0.85);
+      cash += got;
+      s.assets = s.assets.filter((x) => x.id !== a.id);
+      lines.push(`공동상속 분할을 위해 ${a.name} 급매 (${formatMoney(got)})`);
+    }
+    kept = [];
+    const fee = Math.round(Math.max(0, cash) * 0.03);
+    if (fee > 0 && chance(s, 0.6)) {
+      cash -= fee;
+      lines.push(`상속 소송으로 변호사 비용 ${formatMoney(fee)}`);
+    }
+  }
   const total = [...shares.values()].reduce((a, b) => a + b, 0);
   if (total === 0) {
     s.familyCash += cash;
@@ -107,8 +126,13 @@ export function settleEstate(s: GameState, d: Person, successorId?: string): Est
       heir.cash += got;
       const assetPart = id === assetTaker ? keptValue : 0;
       lines.push(`→ ${fullName(heir)}: ${formatMoney(got + assetPart)}` + (assetPart ? ` (실물 자산 포함)` : ''));
+      // 유언이 없으면 누군가는 꼭 서운하다
+      if (chaos && d.childIds.includes(id) && chance(s, 0.35)) {
+        addFlag(heir, 'grievance');
+        heir.affinity = clamp(heir.affinity - 25, -100, 100);
+      }
       // 가주의 자녀가 법정 몫의 70%도 못 받으면 불만
-      if (wasHead && d.childIds.includes(id) && id !== successorId) {
+      if (wasHead && !override && d.childIds.includes(id) && id !== successorId) {
         const legal = legalShares(s, d);
         const lt = [...legal.values()].reduce((a, b) => a + b, 0);
         const fair = (net * (legal.get(id) ?? 0)) / Math.max(1, lt);
@@ -148,13 +172,17 @@ export function chooseSuccessor(s: GameState, h: Person): Person | undefined {
   return undefined;
 }
 
-/** 가주 교체 (사망 승계 / 은퇴 승계 공통) */
-export function transferHeadship(s: GameState, next: Person) {
+/** 가주 교체 (사망 승계 / 은퇴 승계 공통). newGen=false면 같은 세대 안에서 플레이 인물만 바꿈 */
+export function transferHeadship(s: GameState, next: Person, newGen = true) {
   const prev = head(s);
   s.headId = next.id;
   s.heirId = undefined;
   s.will = 'legal';
-  s.generation++;
+  s.willWritten = false;
+  if (newGen) {
+    s.generation++;
+    rollMissions(s);
+  }
   for (const p of Object.values(s.people)) {
     if (!alive(p) || p.id === next.id) continue;
     if (p.id === next.spouseId) p.affinity = 60;

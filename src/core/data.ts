@@ -1,4 +1,4 @@
-import type { AssetKind, CareerTag, JobId, StatKey, Stats, TalentId } from './types';
+import type { AssetKind, CareerTag, StatKey, TalentId } from './types';
 
 export const STAT_KEYS: StatKey[] = ['str', 'int', 'cha', 'mor', 'hp'];
 export const STAT_NAMES: Record<StatKey, string> = {
@@ -27,132 +27,35 @@ export const TALENTS: Record<TalentId, TalentDef> = {
 };
 export const TALENT_IDS = Object.keys(TALENTS) as TalentId[];
 
-export type JobKind = 'fixed' | 'salary' | 'business' | 'creator' | 'athlete';
+export * from './jobs';
 
-export interface JobDef {
-  id: JobId;
+/** 성격. 짝(opp)끼리는 함께 가질 수 없다 */
+export interface TraitDef {
   name: string;
-  kind: JobKind;
-  /** 연봉 기준 (만원) */
-  base: number;
-  /** 레벨당 연봉 증가 (만원) */
-  perLevel: number;
-  maxLevel: number;
-  fame: number;
-  color: string;
-  /** 정년·은퇴 나이 (0 = 해당 없음) */
-  retireAge: number;
-  /** 연간 승진 기본 확률 (salary) */
-  promote?: number;
-  /** 수입·승진에 쓰이는 능력치 가중치 (합 1) */
-  stats?: Partial<Stats>;
-  /** 레벨별 직함 */
-  titles?: string[];
-}
-
-const J = (d: Omit<JobDef, 'id'>) => d;
-
-export const JOBS: Record<JobId, JobDef> = {
-  none: { id: 'none', ...J({ name: '백수', kind: 'fixed', base: 1200, perLevel: 0, maxLevel: 0, fame: -0.5, color: '#8a8a8a', retireAge: 65 }) },
-  parttime: { id: 'parttime', ...J({ name: '알바', kind: 'fixed', base: 1900, perLevel: 0, maxLevel: 0, fame: -0.2, color: '#d98c3a', retireAge: 65 }) },
-  pension: { id: 'pension', ...J({ name: '은퇴', kind: 'fixed', base: 1500, perLevel: 0, maxLevel: 0, fame: 0, color: '#6b5b4b', retireAge: 0 }) },
-
-  office: { id: 'office', ...J({ name: '회사원', kind: 'salary', base: 3000, perLevel: 600, maxLevel: 5, fame: 0, color: '#34506e', retireAge: 60, promote: 0.14, stats: { int: 0.5, cha: 0.3, mor: 0.2 }, titles: ['사원', '주임', '대리', '과장', '차장', '부장'] }) },
-  corp: { id: 'corp', ...J({ name: '대기업 직원', kind: 'salary', base: 5000, perLevel: 1400, maxLevel: 6, fame: 0.5, color: '#1f3b5c', retireAge: 58, promote: 0.13, stats: { int: 0.5, cha: 0.3, mor: 0.2 }, titles: ['사원', '대리', '과장', '차장', '부장', '상무', '전무'] }) },
-  civil: { id: 'civil', ...J({ name: '공무원', kind: 'salary', base: 3100, perLevel: 650, maxLevel: 6, fame: 1, color: '#2b3a67', retireAge: 65, promote: 0.12, stats: { int: 0.5, mor: 0.5 }, titles: ['9급', '8급', '7급', '6급', '5급 사무관', '4급 서기관', '3급 부이사관'] }) },
-  police: { id: 'police', ...J({ name: '경찰관', kind: 'salary', base: 3400, perLevel: 700, maxLevel: 6, fame: 1, color: '#243a73', retireAge: 60, promote: 0.12, stats: { str: 0.4, mor: 0.4, int: 0.2 }, titles: ['순경', '경장', '경사', '경위', '경감', '경정', '총경'] }) },
-  firefighter: { id: 'firefighter', ...J({ name: '소방관', kind: 'salary', base: 3500, perLevel: 650, maxLevel: 5, fame: 1.5, color: '#b8452d', retireAge: 60, promote: 0.11, stats: { str: 0.5, hp: 0.3, mor: 0.2 }, titles: ['소방사', '소방교', '소방장', '소방위', '소방경', '소방령'] }) },
-  teacher: { id: 'teacher', ...J({ name: '교사', kind: 'salary', base: 3300, perLevel: 700, maxLevel: 4, fame: 1, color: '#4e7a5a', retireAge: 62, promote: 0.08, stats: { int: 0.4, mor: 0.4, cha: 0.2 }, titles: ['교사', '부장교사', '교감', '교장', '교육장'] }) },
-  public_corp: { id: 'public_corp', ...J({ name: '공기업 직원', kind: 'salary', base: 4500, perLevel: 900, maxLevel: 5, fame: 0.5, color: '#3e5a7a', retireAge: 60, promote: 0.12, stats: { int: 0.6, mor: 0.4 }, titles: ['6급', '5급', '4급', '3급', '2급', '1급'] }) },
-  officer: { id: 'officer', ...J({ name: '직업군인', kind: 'salary', base: 3600, perLevel: 1000, maxLevel: 6, fame: 1.5, color: '#4b5a2e', retireAge: 56, promote: 0.1, stats: { str: 0.4, mor: 0.4, int: 0.2 }, titles: ['소위', '중위', '대위', '소령', '중령', '대령', '장군'] }) },
-  developer: { id: 'developer', ...J({ name: '개발자', kind: 'salary', base: 4200, perLevel: 1500, maxLevel: 5, fame: 0.3, color: '#2d2d3a', retireAge: 60, promote: 0.15, stats: { int: 0.9, mor: 0.1 }, titles: ['주니어', '미들', '시니어', '리드', '아키텍트', 'CTO'] }) },
-  journalist: { id: 'journalist', ...J({ name: '기자', kind: 'salary', base: 3800, perLevel: 900, maxLevel: 5, fame: 1.5, color: '#5a4a6e', retireAge: 60, promote: 0.1, stats: { int: 0.5, cha: 0.5 }, titles: ['수습기자', '기자', '차장', '부장', '논설위원', '편집국장'] }) },
-  pilot: { id: 'pilot', ...J({ name: '파일럿', kind: 'salary', base: 7000, perLevel: 3000, maxLevel: 3, fame: 1, color: '#223355', retireAge: 65, promote: 0.1, stats: { hp: 0.4, int: 0.4, str: 0.2 }, titles: ['부기장', '기장', '선임기장', '수석기장'] }) },
-
-  doctor: { id: 'doctor', ...J({ name: '의사', kind: 'salary', base: 9000, perLevel: 3500, maxLevel: 6, fame: 2, color: '#e8e8e8', retireAge: 72, promote: 0.12, stats: { int: 0.6, mor: 0.2, cha: 0.2 }, titles: ['봉직의', '전문의', '과장', '부원장', '원장', '병원장', '의료재단 이사장'] }) },
-  pharmacist: { id: 'pharmacist', ...J({ name: '약사', kind: 'salary', base: 6000, perLevel: 1500, maxLevel: 3, fame: 1, color: '#dfe8e0', retireAge: 72, promote: 0.1, stats: { int: 0.5, cha: 0.3, mor: 0.2 }, titles: ['근무약사', '약국 개업', '대형 약국', '약국 체인'] }) },
-  nurse: { id: 'nurse', ...J({ name: '간호사', kind: 'salary', base: 3800, perLevel: 700, maxLevel: 4, fame: 1, color: '#f2f2f7', retireAge: 60, promote: 0.1, stats: { mor: 0.5, hp: 0.3, int: 0.2 }, titles: ['간호사', '책임간호사', '수간호사', '간호부장', '간호이사'] }) },
-  lawyer: { id: 'lawyer', ...J({ name: '변호사', kind: 'salary', base: 7000, perLevel: 3000, maxLevel: 5, fame: 1.5, color: '#1f1f2e', retireAge: 72, promote: 0.13, stats: { int: 0.6, cha: 0.4 }, titles: ['어쏘 변호사', '시니어', '파트너', '에쿼티 파트너', '대표변호사', '로펌 회장'] }) },
-  accountant: { id: 'accountant', ...J({ name: '회계사', kind: 'salary', base: 6000, perLevel: 2000, maxLevel: 5, fame: 1, color: '#2e3f3a', retireAge: 70, promote: 0.13, stats: { int: 0.8, mor: 0.2 }, titles: ['수습', '시니어', '매니저', '이사', '파트너', '대표'] }) },
-  professor: { id: 'professor', ...J({ name: '교수', kind: 'salary', base: 5500, perLevel: 1200, maxLevel: 4, fame: 2.5, color: '#6b4a2b', retireAge: 65, promote: 0.1, stats: { int: 0.8, mor: 0.2 }, titles: ['조교수', '부교수', '정교수', '석좌교수', '총장'] }) },
-
-  founder: { id: 'founder', ...J({ name: '창업가', kind: 'business', base: 0, perLevel: 0, maxLevel: 5, fame: 1, color: '#6a3d8f', retireAge: 72 }) },
-  shopkeeper: { id: 'shopkeeper', ...J({ name: '자영업자', kind: 'business', base: 0, perLevel: 0, maxLevel: 3, fame: 0, color: '#a0522d', retireAge: 70, titles: ['동네 가게', '단골 맛집', '2호점', '프랜차이즈'] }) },
-
-  youtuber: { id: 'youtuber', ...J({ name: '유튜버', kind: 'creator', base: 0, perLevel: 0, maxLevel: 5, fame: 0.5, color: '#c8322d', retireAge: 0, titles: ['구독자 100명', '구독자 1만', '구독자 10만', '구독자 50만', '골드버튼 100만', '구독자 500만'] }) },
-  entertainer: { id: 'entertainer', ...J({ name: '연예인', kind: 'creator', base: 0, perLevel: 0, maxLevel: 5, fame: 2, color: '#d9559b', retireAge: 0, titles: ['무명', '조연', '주연', '흥행 스타', '국민 스타', '월드 스타'] }) },
-  gamer: { id: 'gamer', ...J({ name: '프로게이머', kind: 'creator', base: 0, perLevel: 0, maxLevel: 5, fame: 1, color: '#3a3a8c', retireAge: 0, titles: ['연습생', '2군', '1군', '주전', '국가대표', '월드 챔피언'] }) },
-  writer: { id: 'writer', ...J({ name: '웹툰·웹소설 작가', kind: 'creator', base: 0, perLevel: 0, maxLevel: 5, fame: 1, color: '#6e8a3a', retireAge: 0, titles: ['지망생', '신인 연재', '인기 연재', '베스트셀러', '드라마화', '글로벌 IP'] }) },
-  musician: { id: 'musician', ...J({ name: '음악가', kind: 'creator', base: 0, perLevel: 0, maxLevel: 5, fame: 1.5, color: '#7a3a6e', retireAge: 0, titles: ['인디', '세션', '정규 앨범', '음원 차트', '전국 투어', '거장'] }) },
-  painter: { id: 'painter', ...J({ name: '화가', kind: 'creator', base: 0, perLevel: 0, maxLevel: 5, fame: 1.5, color: '#c9a227', retireAge: 0, titles: ['무명 화가', '단체전', '개인전', '미술관 초대', '국전 대상', '거장'] }) },
-  athlete: { id: 'athlete', ...J({ name: '운동선수', kind: 'athlete', base: 3000, perLevel: 4000, maxLevel: 5, fame: 2, color: '#2f7d4a', retireAge: 0 }) },
-
-  politician: { id: 'politician', ...J({ name: '정치인', kind: 'fixed', base: 15000, perLevel: 3000, maxLevel: 4, fame: 4, color: '#1c4f8f', retireAge: 0, titles: ['초선', '재선', '3선', '4선', '5선'] }) },
-};
-
-/**
- * 창작·연예 직업: 뜨기 전까지는 수입이 거의 없다.
- * 레벨별 연수입(만원), 뜨는 확률 = (base + 주능력치/div + 재능 + 투자) × 0.8^레벨
- */
-export interface CreatorDef {
-  incomes: number[];
-  stat: StatKey;
-  talent: TalentId;
-  base: number;
-  div: number;
-}
-export const CREATORS: Partial<Record<JobId, CreatorDef>> = {
-  youtuber: { incomes: [60, 700, 3000, 9000, 25000, 70000], stat: 'cha', talent: 'star', base: 0.012, div: 2000 },
-  entertainer: { incomes: [500, 2500, 7000, 18000, 45000, 120000], stat: 'cha', talent: 'star', base: 0.02, div: 1600 },
-  gamer: { incomes: [0, 2000, 5000, 12000, 30000, 60000], stat: 'int', talent: 'athlete', base: 0.05, div: 900 },
-  writer: { incomes: [100, 1500, 5000, 13000, 30000, 70000], stat: 'int', talent: 'artist', base: 0.015, div: 1800 },
-  musician: { incomes: [400, 1800, 4000, 10000, 25000, 60000], stat: 'cha', talent: 'artist', base: 0.02, div: 1800 },
-  painter: { incomes: [200, 900, 2500, 6000, 12000, 25000], stat: 'cha', talent: 'artist', base: 0.02, div: 1800 },
-};
-
-/**
- * 시험·공채. 붙을 때까지 매년 도전(준비 방식 선택)하거나 포기한다.
- * 점수 = 능력치 가중합 + 준비 보너스 + 경험(재수) 보너스 → 합격선과 비교
- */
-export interface ExamDef {
-  name: string;
-  job: JobId;
-  level: number;
-  stats: Partial<Stats>;
-  pass: number;
-  /** 대학 졸업 필요 */
-  univ?: boolean;
-  /** 이 플래그가 있으면 +8 */
-  bonusFlags?: string[];
-  /** 최대 응시 횟수 (변호사시험 5회) */
-  maxTries?: number;
   desc: string;
+  opp?: string;
+  good: boolean;
 }
-export const EXAMS: Record<string, ExamDef> = {
-  corp: { name: '대기업 공채', job: 'corp', level: 0, stats: { int: 0.6, cha: 0.4 }, pass: 60, univ: true, bonusFlags: ['univ_top'], desc: '서류·인적성·면접. 스펙 싸움이다.' },
-  public_corp: { name: '공기업 NCS', job: 'public_corp', level: 0, stats: { int: 0.8, mor: 0.2 }, pass: 60, univ: true, desc: '신의 직장. 경쟁률이 수백 대 일.' },
-  civil: { name: '9급 공무원 시험', job: 'civil', level: 0, stats: { int: 0.6, mor: 0.4 }, pass: 54, desc: '철밥통을 향한 공시생의 길.' },
-  civil5: { name: '5급 행정고시', job: 'civil', level: 4, stats: { int: 1 }, pass: 76, univ: true, bonusFlags: ['univ_top'], desc: '합격하면 바로 사무관.' },
-  police: { name: '경찰 공무원 시험', job: 'police', level: 0, stats: { int: 0.4, str: 0.4, mor: 0.2 }, pass: 50, desc: '필기에 체력 시험까지.' },
-  firefighter: { name: '소방 공무원 시험', job: 'firefighter', level: 0, stats: { str: 0.5, hp: 0.3, int: 0.2 }, pass: 50, desc: '체력이 곧 실력.' },
-  teacher: { name: '교원 임용고시', job: 'teacher', level: 0, stats: { int: 0.6, mor: 0.4 }, pass: 60, univ: true, bonusFlags: ['edu_school'], desc: '교대·사범대 출신이 유리하다.' },
-  accountant: { name: 'CPA (공인회계사)', job: 'accountant', level: 0, stats: { int: 1 }, pass: 70, univ: true, desc: '숫자와의 전쟁.' },
-  journalist: { name: '언론고시', job: 'journalist', level: 0, stats: { int: 0.5, cha: 0.5 }, pass: 64, univ: true, bonusFlags: ['univ_top'], desc: '논술·작문·면접.' },
-  developer: { name: 'IT 기업 코딩테스트', job: 'developer', level: 0, stats: { int: 1 }, pass: 58, desc: '알고리즘 문제를 풀어야 한다.' },
-  pilot: { name: '항공사 조종사 채용', job: 'pilot', level: 0, stats: { hp: 0.4, int: 0.4, str: 0.2 }, pass: 62, bonusFlags: ['flight_school'], desc: '비행 교육 이수 후 채용 시험.' },
-  bar: { name: '변호사 시험', job: 'lawyer', level: 0, stats: { int: 1 }, pass: 60, maxTries: 5, desc: '로스쿨 졸업 후 5년 안에 5번만 볼 수 있다.' },
-  professor: { name: '교수 임용', job: 'professor', level: 0, stats: { int: 0.8, mor: 0.2 }, pass: 72, desc: '논문 실적과 인맥의 싸움. 자리가 잘 안 난다.' },
-  nurse: { name: '간호사 국가고시', job: 'nurse', level: 0, stats: { int: 0.6, mor: 0.4 }, pass: 38, desc: '대부분 붙는다.' },
-  pharmacist: { name: '약사 국가고시', job: 'pharmacist', level: 0, stats: { int: 1 }, pass: 45, desc: '대부분 붙는다.' },
+export const TRAITS: Record<string, TraitDef> = {
+  diligent: { name: '성실', desc: '승진·시험에 유리', opp: 'lazy', good: true },
+  lazy: { name: '게으름', desc: '승진·시험에 불리', opp: 'diligent', good: false },
+  cheerful: { name: '낙천적', desc: '행복도가 잘 안 떨어진다', opp: 'anxious', good: true },
+  anxious: { name: '예민함', desc: '행복도가 쉽게 떨어진다. 우울증 주의', opp: 'cheerful', good: false },
+  social: { name: '사교적', desc: '연애·영업·선거에 유리', opp: 'shy', good: true },
+  shy: { name: '내성적', desc: '연애가 어렵다. 연구엔 집중력', opp: 'social', good: false },
+  filial: { name: '효심', desc: '부모와의 관계도가 잘 오른다', opp: 'rebel', good: true },
+  rebel: { name: '반항적', desc: '사춘기가 거세다', opp: 'filial', good: false },
+  frugal: { name: '짠돌이', desc: '생활비를 아낀다', opp: 'spender', good: true },
+  spender: { name: '낭비벽', desc: '돈이 줄줄 샌다', opp: 'frugal', good: false },
+  gambler: { name: '한탕주의', desc: '도박·투기에 끌린다', good: false },
+  flirt: { name: '바람기', desc: '이성에게 인기지만 가정이 위태롭다', opp: 'devoted', good: false },
+  devoted: { name: '일편단심', desc: '부부 금슬이 좋다', opp: 'flirt', good: true },
+  leader: { name: '리더십', desc: '선거·조직에서 두각', good: true },
+  tough: { name: '강골', desc: '늙어도 건강하다. 병에 강함', opp: 'frail', good: true },
+  frail: { name: '병약함', desc: '잔병치레가 잦다', opp: 'tough', good: false },
+  ambitious: { name: '야심가', desc: '출세욕이 강하다. 명성 획득↑', good: true },
 };
-
-/** 시험 준비 방식: [이름, 비용(만원), 점수 보너스] */
-export const PREP_TIERS: [string, number, number][] = [
-  ['독학', 0, 0],
-  ['인강', 200, 4],
-  ['학원', 800, 8],
-  ['1타 강사 + 고시원 올인', 2500, 13],
-];
+export const TRAIT_IDS = Object.keys(TRAITS);
 
 export const TAG_NAMES: Record<CareerTag, string> = {
   study: '공부로 성공하기',
@@ -194,6 +97,7 @@ export const ASSESS_RATIO: Record<AssetKind, number> = {
   apt_seoul: 0.7,
   apt_local: 0.7,
   land: 0.7,
+  building: 0.7,
   stock: 1,
   coin: 1,
   art: 0.5,
@@ -203,6 +107,7 @@ export const ASSET_YIELD: Record<AssetKind, number> = {
   apt_seoul: 0.025,
   apt_local: 0.025,
   land: 0.02,
+  building: 0.035,
   stock: 0.02,
   coin: 0,
   art: 0,
@@ -212,6 +117,7 @@ export const ASSET_NAMES: Record<AssetKind, string> = {
   apt_seoul: '강남 아파트',
   apt_local: '지방 아파트',
   land: '종가 토지',
+  building: '상가 건물',
   stock: '주식',
   coin: '코인',
   art: '예술품',
@@ -220,11 +126,12 @@ export const ASSET_ICONS: Record<AssetKind, string> = {
   apt_seoul: '🏙',
   apt_local: '🏠',
   land: '🌾',
+  building: '🏢',
   stock: '📈',
   coin: '🪙',
   art: '🖼',
 };
-export const REAL_ESTATE: readonly AssetKind[] = ['apt_seoul', 'apt_local', 'land'];
+export const REAL_ESTATE: readonly AssetKind[] = ['apt_seoul', 'apt_local', 'land', 'building'];
 
 /** 예술품 등급: 가격(만원), 위작 확률 */
 export const ART_TIERS = [
@@ -242,23 +149,84 @@ export const LIFESTYLE_NAMES = { work: '일 중심', balance: '균형', family: 
 export const LIVING_NAMES = { frugal: '검소', normal: '보통', lux: '호화' } as const;
 export const WILL_NAMES = { legal: '법정상속 (배우자 1.5 : 자녀 1)', heir: '후계자에게 몰아주기', equal: '자녀 균등 분배' } as const;
 
-export const ACHIEVEMENTS: Record<string, { name: string; desc: string }> = {
-  second_gen: { name: '대를 잇다', desc: '처음으로 가주가 바뀌었다' },
-  doctor3: { name: '3대째 의사', desc: '직계 3세대 연속 의사 배출' },
-  rich100: { name: '백억 가문', desc: '가문 총자산 100억 달성' },
-  taxsaver: { name: '절세의 달인', desc: '20억 이상 상속에서 실효세율 10% 이하' },
-  dragon: { name: '개천에서 용', desc: '서민 가문에서 의대 진학' },
-  noble_idle: { name: '백수 귀족', desc: '백수로 살면서 개인 재산 10억 보유' },
-  rich1000: { name: '재벌의 탄생', desc: '가문 총자산 1,000억 달성' },
-  century: { name: '100년 가문', desc: '가문 창립 후 100년 경과' },
-  gangnam3: { name: '강남 종가', desc: '3대 연속 가주가 강남 아파트 보유' },
-  star_family: { name: '스타 가문', desc: '연예인·운동선수·유튜버를 모두 배출' },
-  sa_family: { name: '사(士)자 집안', desc: '의사·변호사·교수가 한 시대에 함께' },
-  politics: { name: '정치 명문', desc: '가문에서 정치인 배출' },
-  masterpiece: { name: '불후의 명작', desc: '가문의 화가가 걸작을 남기다' },
-  coin_rich: { name: '코인 부자', desc: '코인 평가액 10억 돌파' },
-  collector: { name: '컬렉터', desc: '진품 예술품 5점 보유' },
-  forgery: { name: '비싼 수업료', desc: '위작을 샀다' },
-  big_family: { name: '대가족', desc: '한 부부가 자녀 5명을 두다' },
-  idle3: { name: '백수 3대', desc: '3대 연속 백수로 살아남기' },
+export type AchvCat = '가문' | '결혼·자녀' | '학업' | '출세' | '영광' | '재산' | '인생';
+const A = (cat: AchvCat, name: string, desc: string) => ({ cat, name, desc });
+export const ACHIEVEMENTS: Record<string, { cat: AchvCat; name: string; desc: string }> = {
+  // 가문
+  second_gen: A('가문', '대를 잇다', '처음으로 가주가 바뀌었다'),
+  gen5: A('가문', '5대 가주', '5대째 가주에 이르다'),
+  gen10: A('가문', '10대 명가', '10대째 가주에 이르다'),
+  century: A('가문', '100년 가문', '가문 창립 후 100년 경과'),
+  bicentury: A('가문', '200년 가문', '가문 창립 후 200년 경과'),
+  great_grandchild: A('가문', '증손 보기', '가주가 살아서 증손주를 보다'),
+  five_gen: A('가문', '5대가 한자리에', '고조부모부터 고손까지 5대가 동시에 살아 있다'),
+  centenarian: A('가문', '백세 장수', '가문에서 100세 어른이 나오다'),
+  gangnam3: A('가문', '강남 종가', '3대 연속 가주가 강남 아파트 보유'),
+  mission10: A('가문', '대업', '세대 미션 10개 달성'),
+  jobs10: A('가문', '직업 도감 10', '가문에서 10가지 직업을 거치다'),
+  jobs30: A('가문', '직업 도감 30', '가문에서 30가지 직업을 거치다'),
+  jobs60: A('가문', '직업 도감 60', '가문에서 60가지 직업을 거치다'),
+  // 결혼·자녀
+  sons3: A('결혼·자녀', '아들만 셋', '한 부부가 아들만 셋 이상'),
+  daughters3: A('결혼·자녀', '딸 부잣집', '한 부부가 딸만 셋 이상'),
+  big_family: A('결혼·자녀', '대가족', '한 부부가 자녀 5명을 두다'),
+  twins: A('결혼·자녀', '쌍둥이', '가문에 쌍둥이가 태어나다'),
+  ivf: A('결혼·자녀', '기다림 끝에', '시험관 시술로 아이를 얻다'),
+  adopted: A('결혼·자녀', '가슴으로 낳은 아이', '아이를 입양하다'),
+  golden_wedding: A('결혼·자녀', '금혼식', '결혼 50주년을 함께 맞다'),
+  young_marriage: A('결혼·자녀', '일찍 철든', '25세 이전에 결혼'),
+  late_marriage: A('결혼·자녀', '늦깎이 신랑신부', '45세 이후에 결혼'),
+  remarriage: A('결혼·자녀', '두 번째 봄', '재혼하다'),
+  gray_divorce: A('결혼·자녀', '황혼이혼', '결혼 30년 만에 갈라서다'),
+  // 학업
+  dragon: A('학업', '개천에서 용', '서민 가문에서 의대 진학'),
+  top3: A('학업', '명문대 3대', '3대 연속 명문대 입학'),
+  olympiad: A('학업', '올림피아드 금상', '수학 올림피아드 금상'),
+  retake3: A('학업', '장수생', '삼수 이상 끝에 대학 입학'),
+  long_prep: A('학업', '인간 승리', '다섯 번째 도전 끝에 시험 합격'),
+  // 출세
+  president: A('출세', '대통령 배출', '가문에서 대통령이 나오다'),
+  minister: A('출세', '장관 배출', '인사청문회를 통과해 장관이 되다'),
+  politics: A('출세', '정치 명문', '가문에서 국회의원 배출'),
+  law_family: A('출세', '법조 명문', '판사·검사·변호사를 모두 배출'),
+  chief_justice: A('출세', '대법원장', '사법부의 수장이 되다'),
+  prosecutor_general: A('출세', '검찰총장', '검찰의 수장이 되다'),
+  general: A('출세', '별을 달다', '장군 진급'),
+  ceo: A('출세', '월급쟁이의 끝', '대기업 사장까지 오르다'),
+  doctor3: A('출세', '3대째 의사', '직계 3세대 연속 의사'),
+  sa_family: A('출세', '사(士)자 집안', '의사·변호사·교수가 한 시대에 함께'),
+  star_family: A('출세', '스타 가문', '연예인·운동선수·유튜버를 모두 배출'),
+  military3: A('출세', '병역 명문가', '3대 연속 병역 이행'),
+  // 영광
+  nobel: A('영광', '노벨상', '가문에서 노벨상 수상자가 나오다'),
+  olympic_gold: A('영광', '올림픽 금메달', '올림픽 시상대 꼭대기에 서다'),
+  world_star: A('영광', '월드 스타', '연예인 최고 단계'),
+  ten_million: A('영광', '천만 배우', '연예인 4단계 이상'),
+  gold_button: A('영광', '골드 버튼', '유튜브 구독자 100만'),
+  billboard: A('영광', '빌보드', '음악가 최고 단계'),
+  webtoon_ip: A('영광', '글로벌 IP', '웹툰·웹소설이 세계로'),
+  michelin: A('영광', '미쉐린 스타', '셰프 최고 단계'),
+  gamer_champ: A('영광', '월드 챔피언', '프로게이머 최고 단계'),
+  star_tutor: A('영광', '1타 강사', '인강 1타에 오르다'),
+  masterpiece: A('영광', '불후의 명작', '가문의 화가가 걸작을 남기다'),
+  // 재산
+  rich100: A('재산', '백억 가문', '가문 총자산 100억'),
+  rich1000: A('재산', '재벌의 탄생', '가문 총자산 1,000억'),
+  chaebol: A('재산', '그룹 총수', '창업한 회사가 대기업이 되다'),
+  ipo: A('재산', '상장사 창업주', '창업한 회사를 상장시키다'),
+  landlord: A('재산', '조물주 위 건물주', '상가 건물 보유'),
+  lotto: A('재산', '인생 역전', '로또 1등 당첨'),
+  coin_rich: A('재산', '코인 부자', '코인 평가액 10억 돌파'),
+  collector: A('재산', '컬렉터', '진품 예술품 5점 보유'),
+  forgery: A('재산', '비싼 수업료', '위작을 샀다'),
+  taxsaver: A('재산', '절세의 달인', '20억 이상 상속에서 실효세율 10% 이하'),
+  comeback: A('재산', '재기', '파산했던 사람이 10억을 모으다'),
+  noble_idle: A('재산', '백수 귀족', '백수로 살면서 개인 재산 10억 보유'),
+  // 인생
+  idle3: A('인생', '백수 3대', '3대 연속 백수로 살아남기'),
+  cancer_survivor: A('인생', '암을 이긴 사람', '암 진단 후 5년 생존'),
+  marine: A('인생', '귀신 잡는 해병', '해병대 만기 전역'),
+  draft_dodger: A('인생', '국적 포기', '병역을 피해 해외로 (불명예)'),
+  bankrupt: A('인생', '바닥', '파산을 경험하다'),
+  pet: A('인생', '반려견과 함께', '유기견을 입양하다'),
 };

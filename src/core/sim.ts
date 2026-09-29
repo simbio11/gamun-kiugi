@@ -1,10 +1,15 @@
-import { chance, next, pick } from './rng';
+import { chance, int, next, normal, pick } from './rng';
 import { ACHIEVEMENTS, ART_TIERS, EXAMS, FEMALE_NAMES, JOBS, MALE_NAMES, REAL_ESTATE } from './data';
 import { checkAchievements } from './achievements';
-import { addAsset, addHolding, economyYear, formatMoney, marketYear, pay, personWorth, totalWorth } from './economy';
+import { addAsset, addHolding, assetsOf, economyYear, familyWorth, formatMoney, jobLabel, marketYear, pay, personWorth, settlePension, totalWorth } from './economy';
+import { checkMissions, initMissions } from './missions';
+import { LIFE_RANDOM, cancerRate, deliver, isElectionYear, setBond, type LifeDef } from './life';
+import { heirCandidates } from './family';
 import { chooseSuccessor, giveAsset, giveGift, settleEstate, transferHeadship } from './estate';
 import { CREATORS } from './data';
-import { EVENTS, RANDOM_EVENTS, exposeFakes, makeDate, examScore, spendable, type Ctx } from './events';
+import { exposeFakes, makeDate, marry, examScore, spendable, type Ctx } from './events';
+import { EVENTS, RANDOM_EVENTS } from './registry';
+import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
   addFlag,
@@ -21,6 +26,9 @@ import {
   isMainline,
   livingMainlineMinors,
   fillGenes,
+  hasTrait,
+  householder,
+  randomTraits,
   relationLabel,
   spouseOf,
 } from './people';
@@ -30,11 +38,12 @@ export interface NewGameOpts {
   seed?: number;
   familyName: string;
   sex: Sex;
-  origin: GameState['origin'];
+  /** 없으면 무작위 (운명) */
+  origin?: GameState['origin'];
 }
 
 const START_YEAR = 2025;
-const DEFAULT_MARKET: Record<MarketKey, number> = { apt_seoul: 250000, apt_local: 30000, land: 20000, stock: 100, coin: 100, art: 100 };
+const DEFAULT_MARKET: Record<MarketKey, number> = { apt_seoul: 250000, apt_local: 30000, land: 20000, building: 350000, stock: 100, coin: 100, art: 100 };
 
 /** 예전 버전 세이브를 현재 형식으로 */
 export function migrate(s: GameState): GameState {
@@ -47,21 +56,40 @@ export function migrate(s: GameState): GameState {
       fillGenes(p);
       if (p.flags.includes('med_school') && p.flags.includes('student')) p.flags.push('track:med_school');
     }
-    s.version = 2;
+    (s as { version: number }).version = 2;
+  }
+  if ((s.version as number) < 3) {
+    s.market = { ...DEFAULT_MARKET, ...s.market };
+    s.jobsSeen ??= [];
+    s.willWritten ??= false;
+    for (const p of Object.values(s.people)) p.traits ??= randomTraits({ rng: p.birthYear * 7919 + p.id.length });
+    for (const p of Object.values(s.people)) if (p.spouseId && p.bond === undefined) p.bond = 60;
+    if (!s.missions?.length) {
+      s.missions = [];
+      initMissions(s);
+    }
+    s.version = 3;
   }
   return s;
 }
 
+/** 부모 직업 후보 (집안 형편별) */
+const PARENT_JOBS: Record<GameState['origin'], string[]> = {
+  poor: ['factory', 'delivery_rider', 'taxi', 'courier', 'parttime', 'caregiver', 'cvs_owner', 'mechanic', 'welder', 'shopkeeper', 'trucker', 'farmer'],
+  middle: ['office', 'civil', 'teacher', 'nurse', 'corp', 'police', 'banker', 'developer', 'public_corp', 'firefighter', 'restaurant', 'pharmacist', 'electrician', 'bus_driver'],
+  rich: ['doctor', 'lawyer', 'dentist', 'founder', 'corp', 'professor', 'accountant', 'kmd', 'judge', 'pilot'],
+};
+
 export function newGame(o: NewGameOpts): GameState {
   const seed = o.seed ?? Math.floor(Math.random() * 2 ** 31);
   const s: GameState = {
-    version: 2,
+    version: 3,
     rng: seed,
     seed,
-    year: START_YEAR - 24,
+    year: START_YEAR,
     startYear: START_YEAR,
     familyName: o.familyName,
-    origin: o.origin,
+    origin: 'middle',
     headId: '',
     founderId: '',
     generation: 1,
@@ -69,7 +97,7 @@ export function newGame(o: NewGameOpts): GameState {
     assets: [],
     gifts: [],
     familyCash: 0,
-    fame: o.origin === 'rich' ? 30 : o.origin === 'middle' ? 10 : 0,
+    fame: 0,
     market: { ...DEFAULT_MARKET },
     marketChange: {},
     policy: { lifestyle: 'balance', living: 'normal', familyPlan: 2, children: {}, taxAdvisor: false },
@@ -80,80 +108,115 @@ export function newGame(o: NewGameOpts): GameState {
     idSeq: 1,
     log: [],
     achievements: [],
+    jobsSeen: [],
+    missions: [],
   };
-  const q = o.origin === 'rich' ? 58 : o.origin === 'middle' ? 52 : 46;
-  const father = createPerson(s, { sex: 'M', surname: o.familyName, birthYear: START_YEAR - 56, quality: q, grown: 0.72 });
-  const mother = createPerson(s, { sex: 'F', surname: 'SURNAME', birthYear: START_YEAR - 53, quality: q, grown: 0.72 });
-  mother.surname = pick(s, ['이', '박', '최', '정', '강', '윤', '한']);
+  // 집안 형편은 운명: 서민 30% · 중산층 52% · 부유층 18% (그중 1/4은 재벌가)
+  const roll = next(s);
+  const origin = o.origin ?? (roll < 0.3 ? 'poor' : roll < 0.82 ? 'middle' : 'rich');
+  const tycoon = origin === 'rich' && chance(s, 0.25);
+  s.origin = origin;
+  s.fame = { poor: 0, middle: 8, rich: 25 }[origin] + (tycoon ? 25 : 0);
+  const q = { poor: 46, middle: 51, rich: 56 }[origin];
+
+  const fAge = int(s, 31, 43);
+  const mAge = clamp(fAge + int(s, -5, 2), 28, 42);
+  const father = createPerson(s, { sex: 'M', surname: o.familyName, birthYear: START_YEAR - fAge, quality: q, grown: 0.72 });
+  const mother = createPerson(s, { sex: 'F', surname: pick(s, ['이', '박', '최', '정', '강', '윤', '한', '조', '장', '임', '오', '서']), birthYear: START_YEAR - mAge, quality: q, grown: 0.72 });
   mother.inLaw = true;
   father.spouseId = mother.id;
   mother.spouseId = father.id;
+  father.bond = mother.bond = int(s, 35, 90);
   s.people[father.id] = father;
   s.people[mother.id] = mother;
+  const giveJob = (p: Person, pool: string[]) => {
+    p.job = tycoon && p === father ? 'founder' : pick(s, pool);
+    const j = JOBS[p.job];
+    p.jobYears = Math.max(0, age(s, p) - 27);
+    p.jobLevel = tycoon && p === father ? 4 : Math.min(j.maxLevel, int(s, 0, Math.floor(p.jobYears / 4)));
+  };
+  giveJob(father, PARENT_JOBS[origin]);
+  if (chance(s, origin === 'poor' ? 0.2 : 0.35)) mother.job = 'none';
+  else giveJob(mother, PARENT_JOBS[origin]);
 
-  // 본인: 부모에게서 유전된 뒤 24세까지 자란 상태로 시작
-  s.year = START_YEAR - 24;
-  const me = inherit(s, father, mother, o.familyName);
+  // 재산: 같은 형편이라도 집집마다 다르다
+  if (origin === 'poor') {
+    father.cash = int(s, -4000, 2500);
+    mother.cash = int(s, 0, 800);
+    if (chance(s, 0.35)) addAsset(s, 'apt_local', father.id, s.market.apt_local * 0.6, '낡은 빌라');
+  } else if (origin === 'middle') {
+    father.cash = int(s, 2000, 15000);
+    mother.cash = int(s, 0, 5000);
+    if (chance(s, 0.3)) {
+      addAsset(s, 'apt_seoul', father.id, s.market.apt_seoul * 0.55, '수도권 아파트');
+      father.cash -= int(s, 30000, 80000); // 주택담보대출
+    } else addAsset(s, 'apt_local', father.id, s.market.apt_local);
+    s.familyCash = int(s, 0, 4000);
+    if (chance(s, 0.3)) addAsset(s, 'land', 'family', int(s, 10000, 40000), '종가 토지');
+  } else {
+    father.cash = int(s, 30000, 100000);
+    mother.cash = int(s, 5000, 30000);
+    addAsset(s, 'apt_seoul', father.id, s.market.apt_seoul);
+    if (chance(s, 0.5)) addAsset(s, 'apt_seoul', mother.id, s.market.apt_seoul * 0.8);
+    addAsset(s, 'land', 'family', int(s, 80000, 300000), '종가 토지');
+    s.familyCash = int(s, 20000, 80000);
+    if (tycoon) {
+      addAsset(s, 'building', father.id, s.market.building * 2, '강남 빌딩');
+      addHolding(s, 'stock', father.id, int(s, 300000, 1500000)).name = `${o.familyName}씨 그룹 지분`;
+      s.familyCash += 200000;
+    }
+  }
+
+  // 형제자매: 0~3명, 위아래 무작위. 동생은 앞으로 태어난다
+  const sibs = pick(s, [0, 0, 1, 1, 1, 1, 2, 2, 3]);
+  const older = int(s, 0, sibs);
+  const born = (years: number) => {
+    s.year = START_YEAR - years;
+    const c = inherit(s, father, mother, o.familyName);
+    s.year = START_YEAR;
+    const a = years;
+    for (const k of Object.keys(c.actual) as (keyof typeof c.actual)[]) c.actual[k] = Math.round(c.potential[k] * clamp(0.12 + a * 0.035 + normal(s, 0, 0.05), 0.08, 0.8));
+    c.study = a >= 8 ? Math.round(c.actual.int * (0.6 + next(s) * 0.5)) : undefined;
+    father.childIds.push(c.id);
+    mother.childIds.push(c.id);
+    s.people[c.id] = c;
+    return c;
+  };
+  const olderAges = Array.from({ length: older }, () => 5 + int(s, 1, 7)).sort((a, b) => b - a);
+  for (const a of olderAges) if (mAge - a >= 22) born(a);
+  const me = born(5);
   me.sex = o.sex;
   me.name = pick(s, o.sex === 'M' ? MALE_NAMES : FEMALE_NAMES);
-  s.year = START_YEAR - 21;
-  const sib = inherit(s, father, mother, o.familyName);
-  s.year = START_YEAR;
-  for (const p of [me, sib]) {
-    for (const k of Object.keys(p.actual) as (keyof typeof p.actual)[]) {
-      p.actual[k] = Math.round(p.potential[k] * (0.55 + next(s) * 0.25));
-    }
-    father.childIds.push(p.id);
-    mother.childIds.push(p.id);
-    s.people[p.id] = p;
-  }
-  addFlag(me, me.actual.int >= 50 ? 'univ_top' : 'univ_local');
-  sib.flags.push('student', 'univ_local', 'grad:' + (START_YEAR + 2));
+  // 다섯 살까지 쌓인 능력치는 운
+  for (const k of Object.keys(me.actual) as (keyof typeof me.actual)[]) me.actual[k] = Math.round(me.potential[k] * (0.12 + next(s) * 0.2));
+  me.actual.hp = Math.round(me.potential.hp * (0.45 + next(s) * 0.3));
+  me.affinity = 60;
+  mother.flags.push('plan:' + (father.childIds.length + (sibs - older)));
 
   s.headId = me.id;
   s.founderId = me.id;
+  s.policy.children[me.id] = { budget: 1, focus: 'free' };
+  father.affinity = int(s, 30, 80);
+  mother.affinity = int(s, 40, 90);
+  for (const c of father.childIds) if (c !== me.id) s.people[c].affinity = int(s, 10, 60);
 
-  if (o.origin === 'poor') {
-    father.job = 'office';
-    father.jobLevel = 1;
-    mother.job = 'none';
-    father.cash = 1500;
-    me.cash = 300;
-    addAsset(s, 'apt_local', father.id, s.market.apt_local * 0.7);
-  } else if (o.origin === 'middle') {
-    father.job = 'office';
-    father.jobLevel = 4;
-    mother.job = 'civil';
-    mother.jobLevel = 3;
-    father.cash = 15000;
-    me.cash = 2000;
-    addAsset(s, 'apt_local', father.id, s.market.apt_local);
-    const land = addAsset(s, 'land', 'family', 30000);
-    land.name = '종가 토지';
-    s.familyCash = 5000;
-  } else {
-    father.job = 'founder';
-    father.jobLevel = 3;
-    mother.job = 'none';
-    father.cash = 80000;
-    mother.cash = 20000;
-    me.cash = 10000;
-    addAsset(s, 'apt_seoul', father.id, s.market.apt_seoul);
-    addAsset(s, 'apt_seoul', mother.id, s.market.apt_seoul * 0.8);
-    const land = addAsset(s, 'land', 'family', 200000);
-    land.name = '종가 토지';
-    s.familyCash = 50000;
-  }
-  father.affinity = 50;
-  mother.affinity = 60;
-  sib.affinity = 30;
-
+  const sibTxt = father.childIds.length === 1 ? '외동' : `${father.childIds.length}남매 중 ${father.childIds.indexOf(me.id) + 1}째`;
+  const home = assetsOf(s, father.id).concat(assetsOf(s, mother.id));
+  const worth = personWorth(s, father) + personWorth(s, mother) + familyWorth(s);
   queue(s, 'notice', me.id, {
     title: `${o.familyName}씨 가문의 시작`,
-    text: `${START_YEAR}년. ${fullName(me)}, ${age(s, me)}세.\n이제부터 당신이 ${o.familyName}씨 가문의 가주다.\n\n육성 → 혼인 → 출산 → 승계.\n가문을 영원히 이어가 보자.`,
+    text:
+      `${START_YEAR - 5}년, ${iga(fullName(me))} 태어났다. ${sibTxt}.\n\n` +
+      `👨 아버지 ${fullName(father)} (${age(s, father)}세) · ${jobLabel(father)}\n` +
+      `👩 어머니 ${fullName(mother)} (${age(s, mother)}세) · ${mother.job === 'none' ? '전업주부' : jobLabel(mother)}\n` +
+      `🏠 ${home.length ? home.map((a) => a.name).join(', ') : '월세살이'} · 집안 재산 ${formatMoney(worth)}` +
+      (father.cash < 0 ? ` (빚 ${formatMoney(-father.cash)})` : '') +
+      (tycoon ? '\n💎 재벌가의 자손이다!' : '') +
+      `\n\n지금 ${START_YEAR}년, ${eun(fullName(me))} 다섯 살.\n이제부터 당신이 이 아이의 인생을, 그리고 가문을 이끈다.\n학창 시절 → 수능 → 진로 → 결혼 → 자녀·손주 → 유언과 승계.`,
     portrait: me.id,
   });
-  queue(s, 'first_job', me.id);
+  queue(s, 'kinder', me.id);
+  initMissions(s);
   return s;
 }
 
@@ -191,14 +254,86 @@ export function simulateYear(s: GameState): void {
   births(s);
   milestones(s);
   adultEvents(s);
+  lifeYear(s);
   randomEvents(s);
 
-  for (const p of mainlineMembers(s)) if (age(s, p) >= 20) s.fame += JOBS[p.job].fame * 0.5;
+  for (const p of mainlineMembers(s)) {
+    if (age(s, p) >= 20) s.fame += JOBS[p.job].fame * 0.5 * (hasTrait(p, 'ambitious') && JOBS[p.job].fame > 0 ? 1.3 : 1);
+    if (!p.inLaw && age(s, p) >= 18 && !['none', 'pension'].includes(p.job) && !s.jobsSeen!.includes(p.job)) s.jobsSeen!.push(p.job);
+  }
   s.fame = Math.max(0, Math.round(s.fame * 10) / 10);
 
   const after = familyTotal(s);
   log(s, `가문 총자산 ${formatMoney(after)} (${after >= before ? '+' : ''}${formatMoney(after - before)})`, 'money');
   checkAchievements(s);
+  checkMissions(s);
+}
+
+/** 인생사: 성격·금슬·병역·질병·난임·선거·유언 + 무작위 사건 (한 해 최대 2건) */
+function lifeYear(s: GameState) {
+  const h = head(s);
+  const members = mainlineMembers(s);
+  for (const p of Object.values(s.people)) {
+    if (!alive(p)) continue;
+    // 성격이 행복·관계에 스며든다
+    if (hasTrait(p, 'cheerful')) p.happiness = clamp(p.happiness + 2, 0, 100);
+    if (hasTrait(p, 'anxious')) p.happiness = clamp(p.happiness - 2, 0, 100);
+    if (hasTrait(p, 'filial')) p.affinity = clamp(p.affinity + 1, -100, 100);
+    if (hasTrait(p, 'spender') && age(s, p) >= 20) p.cash -= 400;
+    if (hasTrait(p, 'frugal') && age(s, p) >= 20) p.cash += 250;
+  }
+  for (const p of members) {
+    const a = age(s, p);
+    const pending = (id: string) => s.events.some((e) => e.personId === p.id && e.defId === id);
+    const sp = spouseOf(s, p);
+    // 부부 금슬: 조금씩 식는다. 가정적이면 덜, 바람기 있으면 더
+    if (sp && alive(sp) && !p.inLaw) {
+      let d = -1.2 + normal(s, 0, 2);
+      if (p.id === h.id) d += { work: -1, balance: 0, family: 1.8, self: 0, rest: 0.5 }[s.policy.lifestyle];
+      for (const x of [p, sp]) d += hasTrait(x, 'devoted') ? 1 : hasTrait(x, 'flirt') ? -1.5 : 0;
+      if (p.happiness > 60 && sp.happiness > 60) d += 0.5;
+      setBond(p, sp, (p.bond ?? 60) + d);
+      if ((p.bond ?? 60) < 28 && chance(s, 0.35) && !pending('marital_crisis')) queue(s, 'marital_crisis', p.id);
+      // 난임
+      const mom = p.sex === 'F' ? p : sp;
+      const wed = Number(p.flags.find((f) => f.startsWith('wed:'))?.slice(4) ?? s.year);
+      const want = p.id === h.id ? s.policy.familyPlan : 2;
+      if (!p.childIds.length && want > 0 && !hasFlag(p, 'childfree') && s.year - wed >= 2 && age(s, mom) >= 29 && age(s, mom) <= 44 && chance(s, 0.3) && !pending('infertility'))
+        queue(s, 'infertility', p.id);
+    }
+    // 병역: 남자 20세 (연기했으면 졸업 후)
+    if (p.sex === 'M' && !p.inLaw && a >= 20 && a <= 28 && !p.flags.some((f) => ['served', 'exempt', 'draft_dodger'].includes(f) || f.startsWith('serving:')) && !pending('military')) {
+      if (a === 20 || (hasFlag(p, 'mil_postponed') && !hasFlag(p, 'student'))) queue(s, 'military', p.id);
+    }
+    // 암
+    if (!p.flags.some((f) => f.startsWith('cancer:')) && chance(s, cancerRate(s, p))) queue(s, 'cancer', p.id);
+    // 올림픽(4년)·아시안게임
+    if (p.job === 'athlete' && p.jobLevel >= 3 && (s.year % 4 === 0 || s.year % 4 === 2)) queue(s, 'olympic', p.id, { ag: s.year % 4 === 2 });
+    // 상장
+    if (p.job === 'founder' && p.jobLevel >= 4 && !p.flags.some((f) => f === 'ipo' || f === 'ipo_declined')) queue(s, 'ipo', p.id);
+    // 대선
+    if (isElectionYear(s.year) && a >= 45 && a <= 72 && !hasFlag(p, 'draft_dodger') && p.job !== 'president' && !hasFlag(p, 'president')) {
+      if ((p.job === 'politician' && p.jobLevel >= 2) || (hasFlag(p, 'was_minister') && s.fame >= 120) || (p.job === 'politician' && s.fame >= 150)) queue(s, 'presidential', p.id);
+    }
+  }
+  // 유언장: 가주 65세부터 5년마다
+  const ha = age(s, h);
+  if (!s.willWritten && ha >= 65 && ha % 5 === 0 && h.childIds.some((id) => alive(s.people[id]))) queue(s, 'will', h.id);
+
+  // 무작위 인생사: 가족 전체에서 최대 2건
+  const pool: [LifeDef, Person, number][] = [];
+  for (const p of members) for (const d of LIFE_RANDOM) {
+    const w = d.weight?.(s, p) ?? 0;
+    if (w > 0) pool.push([d, p, w]);
+  }
+  for (let i = 0; i < 2 && pool.length; i++) {
+    const total = pool.reduce((t, [, , w]) => t + w, 0);
+    if (!chance(s, Math.min(0.9, total))) break;
+    let r = next(s) * total;
+    const hit = pool.find(([, , w]) => (r -= w) <= 0) ?? pool[pool.length - 1];
+    queue(s, hit[0].id, hit[1].id);
+    pool.splice(pool.indexOf(hit), 1);
+  }
 }
 
 function retirementAndGraduation(s: GameState) {
@@ -208,9 +343,42 @@ function retirementAndGraduation(s: GameState) {
     const grad = p.flags.find((f) => f.startsWith('grad:'));
     if (grad && Number(grad.slice(5)) <= s.year) {
       const track = p.flags.find((f) => f.startsWith('track:'))?.slice(6);
-      p.flags = p.flags.filter((f) => f !== grad && f !== 'student' && !f.startsWith('track:'));
+      p.flags = p.flags.filter((f) => f !== grad && f !== 'student' && !f.startsWith('track:') && !f.startsWith('tuition:'));
       graduate(s, p, track);
     }
+    // 암 5년 생존 → 완치
+    const cancer = p.flags.find((f) => f.startsWith('cancer:'));
+    if (cancer && s.year - Number(cancer.split(':')[2]) >= 5) {
+      p.flags = p.flags.filter((f) => f !== cancer);
+      addFlag(p, 'cancer_survivor');
+      if (isMainline(s, p)) log(s, `🎗 ${fullName(p)} 암 완치 판정`, 'life');
+    }
+    // 전역
+    const serving = p.flags.find((f) => f.startsWith('serving:'));
+    if (serving && Number(serving.slice(8)) < s.year) {
+      p.flags = p.flags.filter((f) => f !== serving);
+      addFlag(p, 'served');
+      log(s, `🎖 ${fullName(p)} 만기 전역`, 'life');
+      if (hasFlag(p, 'officer_served') && isMainline(s, p)) queue(s, 'officer_stay', p.id);
+    }
+    // 장관 2년, 대통령 5년
+    if (p.job === 'minister' && p.jobYears >= 2) {
+      const [pj, pl] = (p.flags.find((f) => f.startsWith('prev:'))?.slice(5) ?? 'pension:0').split(':');
+      p.job = pj;
+      p.jobLevel = Number(pl);
+      p.jobYears = 5;
+      log(s, `${fullName(p)} 장관 퇴임`, 'life');
+    }
+    if (p.job === 'president' && p.jobYears >= 5) {
+      p.job = 'pension';
+      p.flags = p.flags.filter((f) => !f.startsWith('pens:'));
+      p.flags.push('pens:15000', 'ex_president');
+      log(s, `🇰🇷 ${fullName(p)} 대통령 퇴임`, 'life');
+    }
+    // 건물주
+    const building = s.assets.some((x) => x.kind === 'building' && x.ownerId === p.id);
+    if (building && (p.job === 'none' || p.job === 'parttime') && a >= 20 && !hasFlag(p, 'student')) p.job = 'landlord';
+    else if (!building && p.job === 'landlord') p.job = 'none';
     // 방계(가주가 바뀌며 곁가지가 된 사람)의 시험은 자동으로
     const prep = p.flags.find((f) => f.startsWith('prep:'))?.slice(5);
     if (prep && !isMainline(s, p)) autoExam(s, p, prep);
@@ -221,6 +389,9 @@ function retirementAndGraduation(s: GameState) {
       p.jobYears = 0;
       log(s, `🎮 ${fullName(p)} 프로게이머 은퇴, 스트리머로 전향`, 'life');
     }
+    // 방계 남자는 알아서 병역 (현역 86%)
+    if (p.sex === 'M' && !p.inLaw && a === 21 && !isMainline(s, p) && !p.flags.some((f) => f === 'served' || f === 'exempt' || f.startsWith('serving:')))
+      addFlag(p, chance(s, 0.93) ? 'served' : 'exempt');
     // 방계 자동 진학
     if (!isMainline(s, p) && a === 19 && !hasFlag(p, 'student') && p.job === 'none') {
       p.flags.push('student', 'univ_local', 'grad:' + (s.year + 4));
@@ -229,9 +400,13 @@ function retirementAndGraduation(s: GameState) {
     const ra = JOBS[p.job].retireAge;
     if (ra && a >= ra) {
       if (p.job !== 'none' && p.job !== 'parttime') log(s, `${fullName(p)} ${JOBS[p.job].kind === 'salary' ? '정년퇴직' : '은퇴'}`, 'life');
+      settlePension(p);
       p.job = 'pension';
       p.flags = p.flags.filter((f) => !f.startsWith('prep:') && !f.startsWith('tries:'));
-    } else if (JOBS[p.job].kind === 'creator' && a >= 75) p.job = 'pension';
+    } else if ((JOBS[p.job].kind === 'creator' || JOBS[p.job].kind === 'business' || p.job === 'politician') && a >= 78) {
+      settlePension(p);
+      p.job = 'pension';
+    }
   }
 }
 
@@ -254,6 +429,34 @@ function graduate(s: GameState, p: Person, track?: string) {
       return;
     case 'law_school':
       return prep('bar');
+    case 'dent_school':
+      return prep('dentist');
+    case 'kmd_school':
+      return prep('kmd');
+    case 'vet_school':
+      return prep('vet');
+    case 'health_pt':
+      return prep('pt');
+    case 'health_radio':
+      return prep('radiographer');
+    case 'health_clinical':
+      return prep('clinical');
+    case 'health_emt':
+      return prep('emt');
+    case 'edu_elem':
+      addFlag(p, 'edu_school');
+      return prep('teacher');
+    case 'kinder_edu':
+      setJob('kinder_teacher');
+      log(s, `🧸 ${fullName(p)} 유치원 교사로 취업`, 'life');
+      return;
+    case 'maritime':
+      setJob('navigator');
+      log(s, `⚓ ${fullName(p)} 3등 항해사로 승선`, 'life');
+      return;
+    case 'flight_univ':
+      addFlag(p, 'flight_school');
+      return prep('pilot');
     case 'grad_school':
       log(s, `🎓 ${fullName(p)} 박사 학위 취득`, 'life');
       return prep('professor');
@@ -312,14 +515,20 @@ function autoExam(s: GameState, p: Person, id: string) {
   }
 }
 
+function causeOf(s: GameState, p: Person): string {
+  if (p.flags.some((f) => f.startsWith('cancer:'))) return '암 투병 끝에';
+  const a = age(s, p);
+  return a > 75 ? '노환으로' : p.actual.hp < 30 ? '지병으로' : a < 50 && chance(s, 0.5) ? '불의의 사고로' : '갑작스러운 병으로';
+}
+
 function deaths(s: GameState) {
   const living = Object.values(s.people).filter(alive);
   for (const p of living) {
-    if (!chance(s, deathChance(s, p))) continue;
+    if (!alive(p) || !chance(s, deathChance(s, p))) continue;
     const wasHead = p.id === s.headId;
     const mainline = isMainline(s, p) || isRelevant(s, p);
+    const cause = causeOf(s, p);
     p.deathYear = s.year;
-    const cause = age(s, p) > 70 ? '노환으로' : p.actual.hp < 30 ? '지병으로' : '불의의 사고로';
     log(s, `🕯 ${fullName(p)} ${cause} 별세 (향년 ${age(s, p)}세)`, 'death');
 
     if (wasHead) {
@@ -329,27 +538,40 @@ function deaths(s: GameState) {
         endGame(s, `${fullName(p)}의 사망. 뒤를 이을 자손이 없어 가문이 단절되었다.`);
         return;
       }
+      const designated = s.heirId === next.id;
       transferHeadship(s, next);
       s.policy.lifestyle = 'balance';
-      queue(s, 'notice', next.id, {
-        title: '가주 승계',
-        text:
-          `${fullName(p)}이(가) ${cause} 세상을 떠났다. (향년 ${age(s, p)}세)\n\n` +
-          rep.lines.join('\n') +
-          `\n\n이제 ${fullName(next)}(${age(s, next)}세)이(가) ${s.generation}대 가주다.`,
-        portrait: next.id,
-      });
-      log(s, `👑 ${fullName(next)} ${s.generation}대 가주 승계`, 'succession');
-    } else {
-      const worth = personWorth(s, p);
-      const rep = worth !== 0 ? settleEstate(s, p) : undefined;
-      if (mainline) {
-        queue(s, 'notice', s.headId, {
-          title: '부고',
-          text: `${fullName(p)}이(가) ${cause} 세상을 떠났다. (향년 ${age(s, p)}세)` + (rep ? '\n\n' + rep.lines.join('\n') : ''),
-          portrait: p.id,
-        });
+      const text =
+        `${iga(fullName(p))} ${cause} 세상을 떠났다. (향년 ${age(s, p)}세)` +
+        (hasFlag(p, 'will_written') ? '' : '\n유언장은 남기지 않았다.') +
+        '\n\n' +
+        rep.lines.join('\n');
+      const cands = heirCandidates(s, p);
+      s.events.forEach((e) => e.defId === 'choose_heir' && (e.data.deadId = p.id));
+      if (!designated && cands.length > 1) {
+        s.events.unshift({ uid: s.eventSeq++, defId: 'choose_heir', personId: next.id, data: { text, cands: cands.map((c) => c.id), deadId: p.id } });
+      } else {
+        queue(s, 'notice', next.id, { title: '가주 승계', text: text + `\n\n이제 ${fullName(next)}(${age(s, next)}세)이(가) ${s.generation}대 가주다.`, portrait: next.id });
+        log(s, `👑 ${fullName(next)} ${s.generation}대 가주 승계`, 'succession');
       }
+      continue;
+    }
+    const h = head(s);
+    // 가주의 부모: 성인이 된 가주가 형제들과 유산을 나눈다
+    if ((p.id === h.fatherId || p.id === h.motherId) && age(s, h) >= 20 && personWorth(s, p) > 0) {
+      addFlag(p, 'estate_pending');
+      queue(s, 'notice', h.id, { title: '부고', text: `${relationLabel(s, p)} ${fullName(p)}이(가) ${cause} 세상을 떠났다. (향년 ${age(s, p)}세)\n장례를 치르고 나니 유산 이야기가 나온다.`, portrait: p.id });
+      queue(s, 'parent_estate', h.id, { deadId: p.id });
+      continue;
+    }
+    const worth = personWorth(s, p);
+    const rep = worth !== 0 ? settleEstate(s, p) : undefined;
+    if (mainline) {
+      queue(s, 'notice', s.headId, {
+        title: '부고',
+        text: `${fullName(p)}이(가) ${cause} 세상을 떠났다. (향년 ${age(s, p)}세)` + (rep ? '\n\n' + rep.lines.join('\n') : ''),
+        portrait: p.id,
+      });
     }
   }
 }
@@ -384,11 +606,7 @@ function kinMarriages(s: GameState) {
     }
     if (!isKin(s, p) || !chance(s, dateChance(a, false) * 0.45)) continue;
     const sp = makeDate(s, p);
-    sp.flags = sp.flags.filter((f) => !f.startsWith('show:'));
-    sp.spouseId = p.id;
-    p.spouseId = sp.id;
-    s.people[sp.id] = sp;
-    log(s, `💍 ${fullName(p)}(${relationLabel(s, p)}) ♥ ${fullName(sp)} 결혼`, 'life');
+    marry(s, p, sp);
   }
 }
 
@@ -400,19 +618,19 @@ function births(s: GameState) {
     if (!alive(dad)) continue;
     const couple = [mom, dad];
     const blood = couple.find((x) => x.id === h.id || isDescendantOf(s, x, h));
-    const side = blood ? undefined : couple.find((x) => !x.inLaw && isKin(s, x));
+    // 방계(형제·조카…)와 가주의 부모: 부부마다 원하는 자녀 수가 있다
+    const side = blood ? undefined : couple.find((x) => (!x.inLaw && isKin(s, x)) || x.id === h.fatherId || x.id === h.motherId);
     if (!blood && !side) continue;
+    if (couple.some((x) => hasFlag(x, 'childfree'))) continue;
     if (side) {
-      // 방계: 부부마다 원하는 자녀 수가 다르다 (0~3명)
       let plan = mom.flags.find((f) => f.startsWith('plan:'));
       if (!plan) mom.flags.push((plan = 'plan:' + pick(s, [0, 1, 1, 2, 2, 2, 3])));
-      const kids = mom.childIds.length;
-      if (kids >= Number(plan.slice(5)) || !chance(s, 0.45 * fertility(age(s, mom)))) continue;
-      const baby = inherit(s, dad, mom, side.surname);
-      s.people[baby.id] = baby;
-      dad.childIds.push(baby.id);
-      mom.childIds.push(baby.id);
-      log(s, `👶 ${fullName(side)}(${relationLabel(s, side)})에게 ${baby.sex === 'M' ? '아들' : '딸'} ${baby.name} 출생`, 'birth');
+      if (mom.childIds.length >= Number(plan.slice(5)) || !chance(s, 0.45 * fertility(age(s, mom)))) continue;
+      const kids = deliver(s, dad, mom, side.inLaw ? dad.surname : side.surname, 0.015, false);
+      for (const k of kids) {
+        delete s.policy.children[k.id];
+        k.affinity = int(s, 20, 60);
+      }
       continue;
     }
     if (!blood) continue;
@@ -421,17 +639,7 @@ function births(s: GameState) {
     if (kids >= target) continue;
     const pr = 0.5 * fertility(age(s, mom)) * clamp(mom.actual.hp / 55, 0.3, 1.2);
     if (!chance(s, pr)) continue;
-    const baby = inherit(s, dad, mom, blood.surname);
-    s.people[baby.id] = baby;
-    dad.childIds.push(baby.id);
-    mom.childIds.push(baby.id);
-    s.policy.children[baby.id] = { budget: 1, focus: 'free' };
-    const pool = baby.sex === 'M' ? MALE_NAMES : FEMALE_NAMES;
-    const names = new Set<string>([baby.name]);
-    while (names.size < 3) names.add(pick(s, pool));
-    log(s, `👶 ${fullName(dad)}·${fullName(mom)} 부부에게 ${baby.sex === 'M' ? '아들' : '딸'} 출생`, 'birth');
-    if (baby.flags.includes('mutation')) log(s, `…아기에게서 범상치 않은 기운이 느껴진다`, 'birth');
-    queue(s, 'naming', dad.id, { childId: baby.id, names: [...names] });
+    deliver(s, dad, mom, blood.surname, 0.015);
   }
 }
 
@@ -440,14 +648,18 @@ function milestones(s: GameState) {
     const a = age(s, p);
     const ev = { 5: 'kinder', 8: 'elementary', 11: 'aptitude', 12: 'dream', 14: 'middle', 17: 'high', 19: 'path' }[a];
     if (ev) queue(s, ev, p.id);
-    if (a >= 13 && p.happiness < 25 && chance(s, 0.5)) queue(s, 'rebellion', p.id);
+    // 매 학년: 어떻게 보낼지 고른다
+    if (a >= 9 && a <= 18 && a !== 11 && a !== 14 && a !== 17) queue(s, 'school_year', p.id);
+    if (a >= 13 && p.happiness < 25 && chance(s, hasTrait(p, 'rebel') ? 0.8 : 0.5)) queue(s, 'rebellion', p.id);
   }
-  for (const p of mainlineMembers(s)) if (hasFlag(p, 'retaking') && age(s, p) === 20) queue(s, 'path', p.id);
+  // 재수·삼수…: 매년 수능
+  for (const p of mainlineMembers(s)) if (hasFlag(p, 'retaking') && age(s, p) >= 20) queue(s, 'path', p.id);
 }
 
 /** 소개팅 빈도: 30대 초반까지 매년, 이후 점점 뜸해진다 */
 function dateChance(a: number, isHead: boolean): number {
   if (a < 26) return 0;
+  if (a <= 29) return isHead ? 0.55 : 0.35;
   if (a <= 35) return isHead ? 0.9 : 0.6;
   if (a <= 44) return 0.5;
   if (a <= 54) return 0.25;
@@ -474,7 +686,8 @@ function adultEvents(s: GameState) {
     else if (p.job !== 'politician' && a >= 40 && a <= 65 && (s.fame >= 40 || ['lawyer', 'professor', 'journalist'].includes(p.job) || p.jobLevel >= 4) && chance(s, 0.06))
       queue(s, 'election', p.id);
     // 소개팅
-    if (!p.spouseId && !hasFlag(p, 'single_life') && !pending('blind_date') && chance(s, dateChance(a, p.id === h.id))) {
+    const single = !p.spouseId || !alive(s.people[p.spouseId]);
+    if (single && !hasFlag(p, 'single_life') && !pending('blind_date') && chance(s, dateChance(a, p.id === h.id) * (p.spouseId || hasFlag(p, 'divorced') ? 0.5 : 1))) {
       queue(s, 'blind_date', p.id, { cand: makeDate(s, p) });
     }
   }
@@ -514,12 +727,25 @@ function endGame(s: GameState, reason: string) {
 
 // ─────────────────────── 이벤트 처리 ───────────────────────
 
-export function currentEvent(s: GameState) {
-  const ev = s.events[0];
-  if (!ev) return undefined;
+/** 죽은 사람 앞으로 온 이벤트도 보여주는 것들 */
+const FOR_THE_DEAD = new Set(['notice', 'choose_heir', 'parent_estate', 'naming']);
+
+export function currentEvent(s: GameState): ReturnType<typeof eventView> | undefined {
+  // 그사이 상황이 바뀐 이벤트(사망·이혼 등)는 건너뛴다
+  while (s.events.length) {
+    const ev = s.events[0];
+    const def = EVENTS[ev.defId];
+    const p = s.people[ev.personId];
+    const ctx: Ctx = { s, p, ev };
+    if (def && p && (alive(p) || FOR_THE_DEAD.has(def.id)) && (def.valid?.(ctx) ?? true)) return eventView(ctx);
+    s.events.shift();
+  }
+  return undefined;
+}
+
+function eventView(ctx: Ctx) {
+  const { ev, p } = ctx;
   const def = EVENTS[ev.defId];
-  const p = s.people[ev.personId];
-  const ctx: Ctx = { s, p, ev };
   const text = def.text(ctx);
   return { ev, def, ctx, title: def.title(ctx), text, choices: def.choices(ctx), portraits: def.portraits?.(ctx) ?? [p] };
 }
@@ -529,7 +755,7 @@ export function resolveChoice(s: GameState, idx: number): string {
   if (!cur) return '';
   const ch = cur.choices[idx];
   if (!ch || ch.disabled) return '';
-  if (ch.cost) pay(s, head(s), ch.cost);
+  if (ch.cost) pay(s, householder(s), ch.cost);
   const res = ch.run(cur.ctx);
   const text = typeof res === 'string' ? res : res.text;
   if (typeof res === 'string' || !res.keep) s.events.shift();

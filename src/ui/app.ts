@@ -4,8 +4,11 @@ import {
   ASSET_ICONS,
   BUDGET_NAMES,
   EXAMS,
+  JOB_IDS,
   REAL_ESTATE,
   TRADE_UNITS,
+  TRAITS,
+  ASSET_NAMES,
   FOCUS_NAMES,
   JOBS,
   LIFESTYLE_NAMES,
@@ -19,7 +22,9 @@ import {
 import { advisorFee, assessedValue, assetsOf, familyWorth, formatMoney, jobTitle, personWorth } from '../core/economy';
 import { estateTax, previewAssetGiftTax, previewGiftTax } from '../core/estate';
 import { spendable } from '../core/events';
-import { age, alive, childrenOf, fullName, head, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
+import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
+import { MISSIONS } from '../core/missions';
+import { writeWill } from '../core/family';
 import {
   BUY_TAX,
   aptitudeTest,
@@ -38,7 +43,6 @@ import {
   resolveChoice,
   retire,
   sellAsset,
-  setWill,
   simulateYear,
 } from '../core/sim';
 import type { Asset, AssetKind, Focus, GameState, Lifestyle, Living, Person, Sex, WillMode } from '../core/types';
@@ -58,7 +62,7 @@ interface UIState {
   outcome?: { title: string; text: string };
   toast?: string;
   giftTo?: string;
-  setup: { surname: string; sex: Sex; origin: GameState['origin'] };
+  setup: { surname: string; sex: Sex; origin: GameState['origin'] | 'random' };
 }
 
 const SAVE_KEY = 'gamun-kiugi-save-v1';
@@ -71,7 +75,7 @@ const ui: UIState = {
   view: prefs.view ?? 'tree',
   zoom: prefs.zoom ?? 'mid',
   showDead: false,
-  setup: { surname: '김', sex: 'M', origin: 'middle' },
+  setup: { surname: '김', sex: 'M', origin: 'random' },
 };
 
 function load(): GameState | null {
@@ -181,12 +185,13 @@ function titleScreen(): string {
       <label class="field">가문의 성씨
         <input id="surname" maxlength="2" value="${esc(o.surname)}" autocomplete="off">
       </label>
-      <div class="field">첫 가주의 성별 ${seg('setup-sex', o.sex, [['M', '남'], ['F', '여']])}</div>
-      <div class="field">집안 형편 ${seg('setup-origin', o.origin, [['poor', '서민'], ['middle', '중산층'], ['rich', '부유층']])}</div>
+      <div class="field">나의 성별 ${seg('setup-sex', o.sex, [['M', '남'], ['F', '여']])}</div>
+      <div class="field">태어날 집안 ${seg('setup-origin', o.origin, [['random', '🎲 운명에 맡긴다'], ['poor', '서민'], ['middle', '중산층'], ['rich', '부유층']])}</div>
+      <p class="fine">다섯 살부터 시작한다. 부모님의 직업·재산, 형제자매는 태어나 봐야 안다.</p>
       <div class="field">시대 <div class="seg"><button class="on">현대 한국</button><button disabled>근현대사 (준비 중)</button></div></div>
       <button class="btn big primary" data-action="start">가문 시작</button>
     </section>
-    <p class="fine">v0.2 · 직업 29종 · 시험 · 소개팅 · 투자와 절세</p>
+    <p class="fine">v0.3 · 다섯 살부터 · 직업 119종 · 수능과 입시 · 인생사 · 업적 70+</p>
   </div>`;
 }
 
@@ -245,8 +250,12 @@ function card(g: GameState, p: Person, extra = ''): string {
 function jobShort(g: GameState, p: Person): string {
   if (!alive(p)) return relationLabel(g, p);
   const a = age(g, p);
+  if (p.flags.some((f) => f.startsWith('serving:'))) return '군 복무';
   if (a < 8) return '아이';
-  if (a < 20 && p.job === 'none') return '학생';
+  if (a < 14 && p.job === 'none') return '초등학생';
+  if (a < 17 && p.job === 'none') return '중학생';
+  if (a < 20 && p.job === 'none' && !p.flags.includes('retaking')) return '고등학생';
+  if (p.flags.includes('retaking')) return '재수생';
   if (p.flags.includes('student')) return '대학생';
   if (p.flags.some((f) => f.startsWith('prep:'))) return '수험생';
   return JOBS[p.job].name;
@@ -420,6 +429,50 @@ const EDU_LABELS: Record<string, string> = {
   flight_school: '비행교육원',
 };
 
+/** 인물 상세의 인생 정보: 성격·학업·병역·건강·금슬 */
+function lifeRows(g: GameState, p: Person): string {
+  const rows: string[] = [];
+  const traits = (p.traits ?? []).map((id) => `<b class="chip ${TRAITS[id].good ? '' : 'bad'}" title="${esc(TRAITS[id].desc)}">${TRAITS[id].name}</b>`);
+  if (traits.length && (age(g, p) >= 8 || !alive(p))) rows.push(`<div class="sh-row"><span>성격</span><span>${traits.join(' ')}</span></div>`);
+  const school = p.flags.filter((f) => f.startsWith('school:')).pop()?.slice(7);
+  if (school) rows.push(`<div class="sh-row"><span>학교</span><span>${esc(school)}</span></div>`);
+  const a = age(g, p);
+  if (alive(p) && a >= 8 && a < 25 && (p.study !== undefined || p.eduSpent)) {
+    const st = Math.round(p.study ?? 0);
+    rows.push(`<div class="sh-row"><span>성적</span><span>${st}점 ${st >= 90 ? '(전교권)' : st >= 75 ? '(상위권)' : st >= 55 ? '(중상위권)' : st >= 35 ? '(중위권)' : '(하위권)'} · 사교육비 누적 ${formatMoney(p.eduSpent ?? 0)}</span></div>`);
+  }
+  const retake = Number(p.flags.find((f) => f.startsWith('retake:'))?.slice(7) ?? 0);
+  if (retake) rows.push(`<div class="sh-row"><span>입시</span><span>${retake + 1}수${p.flags.includes('retaking') ? ' 중' : ''}</span></div>`);
+  if (p.sex === 'M' && !p.inLaw && a >= 19) {
+    const mil = p.flags.some((f) => f.startsWith('serving:'))
+      ? '복무 중'
+      : p.flags.includes('draft_dodger')
+        ? '⚠ 병역 기피'
+        : p.flags.includes('exempt_medal')
+          ? '병역특례'
+          : p.flags.includes('marine')
+            ? '해병대 만기 전역'
+            : p.flags.includes('officer_served')
+              ? '장교 전역'
+              : p.flags.includes('served')
+                ? '만기 전역'
+                : p.flags.includes('exempt')
+                  ? '면제'
+                  : '미필';
+    rows.push(`<div class="sh-row"><span>병역</span><span>${mil}</span></div>`);
+  }
+  const cancer = p.flags.find((f) => f.startsWith('cancer:'));
+  if (cancer && alive(p)) rows.push(`<div class="sh-row warn"><span>🎗</span><span>암 투병 중 (${g.year - Number(cancer.split(':')[2])}년째)</span></div>`);
+  if (p.flags.includes('cancer_survivor')) rows.push(`<div class="sh-row"><span>🎗</span><span>암 완치</span></div>`);
+  if (p.spouseId && alive(p) && alive(g.people[p.spouseId]) && p.bond !== undefined) {
+    const b = p.bond;
+    rows.push(`<div class="sh-row"><span>금슬</span><span>${b >= 75 ? '💞 잉꼬부부' : b >= 50 ? '❤ 화목' : b >= 30 ? '😶 데면데면' : '💢 위기'} (${b})</span></div>`);
+  }
+  const tries = Number(p.flags.find((f) => f.startsWith('tries:'))?.slice(6) ?? 0);
+  if (tries >= 2) rows.push(`<div class="sh-row"><span>수험</span><span>${tries}번 낙방</span></div>`);
+  return rows.join('');
+}
+
 function personSheet(g: GameState, p: Person): string {
   const dead = !alive(p);
   const a = dead ? p.deathYear! - p.birthYear : age(g, p);
@@ -439,7 +492,15 @@ function personSheet(g: GameState, p: Person): string {
           : job.titles
             ? `${job.name} · ${jobTitle(p)}`
             : job.name;
-  const marital = p.spouseId ? (alive(g.people[p.spouseId]) ? `💍 ${fullName(g.people[p.spouseId])}` : '사별') : p.flags.includes('single_life') ? '독신' : a >= 26 ? '미혼' : '';
+  const marital = p.spouseId
+    ? (alive(g.people[p.spouseId]) ? `💍 ${fullName(g.people[p.spouseId])}` : '사별') + (p.flags.includes('remarried') ? ' (재혼)' : '')
+    : p.flags.includes('divorced')
+      ? '이혼'
+      : p.flags.includes('single_life')
+        ? '독신'
+        : a >= 26
+          ? '미혼'
+          : '';
   const isDesc = isDescendantOf(g, p, h);
   const happy = p.happiness >= 70 ? '😊' : p.happiness >= 40 ? '🙂' : p.happiness >= 20 ? '😐' : '😣';
   const retireOk = canRetire(g);
@@ -482,8 +543,9 @@ function personSheet(g: GameState, p: Person): string {
       ${!dead && p.id !== h.id ? `<div class="sh-row"><span>마음</span><span>${happy} 행복 · ${p.affinity >= 0 ? '♥' : '💢'} 관계 ${Math.round(p.affinity)}</span></div>` : ''}
       ${p.desire && p.desireKnown ? `<div class="sh-row"><span>꿈</span><span>${TAG_NAMES[p.desire]}</span></div>` : ''}
       <div class="sh-row"><span>재산</span><span>${formatMoney(personWorth(g, p))}</span></div>
+      ${lifeRows(g, p)}
       ${p.flags.includes('grievance') ? `<div class="sh-row warn"><span>⚠</span><span>상속에 불만을 품고 있다</span></div>` : ''}
-      ${marital && !dead ? `<div class="sh-row"><span>혼인</span><span>${esc(marital)}${p.flags.includes('divorced') ? ' · 재혼' : ''}</span></div>` : ''}
+      ${marital && !dead ? `<div class="sh-row"><span>혼인</span><span>${esc(marital)}</span></div>` : ''}
       ${p.flags.includes('bankrupt') ? `<div class="sh-row warn"><span>⚠</span><span>파산 이력이 있다</span></div>` : ''}
       <div class="sh-actions">${actions.join('')}</div>
       <button class="btn ghost" data-action="close-sheet">닫기</button>
@@ -567,11 +629,19 @@ function seg(action: string, cur: string | number, opts: [string | number, strin
 function policyScreen(g: GameState): string {
   const pol = g.policy;
   const minors = livingMainlineMinors(g);
+  const h = head(g);
+  const hh = householder(g);
+  const PLAN_NAMES = ['학원 뺑뺑이', '과외 + 학원 올인', '인강·자기주도', '운동부', '예체능 학원', '봉사·동아리', '놀기', '연애', '알바'];
   return `
+  ${
+    hh !== h
+      ? `<section class="card"><h2>지금은 부모님 슬하</h2><p class="fine">${esc(fullName(hh))}(${esc(relationLabel(g, hh))})이(가) 살림을 꾸린다. 학비·학원비도 부모님 지갑에서 나간다. 독립하면(취업·결혼) 직접 가계를 맡는다.</p></section>`
+      : ''
+  }
   <section class="card">
     <h2>가주의 한 해</h2>
     <div class="field">생활 방식 ${seg('lifestyle', pol.lifestyle, Object.entries(LIFESTYLE_NAMES) as [string, string][])}</div>
-    <p class="fine">일 중심: 승진↑ 건강↓ · 자기계발: 능력치↑ · 요양: 건강 회복</p>
+    <p class="fine">일 중심: 승진↑ 건강↓ 금슬↓ · 가정 중심: 금슬↑ · 자기계발: 능력치↑ · 요양: 건강 회복${age(g, h) < 20 ? ' (성인이 되면 적용)' : ''}</p>
     <div class="field">생활 수준 ${seg('living', pol.living, Object.entries(LIVING_NAMES) as [string, string][])}</div>
     <div class="field">가족계획 (자녀 수 목표) ${seg('plan', pol.familyPlan, [0, 1, 2, 3, 4, 5].map((n) => [n, n + '명']))}</div>
   </section>
@@ -582,16 +652,22 @@ function policyScreen(g: GameState): string {
         ? minors
             .map((c) => {
               const cp = pol.children[c.id] ?? { budget: 1, focus: 'free' };
+              const a = age(g, c);
+              const sy = Number(c.flags.find((f) => f.startsWith('sy:'))?.slice(3) ?? -1);
+              const body =
+                a < 8
+                  ? `<div class="field">교육비 ${seg('budget', cp.budget, BUDGET_NAMES.map((n, i) => [i, n]), c.id)}</div>
+                     <div class="field">집중 분야 ${seg('focus', cp.focus, Object.entries(FOCUS_NAMES) as [string, string][], c.id)}</div>`
+                  : `<p class="fine">올해: ${sy >= 0 ? PLAN_NAMES[sy] : '—'} · 성적 ${Math.round(c.study ?? 0)} · 사교육비 누적 ${formatMoney(c.eduSpent ?? 0)}<br>학년이 바뀔 때마다 어떻게 보낼지 정한다.</p>`;
               return `<div class="kid">
-                <div class="kid-h"><img class="px sm" src="${portraitURL(c, age(g, c))}"> ${esc(fullName(c))} · ${age(g, c)}세</div>
-                <div class="field">교육비 ${seg('budget', cp.budget, BUDGET_NAMES.map((n, i) => [i, n]), c.id)}</div>
-                <div class="field">집중 분야 ${seg('focus', cp.focus, Object.entries(FOCUS_NAMES) as [string, string][], c.id)}</div>
+                <div class="kid-h"><img class="px sm" src="${portraitURL(c, a)}"> ${esc(fullName(c))} · ${a}세 · ${esc(jobShort(g, c))}</div>
+                ${body}
               </div>`;
             })
             .join('')
         : '<p class="hint">키울 아이가 없다.</p>'
     }
-    <p class="fine">교육비: 기본 300만 · 사교육 1,200만 · 올인 3,000만 /년.<br>숨은 재능과 맞는 분야에 집중하면 성장이 훨씬 빠르다.</p>
+    <p class="fine">미취학: 기본 300만 · 사교육 1,200만 · 올인 3,000만 /년. 학령기부터는 해마다 학년 이벤트로 고른다.<br>사교육비가 쌓일수록 수능에 유리하지만, 아이의 행복은 줄어든다.</p>
   </section>`;
 }
 
@@ -645,7 +721,7 @@ function assetsScreen(g: GameState): string {
     <h4 class="sub">부동산 (한 채)</h4>
     ${(REAL_ESTATE as AssetKind[])
       .map(
-        (k) => `<div class="arow"><span>${ASSET_ICONS[k]} ${{ apt_seoul: '강남 아파트', apt_local: '지방 아파트', land: '토지' }[k as 'land']} ${pct(g.marketChange[k])}</span>
+        (k) => `<div class="arow"><span>${ASSET_ICONS[k]} ${ASSET_NAMES[k]} ${pct(g.marketChange[k])}</span>
         <span>${formatMoney(g.market[k])} <button class="mini" data-action="buy" data-v="${k}" ${canBuy(g, k) ? '' : 'disabled'}>매수</button></span></div>`,
       )
       .join('')}
@@ -712,7 +788,8 @@ function assetsScreen(g: GameState): string {
     <div class="will">${(Object.entries(WILL_NAMES) as [WillMode, string][])
       .map(([k, l]) => `<button class="${g.will === k ? 'on' : ''}" data-action="will" data-v="${k}">${l}</button>`)
       .join('')}</div>
-    <p class="fine">후계자에게 몰아주면 재산을 지키기 쉽지만, 몫을 못 받은 형제는 불만을 품는다.</p>
+    <div class="sh-row"><span>유언장</span><span>${g.willWritten ? '✍ 작성함' : '없음 — 떠나면 자식들이 다툴 수 있다'}</span></div>
+    <p class="fine">유언장을 쓰면 재산이 뜻대로 가지만 기력이 쇠해 수명이 조금 줄어든다. 안 쓰면 오래 버티지만, 떠난 뒤 부동산이 급매되고 자식들이 다툰다.<br>후계자에게 몰아주면 재산을 지키기 쉽지만, 몫을 못 받은 형제는 불만을 품는다.</p>
   </section>`;
 }
 
@@ -724,11 +801,36 @@ function logScreen(g: GameState): string {
 }
 
 function achvScreen(g: GameState): string {
+  const cur = (g.missions ?? []).filter((m) => m.gen === g.generation);
+  const past = (g.missions ?? []).filter((m) => m.gen !== g.generation);
+  const cats = [...new Set(Object.values(ACHIEVEMENTS).map((a) => a.cat))];
+  const got = g.achievements.length;
+  const total = Object.keys(ACHIEVEMENTS).length;
   return `
   <section class="card">
-    <h2>업적</h2>
-    ${Object.entries(ACHIEVEMENTS)
-      .map(([id, a]) => `<div class="achv ${g.achievements.includes(id) ? 'done' : ''}"><b>${g.achievements.includes(id) ? '🏆' : '🔒'} ${a.name}</b><span>${a.desc}</span></div>`)
+    <h2>🎯 ${g.generation}대 세대 미션</h2>
+    ${cur
+      .map((m) => {
+        const d = MISSIONS[m.id];
+        return `<div class="achv ${m.state === 'done' ? 'done' : ''}"><b>${m.state === 'done' ? '✅' : '⬜'} ${d.name}</b><span>${d.desc} · 보상 ${[d.fame ? `명성 +${d.fame}` : '', d.cash ? formatMoney(d.cash) : ''].filter(Boolean).join(', ')}</span></div>`;
+      })
+      .join('')}
+    <p class="fine">가주가 바뀌면 새 미션이 주어진다. 지난 세대: 달성 ${past.filter((m) => m.state === 'done').length} · 실패 ${past.filter((m) => m.state === 'failed').length}</p>
+  </section>
+  <section class="card">
+    <h2>📖 직업 도감 <small class="muted">${g.jobsSeen?.length ?? 0} / ${JOB_IDS.length - 3}</small></h2>
+    <div class="dex">${(g.jobsSeen ?? []).map((id) => `<b class="chip">${JOBS[id].name}</b>`).join(' ') || '<span class="muted">아직 아무도 일하지 않았다</span>'}</div>
+  </section>
+  <section class="card">
+    <h2>🏆 업적 <small class="muted">${got} / ${total}</small></h2>
+    ${cats
+      .map((cat) => {
+        const list = Object.entries(ACHIEVEMENTS).filter(([, a]) => a.cat === cat);
+        const n = list.filter(([id]) => g.achievements.includes(id)).length;
+        return `<details class="achv-cat" ${n ? 'open' : ''}><summary>${cat} <small>${n}/${list.length}</small></summary>
+          ${list.map(([id, a]) => `<div class="achv ${g.achievements.includes(id) ? 'done' : ''}"><b>${g.achievements.includes(id) ? '🏆' : '🔒'} ${a.name}</b><span>${a.desc}</span></div>`).join('')}
+        </details>`;
+      })
       .join('')}
   </section>
   <section class="card">
@@ -764,14 +866,14 @@ function onClick(e: MouseEvent) {
       ui.setup.sex = v as Sex;
       break;
     case 'setup-origin':
-      ui.setup.origin = v as GameState['origin'];
+      ui.setup.origin = v as GameState['origin'] | 'random';
       break;
     case 'continue':
       ui.game = load();
       break;
     case 'start': {
       const sn = (ui.setup.surname || '김').slice(0, 2);
-      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, origin: ui.setup.origin });
+      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, origin: ui.setup.origin === 'random' ? undefined : ui.setup.origin });
       ui.tab = 'tree';
       break;
     }
@@ -872,7 +974,8 @@ function onClick(e: MouseEvent) {
       break;
     }
     case 'will':
-      setWill(g!, v as WillMode);
+      writeWill(g!, v as WillMode, g!.heirId);
+      ui.toast = '유언장을 썼다. 마음이 놓인다… (수명이 조금 줄어든다)';
       break;
   }
   save();

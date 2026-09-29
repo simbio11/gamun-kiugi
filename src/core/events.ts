@@ -1,7 +1,8 @@
-import { chance, int, pick } from './rng';
-import { ART_TIERS, EXAMS, JOBS, PREP_TIERS, STAT_NAMES, SURNAMES, TAG_NAMES, TALENTS } from './data';
+import { chance, int, normal, pick } from './rng';
+import { ART_TIERS, EXAMS, JOB_CATS, JOB_IDS, JOBS, PREP_TIERS, STAT_NAMES, SURNAMES, TAG_NAMES, TALENTS } from './data';
+import { MAJOR_JOBS } from './school';
 import { unlock } from './achievements';
-import { addAsset, formatMoney, jobLabel, jobTitle, pay, personWorth } from './economy';
+import { addAsset, formatMoney, jobLabel, jobTitle, pay, personWorth, statScore } from './economy';
 import { estateTax, giveGift } from './estate';
 import {
   addFlag,
@@ -15,98 +16,36 @@ import {
   fullName,
   hasFlag,
   hasTalent,
+  hasTrait,
   head,
+  householder,
   isMainline,
-  spouseOf,
 } from './people';
-import type { Asset, CareerTag, GameState, JobId, PendingEvent, Person, StatKey } from './types';
+import type { GameState, JobId, Person, StatKey } from './types';
 
-export interface Ctx {
-  s: GameState;
-  p: Person;
-  ev: PendingEvent;
-}
-
-export interface Choice {
-  label: string;
-  /** 요구 조건 뱃지 (결과는 숨기고 조건만 보여줌) */
-  req?: string[];
-  disabled?: boolean;
-  cost?: number;
-  tag?: CareerTag;
-  run: (c: Ctx) => string | { text: string; keep: true };
-}
-
-export interface EventDef {
-  id: string;
-  title: (c: Ctx) => string;
-  text: (c: Ctx) => string;
-  choices: (c: Ctx) => Choice[];
-  portraits?: (c: Ctx) => Person[];
-}
-
-const stars = (v: number) => '★'.repeat(clamp(Math.round(v / 20), 1, 5));
-const req = (k: StatKey, v: number) => `${STAT_NAMES[k]} ${stars(v)}`;
-const who = (c: Ctx) => fullName(c.p);
-const tr = (n: string, a: string, b: string) => {
-  const code = n.charCodeAt(n.length - 1) - 0xac00;
-  return code >= 0 && code % 28 !== 0 ? a : b;
-};
-/** 조사: 이/가, 은/는, 을/를 */
-const iga = (n: string) => n + tr(n, '이', '가');
-const eun = (n: string) => n + tr(n, '은', '는');
-const eul = (n: string) => n + tr(n, '을', '를');
-
-export function spendable(s: GameState): number {
-  const h = head(s);
-  const sp = spouseOf(s, h);
-  return Math.max(0, h.cash) + (sp && alive(sp) ? Math.max(0, sp.cash) : 0) + Math.max(0, s.familyCash);
-}
-
-/** 자녀의 꿈과 선택 방향 비교 → 관계도·행복도 */
-function applyDesire(c: Ctx, tag?: CareerTag): string {
-  const p = c.p;
-  if (!tag || !p.desire || p.id === c.s.headId) return '';
-  if (tag === p.desire) {
-    p.happiness = clamp(p.happiness + 10, 0, 100);
-    p.affinity = clamp(p.affinity + 6, -100, 100);
-    addFlag(p, 'passion');
-    return p.desireKnown ? ' 원하던 길이라 눈이 반짝인다.' : '';
-  }
-  p.happiness = clamp(p.happiness - 10, 0, 100);
-  p.affinity = clamp(p.affinity - 8, -100, 100);
-  p.flags = p.flags.filter((f) => f !== 'passion');
-  return p.desireKnown ? ' 하지만 원하던 길이 아니라 시무룩하다.' : '';
-}
-
-function setJob(p: Person, job: JobId, level = 0) {
-  p.job = job;
-  p.jobLevel = level;
-  p.jobYears = 0;
-}
-
-/** 진학. track:* 은 졸업할 때 어느 길로 나갈지 표시 (졸업 시 제거) */
-export function setStudy(s: GameState, p: Person, years: number, flag: string) {
-  addFlag(p, flag);
-  addFlag(p, 'student');
-  p.flags = p.flags.filter((f) => !f.startsWith('grad:') && !f.startsWith('track:'));
-  p.flags.push('grad:' + (s.year + years), 'track:' + flag);
-}
-
-/** 위작 판정: 헐값이 된다 */
-export function exposeFakes(s: GameState, assets: Asset[]): Asset[] {
-  const found = assets.filter((a) => a.kind === 'art' && a.fake && !a.name.endsWith('(위작)'));
-  for (const a of found) {
-    a.value = Math.round(a.value * 0.05);
-    a.name += ' (위작)';
-  }
-  if (found.length) unlock(s, 'forgery');
-  return found;
-}
-
-const ok = (cost: number | undefined, s: GameState) => (cost ?? 0) <= spendable(s);
-/** 비용을 감당 못 하는 선택지는 비활성화 */
-const gate = (s: GameState, list: Choice[]): Choice[] => list.map((ch) => ({ ...ch, disabled: ch.disabled || !ok(ch.cost, s) }));
+import {
+  applyDesire,
+  eul,
+  eun,
+  exposeFakes,
+  gate,
+  iga,
+  ok,
+  queueNext,
+  req,
+  setJob,
+  setStudy,
+  spendable,
+  stars,
+  tr,
+  who,
+  type Choice,
+  type Ctx,
+  type EventDef,
+  type RandomDef,
+} from './ev-util';
+export type { Choice, Ctx, EventDef, RandomDef } from './ev-util';
+export { spendable, setStudy, exposeFakes, queueNext } from './ev-util';
 
 // ───────────────────────── 미성년 마일스톤 ─────────────────────────
 
@@ -387,10 +326,6 @@ function categorized(c: Ctx, cats: [string, string, () => Choice[]][]): Choice[]
   }));
 }
 
-/** 현재 이벤트 바로 다음에 이벤트 끼워넣기 (같은 해에 이어서 진행) */
-function queueNext(s: GameState, defId: string, personId: string, data?: any) {
-  s.events.splice(1, 0, { uid: s.eventSeq++, defId, personId, data });
-}
 
 const examOf = (p: Person) => p.flags.find((f) => f.startsWith('prep:'))?.slice(5);
 const triesOf = (p: Person) => Number(p.flags.find((f) => f.startsWith('tries:'))?.slice(6) ?? 0);
@@ -404,7 +339,7 @@ export function startPrep(s: GameState, p: Person, examId: string, now = true) {
   if (now) queueNext(s, 'exam', p.id);
 }
 
-const hasUniv = (p: Person) => hasFlag(p, 'univ_top') || hasFlag(p, 'univ_local');
+const hasUniv = (p: Person) => hasFlag(p, 'univ_top') || hasFlag(p, 'univ_seoul') || hasFlag(p, 'univ_local');
 
 function examChoice(label: string, examId: string, extra: Partial<Choice> & { pre?: (x: Ctx) => void } = {}): Choice {
   const e = EXAMS[examId];
@@ -427,6 +362,9 @@ export function examScore(p: Person, examId: string, prepBonus: number): number 
   let v = 0;
   for (const k of Object.keys(e.stats) as StatKey[]) v += p.actual[k] * e.stats[k]!;
   if (e.bonusFlags?.some((f) => hasFlag(p, f))) v += 8;
+  if (MAJOR_JOBS[majorOf(p) ?? '']?.includes(e.job)) v += 5;
+  if (hasTrait(p, 'diligent')) v += 3;
+  if (hasTrait(p, 'lazy')) v -= 3;
   if (hasTalent(p, 'genius') && e.stats.int) v += 5 * e.stats.int;
   return v + prepBonus + Math.min(10, triesOf(p) * 2.5);
 }
@@ -460,9 +398,10 @@ const exam: EventDef = {
           clearPrep(x.p);
           setJob(x.p, e.job, e.level);
           addFlag(x.p, 'passed:' + id);
+          if (triesOf(x.p) >= 4) addFlag(x.p, 'long_prep');
           x.p.happiness = clamp(x.p.happiness + 12, 0, 100);
           const n = triesOf(x.p);
-          return `🎉 합격! ${who(x)}${tr(who(x), '은', '는')} 이제 ${jobTitle(x.p)}.` + (n >= 3 ? ` (${n + 1}수 끝에!)` : '') + applyDesire(x, JOB_TAG[e.job]);
+          return `🎉 합격! ${who(x)}${tr(who(x), '은', '는')} 이제 ${jobTitle(x.p)}.` + (n >= 3 ? ` (${n + 1}수 끝에!)` : '') + applyDesire(x, JOBS[e.job]?.entry?.tag);
         }
         const n = triesOf(x.p) + 1;
         x.p.flags = x.p.flags.filter((f) => !f.startsWith('tries:'));
@@ -492,362 +431,180 @@ const exam: EventDef = {
   },
 };
 
-const JOB_TAG: Partial<Record<JobId, CareerTag>> = {
-  civil: 'public',
-  police: 'public',
-  firefighter: 'public',
-  teacher: 'public',
-  officer: 'public',
-  public_corp: 'public',
-  politician: 'public',
-  doctor: 'study',
-  lawyer: 'study',
-  professor: 'study',
-  accountant: 'study',
-  pharmacist: 'study',
-  developer: 'study',
-  corp: 'study',
-  founder: 'business',
-  shopkeeper: 'business',
-  youtuber: 'stage',
-  entertainer: 'stage',
-  musician: 'stage',
-  painter: 'stage',
-  writer: 'stage',
-  athlete: 'sport',
-  gamer: 'sport',
-  none: 'free',
-  parttime: 'free',
-};
-
-const path: EventDef = {
-  id: 'path',
-  title: (c) => (hasFlag(c.p, 'retaking') ? '재수의 결과' : '수능과 진로'),
-  text: (c) =>
-    `${iga(who(c))} ${hasFlag(c.p, 'retaking') ? '1년을 더 버텼다. 다시 선택의 순간.' : '열아홉. 이제 진짜 갈림길이다.'}\n(지능 ${Math.round(c.p.actual.int)} · 근력 ${Math.round(c.p.actual.str)} · 매력 ${Math.round(c.p.actual.cha)} · 성품 ${Math.round(c.p.actual.mor)})`,
-  choices: (c) => {
-    const p = c.p;
-    const retaken = hasFlag(p, 'retook');
-    const fallback = (x: Ctx, why: string): string => {
-      if (!retaken && !hasFlag(x.p, 'retaking')) {
-        addFlag(x.p, 'retaking');
-        return why + ' 재수를 하게 됐다. (내년에 다시 선택 · 재수학원비는 교육비로)';
-      }
-      x.p.flags = x.p.flags.filter((f) => f !== 'retaking');
-      addFlag(x.p, 'retook');
-      if (x.p.actual.int >= 30) {
-        setStudy(x.s, x.p, 4, 'univ_local');
-        return why + ' 결국 일반 대학에 진학했다.';
-      }
-      setJob(x.p, 'none');
-      return why + ' 대학은 포기했다.';
-    };
-    const done = (x: Ctx) => {
-      if (hasFlag(x.p, 'retaking')) {
-        x.p.flags = x.p.flags.filter((f) => f !== 'retaking');
-        addFlag(x.p, 'retook');
-      }
-    };
-    const eliteBonus = (hasFlag(p, 'high_elite') ? 6 : 0) + (hasFlag(p, 'retaking') ? 4 : 0);
-    /** 입시: 기준 넘으면 진학, 아니면 재수/차선 */
-    const admit = (label: string, flag: string, years: number, k: StatKey, need: number, win: string, extra: Partial<Choice> = {}): Choice => ({
-      label,
-      req: [req(k, need + 8)],
-      tag: 'study',
-      ...extra,
-      run: (x) => {
-        if (check(x.s, x.p.actual[k] + eliteBonus + (k === 'int' && hasTalent(x.p, 'genius') ? 8 : 0), need, 6)) {
-          done(x);
-          setStudy(x.s, x.p, years, flag);
-          if (flag === 'med_school' && x.s.origin === 'poor') unlock(x.s, 'dragon');
-          return win + applyDesire(x, extra.tag ?? 'study');
-        }
-        return fallback(x, `${label.split(' ')[0]} 불합격.`);
-      },
-    });
-    const trained = hasFlag(p, 'high_sport') || hasFlag(p, 'mid_sport') || hasFlag(p, 'sports_team');
-    return categorized(c, [
-      [
-        'univ',
-        '🎓 대학 입시',
-        () => [
-          admit('의대', 'med_school', 6, 'int', 72, '🎉 의대 합격! 6년 뒤 의사가 된다.'),
-          admit('약대', 'pharm_school', 6, 'int', 64, '약대 합격! 6년 뒤 약사 국가고시.'),
-          admit('명문대', 'univ_top', 4, 'int', 55, '명문대 합격!'),
-          admit('교대 (선생님의 길)', 'edu_school', 4, 'int', 50, '교대 합격! 졸업하면 임용고시.', { tag: 'public' }),
-          admit('간호학과', 'nurse_school', 4, 'int', 40, '간호학과 합격! 졸업하면 국가고시.', { tag: 'public' }),
-          admit('경찰대', 'police_univ', 4, 'int', 58, '경찰대 합격! 졸업하면 경위로 임관.', { tag: 'public' }),
-          admit('사관학교', 'academy', 4, 'mor', 48, '사관학교 합격! 졸업하면 소위 임관.', { tag: 'public' }),
-          {
-            label: '일반 대학',
-            req: [req('int', 30)],
-            disabled: p.actual.int < 20,
-            run: (x) => {
-              done(x);
-              setStudy(x.s, x.p, 4, 'univ_local');
-              return `대학생이 되었다.` + applyDesire(x, 'free');
-            },
-          },
-        ],
-      ],
-      [
-        'art',
-        '🎨 예체능·연예',
-        () => [
-          {
-            label: '프로 입단 테스트',
-            req: ['체고·운동부 출신', req('str', 60)],
-            tag: 'sport',
-            disabled: !trained,
-            run: (x) => {
-              done(x);
-              if (check(x.s, x.p.actual.str + (hasTalent(x.p, 'athlete') ? 15 : 0) + (hasFlag(x.p, 'high_sport') ? 5 : 0), 55, 6)) {
-                setJob(x.p, 'athlete');
-                return `프로 구단 입단! 연봉 계약서에 사인했다.` + applyDesire(x, 'sport');
-              }
-              setJob(x.p, 'none');
-              addFlag(x.p, 'failed_pro');
-              return `입단 테스트 탈락. 앞길이 막막하다.`;
-            },
-          },
-          {
-            label: '연예기획사 데뷔',
-            req: ['연습생·예고 출신', req('cha', 65)],
-            tag: 'stage',
-            disabled: !(hasFlag(p, 'trainee') || hasFlag(p, 'high_art')),
-            run: (x) => {
-              done(x);
-              const star = hasTalent(x.p, 'star');
-              if (star) discoverTalent(x.p, 'star');
-              if (check(x.s, x.p.actual.cha + (star ? 15 : 0) + (hasFlag(x.p, 'high_art') ? 5 : 0), 62, 7)) {
-                setJob(x.p, 'entertainer', 0);
-                return `🎤 데뷔 확정! 하지만 아직은 무명이다.` + applyDesire(x, 'stage');
-              }
-              setJob(x.p, 'none');
-              addFlag(x.p, 'failed_pro');
-              return `데뷔조에서 탈락했다. 연습생 생활이 끝났다.` + applyDesire(x, 'stage');
-            },
-          },
-          admit('미대', 'art_school', 4, 'cha', 45, '미대 합격!', { tag: 'stage', cost: 2000 }),
-          admit('음대', 'music_school', 4, 'cha', 48, '음대 합격!', { tag: 'stage', cost: 2500 }),
-          {
-            label: '프로게임단 입단 테스트',
-            req: [req('int', 55), '나이가 어릴수록 유리'],
-            tag: 'sport',
-            run: (x) => {
-              done(x);
-              if (check(x.s, x.p.actual.int * 0.6 + x.p.actual.str * 0.4, 58, 6)) {
-                setJob(x.p, 'gamer', 1);
-                return `🎮 프로게임단 2군 합류! 연봉은 쥐꼬리지만 꿈은 크다.` + applyDesire(x, 'sport');
-              }
-              setJob(x.p, 'none');
-              addFlag(x.p, 'failed_pro');
-              return `테스트에서 떨어졌다. 랭크 점수가 모자랐다.`;
-            },
-          },
-        ],
-      ],
-      [
-        'work',
-        '💼 바로 사회로',
-        () => [
-          {
-            label: '바로 취업 (중소기업)',
-            req: hasFlag(p, 'high_voc') ? ['특성화고 우대'] : [],
-            run: (x) => {
-              done(x);
-              setJob(x.p, 'office', hasFlag(x.p, 'high_voc') ? 1 : 0);
-              return `일찍 사회생활을 시작했다.` + applyDesire(x, 'free');
-            },
-          },
-          {
-            label: '9급 공무원 시험 준비',
-            run: (x) => {
-              done(x);
-              startPrep(x.s, x.p, 'civil');
-              return '고졸 공시생이 되었다.' + applyDesire(x, 'public');
-            },
-          },
-          {
-            label: '알바하며 지낸다',
-            run: (x) => {
-              done(x);
-              setJob(x.p, 'parttime');
-              return '편의점 야간 알바를 시작했다.' + applyDesire(x, 'free');
-            },
-          },
-          {
-            label: '유튜브 채널 개설',
-            req: [req('cha', 60)],
-            tag: 'stage',
-            run: (x) => {
-              done(x);
-              setJob(x.p, 'youtuber', 0);
-              return '채널을 열었다. 조회수 12. 그중 10은 가족이다.' + applyDesire(x, 'stage');
-            },
-          },
-          {
-            label: '당분간 쉰다',
-            run: (x) => {
-              done(x);
-              setJob(x.p, 'none');
-              x.p.happiness = clamp(x.p.happiness + 10, 0, 100);
-              return `${eun(who(x))} 방에서 나오지 않는다.` + applyDesire(x, 'free');
-            },
-          },
-        ],
-      ],
-    ]);
-  },
-};
 
 // ───────────────────────── 성인 ─────────────────────────
+
+/** 직업 DB의 진입 방식에 따라 선택지 만들기 */
+function jobChoice(c: Ctx, id: string): Choice | undefined {
+  const j = JOBS[id];
+  const e = j?.entry;
+  if (!e || id === 'none') return;
+  const p = c.p;
+  const a = age(c.s, p);
+  const lacks = (e.needFlags && !e.needFlags.some((f) => hasFlag(p, f))) || (e.univ && !hasUniv(p)) || (e.maxAge !== undefined && a > e.maxAge);
+  const extraReq = [...(e.needNote ? [e.needNote] : []), ...(e.univ ? ['대학 졸업'] : []), ...(e.maxAge ? [`${e.maxAge}세 이하`] : [])];
+  const majorFit = MAJOR_JOBS[majorOf(p) ?? '']?.includes(id);
+  if (e.how === 'exam' && e.exam) {
+    const ch = examChoice(`${j.name} · ${EXAMS[e.exam].name}`, e.exam, {
+      cost: e.cost,
+      tag: e.tag,
+      disabled: !!lacks,
+      pre: (x) => {
+        if (id === 'pilot') addFlag(x.p, 'flight_school');
+      },
+    });
+    ch.req = [...(ch.req ?? []), ...extraReq.filter((r) => !ch.req?.includes(r)), ...(majorFit ? ['전공 일치'] : [])];
+    return ch;
+  }
+  if (e.how === 'hire') {
+    const w = j.stats ?? { int: 1 };
+    return {
+      label: j.name,
+      cost: e.cost,
+      tag: e.tag,
+      disabled: !!lacks,
+      req: [...Object.keys(w).slice(0, 2).map((k) => req(k as StatKey, (e.pass ?? 30) + 10)), ...extraReq, ...(majorFit ? ['전공 일치'] : [])],
+      run: (x) => {
+        const score = statScore(x.p, w) + (hasFlag(x.p, 'univ_top') ? 5 : 0) + (majorFit ? 8 : 0) + (hasTrait(x.p, 'social') ? 3 : 0) + (hasTrait(x.p, 'diligent') ? 3 : 0);
+        if (check(x.s, score, e.pass ?? 30, 7)) {
+          setJob(x.p, id, e.level ?? 0);
+          return (e.text ?? `${j.name}(으)로 일하게 되었다.`) + applyDesire(x, e.tag);
+        }
+        return { text: `${j.name} 지원 결과: 불합격. 다른 곳을 알아보자.`, keep: true };
+      },
+    };
+  }
+  if (e.how === 'start') {
+    return {
+      label: j.name + (e.cost ? '' : ''),
+      cost: e.cost,
+      tag: e.tag,
+      req: [...(j.stats ? Object.keys(j.stats).slice(0, 1).map((k) => req(k as StatKey, 50)) : []), ...extraReq],
+      run: (x) => {
+        setJob(x.p, id, 0);
+        if (id === 'founder' && hasTalent(x.p, 'merchant') && discoverTalent(x.p, 'merchant')) return '사업을 시작했다. 거래처를 다루는 솜씨를 보니 [장사꾼] 재능이 있다!';
+        return (e.text ?? `${j.name}의 길을 걷기 시작했다.`) + applyDesire(x, e.tag);
+      },
+    };
+  }
+}
+
+const majorOf = (p: Person) => p.flags.find((f) => f.startsWith('major:'))?.slice(6);
+
+/** 특수 경로 (진학·교육 과정) */
+function specialChoices(c: Ctx, cat: string): Choice[] {
+  const p = c.p;
+  const univ = hasUniv(p);
+  const a = age(c.s, p);
+  const out: Choice[] = [];
+  if (cat === 'legal')
+    out.push({
+      label: '로스쿨 진학 (→ 변호사·판사·검사)',
+      req: [req('int', 65), '대학 졸업', '합격 시 학비 6천만'],
+      tag: 'study',
+      disabled: !univ || !ok(6000, c.s),
+      run: (x) => {
+        if (check(x.s, x.p.actual.int + (hasFlag(x.p, 'univ_top') ? 8 : 0) + (majorOf(x.p) === 'law' ? 5 : 0), 58, 6)) {
+          pay(x.s, householder(x.s), 6000);
+          setStudy(x.s, x.p, 3, 'law_school');
+          return `로스쿨 합격! 3년 뒤 변호사 시험(5회 제한). 성적이 좋으면 판사·검사 임용도 노릴 수 있다.` + applyDesire(x, 'study');
+        }
+        return { text: `로스쿨 입시에 떨어졌다. 다른 길을 골라보자.`, keep: true };
+      },
+    });
+  if (cat === 'edu' || cat === 'tech' || cat === 'rec')
+    out.push({
+      label: '대학원 진학 (→ 교수·연구원)',
+      cost: 3000,
+      req: [req('int', 70), '대학 졸업', '수재 유리'],
+      tag: 'study',
+      disabled: !univ,
+      run: (x) => (setStudy(x.s, x.p, 5, 'grad_school'), `석박사 과정을 시작했다. 5년 뒤 교수 임용에 도전한다.` + applyDesire(x, 'study')),
+    });
+  if (cat === 'tech')
+    out.push(
+      examChoice('개발 부트캠프 → IT 취업', 'developer', {
+        cost: 1000,
+        tag: 'study',
+        pre: (x) => addFlag(x.p, 'bootcamp'),
+      }),
+    );
+  if (cat === 'media') {
+    out.push(
+      {
+        label: '유튜버 (장비 풀세팅)',
+        cost: 500,
+        tag: 'stage',
+        run: (x) => (setJob(x.p, 'youtuber', 0), addFlag(x.p, 'invest:1'), `카메라·조명·마이크를 샀다. 그래도 구독자는 가족뿐.` + applyDesire(x, 'stage')),
+      },
+      {
+        label: '유튜버 (편집자·스튜디오까지)',
+        cost: 3000,
+        tag: 'stage',
+        run: (x) => (setJob(x.p, 'youtuber', 0), addFlag(x.p, 'invest:3'), `스튜디오를 빌리고 편집자를 고용했다.` + applyDesire(x, 'stage')),
+      },
+    );
+  }
+  if (cat === 'sport')
+    out.push({
+      label: '프로게이머 도전',
+      req: [req('int', 55), '24세 이하'],
+      tag: 'sport',
+      disabled: a > 24,
+      run: (x) => {
+        if (check(x.s, x.p.actual.int * 0.6 + x.p.actual.str * 0.4, 60, 6)) return setJob(x.p, 'gamer', 1), `🎮 프로게임단 2군에 들어갔다!` + applyDesire(x, 'sport');
+        return { text: `입단 테스트 탈락. 랭크 점수가 모자랐다.`, keep: true };
+      },
+    });
+  if (cat === 'etc')
+    out.push({
+      label: '백수로 산다 (기본소득)',
+      tag: 'free',
+      run: (x) => {
+        setJob(x.p, 'none');
+        addFlag(x.p, 'chosen_idle');
+        x.p.happiness = clamp(x.p.happiness + 15, 0, 100);
+        x.s.fame = Math.max(0, x.s.fame - 2);
+        return `기본소득으로 소소하게 살기로 했다. 가문 어른들이 혀를 찬다.` + applyDesire(x, 'free');
+      },
+    });
+  return out;
+}
 
 const firstJob: EventDef = {
   id: 'first_job',
   title: () => '진로 선택',
-  text: (c) =>
-    `${iga(who(c))} 사회로 나갈 차례다.` +
-    (hasFlag(c.p, 'univ_top') ? ' (명문대 졸업)' : hasFlag(c.p, 'univ_local') ? ' (대학 졸업)' : ' (고졸)') +
-    (c.ev.data?.cat ? '' : '\n어느 쪽으로 가볼까? 시험은 붙을 때까지 매년 볼 수 있다.'),
+  text: (c) => {
+    const p = c.p;
+    const school = p.flags.filter((f) => f.startsWith('school:')).pop()?.slice(7);
+    return (
+      `${iga(who(c))} 사회로 나갈 차례다. (${age(c.s, p)}세 · ${school ? school + ' 졸업' : hasUniv(p) ? '대졸' : '고졸'})` +
+      (c.ev.data?.cat ? '' : `\n어느 분야로 가볼까? 시험은 붙을 때까지 매년 볼 수 있고, 떨어지면 다른 분야를 골라도 된다.`)
+    );
+  },
   choices: (c) => {
     const p = c.p;
-    const univ = hasUniv(p);
-    const noUniv = { disabled: !univ };
-    const a = age(c.s, p);
-    return categorized(c, [
-      [
-        'job',
-        '🏢 직장 (공채·공무원 시험)',
+    const major = majorOf(p);
+    const cats: [string, string, () => Choice[]][] = [];
+    if (major && MAJOR_JOBS[major])
+      cats.push([
+        'rec',
+        '🎯 전공 추천',
+        () => [...MAJOR_JOBS[major].map((id) => jobChoice(c, id)).filter((x): x is Choice => !!x), ...(hasUniv(p) ? specialChoices(c, 'legal') : []), ...specialChoices(c, 'rec')],
+      ]);
+    for (const [cat, label] of Object.entries(JOB_CATS)) {
+      cats.push([
+        cat,
+        label,
         () => [
-          examChoice('대기업 공채 준비', 'corp', { ...noUniv, tag: 'study' }),
-          examChoice('공기업 NCS 준비', 'public_corp', { ...noUniv, tag: 'public' }),
-          examChoice('9급 공무원 시험', 'civil', { tag: 'public' }),
-          examChoice('5급 행정고시', 'civil5', { ...noUniv, tag: 'public' }),
-          examChoice('경찰 시험', 'police', { tag: 'public' }),
-          examChoice('소방관 시험', 'firefighter', { tag: 'public' }),
-          examChoice('교원 임용고시', 'teacher', { ...noUniv, tag: 'public' }),
-          examChoice('언론고시 (기자)', 'journalist', { ...noUniv, tag: 'study' }),
-          examChoice('개발 부트캠프 → IT 취업', 'developer', {
-            cost: 1000,
-            tag: 'study',
-            pre: (x) => addFlag(x.p, 'bootcamp'),
-          }),
-          { label: '중소기업에 바로 취업', run: (x) => (setJob(x.p, 'office', 0), `작은 회사에서 커리어를 시작했다.`) },
+          ...JOB_IDS.filter((id) => JOBS[id].cat === cat)
+            .map((id) => jobChoice(c, id))
+            .filter((x): x is Choice => !!x),
+          ...specialChoices(c, cat),
         ],
-      ],
-      [
-        'pro',
-        '📚 전문직 (진학·자격증)',
-        () => [
-          {
-            label: '로스쿨 진학',
-            req: [req('int', 65), '대학 졸업', '합격 시 학비 6천만'],
-            tag: 'study',
-            disabled: !univ || !ok(6000, c.s),
-            run: (x) => {
-              if (check(x.s, x.p.actual.int + (hasFlag(x.p, 'univ_top') ? 8 : 0), 58, 6)) {
-                pay(x.s, head(x.s), 6000);
-                setStudy(x.s, x.p, 3, 'law_school');
-                return `로스쿨 합격! 3년 뒤 변호사 시험(5회 제한).` + applyDesire(x, 'study');
-              }
-              return { text: `로스쿨 입시에 떨어졌다. 다른 길을 골라보자.`, keep: true };
-            },
-          },
-          {
-            label: '대학원 진학 (교수의 길)',
-            cost: 3000,
-            req: [req('int', 70), '대학 졸업', '수재 유리'],
-            tag: 'study',
-            disabled: !univ,
-            run: (x) => (setStudy(x.s, x.p, 5, 'grad_school'), `박사 과정을 시작했다. 5년 뒤 교수 임용에 도전한다.` + applyDesire(x, 'study')),
-          },
-          examChoice('회계사(CPA) 시험', 'accountant', { ...noUniv, tag: 'study' }),
-          examChoice('비행 교육원 → 조종사 채용', 'pilot', {
-            cost: 10000,
-            tag: 'study',
-            pre: (x) => addFlag(x.p, 'flight_school'),
-          }),
-        ],
-      ],
-      [
-        'biz',
-        '💰 장사·사업',
-        () => [
-          {
-            label: '창업 (가문이 자본금 지원)',
-            cost: 5000,
-            req: ['자본금 5천만', '장사 재능 유리'],
-            tag: 'business',
-            run: (x) => {
-              setJob(x.p, 'founder', 0);
-              if (hasTalent(x.p, 'merchant') && discoverTalent(x.p, 'merchant')) return `사업을 시작했다. 거래처를 다루는 솜씨를 보니 [장사꾼] 재능이 있다!`;
-              return `작은 사업체를 차렸다. 3년 안에 망하는 회사가 절반이다.` + applyDesire(x, 'business');
-            },
-          },
-          {
-            label: '치킨집 창업 (자영업)',
-            cost: 15000,
-            req: ['창업비 1.5억', req('cha', 45)],
-            tag: 'business',
-            run: (x) => (setJob(x.p, 'shopkeeper', 0), `동네에 치킨집을 열었다. 경쟁 가게가 길 건너에만 셋이다.` + applyDesire(x, 'business')),
-          },
-        ],
-      ],
-      [
-        'art',
-        '🎬 창작·도전',
-        () => [
-          {
-            label: '유튜버 (폰 하나로 시작)',
-            tag: 'stage',
-            run: (x) => (setJob(x.p, 'youtuber', 0), `카메라 대신 폰을 들었다. 첫 영상 조회수 37.` + applyDesire(x, 'stage')),
-          },
-          {
-            label: '유튜버 (장비 풀세팅)',
-            cost: 500,
-            tag: 'stage',
-            run: (x) => (setJob(x.p, 'youtuber', 0), addFlag(x.p, 'invest:1'), `카메라·조명·마이크를 샀다. 그래도 구독자는 가족뿐.` + applyDesire(x, 'stage')),
-          },
-          {
-            label: '유튜버 (편집자·스튜디오까지)',
-            cost: 3000,
-            tag: 'stage',
-            run: (x) => (setJob(x.p, 'youtuber', 0), addFlag(x.p, 'invest:3'), `스튜디오를 빌리고 편집자를 고용했다. 영상 퀄리티는 방송국급.` + applyDesire(x, 'stage')),
-          },
-          { label: '웹툰·웹소설 연재', req: [req('int', 50)], tag: 'stage', run: (x) => (setJob(x.p, 'writer', 0), `무료 연재 플랫폼에 1화를 올렸다. 댓글 0개.` + applyDesire(x, 'stage')) },
-          { label: '인디 음악', cost: 300, req: [req('cha', 50)], tag: 'stage', run: (x) => (setJob(x.p, 'musician', 0), `홍대 클럽에서 첫 공연. 관객 여섯 명.` + applyDesire(x, 'stage')) },
-          {
-            label: '프로게이머 도전',
-            req: [req('int', 55), '24세 이하'],
-            tag: 'sport',
-            disabled: a > 24,
-            run: (x) => {
-              if (check(x.s, x.p.actual.int * 0.6 + x.p.actual.str * 0.4, 60, 6)) return setJob(x.p, 'gamer', 1), `🎮 프로게임단 2군에 들어갔다!` + applyDesire(x, 'sport');
-              return { text: `입단 테스트 탈락. 랭크 점수가 모자랐다.`, keep: true };
-            },
-          },
-        ],
-      ],
-      [
-        'free',
-        '🛋 알바·백수',
-        () => [
-          { label: '알바하며 산다', tag: 'free', run: (x) => (setJob(x.p, 'parttime'), `편의점, 물류센터, 배달… 닥치는 대로 한다.` + applyDesire(x, 'free')) },
-          {
-            label: '백수로 산다 (기본소득)',
-            tag: 'free',
-            run: (x) => {
-              setJob(x.p, 'none');
-              addFlag(x.p, 'chosen_idle');
-              x.p.happiness = clamp(x.p.happiness + 15, 0, 100);
-              x.s.fame = Math.max(0, x.s.fame - 2);
-              return `기본소득으로 소소하게 살기로 했다. 가문 어른들이 혀를 찬다.` + applyDesire(x, 'free');
-            },
-          },
-        ],
-      ],
-    ]);
+      ]);
+    }
+    return categorized(c, cats);
   },
 };
 
@@ -890,19 +647,30 @@ function makeSuitors(s: GameState, p: Person, quality: number): Person[] {
   return [0, 1, 2].map(() => makeDate(s, p, quality - 44));
 }
 
+/** 매력도: 외모·성품·명성·재산 + 직업 번듯함 */
 function appeal(s: GameState, p: Person): number {
-  return p.actual.cha * 0.7 + p.actual.mor * 0.2 + Math.min(20, s.fame * 0.25) + Math.min(25, (personWorth(s, p) + s.familyCash * 0.3) / 4000);
+  return 10 + Math.min(10, p.jobLevel * 2 + Math.max(0, JOBS[p.job].fame) * 2) + (hasTrait(p, 'social') ? 6 : hasTrait(p, 'shy') ? -6 : 0) + (hasTrait(p, 'flirt') ? 4 : 0) + p.actual.cha * 0.7 + p.actual.mor * 0.2 + Math.min(20, s.fame * 0.25) + Math.min(25, (personWorth(s, p) + s.familyCash * 0.3) / 4000);
 }
 function desirability(c: Person): number {
   const a = c.actual;
   return (a.str + a.int + a.cha + a.mor + a.hp) / 5 + Math.min(20, c.cash / 1500) + (c.flags.includes('divorced') ? -6 : 0);
 }
 
-function marry(s: GameState, p: Person, sp: Person) {
+export function marry(s: GameState, p: Person, sp: Person) {
   sp.flags = sp.flags.filter((f) => !f.startsWith('show:'));
+  if (p.spouseId || p.flags.includes('divorced')) p.flags.push('remarried');
   sp.spouseId = p.id;
   sp.affinity = 40;
   p.spouseId = sp.id;
+  const bond = 62 + normal(s, 0, 12) + [p, sp].reduce((t, x) => t + (hasTrait(x, 'devoted') ? 10 : hasTrait(x, 'flirt') ? -10 : 0), 0);
+  p.bond = sp.bond = Math.round(Math.max(20, Math.min(100, bond)));
+  for (const x of [p, sp]) {
+    x.flags = x.flags.filter((f) => !f.startsWith('wed:'));
+    x.flags.push('wed:' + s.year);
+  }
+  const a = age(s, p);
+  if (a >= 45) p.flags.push('late_marriage');
+  if (a < 25) p.flags.push('young_marriage');
   s.people[sp.id] = sp;
   s.log.push({ year: s.year, text: `💍 ${fullName(p)} ♥ ${fullName(sp)} 결혼 (${age(s, p)}세 · 지참금 ${formatMoney(sp.cash)})`, kind: 'life' });
 }
@@ -914,9 +682,14 @@ export function suitorLine(c: Person, s: GameState): string {
   return `${fullName(c)} ${s.year - c.birthYear}세${c.flags.includes('divorced') ? '(돌싱)' : ''} · ${jobLabel(c)} · 집안${stars(c.cash / 150)} · ${statTxt}`;
 }
 
+/** 번듯한 직장이 없으면 결혼 승낙을 받기 어렵다 */
+function jobless(p: Person): boolean {
+  return ['none', 'parttime'].includes(p.job) || p.flags.some((f) => f === 'student' || f.startsWith('prep:') || f.startsWith('serving:'));
+}
+
 /** 프러포즈 성공 판정 */
 function propose(s: GameState, p: Person, cand: Person, bonus: number): boolean {
-  return check(s, appeal(s, p) + bonus - agePenalty(age(s, p)), desirability(cand), 10);
+  return check(s, appeal(s, p) + bonus - agePenalty(age(s, p)) - (jobless(p) ? 12 : 0), desirability(cand), 10);
 }
 
 const AGENCY_TIERS: [string, number, number][] = [
@@ -947,7 +720,7 @@ const blindDate: EventDef = {
     const out: Choice[] = [
       {
         label: '만남을 이어가다 프러포즈한다',
-        req: ['매력·집안·명성', ...(a >= 40 ? ['나이 불리'] : [])],
+        req: ['매력·집안·명성', ...(a >= 40 ? ['나이 불리'] : []), ...(jobless(c.p) ? ['무직 불리'] : [])],
         run: (x) => {
           if (propose(x.s, x.p, cand, x.ev.data.bonus ?? 0)) {
             marry(x.s, x.p, cand);
@@ -1274,13 +1047,10 @@ const election: EventDef = {
 
 // ───────────────────────── 가주 랜덤 이벤트 ─────────────────────────
 
-interface RandomDef extends EventDef {
-  weight: (c: Ctx) => number;
-}
 
 const guarantee: RandomDef = {
   id: 'r_guarantee',
-  weight: (c) => (age(c.s, c.p) >= 28 ? 1 : 0),
+  weight: (c) => (age(c.s, c.p) >= 28 ? 0.5 : 0),
   title: () => '친구의 부탁',
   text: () => '오랜 친구가 찾아와 사업 대출 보증을 서 달라고 한다.',
   choices: () => [
@@ -1325,7 +1095,7 @@ const scam: RandomDef = {
 
 const illness: RandomDef = {
   id: 'r_illness',
-  weight: (c) => (c.p.actual.hp < 50 ? 2 : age(c.s, c.p) > 45 ? 1 : 0.3),
+  weight: (c) => (c.p.actual.hp < 40 ? 1.2 : age(c.s, c.p) > 45 ? 0.6 : 0.15),
   title: () => '건강 이상',
   text: (c) => `${who(c)}의 몸이 예전 같지 않다. 병원에서 정밀 치료를 권한다.`,
   choices: () => [
@@ -1408,7 +1178,7 @@ const burnout: RandomDef = {
 
 const lotto: RandomDef = {
   id: 'r_lotto',
-  weight: () => 0.5,
+  weight: () => 0.25,
   title: () => '복권',
   text: () => '편의점 계산대 옆에 복권이 보인다.',
   choices: () => [
@@ -1417,6 +1187,7 @@ const lotto: RandomDef = {
       run: (x) => {
         if (chance(x.s, 0.01)) {
           x.p.cash += 100000;
+          addFlag(x.p, 'lotto');
           return '🎰 1등 당첨!!! 10억!';
         }
         if (chance(x.s, 0.08)) {
@@ -1442,7 +1213,8 @@ const parentCare: RandomDef = {
         x.p.actual.mor = clamp(x.p.actual.mor + 3, 0, 100);
         x.p.actual.hp = clamp(x.p.actual.hp - 3, 0, 100);
         x.s.fame += 2;
-        return '효자·효녀라는 소문이 났다. (명성 +2)';
+        addFlag(x.p, 'cared_parent');
+        return '효자·효녀라는 소문이 났다. (명성 +2) 나중에 유산을 나눌 때 기여분을 주장할 수 있다.';
       },
     },
     { label: '좋은 요양원에 모신다', cost: 3000, run: () => '편안한 곳으로 모셨다.' },
@@ -1474,8 +1246,9 @@ const childMoney: RandomDef = {
   id: 'r_child_money',
   weight: (c) => (c.p.childIds.some((id) => alive(c.s.people[id]) && age(c.s, c.s.people[id]) >= 22 && c.s.people[id].cash < 0) ? 2 : 0),
   title: () => '자식의 SOS',
+  valid: (c) => c.p.childIds.some((id) => alive(c.s.people[id]) && age(c.s, c.s.people[id]) >= 22 && c.s.people[id].cash < 0),
   text: (c) => {
-    const k = c.p.childIds.map((id) => c.s.people[id]).find((k) => alive(k) && age(c.s, k) >= 22 && k.cash < 0)!;
+    const k = c.s.people[c.ev.data?.kid] ?? c.p.childIds.map((id) => c.s.people[id]).find((k) => alive(k) && age(c.s, k) >= 22 && k.cash < 0)!;
     c.ev.data = { kid: k.id };
     return `${iga(fullName(k))} 빚(${formatMoney(-k.cash)})에 시달리고 있다며 도움을 청한다.`;
   },
@@ -1679,7 +1452,7 @@ export const RANDOM_EVENTS: RandomDef[] = [
 ];
 
 export const EVENTS: Record<string, EventDef> = Object.fromEntries(
-  [kinder, elementary, aptitude, dream, middle, high, path, firstJob, exam, suitors, blindDate, naming, notice, athleteRetire, ytSlump, rebellion, grievance, election, ...RANDOM_EVENTS].map((e) => [e.id, e]),
+  [kinder, elementary, aptitude, dream, middle, high, firstJob, exam, suitors, blindDate, naming, notice, athleteRetire, ytSlump, rebellion, grievance, election, ...RANDOM_EVENTS].map((e) => [e.id, e]),
 );
 
 export { makeSuitors, unlock };

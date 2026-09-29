@@ -1,6 +1,6 @@
 import { chance } from './rng';
 import { STAT_KEYS, TALENTS } from './data';
-import { age, alive, clamp, discoverTalent, fullName, hasFlag, head, isDescendantOf } from './people';
+import { age, alive, clamp, discoverTalent, fullName, hasFlag, hasTrait, head, isDescendantOf } from './people';
 import type { Focus, GameState, Person, StatKey, Stats } from './types';
 
 /** 나이별 성장 효율 */
@@ -103,7 +103,7 @@ export function growthYear(s: GameState): string[] {
     }
 
     // 노화
-    if (a > 40) p.actual.hp -= a > 70 ? 2.5 : a > 60 ? 1.6 : 0.8;
+    if (a > 40) p.actual.hp -= (a > 75 ? 2 : a > 60 ? 1.1 : 0.5) * (hasTrait(p, 'tough') ? 0.6 : hasTrait(p, 'frail') ? 1.4 : 1);
     if (a > 45) p.actual.str -= 0.8;
     if (a > 55) p.actual.cha -= 0.5;
     if (a > 70) p.actual.int -= 0.5;
@@ -112,10 +112,24 @@ export function growthYear(s: GameState): string[] {
   return msgs;
 }
 
-/** 사망 확률: 나이 곡선 × 건강 보정 */
+/**
+ * 사망 확률: 나이 곡선 × 건강 × 성별(기대수명 남 80.8·여 86.6) × 성격 × 유언 여부 + 암.
+ * 유언장을 쓰면 마음이 놓여 기력이 쇠하고(×1.4), 안 쓰고 버티면 조금 더 산다(×0.85).
+ */
 export function deathChance(s: GameState, p: Person): number {
   const a = age(s, p);
-  const hpFactor = 1.6 - p.actual.hp / 80;
-  const base = a < 5 ? 0.002 : a < 40 ? 0.0008 : 0.0006 * Math.exp(0.085 * (a - 30));
-  return clamp(base * Math.max(0.3, hpFactor), 0, 0.6);
+  const hpFactor = 1.3 - p.actual.hp / 100;
+  let base = a < 5 ? 0.002 : a < 40 ? 0.0008 : 0.0006 * Math.exp(0.085 * (a - 30));
+  base *= p.sex === 'M' ? 1.0 : 0.5;
+  if (hasTrait(p, 'tough')) base *= 0.8;
+  if (hasTrait(p, 'frail')) base *= 1.3;
+  if (p.id === s.headId && a >= 60) base *= s.willWritten ? 1.4 : 0.85;
+  let d = clamp(base * Math.max(0.3, hpFactor), 0, 0.6);
+  // 암: 5년 생존율을 연간 위험으로
+  const c = p.flags.find((f) => f.startsWith('cancer:'));
+  if (c) {
+    const [surv, year] = c.slice(7).split(':').map(Number);
+    if (s.year - year < 5) d = 1 - (1 - d) * Math.pow(surv / 100, 1 / 5);
+  }
+  return clamp(d, 0, 0.9);
 }

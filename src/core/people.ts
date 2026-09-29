@@ -1,5 +1,5 @@
 import { chance, int, next, normal, pick, type RngHolder } from './rng';
-import { FEMALE_NAMES, MALE_NAMES, STAT_KEYS, TALENTS, TALENT_IDS } from './data';
+import { FEMALE_NAMES, MALE_NAMES, STAT_KEYS, TALENTS, TALENT_IDS, TRAITS, TRAIT_IDS } from './data';
 import type { CareerTag, GameState, Genes, Person, Sex, Stats, Talent } from './types';
 
 export const HAIR_STYLES = 7;
@@ -65,7 +65,7 @@ export function fillGenes(p: Person) {
 
 function randomStats(r: RngHolder, mean: number, sd: number): Stats {
   const st = {} as Stats;
-  for (const k of STAT_KEYS) st[k] = Math.round(clamp(normal(r, mean, sd), 5, 100));
+  for (const k of STAT_KEYS) st[k] = Math.round(clamp(normal(r, mean, sd), 15, 98));
   return st;
 }
 
@@ -85,7 +85,7 @@ interface CreateOpts {
 export function createPerson(s: GameState, o: CreateOpts): Person {
   const sex = o.sex ?? (chance(s, 0.5) ? 'M' : 'F');
   // 같은 '집안 수준'이라도 사람마다 편차가 크다
-  const potential = randomStats(s, (o.quality ?? 50) + normal(s, 0, 6), 17);
+  const potential = randomStats(s, (o.quality ?? 50) + normal(s, 0, 5), 14);
   const grown = o.grown ?? 0.1;
   const actual = {} as Stats;
   for (const k of STAT_KEYS) actual[k] = Math.round(potential[k] * clamp(grown + normal(s, 0, 0.06), 0.05, 1));
@@ -110,6 +110,7 @@ export function createPerson(s: GameState, o: CreateOpts): Person {
     potentialKnown: false,
     cash: 0,
     inLaw: false,
+    traits: randomTraits(s),
   };
 }
 
@@ -124,7 +125,7 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
   for (const k of STAT_KEYS) {
     // 부모 평균 + 큰 변이. 가끔은 한쪽 부모를 쏙 빼닮는다
     const mid = chance(s, 0.25) ? (chance(s, 0.5) ? father.potential[k] : mother.potential[k]) : (father.potential[k] + mother.potential[k]) / 2;
-    potential[k] = Math.round(clamp(mid + normal(s, 0, 11), 1, 100));
+    potential[k] = Math.round(clamp(mid + normal(s, 0, 10), 15, 100));
   }
   const mutations: string[] = [];
   if (chance(s, 0.005)) {
@@ -181,6 +182,7 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
     potentialKnown: false,
     cash: 0,
     inLaw: false,
+    traits: inheritTraits(s, father, mother),
   };
 }
 
@@ -217,6 +219,22 @@ export function isMainline(s: GameState, p: Person): boolean {
   if (isDescendantOf(s, p, h)) return true;
   const sp = spouseOf(s, p);
   return !!sp && isDescendantOf(s, sp, h);
+}
+
+/**
+ * 살림을 책임지는 사람. 가주가 아직 어리거나 학생·수험생이면 부모가 돈을 낸다.
+ */
+export function householder(s: GameState): Person {
+  const h = head(s);
+  const a = age(s, h);
+  const dependent = a < 20 || (a < 30 && !h.spouseId && h.flags.some((f) => f === 'student' || f === 'retaking' || f.startsWith('prep:') || f.startsWith('serving:')));
+  if (dependent) {
+    const par = parentsOf(s, h)
+      .filter(alive)
+      .sort((x, y) => y.cash - x.cash)[0];
+    if (par) return par;
+  }
+  return h;
 }
 
 export function livingMainlineMinors(s: GameState): Person[] {
@@ -277,6 +295,29 @@ export function discoverTalent(p: Person, id: string): boolean {
   if (!t || t.discovered) return false;
   t.discovered = true;
   return true;
+}
+
+export const hasTrait = (p: Person, id: string) => !!p.traits?.includes(id);
+
+/** 성격 부여: 기존 성격과 반대되는 건 건너뜀 */
+function addTrait(list: string[], id: string) {
+  if (list.includes(id) || list.some((t) => TRAITS[t].opp === id)) return;
+  list.push(id);
+}
+
+/** 무작위 성격 0~2개 */
+export function randomTraits(r: RngHolder, base: string[] = []): string[] {
+  const out = [...base];
+  const n = pick(r, [0, 1, 1, 1, 2, 2]);
+  for (let i = 0; i < n; i++) addTrait(out, pick(r, TRAIT_IDS));
+  return out.slice(0, 3);
+}
+
+/** 부모 성격을 각각 30% 확률로 물려받고, 나머지는 무작위 */
+export function inheritTraits(r: RngHolder, a: Person, b: Person): string[] {
+  const base: string[] = [];
+  for (const t of [...(a.traits ?? []), ...(b.traits ?? [])]) if (chance(r, 0.3)) addTrait(base, t);
+  return randomTraits(r, base);
 }
 
 export function addFlag(p: Person, f: string) {
