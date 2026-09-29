@@ -13,7 +13,7 @@ import { afterHomeSold, homeOf, settleHome } from './housing';
 import { debtYear } from './debt';
 import { STORIES } from './stories';
 import { SEED_EVENTS, seedYear } from './seeds';
-import { AP_PER_YEAR, autoGiftYear } from './actions';
+import { apMax, autoGiftYear } from './actions';
 import { bondDrift } from './marks';
 import { chooseSuccessor, giveAsset, giveGift, settleEstate, transferHeadship } from './estate';
 import { CREATORS } from './data';
@@ -269,7 +269,8 @@ export function homeTotal(s: GameState): { label: string; value: number } {
 export function simulateYear(s: GameState): void {
   if (s.events.length || s.gameOver) return;
   s.year++;
-  s.ap = AP_PER_YEAR;
+  s.ap = apMax(s);
+  s.actUsed = {};
   const h0 = head(s);
   log(s, `── ${s.year}년 · ${fullName(h0)} ${age(s, h0)}세 ──`);
 
@@ -342,7 +343,9 @@ function lifeYear(s: GameState) {
     }
     // 병역: 남자 20세 (연기했으면 졸업 후)
     if (p.sex === 'M' && !p.inLaw && a >= 20 && a <= 28 && !p.flags.some((f) => ['served', 'exempt', 'draft_dodger'].includes(f) || f.startsWith('serving:')) && !pending('military')) {
-      if (a === 20 || (hasFlag(p, 'mil_postponed') && !hasFlag(p, 'student'))) queue(s, 'military', p.id);
+      // 스무 살에 첫 통지. 연기했으면 학업·시험이 끝나거나 28세가 되면 다시 온다
+      const busy = hasFlag(p, 'student') || p.flags.some((f) => f.startsWith('prep:') || f === 'retaking');
+      if (a === 20 || (hasFlag(p, 'mil_postponed') && (!busy || a >= 28))) queue(s, 'military', p.id);
     }
     // 암
     if (!p.flags.some((f) => f.startsWith('cancer:')) && chance(s, cancerRate(s, p))) queue(s, 'cancer', p.id);

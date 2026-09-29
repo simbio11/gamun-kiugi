@@ -1,5 +1,6 @@
 import { chance, normal, pick } from './rng';
 import { ASSESS_RATIO, ASSET_NAMES, CREATORS, EDU_COST, JOBS, TALENTS } from './data';
+import { mark } from './people';
 import { addFlag, age, alive, check, clamp, discoverTalent, fullName, hasTalent, hasTrait, head, householder, isMainline, livingMainlineMinors } from './people';
 import type { Asset, AssetKind, GameState, MarketKey, Person } from './types';
 import { promoteMult } from './marks';
@@ -230,11 +231,14 @@ export function householdItems(s: GameState, incomes: Map<string, number>) {
   const inHouse = new Set([hh.id, ...(hsp ? [hsp.id] : []), ...minors.map((m) => m.id), ...atHome.map((m) => m.id), h.id]);
   const items: [string, number][] = [];
   const add = (label: string, v: number) => v > 0 && items.push([label, Math.round(v)]);
-  add('기본 생활비', 1500 * mult + (hsp ? 1500 * mult : 0));
-  add(`아이 양육비 (${minors.length}명)`, minors.length * 900 * mult);
-  add(`얹혀 사는 성인 자녀 (${atHome.length}명)`, atHome.length * 1200 * mult);
   const houseIncome = Math.max(0, incomes.get(hh.id) ?? 0) + Math.max(0, (hsp && incomes.get(hsp.id)) || 0);
-  add('소비 (수입에 비례)', houseIncome * 0.35 * mult * (hasTrait(hh, 'frugal') ? 0.8 : hasTrait(hh, 'spender') ? 1.3 : 1));
+  // 기본 생활비는 형편 따라: 넉넉하면 1인 1,500만, 빠듯하면 900만까지 줄여 산다
+  const perAdult = clamp(700 + houseIncome * 0.12, 900, 1500);
+  add('기본 생활비', perAdult * mult * (hsp ? 2 : 1));
+  add(`아이 양육비 (${minors.length}명)`, minors.length * perAdult * 0.6 * mult);
+  add(`얹혀 사는 성인 자녀 (${atHome.length}명)`, atHome.length * perAdult * 0.8 * mult);
+  // 여윳돈이 생기면 씀씀이도 커진다 (연 4천만 넘는 부분의 35%)
+  add('소비 (수입에 비례)', Math.max(0, houseIncome - 4000) * 0.35 * mult * (hasTrait(hh, 'frugal') ? 0.8 : hasTrait(hh, 'spender') ? 1.3 : 1));
   // 미취학 아동 교육비 (학령기는 해마다 학년 이벤트에서 직접 고른다)
   let pre = 0;
   for (const c of livingMainlineMinors(s)) if (age(s, c) < 8) pre += EDU_COST[s.policy.children[c.id]?.budget ?? 1];
@@ -323,7 +327,8 @@ export function economyYear(s: GameState): string[] {
   for (const p of Object.values(s.people)) {
     if (!alive(p)) continue;
     if (p.flags.some((f) => f.startsWith('serving:'))) {
-      p.cash += 1200;
+      // 병사 월급, 공중보건의·군의관은 그보다 많다
+      p.cash += Number(p.flags.find((f) => f.startsWith('serve_pay:'))?.slice(10) ?? 1200);
       continue;
     }
     if (age(s, p) < 20 && p.job === 'none') continue;
@@ -383,6 +388,17 @@ export function economyYear(s: GameState): string[] {
   // 4) 부동산·주식: 월세(공실)·배당·재산세·종부세·대출이자·전세 만기 / 우리 집 월세·전세 재계약
   msgs.push(...realtyYear(s));
   msgs.push(...housingYear(s));
+
+  // 생활 수준이 아이들에게 남기는 것: 호화는 행복↑·씀씀이 흔적, 검소는 행복 조금↓·절약 흔적
+  for (const c of livingMainlineMinors(s)) {
+    if (s.policy.living === 'lux') {
+      c.happiness = clamp(c.happiness + 2, 0, 100);
+      if (chance(s, 0.3)) mark(c, 'spend', 1);
+    } else if (s.policy.living === 'frugal') {
+      c.happiness = clamp(c.happiness - 1, 0, 100);
+      if (chance(s, 0.3)) mark(c, 'thrift', 1);
+    }
+  }
 
   // 5) 세무사 수임료
   if (s.policy.taxAdvisor) pay(s, hh, advisorFee(s));

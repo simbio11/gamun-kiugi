@@ -7,6 +7,8 @@ import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, househo
 import type { GameState, Person, StatKey } from './types';
 import type { LifeDef } from './life';
 import { MORE_STORIES } from './stories-more';
+import { PATH_STORIES } from './stories-path';
+import { pathOf, type Path } from './path';
 
 export interface Eff {
   str?: number;
@@ -56,6 +58,12 @@ export interface Story {
   /** 흔적이 쌓일수록 더 자주 일어난다: { 흔적: 배율 } */
   boost?: Record<string, number>;
   cond?: (s: GameState, p: Person) => boolean;
+  /** 이 길(전공·직업)을 걷는 사람에게만 */
+  paths?: Path[];
+  /** 이 길이면 일어나지 않는다 */
+  notPaths?: Path[];
+  /** 대학생에게만 / 직장인에게만 */
+  student?: boolean;
 }
 
 /** {n} 이름, {n이} {n은} {n을} 조사 */
@@ -80,6 +88,11 @@ function apply(x: Ctx, e: Eff | undefined) {
     if (q && alive(q)) p.bond = q.bond = clamp((p.bond ?? 60) + e.bond, 0, 100);
   }
   if (e.flag) addFlag(p, e.flag);
+  // 유급: 졸업이 1년 미뤄진다
+  if (e.flag === 'repeat_year') {
+    const g = p.flags.find((f) => f.startsWith('grad:'));
+    if (g) p.flags = [...p.flags.filter((f) => f !== g && f !== 'repeat_year'), 'grad:' + (Number(g.slice(5)) + 1)];
+  }
   if (e.mark) for (const [k, n] of Object.entries(e.mark)) mark(p, k, n);
   if (e.later && chance(x.s, e.later[0])) schedule(x.s, int(x.s, e.later[1], e.later[2]), e.later[3], p.id);
 }
@@ -115,6 +128,9 @@ function toLife(st: Story): LifeDef {
       if (st.head && p.id !== s.headId) return 0;
       if (st.once && hasFlag(p, 'st:' + st.id)) return 0;
       if (st.cond && !st.cond(s, p)) return 0;
+      if (st.paths && !st.paths.includes(pathOf(p))) return 0;
+      if (st.notPaths && st.notPaths.includes(pathOf(p))) return 0;
+      if (st.student !== undefined && st.student !== p.flags.includes('student')) return 0;
       let w = st.w;
       if (st.boost) for (const [k, m] of Object.entries(st.boost)) w *= 1 + Math.min(6, markOf(p, k)) * m;
       return w;
@@ -284,7 +300,7 @@ const S: Story[] = [
     { label: '배낭여행', mark: { spend: 1 }, cost: 800, text: '유럽 30개 도시. 세상을 보는 눈이 넓어졌다.', eff: { cha: 3, int: 2, hap: 10 } },
     { label: '휴학은 안 된다', text: '', eff: { aff: -5 } },
   ] },
-  { id: 'contest', boost: { study: 0.3 }, title: '공모전', age: [20, 29], w: 0.03, text: '{n이} 대기업 공모전에 도전한다.', choices: [
+  { id: 'contest', boost: { study: 0.3 }, title: '공모전', age: [20, 29], w: 0.03, paths: ['biz', 'tech', 'art', 'none', 'office'], text: '{n이} 대기업 공모전에 도전한다.', choices: [
     { label: '밤새 준비한다', mark: { study: 1 }, text: '', roll: ['int', 55, [{ int: 2, study: 3, cash: 500, flag: 'contest_winner' }, '대상! 상금 500만원에 입사 가산점까지.'], [{ hap: -3 }, '본선 탈락. 경험은 남았다.']] },
     { label: '포기한다', text: '' },
   ] },
@@ -328,24 +344,24 @@ const S: Story[] = [
     { label: '집에서 살라고 한다', mark: { thrift: 1 }, text: '"언제까지 애 취급이야."', eff: { aff: -4, cash: 300 } },
   ] },
   // ───────── 직장 (25~59) ─────────
-  { id: 'overtime', title: '야근', age: [24, 58], w: 0.05, cond: working, text: '{n}의 팀에 대형 프로젝트가 떨어졌다. 한 달째 야근이다.', choices: [
+  { id: 'overtime', paths: ['office', 'tech', 'biz', 'law', 'med', 'public'], title: '야근', age: [24, 58], w: 0.05, cond: working, text: '{n}의 팀에 대형 프로젝트가 떨어졌다. 한 달째 야근이다.', choices: [
     { label: '끝까지 해낸다', mark: { health_x: 1, honest: 1 }, text: '', roll: ['int', 50, [{ hp: -3, hap: -2, fame: 1, flag: 'project_star' }, '프로젝트 대성공! 임원 눈에 들었다.'], [{ hp: -4, hap: -5 }, '고생만 하고 공은 팀장이 가져갔다.']] },
     { label: '칼퇴한다', mark: { family: 1 }, text: '눈치가 보이지만 저녁이 있는 삶.', eff: { hap: 4, bond: 3 } },
   ] },
-  { id: 'gapjil', title: '상사 갑질', age: [24, 55], w: 0.04, cond: working, text: '{n}의 상사가 매일 폭언을 한다. 녹음 버튼을 누를까 고민된다.', choices: [
+  { id: 'gapjil', notPaths: ['sport', 'soldier'], title: '상사 갑질', age: [24, 55], w: 0.04, cond: working, text: '{n}의 상사가 매일 폭언을 한다. 녹음 버튼을 누를까 고민된다.', choices: [
     { label: '녹음해서 신고한다', mark: { honest: 1 }, text: '', roll: ['mor', 45, [{ mor: 3, hap: 6 }, '상사가 징계를 받았다. 사내에서 영웅이 됐다.'], [{ hap: -8 }, '오히려 {n이} 한직으로 밀려났다.']] },
     { label: '참는다', mark: { health_x: 1 }, text: '', eff: { hap: -8, hp: -2 } },
     { label: '사표를 던진다', text: '속은 시원하다. 통장은 불안하다.', eff: { hap: 6, flag: 'quit_rage' } },
   ] },
-  { id: 'office_romance', title: '사내 연애', age: [24, 38], w: 0.03, cond: (s, p) => working(s, p) && !married(s, p) && !p.partnerId, text: '{n이} 옆 팀 동료와 자꾸 눈이 마주친다.', choices: [
+  { id: 'office_romance', paths: ['office', 'tech', 'biz', 'law', 'public'], title: '사내 연애', age: [24, 38], w: 0.03, cond: (s, p) => working(s, p) && !married(s, p) && !p.partnerId, text: '{n이} 옆 팀 동료와 자꾸 눈이 마주친다.', choices: [
     { label: '데이트 신청', mark: { network: 1 }, text: '', roll: ['cha', 45, [{ hap: 10 }, '비밀 사내 연애 시작! (얼마 안 가 다 알게 됐다)'], [{ hap: -6 }, '"저 남자(여자)친구 있어요." 한동안 어색했다.']] },
     { label: '일에만 집중', text: '', eff: { int: 1 } },
   ] },
-  { id: 'business_trip', title: '해외 출장', age: [26, 58], w: 0.03, cond: working, text: '{n}에게 뉴욕 출장 기회가 왔다.', choices: [
+  { id: 'business_trip', paths: ['office', 'tech', 'biz', 'law'], title: '해외 출장', age: [26, 58], w: 0.03, cond: working, text: '{n}에게 뉴욕 출장 기회가 왔다.', choices: [
     { label: '간다', mark: { network: 1 }, text: '', roll: ['cha', 45, [{ cha: 2, int: 2, fame: 1 }, '현지 바이어와 계약을 따냈다!'], [{ hap: 2 }, '시차 적응만 하다 왔다.']] },
     { label: '가족 때문에 사양한다', mark: { family: 1 }, text: '', eff: { bond: 3 }, need: married },
   ] },
-  { id: 'hoesik', title: '회식', age: [24, 55], w: 0.04, cond: working, text: '부장님이 3차 노래방까지 가자고 한다.', choices: [
+  { id: 'hoesik', notPaths: ['sport', 'art', 'soldier'], title: '회식', age: [24, 55], w: 0.04, cond: working, text: '부장님이 3차 노래방까지 가자고 한다.', choices: [
     { label: '끝까지 달린다', mark: { network: 1, health_x: 1 }, text: '다음 날 숙취로 죽을 뻔했다. 부장님이 {n을} 기억한다.', eff: { hp: -2, cha: 1 } },
     { label: '1차만 하고 빠진다', mark: { family: 1 }, text: '', eff: { bond: 2 } },
   ] },
@@ -452,7 +468,7 @@ const S: Story[] = [
     { label: '도전한다', mark: { exercise: 2 }, text: '', roll: ['hp', 50, [{ hp: 4, str: 3, hap: 10, flag: 'marathoner' }, '42.195km 완주! 결승선에서 울었다.'], [{ hp: -2 }, '25km에서 쥐가 나 포기했다.']] },
     { label: '응원만 한다', text: '' },
   ] },
-  { id: 'golf', boost: { network: 0.3 }, title: '골프', age: [35, 70], w: 0.03, cond: working, text: '거래처 사람들이 {n}에게 골프를 치자고 한다.', choices: [
+  { id: 'golf', notPaths: ['soldier', 'sport'], boost: { network: 0.3 }, title: '골프', age: [35, 70], w: 0.03, cond: working, text: '거래처 사람들이 {n}에게 골프를 치자고 한다.', choices: [
     { label: '장비 사고 입문', mark: { network: 1, spend: 1 }, cost: 500, text: '', roll: ['str', 40, [{ cha: 2, hap: 5, flag: 'golfer' }, '싱글 핸디캡! 비즈니스 인맥이 넓어졌다.'], [{ hap: -2 }, '공보다 잔디를 더 많이 팠다.']] },
     { label: '나는 등산파', text: '', eff: { hp: 1 } },
   ] },
@@ -541,5 +557,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES].map(toLife);
-export const STORY_COUNT = S.length + MORE_STORIES.length;
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES].map(toLife);
+export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length;

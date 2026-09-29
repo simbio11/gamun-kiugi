@@ -338,3 +338,7 @@ export function check(r: RngHolder, stat: number, threshold: number, width = 8, 
   const p = 1 / (1 + Math.exp(-(stat - threshold) / width)) + bonus;
   return next(r) < p;
 }
+
+const MED_TRACKS = ['track:med_school', 'track:dent_school', 'track:kmd_school', 'track:vet_school', 'track:pharm_school'];
+/** 의약계열(의·치·한·수·약대) 재학 중 */
+export const isMedStudent = (p: Person) => p.flags.includes('student') && p.flags.some((f) => MED_TRACKS.includes(f));

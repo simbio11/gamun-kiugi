@@ -6,6 +6,7 @@ import { JOBS, MALE_NAMES, FEMALE_NAMES } from './data';
 import { addHolding, formatMoney, jobTitle, settlePension } from './economy';
 import { applyDesire, gate, iga, queueNext, req, schedule, setJob, who, type Choice, type Ctx, type EventDef } from './ev-util';
 import {
+  isMedStudent,
   addFlag,
   age,
   alive,
@@ -43,9 +44,11 @@ const setFlagVal = (p: Person, key: string, v: string | number) => {
 // ───────────────────────── 병역 ─────────────────────────
 
 /** 복무 시작: 학생이면 졸업이 2년 밀리고, 직장은 휴직 */
-function serve(x: Ctx, years: number, kind: string, text: string): string {
+function serve(x: Ctx, years: number, kind: string, text: string, pay?: number): string {
   const p = x.p;
   setFlagVal(p, 'serving', x.s.year + years - 1);
+  p.flags = p.flags.filter((f) => f !== 'mil_postponed' && !f.startsWith('serve_pay:'));
+  if (pay) p.flags.push('serve_pay:' + pay);
   addFlag(p, kind);
   const grad = p.flags.find((f) => f.startsWith('grad:'));
   if (grad) {
@@ -76,9 +79,52 @@ const military: LifeDef = {
     const g = c.ev.data.grade;
     const p = c.p;
     if (g === 5) return [{ label: '확인', run: (x) => (addFlag(x.p, 'exempt'), '군대에 가지 않는다. 주변에서 부러워하면서도 수군댄다.') }];
+    // 의사·치과의사·한의사 면허가 있으면 공중보건의사나 군의관으로 (3년)
+    const licensed = ['doctor', 'dentist', 'kmd'].includes(p.job);
+    const medical: Choice[] = licensed
+      ? [
+          {
+            label: '공중보건의사 (섬·시골 보건소, 3년)',
+            req: ['의사 면허'],
+            run: (x) => {
+              x.p.actual.mor = clamp(x.p.actual.mor + 4, 0, 100);
+              mark(x.p, 'kind', 1);
+              return serve(x, 3, 'public_doctor', '섬마을 보건지소에 부임했다. 할머니들이 "의사 선생님"이라며 반찬을 싸 온다. 조용하지만 외롭다.', 3200);
+            },
+          },
+          ...(g <= 3
+            ? [
+                {
+                  label: '군의관 (대위 임관, 3년)',
+                  req: ['의사 면허'],
+                  run: (x: Ctx) => {
+                    x.p.actual.str = clamp(x.p.actual.str + 2, 0, 100);
+                    x.s.fame += 1;
+                    return serve(x, 3, 'army_doctor', '군 병원에서 군의관으로 복무한다. 장병들의 건강을 책임진다.', 3600);
+                  },
+                } as Choice,
+              ]
+            : []),
+        ]
+      : [];
+    // 학생·수험생은 입영을 미룰 수 있다 (28세까지)
+    const canDefer = (hasFlag(p, 'student') || p.flags.some((f) => f.startsWith('prep:') || f === 'retaking')) && age(c.s, p) < 27;
+    const defer: Choice[] = canDefer
+      ? [
+          {
+            label: hasFlag(p, 'student') ? '졸업 후로 연기 (재학생 입영 연기)' : '시험 후로 연기',
+            run: (x) => {
+              addFlag(x.p, 'mil_postponed');
+              return isMedStudent(x.p) ? '입영을 연기했다. 면허를 따면 공중보건의사나 군의관으로 갈 수도 있다.' : '입영을 연기했다. 학업을 마치면 다시 통지가 온다. (28세까지)';
+            },
+          },
+        ]
+      : [];
     if (g === 4)
       return [
+        ...medical,
         { label: '사회복무요원 (21개월)', run: (x) => serve(x, 2, 'social_service', '구청에서 사회복무를 시작했다. 출퇴근하는 군 복무다.') },
+        ...defer,
         dodge,
       ];
     const out: Choice[] = [
@@ -136,8 +182,8 @@ const military: LifeDef = {
         },
       },
     ];
-    if (hasFlag(p, 'student') && !hasFlag(p, 'mil_postponed'))
-      out.push({ label: '졸업 후로 연기', run: (x) => (addFlag(x.p, 'mil_postponed'), '입영을 연기했다. 졸업하면 다시 통지가 온다.') });
+    out.unshift(...medical);
+    out.push(...defer);
     out.push(dodge);
     return out;
   },

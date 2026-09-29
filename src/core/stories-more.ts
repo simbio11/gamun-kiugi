@@ -206,4 +206,37 @@ export const MORE_STORIES: Story[] = [
   { id: 'friend_repay', title: '돌아온 봉투', age: [30, 95], w: 0, text: '몇 년 전 돈을 빌려 갔던 친구가 {n을} 찾아왔다.', choices: [
     { label: '만난다', text: '"네 덕에 딸이 살았다." 봉투에는 빌린 돈의 두 배가 들어 있었다. 친구는 이제 작은 식당을 한다.', eff: { cash: 600, hap: 10, mor: 2 } },
   ] },
+  // ───────── 생활 수준 (가주 가족) ─────────
+  { id: 'flea_market', title: '벼룩시장', age: [25, 80], w: 0.05, head: true, cond: (s) => s.policy.living === 'frugal', text: '동네 벼룩시장이 열렸다. {n}네 창고에 안 쓰는 물건이 가득하다.', choices: [
+    { label: '좌판을 편다', mark: { thrift: 1 }, text: '', roll: ['cha', 35, [{ cash: 60, hap: 5 }, '다 팔았다! 아이들이 계산을 도왔다.'], [{ cash: 10 }, '반도 못 팔았다. 그래도 창고가 조금 비었다.']] },
+    { label: '기부한다', mark: { kind: 1 }, text: '아름다운가게에 한 트럭 보냈다.', eff: { mor: 2 } },
+  ] },
+  { id: 'hand_me_down', title: '물려 입은 옷', age: [7, 15], w: 0.04, cond: (s, p) => s.policy.living === 'frugal' && p.id !== s.headId, text: '{n이} 친척 형(언니)에게 물려받은 옷 때문에 학교에서 놀림을 받았다.', choices: [
+    { label: '새 옷을 한 벌 사 준다', cost: 20, mark: { warmth: 1 }, text: '{n이} 거울 앞을 떠나지 않는다.', eff: { hap: 8, aff: 4 } },
+    { label: '아껴야 잘 산다고 가르친다', mark: { thrift: 2, hurt: 1 }, text: '{n이} 입을 삐죽였다. 그래도 아끼는 법을 배우고 있다.', eff: { hap: -5, mor: 2 } },
+  ] },
+  { id: 'coupon_life', title: '짠테크', age: [25, 80], w: 0.04, head: true, cond: (s) => s.policy.living === 'frugal', text: '{n}, 앱테크·쿠폰·포인트를 모아 봤더니 꽤 된다.', choices: [
+    { label: '본격적으로 해 본다', mark: { thrift: 1 }, text: '한 달에 20만 원이 굳었다. 가계부가 즐거워진다.', eff: { cash: 240, hap: 2 } },
+    { label: '시간이 아깝다', text: '', eff: {} },
+  ] },
+  { id: 'vip_party', title: 'VIP 초대', age: [28, 80], w: 0.05, head: true, cond: (s) => s.policy.living === 'lux', text: '{n}에게 백화점 VIP 라운지 파티 초대장이 왔다.', choices: [
+    { label: '간다', cost: 300, mark: { network: 2, spend: 1 }, text: '', roll: ['cha', 45, [{ cha: 2, fame: 1, hap: 8 }, '재계 인사들과 명함을 주고받았다. 새로운 기회가 열린다.'], [{ hap: 3 }, '샴페인만 마시고 왔다.']] },
+    { label: '사양한다', text: '', eff: {} },
+  ] },
+  { id: 'golf_member', title: '골프 회원권', age: [35, 75], w: 0.03, head: true, once: true, cond: (s) => s.policy.living === 'lux', text: '{n}, 명문 골프장 회원권 분양 제안이 왔다. 5억.', choices: [
+    { label: '산다', cost: 50000, mark: { network: 3, spend: 2 }, text: '주말마다 필드. 인맥이 한 단계 올라갔다.', eff: { cha: 2, fame: 2, hap: 6, flag: 'golf_member' } },
+    { label: '과하다', text: '', eff: {} },
+  ] },
+  { id: 'spoiled_kid', title: '버릇', age: [8, 17], w: 0.05, cond: (s, p) => s.policy.living === 'lux' && p.id !== s.headId, text: '{n이} 친구 앞에서 "우리 집은 너희 집보다 부자야"라고 했단다.', choices: [
+    { label: '따끔하게 가르친다', mark: { honest: 1 }, text: '{n이} 얼굴이 빨개져 사과하러 갔다.', eff: { mor: 4, aff: -3 } },
+    { label: '사실인데 뭐', mark: { spend: 2 }, text: '{n}의 목소리가 점점 커진다.', eff: { mor: -4, hap: 3 } },
+  ] },
+  { id: 'rich_scam', title: '투자 권유', age: [35, 85], w: 0.03, head: true, cond: (s) => s.policy.living === 'lux', text: '골프장에서 만난 "회장님"이 {n}에게 비상장 주식 투자를 권한다. "상장하면 열 배요."', choices: [
+    { label: '1억 넣는다', cost: 10000, mark: { risk: 2 }, text: '', roll: ['luck', 15, [{ cash: 60000, hap: 10 }, '진짜 상장했다! 여섯 배.'], [{ hap: -10, fame: -1 }, '회장님이 사라졌다. 사기였다.']] },
+    { label: '정중히 거절한다', mark: { honest: 1 }, text: '석 달 뒤 뉴스에 그 "회장님" 얼굴이 나왔다.', eff: {} },
+  ] },
+  { id: 'lux_envy', title: '구설', age: [30, 80], w: 0.03, head: true, cond: (s) => s.policy.living === 'lux', text: '{n}네 씀씀이를 두고 동네에서 말이 많다.', choices: [
+    { label: '기부로 입막음을 한다', cost: 1000, mark: { kind: 1 }, text: '"그래도 베풀 줄은 안다"는 말로 바뀌었다.', eff: { fame: 2 } },
+    { label: '신경 쓰지 않는다', text: '', eff: { fame: -1 } },
+  ] },
 ];

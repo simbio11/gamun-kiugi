@@ -2,14 +2,16 @@
 // (갑작스러운 사건·선택형 이벤트는 턴을 넘길 때 일어난다)
 
 import { chance, int, pick } from './rng';
-import { fmt, grow, jitter, rollTier, say, stat, TIER_MARK } from './practice';
-import { P } from './action-lines';
+import { fmt, getFatigue, grow, jitter, rollTier, say, setFatigue, stat, TIER_MARK } from './practice';
+import { P, P2 } from './action-lines';
+import { appealBonus } from './marks';
 import { addBargains } from './realty';
 import { standing, standingChange } from './school';
 import { JOBS } from './data';
 import { formatMoney, jobTitle, pay, statScore } from './economy';
 import { makeDate } from './events';
 import { eul, iga, schedule, spendable, wa } from './ev-util';
+import { isMedStudent } from './people';
 import { addFlag, age, alive, check, clamp, discoverTalent, fullName, hasFlag, hasTrait, head, householder, isDescendantOf, mark, markOf, parentsOf, relationLabel, spouseOf } from './people';
 import { startDating } from './romance';
 import { TALENTS } from './data';
@@ -24,6 +26,27 @@ const TRIP_PLACES = ['제주도', '강릉', '부산', '경주', '여수', '가�
 
 export type ActionCat = '가족' | '진로·자기계발' | '자녀 교육' | '재산' | '사회';
 
+/** 인생 단계: 단계마다 할 수 있는 일이 다르다 */
+export type Stage = 'little' | 'elem' | 'teen' | 'univ' | 'prep' | 'adult' | 'senior';
+export const STAGE_NAMES: Record<Stage, string> = { little: '유아', elem: '초등학생', teen: '중·고등학생', univ: '대학생', prep: '수험생·취준생', adult: '사회인', senior: '노년' };
+export { isMedStudent } from './people';
+
+export function stageOf(s: GameState, p: Person): Stage {
+  const a = age(s, p);
+  if (a < 8) return 'little';
+  if (a < 14) return 'elem';
+  if (p.flags.includes('student')) return 'univ';
+  if (a < 20) return 'teen';
+  if (p.flags.some((f) => f === 'retaking' || f.startsWith('prep:')) || (p.job === 'none' && a < 32 && !p.spouseId)) return 'prep';
+  if (a >= 65 || p.job === 'pension') return 'senior';
+  return 'adult';
+}
+
+/** 생활 수준에 따른 한 해 행동력: 검소 2 · 보통 3 · 호화 4 */
+export function apMax(s: GameState): number {
+  return AP_PER_YEAR + ({ frugal: -1, normal: 0, lux: 1 } as const)[s.policy.living];
+}
+
 export interface ActionDef {
   id: string;
   cat: ActionCat;
@@ -32,8 +55,12 @@ export interface ActionDef {
   desc: string;
   ap: number;
   cost?: number;
-  /** 가주 나이 조건: kid(20세 미만)·adult(20세 이상)·any. 기본 adult */
+  /** 가주 나이 조건: kid(20세 미만)·adult(20세 이상)·any. 기본 adult (stages가 있으면 그것을 따른다) */
   who?: 'kid' | 'adult' | 'any';
+  /** 할 수 있는 인생 단계 */
+  stages?: Stage[];
+  /** 조건이 안 되면 목록에서 아예 숨긴다 (자녀가 없으면 자녀 교육 등) */
+  show?: (s: GameState) => boolean;
   /** 대상이 필요하면 후보 목록 */
   targets?: (s: GameState) => Person[];
   /** 할 수 없으면 이유 */
@@ -82,7 +109,9 @@ const KID_ACTIONS: ActionDef[] = [
       const me = h(s);
       const t = rollTier(s, me, { talent: 'genius', stat: 'int', bonus: markOf(me, 'study') * 0.01 });
       const was = standing(me);
-      const st = { great: int(s, 4, 6), good: int(s, 2, 3), meh: int(s, 0, 1), bad: 0 }[t] * (1 + Math.min(6, markOf(me, 'study')) * 0.05);
+      const st = { great: int(s, 4, 6), good: int(s, 2, 3), meh: int(s, 0, 1), bad: 0 }[t] * (1 + Math.min(6, markOf(me, 'study')) * 0.05) * getFatigue();
+      const joy = -jitter(s, t === 'bad' ? 5 : 2);
+      mood(me, joy);
       me.study = clamp((me.study ?? 20) + st, 0, 100);
       const di = t === 'great' || (t === 'good' && chance(s, 0.3)) ? grow(s, me, 'int', t === 'great' ? 'good' : 'meh') : 0;
       let hp = 0;
@@ -91,7 +120,7 @@ const KID_ACTIONS: ActionDef[] = [
         me.actual.hp = clamp(me.actual.hp - 1, 0, 100);
       }
       if (t !== 'meh' && t !== 'bad') mark(me, 'study', 1);
-      return TIER_MARK[t] + say(s, me, P.study, t) + fmt([standingChange(was, me), stat('int', di), stat('hp', hp)]);
+      return TIER_MARK[t] + say(s, me, P.study, t) + fmt([standingChange(was, me), stat('int', di), stat('hp', hp), ['행복', joy]]);
     },
   },
   {
@@ -233,6 +262,7 @@ export const ACTIONS: ActionDef[] = [
     ap: 1,
     cost: 50,
     blocked: (s) => (spouseOf(s, h(s)) && alive(spouseOf(s, h(s))!) ? undefined : '배우자가 없다'),
+    show: (s) => hasSpouse(s),
     run: (s) => {
       const me = h(s);
       const t = rollTier(s, me, { stat: 'cha', bonus: ((me.bond ?? 60) - 60) / 400 });
@@ -461,7 +491,7 @@ export const ACTIONS: ActionDef[] = [
       const p = t!;
       const tier = rollTier(s, p, { stat: 'int', talent: 'genius', bonus: hasTrait(p, 'rebel') ? -0.12 : 0 });
       const was = standing(p);
-      const st = { great: int(s, 5, 7), good: int(s, 2, 4), meh: int(s, 0, 1), bad: 0 }[tier];
+      const st = { great: int(s, 5, 7), good: int(s, 2, 4), meh: int(s, 0, 1), bad: 0 }[tier] * getFatigue();
       p.study = clamp((p.study ?? 30) + st, 0, 100);
       p.eduSpent = (p.eduSpent ?? 0) + 500;
       const joy = -{ great: jitter(s, 2), good: jitter(s, 4), meh: jitter(s, 5), bad: jitter(s, 9) }[tier];
@@ -620,6 +650,10 @@ export const ACTIONS: ActionDef[] = [
 
 /** 지금 가주가 할 수 있는 종류의 행동인가 */
 export function forHead(s: GameState, a: ActionDef): boolean {
+  if (a.show && !a.show(s)) return false;
+  if (a.targets && !a.targets(s).length) return false;
+  const st = a.stages ?? STAGE_DEFAULT[a.id];
+  if (st) return st.includes(stageOf(s, h(s)));
   const kid = age(s, h(s)) < 20;
   const w = a.who ?? 'adult';
   return w === 'any' || (w === 'kid') === kid;
@@ -642,7 +676,18 @@ export function doAction(s: GameState, id: string, targetId?: string): { ok: boo
   if (a.cost && spendable(s) < a.cost) return { ok: false, text: '돈이 부족하다' };
   if (a.cost) pay(s, householder(s), a.cost);
   s.ap = apLeft(s) - a.ap;
-  const text = a.run(s, t);
+  // 같은 걸 한 해에 여러 번: 두 번째 60%, 세 번째 35%… 그리고 지친다
+  const used = (s.actUsed ??= {});
+  const rep = used[id] ?? 0;
+  used[id] = rep + 1;
+  setFatigue([1, 0.6, 0.35, 0.2][Math.min(3, rep)]);
+  let text = a.run(s, t);
+  setFatigue(1);
+  if (rep >= 1 && a.ap > 0) {
+    const who = t ?? h(s);
+    mood(who, -3 * rep);
+    text += `\n(올해 ${rep + 1}번째라 효과가 줄었다 · 피로 누적, 행복 -${3 * rep})`;
+  }
   s.log.push({ year: s.year, text: `${a.icon} ${a.name}${t ? ` (${fullName(t)})` : ''}: ${text.split('\n')[0]}`, kind: 'life' });
   return { ok: true, text };
 }
@@ -661,4 +706,508 @@ export function autoGiftYear(s: GameState, give: (to: Person, amount: number) =>
     else out.push(`🎁 현금이 부족해 ${fullName(to)}에게 이번 해 증여를 못 했다`);
   }
   return out;
+}
+
+// ───────────────────────── 인생 단계별 기본 설정 ─────────────────────────
+
+const YOUNG: Stage[] = ['little', 'elem', 'teen'];
+const GROWN: Stage[] = ['adult', 'senior'];
+const ADULTISH: Stage[] = ['univ', 'prep', 'adult', 'senior'];
+/** 예전부터 있던 행동이 어느 단계에서 보이는가 */
+const STAGE_DEFAULT: Record<string, Stage[]> = {
+  kid_study: ['elem', 'teen'],
+  kid_play: YOUNG,
+  kid_sport: YOUNG,
+  kid_art: YOUNG,
+  kid_help: YOUNG,
+  kid_save: ['elem', 'teen'],
+  family_trip: GROWN,
+  date: ADULTISH,
+  talk: GROWN,
+  visit_parents: ADULTISH,
+  grandkid: GROWN,
+  matchmake: GROWN,
+  push_marriage: GROWN,
+  career: ['adult'],
+  job_hop: ['adult'],
+  self_study: ['adult'],
+  exercise: ADULTISH,
+  checkup: GROWN,
+  extra_class: GROWN,
+  aptitude: GROWN,
+  abroad: GROWN,
+  bargain: GROWN,
+  art_fair: GROWN,
+  volunteer: ['teen', 'univ', 'prep', 'adult', 'senior'],
+  network: ['adult'],
+  donate: GROWN,
+  politics: GROWN,
+};
+
+const me = (s: GameState) => h(s);
+const hasSpouse = (s: GameState) => {
+  const q = spouseOf(s, h(s));
+  return !!q && alive(q);
+};
+const single2 = (s: GameState) => !h(s).partnerId && !hasSpouse(s);
+const fat = () => getFatigue();
+
+/** 단계마다 새로 생긴 행동들 */
+const STAGE_ACTIONS: ActionDef[] = [
+  // ───── 유아·초등·중고 ─────
+  {
+    id: 'kid_book',
+    cat: '진로·자기계발',
+    icon: '📖',
+    name: '책 읽기',
+    desc: '지능↑ 성적 조금↑ · 독서 습관은 오래간다',
+    ap: 1,
+    stages: YOUNG,
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'int', bonus: markOf(p, 'study') * 0.01 });
+      const was = standing(p);
+      const di = grow(s, p, 'int', t, 0.8);
+      if (age(s, p) >= 8) p.study = clamp((p.study ?? 20) + { great: 2, good: 1, meh: 0, bad: 0 }[t] * fat(), 0, 100);
+      if (t === 'great' || t === 'good') mark(p, 'study', 1);
+      const joy = t === 'bad' ? -jitter(s, 3) : 0;
+      mood(p, joy);
+      return TIER_MARK[t] + say(s, p, P2.book, t) + fmt([stat('int', di), ...(age(s, p) >= 8 ? [standingChange(was, p)] : []), ['행복', joy]]);
+    },
+  },
+  {
+    id: 'kid_game',
+    cat: '가족',
+    icon: '🎮',
+    name: '게임하기',
+    desc: '행복↑ · 성적↓ · 빠지면 헤어나기 어렵다',
+    ap: 1,
+    stages: ['elem', 'teen'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'int', bonus: -markOf(p, 'risk') * 0.02 });
+      const was = standing(p);
+      const joy = { great: jitter(s, 12), good: jitter(s, 8), meh: jitter(s, 4), bad: -jitter(s, 4) }[t];
+      mood(p, joy);
+      p.study = clamp((p.study ?? 20) - { great: 1, good: 1.5, meh: 3, bad: 4 }[t], 0, 100);
+      const di = t === 'great' ? grow(s, p, 'int', 'meh') : 0;
+      let aff = 0;
+      if (t === 'bad') {
+        aff = -jitter(s, 5);
+        for (const q of parentsOf(s, p).filter(alive)) q.affinity = clamp(q.affinity + aff, -100, 100);
+        mark(p, 'risk', 1);
+      }
+      return TIER_MARK[t] + say(s, p, P2.game, t) + fmt([['행복', joy], standingChange(was, p), stat('int', di), ['부모님 관계', aff]]);
+    },
+  },
+  {
+    id: 'teen_cram',
+    cat: '진로·자기계발',
+    icon: '🌙',
+    name: '밤샘 벼락치기',
+    desc: '성적 크게↑ 가능 · 건강↓ 행복↓ · 실패하면 역효과',
+    ap: 1,
+    stages: ['teen'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'hp', bonus: hasTrait(p, 'tough') ? 0.08 : hasTrait(p, 'frail') ? -0.1 : 0 });
+      const was = standing(p);
+      const st = { great: int(s, 5, 7), good: int(s, 3, 4), meh: 1, bad: -2 }[t] * (t === 'bad' ? 1 : fat());
+      p.study = clamp((p.study ?? 20) + st, 0, 100);
+      const hp = -int(s, 1, t === 'bad' ? 4 : 2);
+      p.actual.hp = clamp(p.actual.hp + hp, 0, 100);
+      const joy = -jitter(s, t === 'bad' ? 8 : 4);
+      mood(p, joy);
+      if (t === 'bad') mark(p, 'health_x', 1);
+      return TIER_MARK[t] + say(s, p, P2.cram, t) + fmt([standingChange(was, p), stat('hp', hp), ['행복', joy]]);
+    },
+  },
+  {
+    id: 'teen_club',
+    cat: '가족',
+    icon: '🎸',
+    name: '동아리 활동',
+    desc: '매력↑ 인맥↑ · 공부 시간은 줄어든다',
+    ap: 1,
+    stages: ['teen'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'cha', bonus: hasTrait(p, 'social') ? 0.1 : hasTrait(p, 'leader') ? 0.08 : 0 });
+      const dc = t === 'bad' ? 0 : grow(s, p, 'cha', t);
+      const joy = t === 'bad' ? -jitter(s, 5) : jitter(s, 6);
+      mood(p, joy);
+      p.study = clamp((p.study ?? 20) - (t === 'bad' ? 2 : 1), 0, 100);
+      if (t !== 'bad') mark(p, 'network', 1);
+      if (t === 'great') p.flags.includes('club') || p.flags.push('club');
+      return TIER_MARK[t] + say(s, p, P2.club, t) + fmt([stat('cha', dc), ['행복', joy], ['성적', -(t === 'bad' ? 2 : 1)]]);
+    },
+  },
+  {
+    id: 'teen_job',
+    cat: '재산',
+    icon: '🧋',
+    name: '아르바이트',
+    desc: '돈을 번다 · 성적↓ 피로↑ (16세부터)',
+    ap: 1,
+    stages: ['teen'],
+    blocked: (s) => (age(s, me(s)) < 16 ? '16세부터' : undefined),
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'mor' });
+      const got = { great: jitter(s, 350), good: jitter(s, 220), meh: jitter(s, 120), bad: jitter(s, 60) }[t];
+      p.cash += got;
+      p.study = clamp((p.study ?? 20) - 2, 0, 100);
+      const hp = t === 'bad' ? -int(s, 1, 2) : 0;
+      p.actual.hp = clamp(p.actual.hp + hp, 0, 100);
+      if (t !== 'bad') mark(p, 'thrift', 1);
+      const dm = t === 'great' ? grow(s, p, 'mor', 'good') : 0;
+      return TIER_MARK[t] + say(s, p, P2.teenJob, t) + fmt([['수입(만)', got], ['성적', -2], stat('hp', hp), stat('mor', dm)]);
+    },
+  },
+  {
+    id: 'teen_love',
+    cat: '가족',
+    icon: '💌',
+    name: '연애',
+    desc: '행복↑ 매력↑ · 성적↓ · 헤어지면 상처 (15세부터)',
+    ap: 1,
+    stages: ['teen'],
+    blocked: (s) => (age(s, me(s)) < 15 ? '15세부터' : undefined),
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'cha', bonus: hasTrait(p, 'flirt') ? 0.08 : hasTrait(p, 'shy') ? -0.08 : 0 });
+      const joy = { great: jitter(s, 14), good: jitter(s, 8), meh: 0, bad: -jitter(s, 12) }[t];
+      mood(p, joy);
+      const dc = t === 'great' || t === 'good' ? grow(s, p, 'cha', 'meh') : 0;
+      p.study = clamp((p.study ?? 20) - (t === 'bad' ? 3 : 2), 0, 100);
+      if (t === 'bad') mark(p, 'scar', 1);
+      return TIER_MARK[t] + say(s, p, P2.teenLove, t) + fmt([['행복', joy], stat('cha', dc), ['성적', -(t === 'bad' ? 3 : 2)]]);
+    },
+  },
+  // ───── 대학생 ─────
+  {
+    id: 'u_major',
+    cat: '진로·자기계발',
+    icon: '🎓',
+    name: '전공 공부 (학점 관리)',
+    desc: '학점↑ → 취업·대학원에 유리 · 행복 조금↓',
+    ap: 1,
+    stages: ['univ'],
+    show: (s) => !isMedStudent(me(s)),
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'int', talent: 'genius', bonus: hasTrait(p, 'diligent') ? 0.05 : 0 });
+      const g = { great: 2, good: 1, meh: 0, bad: -1 }[t];
+      mark(p, 'gpa', g);
+      const di = grow(s, p, 'int', t === 'great' ? 'good' : 'meh');
+      const joy = -jitter(s, 3);
+      mood(p, joy);
+      if (t === 'great') p.cash += 250; // 성적 장학금
+      return TIER_MARK[t] + say(s, p, P2.major, t) + fmt([`학점 ${gpaLabel(p)}`, stat('int', di), ['행복', joy], ...(t === 'great' ? [['장학금(만)', 250] as [string, number]] : [])]);
+    },
+  },
+  {
+    id: 'u_med',
+    cat: '진로·자기계발',
+    icon: '🩺',
+    name: '의학 공부 (시험·실습)',
+    desc: '쏟아지는 시험과 실습 · 게을리하면 유급',
+    ap: 1,
+    stages: ['univ'],
+    show: (s) => isMedStudent(me(s)),
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'int', talent: 'genius' });
+      mark(p, 'gpa', { great: 2, good: 1, meh: 0, bad: -1 }[t]);
+      const di = grow(s, p, 'int', t === 'great' ? 'good' : 'meh');
+      const hp = -int(s, 0, 2);
+      p.actual.hp = clamp(p.actual.hp + hp, 0, 100);
+      const joy = -jitter(s, 4);
+      mood(p, joy);
+      return TIER_MARK[t] + say(s, p, P2.med, t) + fmt([`학점 ${gpaLabel(p)}`, stat('int', di), stat('hp', hp), ['행복', joy]]);
+    },
+  },
+  {
+    id: 'u_club',
+    cat: '가족',
+    icon: '🎤',
+    name: '동아리·학생회',
+    desc: '매력↑ 인맥↑ · 학점 관리는 소홀해진다',
+    ap: 1,
+    stages: ['univ'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'cha', bonus: hasTrait(p, 'leader') ? 0.1 : 0 });
+      const dc = t === 'bad' ? 0 : grow(s, p, 'cha', t);
+      mark(p, 'network', t === 'great' ? 2 : t === 'bad' ? 0 : 1);
+      if (t === 'bad' || chance(s, 0.3)) mark(p, 'gpa', -1);
+      const joy = t === 'bad' ? -jitter(s, 5) : jitter(s, 7);
+      mood(p, joy);
+      return TIER_MARK[t] + say(s, p, P2.uClub, t) + fmt([stat('cha', dc), ['행복', joy]]);
+    },
+  },
+  {
+    id: 'u_job',
+    cat: '재산',
+    icon: '💼',
+    name: '아르바이트·과외',
+    desc: '생활비를 번다 · 학점·건강↓',
+    ap: 1,
+    stages: ['univ', 'prep'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'int' });
+      const got = { great: jitter(s, 900), good: jitter(s, 550), meh: jitter(s, 300), bad: jitter(s, 150) }[t];
+      p.cash += got;
+      const hp = t === 'bad' ? -int(s, 1, 3) : -int(s, 0, 1);
+      p.actual.hp = clamp(p.actual.hp + hp, 0, 100);
+      if (stageOf(s, p) === 'univ' && (t === 'bad' || chance(s, 0.35))) mark(p, 'gpa', -1);
+      if (stageOf(s, p) === 'prep') p.study = clamp((p.study ?? 40) - 2, 0, 100);
+      mark(p, 'thrift', 1);
+      return TIER_MARK[t] + say(s, p, P2.uJob, t) + fmt([['수입(만)', got], stat('hp', hp)]);
+    },
+  },
+  {
+    id: 'u_meeting',
+    cat: '가족',
+    icon: '💘',
+    name: '미팅·소개팅',
+    desc: '연인이 생길 수도 · 돈과 시간이 든다',
+    ap: 1,
+    cost: 10,
+    stages: ['univ', 'prep', 'adult'],
+    show: (s) => single2(s) && age(s, me(s)) < 40,
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'cha', bonus: appealBonus(p) / 100 });
+      if (t === 'great') {
+        const q = makeDate(s, p);
+        startDating(s, p, q, '미팅');
+        mood(p, 12);
+        return TIER_MARK[t] + say(s, p, P2.meeting, t) + `\n→ ${wa(fullName(q))} 사귀기 시작했다!` + fmt([['행복', 12]]);
+      }
+      const joy = { great: 0, good: jitter(s, 5), meh: 0, bad: -jitter(s, 6) }[t];
+      mood(p, joy);
+      const dc = t === 'good' ? grow(s, p, 'cha', 'meh') : 0;
+      return TIER_MARK[t] + say(s, p, P2.meeting, t) + fmt([['행복', joy], stat('cha', dc)]);
+    },
+  },
+  {
+    id: 'u_intern',
+    cat: '진로·자기계발',
+    icon: '🏢',
+    name: '인턴십',
+    desc: '실무 경험 → 취업에 큰 도움 (21세부터 · 의약계열 제외)',
+    ap: 1,
+    stages: ['univ', 'prep'],
+    show: (s) => !isMedStudent(me(s)),
+    blocked: (s) => (age(s, me(s)) < 21 ? '21세부터' : undefined),
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'int', bonus: Math.min(6, markOf(p, 'gpa')) * 0.02 + Math.min(6, markOf(p, 'network')) * 0.01 });
+      mark(p, 'intern', { great: 2, good: 1, meh: 1, bad: 0 }[t]);
+      const dc = t === 'great' || t === 'good' ? grow(s, p, 'cha', 'meh') : 0;
+      const joy = t === 'bad' ? -jitter(s, 7) : 0;
+      mood(p, joy);
+      if (t === 'great') addFlag(p, 'intern_offer');
+      return TIER_MARK[t] + say(s, p, P2.intern, t) + fmt([`경력 ${markOf(p, 'intern')}`, stat('cha', dc), ['행복', joy]]);
+    },
+  },
+  {
+    id: 'u_exchange',
+    cat: '진로·자기계발',
+    icon: '🌍',
+    name: '교환학생',
+    desc: '한 학기 해외 · 지능·매력·인맥↑ (한 번만)',
+    ap: 2,
+    cost: 1500,
+    stages: ['univ'],
+    show: (s) => !hasFlag(me(s), 'exchange') && !isMedStudent(me(s)),
+    run: (s) => {
+      const p = me(s);
+      addFlag(p, 'exchange');
+      const t = rollTier(s, p, { stat: 'cha' });
+      const di = grow(s, p, 'int', t);
+      const dc = grow(s, p, 'cha', t);
+      mark(p, 'network', 2);
+      const joy = t === 'bad' ? -jitter(s, 4) : jitter(s, 12);
+      mood(p, joy);
+      return TIER_MARK[t] + say(s, p, P2.exchange, t) + fmt([stat('int', di), stat('cha', dc), ['행복', joy]]);
+    },
+  },
+  {
+    id: 'u_cert',
+    cat: '진로·자기계발',
+    icon: '📜',
+    name: '자격증·어학 시험',
+    desc: '스펙 한 줄 · 취업에 조금 유리',
+    ap: 1,
+    cost: 30,
+    stages: ['univ', 'prep'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'int' });
+      if (t === 'great' || t === 'good') mark(p, 'cert', 1);
+      const di = grow(s, p, 'int', t === 'great' ? 'good' : 'meh');
+      return TIER_MARK[t] + say(s, p, P2.cert, t) + fmt([`자격증 ${markOf(p, 'cert')}개`, stat('int', di)]);
+    },
+  },
+  // ───── 수험생·취준생 ─────
+  {
+    id: 'p_focus',
+    cat: '진로·자기계발',
+    icon: '🔥',
+    name: '공부에 몰두',
+    desc: '재수·고시·취업 준비 · 성적↑ 합격률↑ · 행복↓ 건강↓',
+    ap: 1,
+    stages: ['prep'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'int', bonus: hasTrait(p, 'anxious') ? -0.06 : 0 });
+      const was = standing(p);
+      p.study = clamp((p.study ?? 40) + { great: int(s, 3, 5), good: int(s, 2, 3), meh: 1, bad: 0 }[t] * fat(), 0, 100);
+      if (t === 'great' || t === 'good') mark(p, 'study', 1);
+      const joy = -jitter(s, t === 'bad' ? 8 : 4);
+      mood(p, joy);
+      const hp = -int(s, 0, t === 'bad' ? 3 : 1);
+      p.actual.hp = clamp(p.actual.hp + hp, 0, 100);
+      return TIER_MARK[t] + say(s, p, P2.focus, t) + fmt([p.flags.includes('retaking') ? standingChange(was, p) : `준비 ${markOf(p, 'study')}`, ['행복', joy], stat('hp', hp)]);
+    },
+  },
+  {
+    id: 'p_group',
+    cat: '진로·자기계발',
+    icon: '👥',
+    name: '스터디 모임',
+    desc: '서로 붙잡아 준다 · 준비↑ 매력 조금↑',
+    ap: 1,
+    stages: ['prep', 'univ'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'cha', bonus: hasTrait(p, 'social') ? 0.08 : 0 });
+      if (t === 'great' || t === 'good') mark(p, 'study', 1);
+      if (t !== 'bad') mark(p, 'network', 1);
+      const dc = t === 'great' ? grow(s, p, 'cha', 'meh') : 0;
+      const joy = t === 'bad' ? -jitter(s, 5) : jitter(s, 3);
+      mood(p, joy);
+      return TIER_MARK[t] + say(s, p, P2.group, t) + fmt([stat('cha', dc), ['행복', joy]]);
+    },
+  },
+  // ───── 사회인 ─────
+  {
+    id: 'overtime',
+    cat: '진로·자기계발',
+    icon: '🌃',
+    name: '야근 자청',
+    desc: '승진 기회↑ · 건강↓ 금슬↓ 행복↓',
+    ap: 1,
+    stages: ['adult'],
+    show: (s) => ['salary', 'fixed'].includes(JOBS[me(s).job].kind) && me(s).job !== 'pension',
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'hp', bonus: hasTrait(p, 'diligent') ? 0.08 : 0 });
+      let promo = '';
+      const j = JOBS[p.job];
+      if (j.kind === 'salary' && p.jobLevel < j.maxLevel && chance(s, { great: 0.45, good: 0.15, meh: 0.05, bad: 0 }[t])) {
+        p.jobLevel++;
+        promo = `\n→ ${jobTitle(p)}(으)로 승진!`;
+      }
+      const hp = -int(s, 1, t === 'bad' ? 5 : 2);
+      p.actual.hp = clamp(p.actual.hp + hp, 0, 100);
+      const b = hasSpouse(s) ? -int(s, 1, 4) : 0;
+      bond(s, p, b);
+      const joy = -jitter(s, 4);
+      mood(p, joy);
+      if (t === 'bad') mark(p, 'health_x', 1);
+      return TIER_MARK[t] + say(s, p, P2.overtime, t) + promo + fmt([stat('hp', hp), ['금슬', b], ['행복', joy]]);
+    },
+  },
+  {
+    id: 'hobby',
+    cat: '가족',
+    icon: '🎣',
+    name: '취미 생활',
+    desc: '행복↑ 스트레스↓ · 돈이 든다',
+    ap: 1,
+    cost: 100,
+    stages: ['adult', 'senior'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'cha' });
+      const joy = { great: jitter(s, 14), good: jitter(s, 9), meh: jitter(s, 3), bad: -jitter(s, 3) }[t];
+      mood(p, joy);
+      const k = pick(s, ['cha', 'str', 'hp'] as const);
+      const d = t === 'bad' ? 0 : grow(s, p, k, 'meh');
+      let money = 0;
+      if (t === 'bad') (money = -jitter(s, 200)), (p.cash += money);
+      mark(p, 'health_x', -1);
+      return TIER_MARK[t] + say(s, p, P2.hobby, t) + fmt([['행복', joy], stat(k, d), ['돈(만)', money]]);
+    },
+  },
+  {
+    id: 'side_job',
+    cat: '재산',
+    icon: '🛒',
+    name: '부업',
+    desc: '퇴근 후 한 푼 더 · 대박도 손해도 있다 · 피로↑',
+    ap: 1,
+    stages: ['adult'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'int', talent: 'merchant' });
+      const got = { great: jitter(s, 1800), good: jitter(s, 700), meh: jitter(s, 150), bad: -jitter(s, 400) }[t];
+      p.cash += got;
+      const hp = -int(s, 0, 2);
+      p.actual.hp = clamp(p.actual.hp + hp, 0, 100);
+      const joy = t === 'bad' ? -jitter(s, 5) : 0;
+      mood(p, joy);
+      return TIER_MARK[t] + say(s, p, P2.sideJob, t) + fmt([['수입(만)', got], stat('hp', hp), ['행복', joy]]);
+    },
+  },
+  // ───── 노년 ─────
+  {
+    id: 'senior_class',
+    cat: '진로·자기계발',
+    icon: '🏫',
+    name: '노인대학·문화센터',
+    desc: '지능 유지·행복↑ · 친구가 생긴다',
+    ap: 1,
+    cost: 20,
+    stages: ['senior'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'int' });
+      const di = t === 'bad' ? 0 : grow(s, p, 'int', t === 'great' ? 'good' : 'meh');
+      const joy = t === 'bad' ? -jitter(s, 3) : jitter(s, 8);
+      mood(p, joy);
+      mark(p, 'network', 1);
+      return TIER_MARK[t] + say(s, p, P2.seniorClass, t) + fmt([stat('int', di), ['행복', joy]]);
+    },
+  },
+  {
+    id: 'garden',
+    cat: '가족',
+    icon: '🥬',
+    name: '텃밭 가꾸기',
+    desc: '건강·행복↑',
+    ap: 1,
+    stages: ['senior'],
+    run: (s) => {
+      const p = me(s);
+      const t = rollTier(s, p, { stat: 'hp' });
+      const hp = t === 'bad' ? -int(s, 1, 3) : grow(s, p, 'hp', 'meh');
+      if (t === 'bad') p.actual.hp = clamp(p.actual.hp + hp, 0, 100);
+      const joy = t === 'bad' ? 0 : jitter(s, 7);
+      mood(p, joy);
+      mark(p, 'exercise', 1);
+      return TIER_MARK[t] + say(s, p, P2.garden, t) + fmt([stat('hp', hp), ['행복', joy]]);
+    },
+  },
+];
+ACTIONS.push(...STAGE_ACTIONS);
+
+/** 학점 표시 (흔적 'gpa'로 4.5 만점 환산) */
+export function gpaLabel(p: Person): string {
+  const v = clamp(3.0 + markOf(p, 'gpa') * 0.15, 1.5, 4.5);
+  return v.toFixed(2);
 }

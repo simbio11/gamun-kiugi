@@ -197,25 +197,30 @@ export function addStudy(s: GameState, p: Person, base: number) {
   if (hasTrait(p, 'lazy')) g *= 0.75;
   if (age(s, p) >= 16) g *= 1.3;
   g *= studyBoost(p);
-  p.study = clamp(cur + g * (1 - cur / 115), 0, 100);
+  // 위로 갈수록 한 점 올리기가 훨씬 어렵다
+  p.study = clamp(cur + g * Math.pow(Math.max(0, 1 - cur / 105), 1.4), 0, 100);
 }
 
 /** 사교육비 누적이 수능에 주는 보너스 (돈이 많이 들수록 체감) */
-const eduBonus = (p: Person) => Math.min(10, Math.sqrt((p.eduSpent ?? 0) / 1000) * 1.2);
+const eduBonus = (p: Person) => Math.min(8, Math.sqrt((p.eduSpent ?? 0) / 1000) * 1.0);
+
+/** 수능 원점수 → 백분위 곡선: 가운데(50%)와 기울기. 상위 1%는 재능과 노력이 모두 있어야 한다 */
+const SUNEUNG_MID = 64;
+const SUNEUNG_SCALE = 8.5;
 
 /** 수능: 원점수 → 백분위 */
 export function suneung(s: GameState, p: Person): number {
   const retakes = Number(p.flags.find((f) => f.startsWith('retake:'))?.slice(7) ?? 0);
   const raw =
-    studyOf(p) * 0.75 +
-    p.actual.int * 0.35 +
+    studyOf(p) * 0.6 +
+    p.actual.int * 0.45 +
     eduBonus(p) +
     Math.min(3, p.flags.filter((f) => f === 'club').length * 0.6) +
     Math.min(4, retakes * 1.5) +
     (hasTrait(p, 'anxious') ? -2 : hasTrait(p, 'cheerful') ? 1 : 0) +
     suneungBonus(p) +
     normal(s, 0, 4);
-  return Math.round(clamp(100 / (1 + Math.exp(-(raw - 58) / 10)), 0.1, 99.99) * 100) / 100;
+  return Math.round(clamp(100 / (1 + Math.exp(-(raw - SUNEUNG_MID) / SUNEUNG_SCALE)), 0.1, 99.99) * 100) / 100;
 }
 
 /** 백분위 → 9등급 (1등급 상위 4%, 2등급 11%, 3등급 23%, 4등급 40%, 5등급 60%, 6등급 77%, 7등급 89%, 8등급 96%) */
@@ -227,8 +232,8 @@ export function gradeOf(pct: number): number {
 
 /** 지금 실력으로 본 전국 위치 (시험 운 제외): 백분위·상위 %·등급 */
 export function standing(p: Person): { pct: number; top: number; grade: number } {
-  const raw = studyOf(p) * 0.75 + p.actual.int * 0.35 + eduBonus(p) + suneungBonus(p) + (hasTrait(p, 'anxious') ? -2 : hasTrait(p, 'cheerful') ? 1 : 0);
-  const pct = clamp(100 / (1 + Math.exp(-(raw - 58) / 10)), 0.1, 99.9);
+  const raw = studyOf(p) * 0.6 + p.actual.int * 0.45 + eduBonus(p) + suneungBonus(p) + (hasTrait(p, 'anxious') ? -2 : hasTrait(p, 'cheerful') ? 1 : 0);
+  const pct = clamp(100 / (1 + Math.exp(-(raw - SUNEUNG_MID) / SUNEUNG_SCALE)), 0.1, 99.9);
   return { pct, top: Math.max(0.1, 100 - pct), grade: gradeOf(pct) };
 }
 

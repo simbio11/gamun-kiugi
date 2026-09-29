@@ -217,6 +217,8 @@ export interface GameState {
   will: WillMode;
   /** 올해 남은 행동력 (대시보드에서 직접 하는 일) */
   ap?: number;
+  /** 올해 행동별 횟수 (반복하면 효과가 줄어든다) */
+  actUsed?: Record<string, number>;
   /** 가주가 유언장을 써뒀는가 */
   willWritten?: boolean;
   /** 세무 주목도 (v0.3에서 사용) */

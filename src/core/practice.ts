@@ -30,6 +30,14 @@ export function rollTier(s: GameState, p: Person, o: RollOpts = {}): Tier {
   return 'bad';
 }
 
+/** 한 해에 같은 행동을 반복하면 효과가 줄어든다 (doAction이 정해 준다) */
+let fatigue = 1;
+export const setFatigue = (v: number) => (fatigue = v);
+export const getFatigue = () => fatigue;
+
+/** 생활 수준: 잘 먹고 좋은 환경이면 조금 더 잘 큰다 */
+const LIVING_GROW = { frugal: 0.9, normal: 1, lux: 1.12 } as const;
+
 const RANGE: Record<Tier, [number, number]> = { great: [2, 4], good: [1, 3], meh: [0, 1], bad: [0, 0] };
 
 /** 확률적 반올림: 1.4면 60%는 1, 40%는 2 */
@@ -44,7 +52,7 @@ export function grow(s: GameState, p: Person, stat: StatKey, tier: Tier, scale =
   const room = clamp((cap - p.actual[stat]) / 20, 0.15, 1);
   const a = age(s, p);
   const youth = a < 13 ? 1.15 : a < 20 ? 1.05 : a > 55 ? 0.6 : 1;
-  const raw = int(s, ...RANGE[tier]) * scale * room * youth;
+  const raw = int(s, ...RANGE[tier]) * scale * room * youth * fatigue * LIVING_GROW[s.policy.living];
   const d = Math.max(0, sround(s, raw));
   const before = p.actual[stat];
   p.actual[stat] = clamp(before + d, 0, stat === 'mor' || stat === 'cha' ? 100 : cap);

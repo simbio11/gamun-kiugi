@@ -31,7 +31,7 @@ import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
 import { MISSIONS } from '../core/missions';
 import { pendingAffairs } from '../core/fate';
-import { ACTIONS, apLeft, doAction, forHead, type ActionCat } from '../core/actions';
+import { ACTIONS, STAGE_NAMES, apLeft, apMax, doAction, forHead, stageOf, type ActionCat } from '../core/actions';
 import { spendable as canSpend } from '../core/ev-util';
 import { writeWill } from '../core/family';
 import {
@@ -903,6 +903,7 @@ function policyScreen(g: GameState): string {
     <div class="field">생활 방식 ${seg('lifestyle', pol.lifestyle, Object.entries(LIFESTYLE_NAMES) as [string, string][])}</div>
     <p class="fine">일 중심: 승진↑ 건강↓ 금슬↓ · 가정 중심: 금슬↑ · 자기계발: 능력치↑ · 요양: 건강 회복${age(g, h) < 20 ? ' (성인이 되면 적용)' : ''}</p>
     <div class="field">생활 수준 ${seg('living', pol.living, Object.entries(LIVING_NAMES) as [string, string][])}</div>
+    <p class="fine">검소: 생활비 ×0.7 · 행동력 2 · 성장 ×0.9 · 아이들이 아끼는 법을 배운다 · 벼룩시장·짠테크 이야기<br>보통: 생활비 ×1 · 행동력 3<br>호화: 생활비 ×1.8 · 행동력 4 · 성장 ×1.12 · 아이들 행복↑ 대신 씀씀이가 커진다 · VIP 파티·골프 회원권·투자 권유(사기 주의) 이야기<br>(행동력은 다음 해부터 바뀐다)</p>
     <div class="field">가족계획 (자녀 수 목표) ${seg('plan', pol.familyPlan, [0, 1, 2, 3, 4, 5].map((n) => [n, n + '명']))}</div>
   </section>
   <section class="card">
@@ -1082,8 +1083,8 @@ function actionsScreen(g: GameState): string {
   const money = canSpend(g);
   return `
   <section class="card ap-card">
-    <h2>올해 할 일 <span class="ap">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, 3 - ap))}</span></h2>
-    <p class="fine">행동력은 해마다 3. 다 쓰지 않아도 된다. 갑작스러운 일들은 해가 바뀔 때 일어난다.${age(g, head(g)) < 20 ? '<br>아직 어려서 할 수 있는 일이 많지 않다. 커 가면서 늘어난다.' : ''}</p>
+    <h2>올해 할 일 <small class="muted">${STAGE_NAMES[stageOf(g, head(g))]}</small> <span class="ap">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, apMax(g) - ap))}</span></h2>
+    <p class="fine">행동력 ${apMax(g)} (생활 수준 ${LIVING_NAMES[g.policy.living]}: 검소 2 · 보통 3 · 호화 4). 같은 일을 한 해에 여러 번 하면 효과가 줄고 지친다.<br>인생 단계가 바뀌면 할 수 있는 일도 바뀐다. 갑작스러운 일들은 해가 바뀔 때 일어난다.</p>
   </section>
   ${cats
     .map(
@@ -1093,9 +1094,9 @@ function actionsScreen(g: GameState): string {
         .map((a) => {
           const targets = a.targets?.(g) ?? [];
           const blocked = a.blocked?.(g, targets[0]);
-          const noTarget = a.targets && !targets.length;
-          const disabled = ap < a.ap || !!blocked || noTarget || (a.cost ?? 0) > money;
-          const why = noTarget ? '대상 없음' : blocked ?? ((a.cost ?? 0) > money ? '돈 부족' : ap < a.ap ? '행동력 부족' : '');
+          const used = g.actUsed?.[a.id] ?? 0;
+          const disabled = ap < a.ap || !!blocked || (a.cost ?? 0) > money;
+          const why = blocked ?? ((a.cost ?? 0) > money ? '돈 부족' : ap < a.ap ? '행동력 부족' : used ? `올해 ${used}번 함 · 효과↓` : '');
           return `<div class="act ${disabled ? 'off' : ''}">
             <div class="act-h"><span class="act-i">${a.icon}</span><div><b>${a.name}</b><small>${esc(a.desc)}</small></div></div>
             <div class="act-r">

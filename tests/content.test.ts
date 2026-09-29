@@ -10,7 +10,7 @@ import { STORY_COUNT } from '../src/core/stories';
 import { makeDate } from '../src/core/events';
 import { breakUp, startDating } from '../src/core/romance';
 import { chooseSuccessor } from '../src/core/estate';
-import { apLeft, doAction } from '../src/core/actions';
+import { ACTIONS, apLeft, apMax, doAction, forHead, stageOf } from '../src/core/actions';
 import { SEED_EVENTS } from '../src/core/seeds';
 import { householder, mark, markOf } from '../src/core/people';
 import { nestOf } from '../src/core/nest';
@@ -287,5 +287,59 @@ describe('인생 시스템', () => {
     goBankrupt(s, h);
     expect(h.cash).toBeGreaterThanOrEqual(0);
     expect(h.flags).toContain('bankrupt');
+  });
+
+  it('행동은 인생 단계에 맞게: 대학생에겐 전공 공부, 의대생에겐 인턴 대신 의학 공부', () => {
+    const s = newGame({ seed: 21, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    const ids = () => ACTIONS.filter((a) => forHead(s, a)).map((a) => a.id);
+    expect(stageOf(s, h)).toBe('little');
+    expect(ids()).not.toContain('kid_study');
+    s.year = h.birthYear + 21;
+    h.flags.push('student', 'major:biz', 'grad:' + (s.year + 2));
+    expect(stageOf(s, h)).toBe('univ');
+    expect(ids()).toContain('u_major');
+    expect(ids()).toContain('u_intern');
+    expect(ids()).not.toContain('kid_art');
+    expect(ids()).not.toContain('extra_class'); // 자녀가 없으면 안 보인다
+    h.flags = h.flags.filter((f) => f !== 'major:biz');
+    h.flags.push('track:med_school', 'major:med');
+    expect(ids()).toContain('u_med');
+    expect(ids()).not.toContain('u_intern');
+    // 생활 수준에 따라 행동력
+    s.policy.living = 'lux';
+    expect(apMax(s)).toBe(4);
+    s.policy.living = 'frugal';
+    expect(apMax(s)).toBe(2);
+  });
+
+  it('이야기는 길에 맞게: 한의대생에게 대기업 공모전은 오지 않는다', () => {
+    const s = newGame({ seed: 22, familyName: '최', sex: 'F' });
+    const h = head(s);
+    s.year = h.birthYear + 22;
+    h.flags.push('student', 'major:kmd', 'track:kmd_school');
+    const w = (id: string) => (EVENTS[id] as any).weight(s, h);
+    expect(w('st_contest')).toBe(0);
+    expect(w('st_acupuncture')).toBeGreaterThan(0);
+    expect(w('st_cadaver')).toBe(0);
+  });
+
+  it('병역: 의사 면허가 있으면 공중보건의사·군의관, 학생은 연기할 수 있다', () => {
+    const s = newGame({ seed: 23, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    s.year = h.birthYear + 20;
+    h.actual.hp = 70;
+    h.flags.push('student');
+    s.events.push({ uid: 900, defId: 'military', personId: h.id });
+    let labels = currentEvent(s)!.choices.map((c) => c.label).join('|');
+    expect(labels).toContain('연기');
+    s.events = [];
+    h.flags = h.flags.filter((f) => f !== 'student');
+    h.job = 'doctor';
+    s.events.push({ uid: 901, defId: 'military', personId: h.id });
+    labels = currentEvent(s)!.choices.map((c) => c.label).join('|');
+    expect(labels).toContain('공중보건의사');
   });
 });
