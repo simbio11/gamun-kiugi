@@ -237,6 +237,8 @@ export interface GameState {
   gameOver?: { reason: string; score: number };
   /** 올해 부동산 매물 */
   listings?: Listing[];
+  /** 이야기를 마지막으로 겪은 해 (같은 이야기가 자꾸 반복되지 않게): '사람id:이야기id' → 해 */
+  storySeen?: Record<string, number>;
   /** 시작 난이도 (없으면 운명에 맡김) */
   difficulty?: 'easy' | 'normal' | 'hard';
 }

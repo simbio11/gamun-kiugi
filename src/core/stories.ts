@@ -12,6 +12,7 @@ import { pathOf, type Path } from './path';
 import { trackOf } from './tracks';
 import { TRACK_STORIES } from './stories-track';
 import { HOOD_STORIES } from './stories-hood';
+import { MINI_STORIES } from './stories-mini';
 
 export interface Eff {
   str?: number;
@@ -58,6 +59,8 @@ export interface Story {
   head?: boolean;
   /** 평생 한 번 */
   once?: boolean;
+  /** 같은 사람에게 다시 일어나기까지 최소 햇수 (기본 8년) */
+  cooldown?: number;
   /** 흔적이 쌓일수록 더 자주 일어난다: { 흔적: 배율 } */
   boost?: Record<string, number>;
   cond?: (s: GameState, p: Person) => boolean;
@@ -140,6 +143,8 @@ function toLife(st: Story): LifeDef {
       if (a < st.age[0] || a > st.age[1] || p.inLaw) return 0;
       if (st.head && p.id !== s.headId) return 0;
       if (st.once && hasFlag(p, 'st:' + st.id)) return 0;
+      const last = s.storySeen?.[p.id + ':' + st.id];
+      if (last !== undefined && s.year - last < (st.cooldown ?? 8)) return 0;
       if (st.cond && !st.cond(s, p)) return 0;
       if (st.paths && !st.paths.includes(pathOf(p))) return 0;
       if (st.notPaths && st.notPaths.includes(pathOf(p))) return 0;
@@ -151,6 +156,7 @@ function toLife(st: Story): LifeDef {
     },
     choices: (c) => {
       if (st.once) addFlag(c.p, 'st:' + st.id);
+      (c.s.storySeen ??= {})[c.p.id + ':' + st.id] = c.s.year;
       return gate(
         c.s,
         st.choices.filter((sc) => !sc.need || sc.need(c.s, c.p)).map(toChoice),
@@ -571,5 +577,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES].map(toLife);
-export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length;
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES].map(toLife);
+export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length;
