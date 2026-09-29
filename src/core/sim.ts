@@ -11,12 +11,13 @@ import { nestYear } from './nest';
 import { isRealty, mortgageFromCash, rollListings, sellRealty } from './realty';
 import { afterHomeSold, homeOf, settleHome } from './housing';
 import { debtYear } from './debt';
+import { bindState } from './school';
 import { STORIES } from './stories';
 import { SEED_EVENTS, seedYear } from './seeds';
 import { apMax, autoGiftYear } from './actions';
 import { bondDrift } from './marks';
 import { chooseSuccessor, giveAsset, giveGift, settleEstate, transferHeadship } from './estate';
-import { CREATORS } from './data';
+import { CREATORS, TALENT_IDS } from './data';
 import { exposeFakes, makeDate, marry, examScore, spendable, type Ctx } from './events';
 import { EVENTS, RANDOM_EVENTS } from './registry';
 import { eun, iga } from './ev-util';
@@ -51,13 +52,24 @@ export interface NewGameOpts {
   sex: Sex;
   /** 없으면 무작위 (운명) */
   origin?: GameState['origin'];
+  /** 난이도: 집안 형편·부모 직업·재산·아이의 유전(잠재력·재능·성격)까지 정한다. 없으면 운명 */
+  difficulty?: Difficulty;
 }
+
+export type Difficulty = 'easy' | 'normal' | 'hard';
+/** 난이도별: 형편, 재벌가 확률, 부모 잠재력 보정, 아이 잠재력 보정, 부모 직급 보정 */
+export const DIFFICULTY: Record<Difficulty, { name: string; desc: string; origin: GameState['origin']; tycoon: number; parentQ: number; childQ: number; level: number }> = {
+  easy: { name: '쉬움 · 금수저', desc: '부유한 집(재벌가일 수도), 전문직 부모와 높은 직급, 뛰어난 유전자 — 잠재력↑, 재능 하나는 타고난다, 좋은 성격', origin: 'rich', tycoon: 0.4, parentQ: 6, childQ: 10, level: 1 },
+  normal: { name: '보통 · 중산층', desc: '평범한 직장인 부모, 수도권·지방 아파트, 보통의 유전자', origin: 'middle', tycoon: 0, parentQ: 0, childQ: 0, level: 0 },
+  hard: { name: '어려움 · 흙수저', desc: '가난한 집, 빚과 반지하, 생계형 직업 부모, 불리한 유전자 — 잠재력↓, 재능 없음, 약점 하나', origin: 'poor', tycoon: 0, parentQ: -4, childQ: -8, level: -1 },
+};
 
 const START_YEAR = 2025;
 const DEFAULT_MARKET: Record<MarketKey, number> = { apt_seoul: 250000, apt_local: 30000, land: 20000, building: 350000, stock: 100, coin: 100, art: 100 };
 
 /** 예전 버전 세이브를 현재 형식으로 */
 export function migrate(s: GameState): GameState {
+  bindState(s);
   const v = s.version as number;
   if (v < 2) {
     s.market = { ...DEFAULT_MARKET, ...s.market };
@@ -131,11 +143,13 @@ export function newGame(o: NewGameOpts): GameState {
   };
   // 집안 형편은 운명: 서민 30% · 중산층 52% · 부유층 18% (그중 1/4은 재벌가)
   const roll = next(s);
-  const origin = o.origin ?? (roll < 0.3 ? 'poor' : roll < 0.82 ? 'middle' : 'rich');
-  const tycoon = origin === 'rich' && chance(s, 0.25);
+  const dif = o.difficulty ? DIFFICULTY[o.difficulty] : undefined;
+  const origin = o.origin ?? dif?.origin ?? (roll < 0.3 ? 'poor' : roll < 0.82 ? 'middle' : 'rich');
+  const tycoon = origin === 'rich' && chance(s, dif ? dif.tycoon : 0.25);
+  if (o.difficulty) s.difficulty = o.difficulty;
   s.origin = origin;
   s.fame = { poor: 0, middle: 8, rich: 25 }[origin] + (tycoon ? 25 : 0);
-  const q = { poor: 46, middle: 51, rich: 56 }[origin];
+  const q = { poor: 46, middle: 51, rich: 56 }[origin] + (dif?.parentQ ?? 0);
 
   const fAge = int(s, 31, 43);
   const mAge = clamp(fAge + int(s, -5, 2), 28, 42);
@@ -151,7 +165,7 @@ export function newGame(o: NewGameOpts): GameState {
     p.job = tycoon && p === father ? 'founder' : pick(s, pool);
     const j = JOBS[p.job];
     p.jobYears = Math.max(0, age(s, p) - 27);
-    p.jobLevel = tycoon && p === father ? 4 : Math.min(j.maxLevel, int(s, 0, Math.floor(p.jobYears / 4)));
+    p.jobLevel = tycoon && p === father ? 4 : clamp(int(s, 0, Math.floor(p.jobYears / 4)) + (dif?.level ?? 0), 0, j.maxLevel);
   };
   giveJob(father, PARENT_JOBS[origin]);
   if (chance(s, origin === 'poor' ? 0.2 : 0.35)) mother.job = 'none';
@@ -208,6 +222,19 @@ export function newGame(o: NewGameOpts): GameState {
   // 다섯 살까지 쌓인 능력치는 운
   for (const k of Object.keys(me.actual) as (keyof typeof me.actual)[]) me.actual[k] = Math.round(me.potential[k] * (0.12 + next(s) * 0.2));
   me.actual.hp = Math.round(me.potential.hp * (0.45 + next(s) * 0.3));
+  // 난이도가 정하는 유전: 잠재력·재능·성격
+  if (dif) {
+    for (const k of Object.keys(me.potential) as (keyof typeof me.potential)[]) me.potential[k] = clamp(me.potential[k] + dif.childQ, 15, 98);
+    if (o.difficulty === 'easy') {
+      if (!me.talents.length) me.talents.push({ id: pick(s, TALENT_IDS), discovered: false });
+      me.traits = (me.traits ?? []).filter((t) => !['lazy', 'frail', 'anxious'].includes(t));
+      if (!me.traits.some((t) => ['diligent', 'cheerful', 'tough'].includes(t))) me.traits.push(pick(s, ['diligent', 'cheerful', 'tough']));
+    } else if (o.difficulty === 'hard') {
+      me.talents = [];
+      me.traits = (me.traits ?? []).filter((t) => !['diligent', 'tough'].includes(t));
+      if (!me.traits.some((t) => ['lazy', 'frail', 'anxious'].includes(t))) me.traits.push(pick(s, ['lazy', 'frail', 'anxious']));
+    }
+  }
   me.affinity = 60;
   mother.flags.push('plan:' + (father.childIds.length + (sibs - older)));
 
@@ -230,6 +257,7 @@ export function newGame(o: NewGameOpts): GameState {
       `🏠 ${home.length ? home.map((a) => a.name).join(', ') : '월세살이'} · 집안 재산 ${formatMoney(worth)}` +
       (father.cash < 0 ? ` (빚 ${formatMoney(-father.cash)})` : '') +
       (tycoon ? '\n💎 재벌가의 자손이다!' : '') +
+      (dif ? `\n🎚 난이도: ${dif.name}` : '\n🎲 운명에 맡겼다') +
       `\n\n지금 ${START_YEAR}년, ${eun(fullName(me))} 다섯 살.\n이제부터 당신이 이 아이의 인생을, 그리고 가문을 이끈다.\n학창 시절 → 수능 → 진로 → 결혼 → 자녀·손주 → 유언과 승계.`,
     portrait: me.id,
   });
@@ -239,6 +267,7 @@ export function newGame(o: NewGameOpts): GameState {
   for (const p of Object.values(s.people)) mortgageFromCash(s, p);
   settleHome(s, householder(s));
   rollListings(s);
+  bindState(s);
   return s;
 }
 
@@ -268,6 +297,7 @@ export function homeTotal(s: GameState): { label: string; value: number } {
 
 export function simulateYear(s: GameState): void {
   if (s.events.length || s.gameOver) return;
+  bindState(s);
   s.year++;
   s.ap = apMax(s);
   s.actUsed = {};
@@ -795,6 +825,7 @@ function endGame(s: GameState, reason: string) {
 const FOR_THE_DEAD = new Set(['notice', 'choose_heir', 'parent_estate', 'naming']);
 
 export function currentEvent(s: GameState): ReturnType<typeof eventView> | undefined {
+  bindState(s);
   // 그사이 상황이 바뀐 이벤트(사망·이혼 등)는 건너뛴다
   while (s.events.length) {
     const ev = s.events[0];

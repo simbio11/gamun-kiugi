@@ -216,6 +216,7 @@ job('pet_groomer', '반려동물 미용사', 'service', 'salary', 2300, 700, 3, 
 
 // ── 기술·생산 ──
 job('factory', '생산직', 'trade', 'salary', 3300, 600, 4, { color: '#5a6a7a', retireAge: 60, promote: 0.1, risk: 0.03, stats: BODY, titles: ['사원', '주임', '조장', '반장', '직장'], entry: hire(10, 'free', { text: '3교대 공장에 들어갔다.' }) });
+job('big_factory', '대기업 생산기술직', 'trade', 'salary', 4800, 900, 4, { color: '#35506a', retireAge: 60, promote: 0.1, risk: 0.02, stats: { int: 0.4, str: 0.4, mor: 0.2 }, titles: ['사원', '주임', '조장', '반장', '기술 명장'], entry: special('마이스터고·특성화고 고졸 공채', 'free') });
 job('electrician', '전기기사', 'trade', 'salary', 3500, 900, 4, { color: '#e0b020', retireAge: 70, promote: 0.12, risk: 0.03, stats: { int: 0.5, str: 0.5 }, titles: SKILL_T, entry: exam('electric', 'free') });
 job('welder', '용접공', 'trade', 'salary', 3800, 1100, 4, { color: '#4a4a4a', retireAge: 65, promote: 0.12, risk: 0.05, stats: BODY, titles: SKILL_T, entry: hire(25, 'free', { cost: 300, needNote: '용접기능사', text: '불꽃 튀는 현장에 섰다. 숙련되면 억대도 가능하다.' }) });
 job('mechanic', '자동차 정비사', 'trade', 'salary', 3000, 900, 4, { color: '#3a4a6a', retireAge: 70, promote: 0.12, risk: 0.02, stats: { str: 0.4, int: 0.6 }, titles: ['견습', '정비사', '반장', '공장장', '정비소 사장'], entry: hire(25, 'free', { cost: 200, text: '기름때 묻은 작업복을 입었다.' }) });

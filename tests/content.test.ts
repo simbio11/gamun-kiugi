@@ -17,7 +17,8 @@ import { nestOf } from '../src/core/nest';
 import { forecast, payOf } from '../src/core/economy';
 import { PAY } from '../src/core/pay';
 import { acqTax, buyListing, gainsTax, isPrimary, rentable, rollListings } from '../src/core/realty';
-import { standing } from '../src/core/school';
+import { recommendSusi, standing } from '../src/core/school';
+import { hoodOf } from '../src/core/housing';
 import { homeOf, moveTo, settleHome } from '../src/core/housing';
 import { debtRate, goBankrupt, walletNet } from '../src/core/debt';
 
@@ -418,5 +419,44 @@ describe('인생 시스템', () => {
       expect(max, job).toBeLessThan(90000);
       expect(payOf(s, h, true)!, job).toBeLessThanOrEqual(55000);
     }
+  });
+
+  it('난이도: 쉬움은 부유층·좋은 유전자·재능, 어려움은 서민·불리한 유전자', () => {
+    const avg = (d: 'easy' | 'hard') => {
+      let t = 0;
+      for (let seed = 1; seed <= 20; seed++) {
+        const s = newGame({ seed, familyName: '최', sex: 'M', difficulty: d });
+        const h = head(s);
+        expect(s.origin).toBe(d === 'easy' ? 'rich' : 'poor');
+        if (d === 'easy') expect(h.talents.length).toBeGreaterThan(0);
+        else expect(h.talents.length).toBe(0);
+        t += Object.values(h.potential).reduce((a, b) => a + b, 0);
+      }
+      return t / 20;
+    };
+    expect(avg('easy')).toBeGreaterThan(avg('hard') + 60);
+  });
+
+  it('동네: 반지하 동네는 공부 효율이 낮고 학원비가 싸다, 대치동은 반대', () => {
+    const s = newGame({ seed: 51, familyName: '최', sex: 'M' });
+    const h = head(s);
+    const hh = Object.values(s.people).find((p) => p.home)!;
+    hh.home!.tier = 'room';
+    const poor = hoodOf(s, h);
+    hh.home!.tier = 'gangnam';
+    const elite = hoodOf(s, h);
+    expect(poor.hood).toBe('poor');
+    expect(elite.hood).toBe('elite');
+    expect(poor.study).toBeLessThan(elite.study);
+    expect(poor.cost).toBeLessThan(elite.cost);
+  });
+
+  it('수시 학생부종합: 봉사·배려가 쌓인 아이에겐 교육·복지·간호 쪽이 열린다', () => {
+    const s = newGame({ seed: 52, familyName: '최', sex: 'F' });
+    const h = head(s);
+    mark(h, 'kind', 6);
+    mark(h, 'warmth', 4);
+    const keys = new Set(recommendSusi(s, h, 70).map((p) => p.key));
+    expect([...keys].some((k) => ['edu', 'edu_elem', 'welfare', 'nurse', 'kinder', 'pt'].includes(k))).toBe(true);
   });
 });

@@ -11,6 +11,7 @@ import { PATH_STORIES } from './stories-path';
 import { pathOf, type Path } from './path';
 import { trackOf } from './tracks';
 import { TRACK_STORIES } from './stories-track';
+import { HOOD_STORIES } from './stories-hood';
 
 export interface Eff {
   str?: number;
@@ -570,5 +571,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES].map(toLife);
-export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length;
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES].map(toLife);
+export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length;

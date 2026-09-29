@@ -44,6 +44,7 @@ const WORK_GROUP: Record<string, string> = {
   pilot: 'transport', courier: 'transport', delivery_rider: 'transport', taxi: 'transport', bus_driver: 'transport', trucker: 'transport', train_driver: 'transport', navigator: 'transport',
   athlete: 'sport', trainer: 'sport', coach: 'sport', gamer: 'sport',
   founder: 'owner', shopkeeper: 'owner', cafe_owner: 'owner', cvs_owner: 'owner', online_shop: 'owner', restaurant: 'owner', realtor: 'owner', landlord: 'owner',
+  big_factory: 'trade',
   farmer: 'farm', smart_farmer: 'farm', fisher: 'farm', rancher: 'farm',
   journalist: 'press', pd: 'press', announcer: 'press', designer: 'press', voice_actor: 'press',
   youtuber: 'creator', entertainer: 'creator', actor: 'creator', model: 'creator', writer: 'creator', novelist: 'creator', musician: 'creator', painter: 'creator', photographer: 'creator',

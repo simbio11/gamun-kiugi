@@ -274,3 +274,33 @@ export function buyCurrentHome(s: GameState, p: Person): string {
   s.log.push({ year: s.year, text: `🏡 ${fullName(holder)}, 살던 ${a.name}을(를) 매수`, kind: 'money' });
   return `살던 집을 샀다! ${formatMoney(q.price)} (취득세 ${formatMoney(q.tax)}${useLoan ? ` · 대출 ${formatMoney(useLoan)}` : ''})`;
 }
+
+// ───────────────────────── 동네 (학군·어울리는 친구) ─────────────────────────
+
+export type Hood = 'poor' | 'modest' | 'local' | 'middle' | 'rich' | 'elite';
+export interface HoodInfo {
+  hood: Hood;
+  name: string;
+  /** 공부 효율 배수 (면학 분위기·학원 인프라) */
+  study: number;
+  /** 사교육비 배수 (대치동 학원비 vs 동네 보습학원) */
+  cost: number;
+  /** 수능 정보력 보너스 */
+  sat: number;
+}
+const HOODS: Record<Hood, Omit<HoodInfo, 'hood'>> = {
+  poor: { name: '반지하 동네', study: 0.85, cost: 0.7, sat: -1.5 },
+  modest: { name: '빌라촌', study: 0.93, cost: 0.85, sat: -0.5 },
+  local: { name: '지방 아파트 단지', study: 0.97, cost: 0.9, sat: 0 },
+  middle: { name: '수도권 아파트 단지', study: 1, cost: 1, sat: 0 },
+  rich: { name: '서울 학군지', study: 1.08, cost: 1.35, sat: 1 },
+  elite: { name: '대치동 학원가', study: 1.15, cost: 1.8, sat: 2 },
+};
+const RANK_HOOD: Hood[] = ['poor', 'poor', 'modest', 'local', 'middle', 'rich', 'elite'];
+
+/** 이 사람이 사는 동네: 본인 집 → 부모님 집 → 살림 맡은 사람 집 */
+export function hoodOf(s: GameState, p: Person): HoodInfo {
+  const h = homeOf(s, p) ?? [s.people[p.fatherId ?? ''], s.people[p.motherId ?? '']].filter(Boolean).map((q) => homeOf(s, q)).find(Boolean) ?? homeOf(s, householder(s));
+  const hood = h ? RANK_HOOD[tierOf(s, h.tier).rank] : 'middle';
+  return { hood, ...HOODS[hood] };
+}

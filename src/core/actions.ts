@@ -7,7 +7,7 @@ import { P, P2 } from './action-lines';
 import { TRACK_ACTIONS, trackOf } from './tracks';
 import { appealBonus } from './marks';
 import { addBargains } from './realty';
-import { standing, standingChange } from './school';
+import { bindState, standing, standingChange } from './school';
 import { JOBS } from './data';
 import { formatMoney, jobTitle, pay, statScore } from './economy';
 import { makeDate } from './events';
@@ -671,6 +671,7 @@ export function apLeft(s: GameState) {
 export function doAction(s: GameState, id: string, targetId?: string): { ok: boolean; text: string } {
   const a = ACTIONS.find((x) => x.id === id);
   if (!a) return { ok: false, text: '' };
+  bindState(s);
   if (!forHead(s, a)) return { ok: false, text: '지금 나이에는 할 수 없다' };
   if (apLeft(s) < a.ap) return { ok: false, text: '올해 행동력을 다 썼다. 다음 해로 넘기자.' };
   const t = targetId ? s.people[targetId] : undefined;

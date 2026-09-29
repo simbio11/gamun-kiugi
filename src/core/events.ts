@@ -264,14 +264,46 @@ const high: EventDef = {
     return gate(c.s, [
       { label: '일반고', run: () => `평범한 고등학교 생활이 시작됐다.` },
       {
-        label: '자사고·특목고',
+        label: '과학고·영재고',
+        cost: 1500,
+        req: [req('int', 65), '수학·과학'],
+        tag: 'study',
+        run: (x) => {
+          if (check(x.s, x.p.actual.int + (hasFlag(x.p, 'gifted_center') ? 8 : 0) + (hasFlag(x.p, 'olympiad') ? 8 : 0), 66, 5))
+            return addFlag(x.p, 'high_sci'), addFlag(x.p, 'high_elite'), `과학고 합격! 조기 졸업하고 KAIST로 가는 길이 열린다.` + applyDesire(x, 'study');
+          return `불합격. 일반고로 진학했다.`;
+        },
+      },
+      {
+        label: '외고·국제고',
+        cost: 3000,
+        req: [req('int', 55), req('cha', 50)],
+        tag: 'study',
+        run: (x) => {
+          if (check(x.s, x.p.actual.int * 0.6 + x.p.actual.cha * 0.4 + (hasFlag(x.p, 'mid_intl') ? 6 : 0), 55, 6))
+            return addFlag(x.p, 'high_lang'), addFlag(x.p, 'high_elite'), `외고 합격! 어학·국제 쪽 길과 해외 대학이 가까워졌다.` + applyDesire(x, 'study');
+          return `불합격. 일반고로 진학했다.`;
+        },
+      },
+      {
+        label: '자사고',
         cost: 4000,
         req: [req('int', 55)],
         tag: 'study',
         run: (x) => {
           if (check(x.s, x.p.actual.int + (hasFlag(x.p, 'mid_intl') ? 6 : 0), 52, 6))
-            return addFlag(x.p, 'high_elite'), `특목고 합격! 입시 전쟁이 시작된다.` + applyDesire(x, 'study');
+            return addFlag(x.p, 'high_elite'), `자사고 합격! 의대·명문대 입시 전쟁이 시작된다.` + applyDesire(x, 'study');
           return `불합격. 일반고로 진학했다.`;
+        },
+      },
+      {
+        label: '마이스터고 (고졸 대기업·공기업)',
+        req: [req('int', 45), '기술 적성'],
+        tag: 'free',
+        run: (x) => {
+          if (check(x.s, x.p.actual.int * 0.5 + x.p.actual.str * 0.3 + x.p.actual.mor * 0.2, 45, 6))
+            return addFlag(x.p, 'high_meister'), `마이스터고 합격! 학비 면제에 기숙사, 졸업하면 대기업 기술직을 노린다.` + applyDesire(x, 'free');
+          return addFlag(x.p, 'high_voc'), `떨어져서 특성화고로 갔다.`;
         },
       },
       {

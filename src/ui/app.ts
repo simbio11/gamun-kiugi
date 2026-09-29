@@ -45,6 +45,7 @@ import {
   migrate,
   setTaxAdvisor,
   currentEvent,
+  DIFFICULTY,
   designateHeir,
   familyTotal,
   gift,
@@ -54,6 +55,7 @@ import {
   sellAsset,
   simulateYear,
 } from '../core/sim';
+import type { Difficulty } from '../core/sim';
 import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
 
@@ -71,7 +73,7 @@ interface UIState {
   outcome?: { title: string; text: string };
   toast?: string;
   giftTo?: string;
-  setup: { surname: string; sex: Sex; origin: GameState['origin'] | 'random' };
+  setup: { surname: string; sex: Sex; origin: Difficulty | 'random' };
 }
 
 const SAVE_KEY = 'gamun-kiugi-save-v1';
@@ -223,8 +225,8 @@ function titleScreen(): string {
         <input id="surname" maxlength="2" value="${esc(o.surname)}" autocomplete="off">
       </label>
       <div class="field">나의 성별 ${seg('setup-sex', o.sex, [['M', '남'], ['F', '여']])}</div>
-      <div class="field">태어날 집안 ${seg('setup-origin', o.origin, [['random', '🎲 운명에 맡긴다'], ['poor', '서민'], ['middle', '중산층'], ['rich', '부유층']])}</div>
-      <p class="fine">다섯 살부터 시작한다. 부모님의 직업·재산, 형제자매는 태어나 봐야 안다.</p>
+      <div class="field">난이도 (태어날 집안과 유전자) ${seg('setup-origin', o.origin, [['random', '🎲 운명에 맡긴다'], ['easy', '쉬움'], ['normal', '보통'], ['hard', '어려움']])}</div>
+      <p class="fine">${o.origin === 'random' ? '집안 형편(서민 30%·중산층 52%·부유층 18%), 부모 직업·재산, 타고난 능력치와 재능 모두 운에 맡긴다.' : `<b>${DIFFICULTY[o.origin].name}</b> — ${DIFFICULTY[o.origin].desc}`}<br>다섯 살부터 시작한다. 형제자매는 태어나 봐야 안다.</p>
       <div class="field">시대 <div class="seg"><button class="on">현대 한국</button><button disabled>근현대사 (준비 중)</button></div></div>
       <button class="btn big primary" data-action="start">가문 시작</button>
     </section>
@@ -1216,14 +1218,14 @@ function handle(el: HTMLElement) {
       ui.setup.sex = v as Sex;
       break;
     case 'setup-origin':
-      ui.setup.origin = v as GameState['origin'] | 'random';
+      ui.setup.origin = v as Difficulty | 'random';
       break;
     case 'continue':
       ui.game = load();
       break;
     case 'start': {
       const sn = (ui.setup.surname || '김').slice(0, 2);
-      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, origin: ui.setup.origin === 'random' ? undefined : ui.setup.origin });
+      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin });
       ui.tab = 'tree';
       break;
     }

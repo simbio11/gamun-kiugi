@@ -237,4 +237,6 @@ export interface GameState {
   gameOver?: { reason: string; score: number };
   /** 올해 부동산 매물 */
   listings?: Listing[];
+  /** 시작 난이도 (없으면 운명에 맡김) */
+  difficulty?: 'easy' | 'normal' | 'hard';
 }
