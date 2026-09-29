@@ -6,6 +6,7 @@ import { ASSESS_RATIO } from './data';
 import { addAsset, assetsOf, formatMoney, pay, personWorth } from './economy';
 import { previewGiftTax } from './estate';
 import { eul, iga, spendable, type Choice, type EventDef } from './ev-util';
+import { settleHome } from './housing';
 import { addFlag, age, alive, clamp, fullName, hasFlag, hasTrait, head, mark, parentsOf, relationLabel } from './people';
 import type { AssetKind, GameState, Person } from './types';
 
@@ -28,9 +29,11 @@ export function readyToLeave(s: GameState, p: Person): 'job' | 'age' | undefined
   if (a >= 28) return 'age';
 }
 
-function leave(p: Person) {
+function leave(p: Person, s?: GameState) {
   addFlag(p, 'indep');
   p.flags = p.flags.filter((f) => !f.startsWith('kangaroo:'));
+  // 가주가 독립하면 집을 구한다 (받은 집이 있으면 거기로)
+  if (s && p.id === s.headId && !p.spouseId) settleHome(s, p);
 }
 
 function siblingsIn(s: GameState, p: Person): Person[] {
@@ -175,20 +178,20 @@ const leaveHome: EventDef = {
       out.push({
         label: '독립하고, 매년 부모님 생활비를 보낸다',
         run: (x) => {
-          leave(x.p);
+          leave(x.p, s);
           (s.policy.autoGifts ??= {})[payer.id] = 600;
           mark(x.p, 'filial', 2);
           touch(15);
           return '작은 원룸을 얻었다. 첫 월급날부터 부모님께 생활비를 부쳐드린다. (자산 탭 → 적립식 증여에서 조정 가능)';
         },
       });
-      out.push({ label: '내 앞가림부터 한다', run: (x) => (leave(x.p), touch(-5), '미안하지만 지금은 나 하나 건사하기도 벅차다.') });
+      out.push({ label: '내 앞가림부터 한다', run: (x) => (leave(x.p, s), touch(-5), '미안하지만 지금은 나 하나 건사하기도 벅차다.') });
     } else if (o.amount) {
       out.push({
         label: `감사히 받는다 (${OFFER_NAMES[o.kind]})`,
         run: (x) => {
-          leave(x.p);
           const tx = executeOffer(s, payer, x.p, o);
+          leave(x.p, s);
           touch(5);
           mark(x.p, 'helped');
           x.p.happiness = clamp(x.p.happiness + 10, 0, 100);
@@ -199,8 +202,8 @@ const leaveHome: EventDef = {
         out.push({
           label: '5천만만 받는다 (증여세 비과세 한도)',
           run: (x) => {
-            leave(x.p);
             const tx = executeOffer(s, payer, x.p, { ...o, kind: 'deposit' }, 5000);
+            leave(x.p, s);
             touch(8);
             mark(x.p, 'modest');
             return `"필요한 만큼만 받을게요." 부모님이 내심 흐뭇해하신다.${tx}`;
@@ -225,12 +228,12 @@ const leaveHome: EventDef = {
           },
         });
     } else {
-      out.push({ label: '반지하 월세로 시작한다', run: (x) => (leave(x.p), mark(x.p, 'selfmade'), '맨손으로 시작한다. 좁지만 내 공간이다.') });
+      out.push({ label: '반지하 월세로 시작한다', run: (x) => (leave(x.p, s), mark(x.p, 'selfmade'), '맨손으로 시작한다. 좁지만 내 공간이다.') });
     }
     out.push({
       label: o.amount ? '사양하고 내 힘으로 시작한다' : '악착같이 모아 내 힘으로 선다',
       run: (x) => {
-        leave(x.p);
+        leave(x.p, s);
         mark(x.p, 'selfmade', 2);
         x.p.actual.mor = clamp(x.p.actual.mor + 2, 0, 100);
         touch(o.amount ? 10 : 3);

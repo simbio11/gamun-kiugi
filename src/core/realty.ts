@@ -4,6 +4,7 @@ import { chance, int, next, normal, pick } from './rng';
 import type { Asset, GameState, Listing, Person } from './types';
 import { addAsset, expectedIncome, formatMoney, pay } from './economy';
 import { alive, clamp, fullName, head, spouseOf } from './people';
+import { creditBlocked, homeOf, refundOf } from './housing';
 
 export const HOUSE_KINDS = ['apt_seoul', 'apt_local'] as const;
 export const REALTY_KINDS = ['apt_seoul', 'apt_local', 'land', 'building'] as const;
@@ -37,9 +38,13 @@ export function primaryOf(s: GameState, p: Person): Asset | undefined {
   return homesOf(s, p).sort((a, b) => b.value - a.value)[0];
 }
 
+/** 실거주 집: 가구가 '자가'로 사는 집. 집 기록이 없는 가구(방계 등)는 가장 비싼 집으로 친다 */
 export function isPrimary(s: GameState, a: Asset): boolean {
   const o = s.people[a.ownerId];
-  return !!o && isHouse(a) && primaryOf(s, o)?.id === a.id;
+  if (!o || !isHouse(a)) return false;
+  const hs = household(s, o).map((x) => x.home).filter(Boolean);
+  if (hs.length) return hs.some((h) => h!.type === 'own' && h!.assetId === a.id);
+  return primaryOf(s, o)?.id === a.id;
 }
 
 // ───────────────────────── 세금 ─────────────────────────
@@ -55,7 +60,7 @@ export function acqTax(s: GameState, buyer: Person, l: { price: number; house: b
 
 /** 대출 한도: 주택 수에 따른 LTV와 소득 대비 한도(연 소득 7배) 중 작은 쪽. 전세 낀 집은 대출 불가 */
 export function loanLimit(s: GameState, buyer: Person, l: Listing): { amount: number; ltv: number } {
-  if (l.deposit) return { amount: 0, ltv: 0 };
+  if (l.deposit || creditBlocked(buyer)) return { amount: 0, ltv: 0 };
   const n = homesOf(s, buyer).length;
   const ltv = l.house ? (n === 0 ? 0.6 : n === 1 ? 0.3 : 0) : 0.5;
   const income = household(s, buyer).reduce((t, p) => t + Math.max(0, expectedIncome(s, p)), 0);
@@ -67,7 +72,9 @@ export function buyQuote(s: GameState, buyer: Person, l: Listing) {
   const tax = Math.round(l.price * acqTax(s, buyer, l).rate);
   const fee = Math.round(l.price * BROKER);
   const lim = loanLimit(s, buyer, l);
-  const cash = household(s, buyer).reduce((t, p) => t + Math.max(0, p.cash), 0);
+  // 첫 집이면 지금 사는 전세·월세 보증금을 빼서 보탤 수 있다
+  const first = l.house && !l.deposit && homesOf(s, buyer).length === 0;
+  const cash = household(s, buyer).reduce((t, p) => t + Math.max(0, p.cash), 0) + (first ? refundOf(homeOf(s, buyer)) : 0);
   const base = l.price - (l.deposit ?? 0) + tax + fee;
   const loan = Math.max(0, Math.min(lim.amount, base - cash));
   return { tax, fee, loan, limit: lim.amount, ltv: lim.ltv, need: base - lim.amount, total: base, cash };
@@ -414,6 +421,19 @@ export function repayLoan(s: GameState, a: Asset, amount: number): string {
   a.loan -= pay;
   if (a.loan <= 0) a.loan = undefined;
   return `${a.name} 대출 ${formatMoney(pay)} 상환` + (a.loan ? ` (남은 대출 ${formatMoney(a.loan)})` : ' — 대출 끝!');
+}
+
+/** 집을 담보로 진 빚(마이너스 현금)을 그 집의 주택담보대출로 옮긴다 (시세의 70%까지) */
+export function mortgageFromCash(s: GameState, p: Person) {
+  if (p.cash >= 0) return;
+  for (const a of s.assets.filter((x) => x.ownerId === p.id && isRealty(x)).sort((x, y) => y.value - x.value)) {
+    const room = Math.max(0, Math.round(a.value * 0.7) - (a.loan ?? 0));
+    const move = Math.min(room, -p.cash);
+    if (move <= 0) continue;
+    a.loan = (a.loan ?? 0) + move;
+    p.cash += move;
+    if (p.cash >= 0) break;
+  }
 }
 
 export const ownerLabel = (s: GameState, a: Asset) => (s.people[a.ownerId] ? fullName(s.people[a.ownerId]) : '');

@@ -17,6 +17,8 @@ import { nestOf } from '../src/core/nest';
 import { forecast } from '../src/core/economy';
 import { acqTax, buyListing, gainsTax, isPrimary, rentable, rollListings } from '../src/core/realty';
 import { standing } from '../src/core/school';
+import { homeOf, moveTo, settleHome } from '../src/core/housing';
+import { debtRate, goBankrupt, walletNet } from '../src/core/debt';
 
 describe('콘텐츠 무결성', () => {
   it('직업 100개 이상, 모든 참조가 유효', () => {
@@ -247,5 +249,43 @@ describe('인생 시스템', () => {
     const high = standing(p);
     expect(high.grade).toBeLessThan(low.grade);
     expect(high.top).toBeLessThan(low.top);
+  });
+
+  it('집: 독립하면 집을 구하고, 전세·월세로 이사할 수 있다', () => {
+    const s = newGame({ seed: 12, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    s.year = h.birthYear + 30;
+    h.flags.push('indep');
+    h.job = 'office';
+    h.cash = 30000;
+    settleHome(s, h);
+    expect(homeOf(s, h)).toBeDefined();
+    const r = moveTo(s, h, 'oneroom', 'wolse');
+    expect(r).toContain('이사');
+    expect(homeOf(s, h)!.type).toBe('wolse');
+    const before = walletNet(s, h);
+    moveTo(s, h, 'villa', 'jeonse');
+    expect(homeOf(s, h)!.type).toBe('jeonse');
+    expect(walletNet(s, h)).toBeLessThan(before); // 보증금이 묶인다
+  });
+
+  it('빚: 신용이 나쁠수록 금리가 높고, 통장이 바닥나면 위기 이벤트, 파산하면 면책', () => {
+    const s = newGame({ seed: 13, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    s.year = h.birthYear + 35;
+    h.flags.push('indep');
+    settleHome(s, h);
+    h.credit = 850;
+    const good = debtRate(h);
+    h.credit = 450;
+    expect(debtRate(h)).toBeGreaterThan(good);
+    h.cash = -8000;
+    simulateYear(s);
+    expect(s.events.some((e) => e.defId === 'money_crisis' || e.defId === 'debt_collection')).toBe(true);
+    goBankrupt(s, h);
+    expect(h.cash).toBeGreaterThanOrEqual(0);
+    expect(h.flags).toContain('bankrupt');
   });
 });

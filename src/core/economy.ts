@@ -4,6 +4,8 @@ import { addFlag, age, alive, check, clamp, discoverTalent, fullName, hasTalent,
 import type { Asset, AssetKind, GameState, MarketKey, Person } from './types';
 import { promoteMult } from './marks';
 import { isRealty, netOf, realtyForecast, realtyYear, sellRealty } from './realty';
+import { housingYear, JEONSE_LOAN_RATE } from './housing';
+import { debtRate } from './debt';
 
 export function formatMoney(man: number): string {
   const neg = man < 0;
@@ -19,7 +21,8 @@ export function formatMoney(man: number): string {
 export const assetsOf = (s: GameState, ownerId: string) => s.assets.filter((a) => a.ownerId === ownerId);
 
 export function personWorth(s: GameState, p: Person): number {
-  return p.cash + assetsOf(s, p.id).reduce((t, a) => t + netOf(a), 0);
+  const h = p.home ? p.home.deposit - (p.home.loan ?? 0) : 0; // 전세·월세 보증금은 내 돈
+  return p.cash + h + assetsOf(s, p.id).reduce((t, a) => t + netOf(a), 0);
 }
 
 /**
@@ -242,6 +245,10 @@ export function householdItems(s: GameState, incomes: Map<string, number>) {
     if (tu && alive(p) && p.flags.includes('student') && isMainline(s, p)) tuition += Number(tu.slice(8));
   }
   add('대학 등록금', tuition);
+  // 주거비: 월세, 전세자금대출 이자
+  const home = hh.home ?? hsp?.home;
+  if (home?.type === 'wolse') add(`월세 (${home.name})`, home.rent);
+  if (home?.loan) add('전세대출 이자', home.loan * JEONSE_LOAN_RATE);
   return { hh, hsp, inHouse, items };
 }
 
@@ -339,17 +346,20 @@ export function economyYear(s: GameState): string[] {
     p.cash -= Math.round(base * (p.flags.includes('student') ? 0.6 : 1));
   }
 
-  // 3) 이자 (예금 2%, 빚 7%)
+  // 3) 이자: 예금 2%, 마이너스(생활비 대출)는 신용점수에 따라 5.5~19%
   for (const p of Object.values(s.people)) {
     if (!alive(p)) continue;
-    p.cash = Math.round(p.cash * (p.cash >= 0 ? 1.02 : 1.07));
+    p.cash = Math.round(p.cash * (p.cash >= 0 ? 1.02 : 1 + debtRate(p)));
   }
   s.familyCash = Math.round(s.familyCash * 1.02);
 
   // 3-1) 감당 못 할 빚: 담보 자산 강제 매각 → 그래도 안 되면 개인파산
+  // (내가 꾸리는 살림은 강제로 팔지 않는다: 무엇을 팔지 위기 이벤트에서 직접 고른다. 단, 감당 불가 수준이면 예외)
+  const mine = hh.id === h.id ? new Set([h.id, h.spouseId]) : new Set<string | undefined>();
   for (const p of Object.values(s.people)) {
     if (!alive(p) || p.cash >= 0) continue;
     const inc = Math.max(1500, incomes.get(p.id) ?? 0);
+    if (mine.has(p.id) && -p.cash < inc * 10 + 50000) continue;
     const limit = () => assetsOf(s, p.id).reduce((t, a) => t + netOf(a), 0) * 0.7 + inc * 5;
     const owned = assetsOf(s, p.id).sort((a, b) => (a.kind === 'stock' || a.kind === 'coin' ? -1 : 0) - (b.kind === 'stock' || b.kind === 'coin' ? -1 : 0) || a.value - b.value);
     while (-p.cash > limit() && owned.length) {
@@ -370,8 +380,9 @@ export function economyYear(s: GameState): string[] {
     }
   }
 
-  // 4) 부동산·주식: 월세(공실)·배당·재산세·종부세·대출이자·전세 만기
+  // 4) 부동산·주식: 월세(공실)·배당·재산세·종부세·대출이자·전세 만기 / 우리 집 월세·전세 재계약
   msgs.push(...realtyYear(s));
+  msgs.push(...housingYear(s));
 
   // 5) 세무사 수임료
   if (s.policy.taxAdvisor) pay(s, hh, advisorFee(s));

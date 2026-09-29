@@ -6,6 +6,7 @@ import { addAsset, formatMoney, pay, personWorth } from './economy';
 import { agePenalty, appeal, desirability, jobless, makeDate, marry, suitorLine } from './events';
 import { eul, eun, gate, iga, queueNext, schedule, wa, who, type Choice, type Ctx, type EventDef } from './ev-util';
 import { nestOf } from './nest';
+import { homeOf, moveInto, moveTo } from './housing';
 import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, mark, parentsOf, relationLabel } from './people';
 import type { GameState, Person } from './types';
 import { deliver, type LifeDef } from './life';
@@ -386,14 +387,26 @@ const wedding: EventDef = {
       // 부모님이 현금으로 집을 사줄 형편인가 (독립 때 이미 크게 받았으면 또 해주진 않는다)
       const hh = parentsOf(c.s, c.p).filter(alive).sort((a, b) => b.cash - a.cash)[0] ?? householder(c.s);
       const parentHelp = hh.id !== c.p.id && isMainline(c.s, hh) && nestOf(c.p) < c.s.market.apt_local * 0.5 && hh.cash >= c.s.market.apt_local;
-      const finish = (text: string) => (x: Ctx) => {
+      const finish = (text: string, home?: (x: Ctx) => string) => (x: Ctx) => {
         marry(x.s, x.p, q);
+        // 가주의 신혼집 (방계 결혼은 집 기록 없이)
+        if (x.p.id === x.s.headId) {
+          const h = home?.(x);
+          if (h) text += '\n' + h;
+        }
         if (x.ev.data.baby) deliver(x.s, x.p.sex === 'M' ? x.p : q, x.p.sex === 'F' ? x.p : q, x.p.inLaw ? q.surname : x.p.surname, 0.015);
         return `💍 ${who(x)} ♥ ${fullName(q)}, 부부가 되었다!\n` + text;
       };
       return gate(c.s, [
-        { label: '월세 원룸에서 시작', run: finish('좁지만 둘이면 충분하다.') },
-        { label: '전세 대출로 신혼집', cost: 3000, run: finish('은행 대출로 전셋집을 구했다.') },
+        { label: '월세 원룸에서 시작', run: finish('좁지만 둘이면 충분하다.', (x) => (homeOf(x.s, x.p)?.type === 'own' ? '' : moveTo(x.s, x.p, 'oneroom', 'wolse'))) },
+        {
+          label: '전세 대출로 빌라 신혼집',
+          run: finish('은행 대출로 전셋집을 구했다.', (x) => {
+            if (homeOf(x.s, x.p)?.type === 'own') return '';
+            const r = moveTo(x.s, x.p, 'villa', 'jeonse');
+            return r.startsWith('이사할 수 없다') ? '전세 대출이 안 나와 ' + moveTo(x.s, x.p, 'villa', 'wolse') : r;
+          }),
+        },
         ...(parentHelp
           ? [
               {
@@ -404,13 +417,27 @@ const wedding: EventDef = {
                   addAsset(x.s, 'apt_local', x.p.id, price, '신혼집');
                   x.s.gifts.push({ fromId: hh.id, toId: x.p.id, amount: price, tax: Math.round(price * 0.1), year: x.s.year });
                   x.p.cash -= Math.round(price * 0.1);
-                  return finish(`${relationLabel(x.s, hh)}께서 아파트를 사주셨다. (증여세 ${formatMoney(price * 0.1)})`)(x);
+                  const house = x.s.assets[x.s.assets.length - 1];
+                  return finish(`${relationLabel(x.s, hh)}께서 아파트를 사주셨다. (증여세 ${formatMoney(price * 0.1)})`, (y) => moveInto(y.s, y.p, house))(x);
                 },
               } as Choice,
             ]
           : []),
         ...(parentsOf(c.s, c.p).some(alive)
-          ? [{ label: '본가에 들어가 산다', run: (x: Ctx) => ((q.happiness = clamp(q.happiness - 12, 0, 100)), finish('부모님과 함께 산다. 배우자의 표정이 어둡다.')(x)) } as Choice]
+          ? [
+              {
+                label: '본가에 들어가 산다',
+                run: (x: Ctx) => (
+                  (q.happiness = clamp(q.happiness - 12, 0, 100)),
+                  finish('부모님과 함께 산다. 배우자의 표정이 어둡다. 대신 집세가 안 든다.', (y) => {
+                    const par = parentsOf(y.s, y.p).find((pp) => alive(pp) && pp.home);
+                    if (y.p.home) y.p.cash += y.p.home.type === 'own' ? 0 : y.p.home.deposit - (y.p.home.loan ?? 0);
+                    y.p.home = { type: 'parents', tier: par?.home?.tier ?? 'villa', name: `${par?.home?.name ?? '본가'} (부모님 댁)`, deposit: 0, rent: 0, since: y.s.year };
+                    return '';
+                  })(x)
+                ),
+              } as Choice,
+            ]
           : []),
       ]);
     }

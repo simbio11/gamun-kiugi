@@ -49,6 +49,39 @@ export const eun = (n: string) => n + tr(n, '은', '는');
 export const wa = (n: string) => n + tr(n, '과', '와');
 export const eul = (n: string) => n + tr(n, '을', '를');
 
+/**
+ * 남아 있는 "이(가)·을(를)·은(는)·와(과)·(으)로"를 앞 글자 받침에 맞춰 고친다.
+ * 괄호 등으로 앞 글자가 한글이 아니면 가장 가까운 앞 한글 글자를 본다.
+ */
+export function fixJosa(text: string): string {
+  return text.replace(/이\(가\)|을\(를\)|은\(는\)|와\(과\)|과\(와\)|\(으\)로/g, (m, offset: number, str: string) => {
+    let code = -1;
+    for (let i = offset - 1; i >= Math.max(0, offset - 12); i--) {
+      const c = str.charCodeAt(i) - 0xac00;
+      if (c >= 0 && c < 11172) {
+        code = c;
+        break;
+      }
+    }
+    if (code < 0) return m;
+    const jong = code % 28;
+    const has = jong !== 0;
+    switch (m) {
+      case '이(가)':
+        return has ? '이' : '가';
+      case '을(를)':
+        return has ? '을' : '를';
+      case '은(는)':
+        return has ? '은' : '는';
+      case '와(과)':
+      case '과(와)':
+        return has ? '과' : '와';
+      default:
+        return has && jong !== 8 ? '으로' : '로';
+    }
+  });
+}
+
 /** 쓸 수 있는 돈: 살림을 맡은 사람(어릴 땐 부모)과 배우자, 가문 금고 */
 export function spendable(s: GameState): number {
   const h = householder(s);

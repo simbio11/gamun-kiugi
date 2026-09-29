@@ -67,6 +67,10 @@ export interface Person {
   traits?: string[];
   /** 부부 금슬 0~100 (배우자와 같은 값) */
   bond?: number;
+  /** 사는 집 (살림을 맡은 사람) */
+  home?: Home;
+  /** 신용점수 300~950 (기본 750) */
+  credit?: number;
   /** 학업 성적 누적 0~100 (수능에 반영) */
   study?: number;
   /** 지금까지 들어간 사교육비 (만원) */
@@ -75,6 +79,23 @@ export interface Person {
 
 export type RealEstateKind = 'apt_seoul' | 'apt_local' | 'land';
 export type AssetKind = RealEstateKind | 'building' | 'stock' | 'coin' | 'art';
+/** 사는 집: 자가·전세·월세 (살림을 맡은 사람에게 붙는다) */
+export interface Home {
+  type: 'own' | 'jeonse' | 'wolse' | 'parents';
+  /** 집 등급 (housing.ts TIERS) */
+  tier: string;
+  name: string;
+  /** 자가: 그 집 자산 id */
+  assetId?: string;
+  /** 전세·월세 보증금 (내가 맡겨 둔 돈 = 내 자산) */
+  deposit: number;
+  /** 월세: 1년 치 */
+  rent: number;
+  /** 전세자금대출 */
+  loan?: number;
+  since: number;
+}
+
 export interface Asset {
   id: string;
   kind: AssetKind;

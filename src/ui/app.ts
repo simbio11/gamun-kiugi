@@ -1,4 +1,7 @@
 import { standingLabel } from '../core/school';
+import { HOME_TYPE, buyCurrentHome, homeBuyQuote, moveInto, moveQuote, moveTo, residence, tierOf, tiers } from '../core/housing';
+import { creditGrade, debtRate, inRehab, walletNet } from '../core/debt';
+import { fixJosa, iga } from '../core/ev-util';
 import { LOAN_RATE, liab, acqTax, buyListing, buyQuote, gainsTax, homesOf, isHouse, isPrimary, isRealty, rentable, repayLoan, yieldOf } from '../core/realty';
 import { buzz, floatDelta, rollNumber, setSound, sfx, soundOn, type Sfx } from './fx';
 import {
@@ -50,7 +53,7 @@ import {
   sellAsset,
   simulateYear,
 } from '../core/sim';
-import type { Asset, AssetKind, Focus, GameState, Lifestyle, Living, Person, Sex, WillMode } from '../core/types';
+import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
 
 type Tab = 'tree' | 'act' | 'policy' | 'assets' | 'log' | 'achv';
@@ -121,7 +124,7 @@ function clearSave() {
   }
 }
 
-const esc = (t: string) => t.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+const esc = (t: string) => fixJosa(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const nl = (t: string) => esc(t).replace(/\n/g, '<br>');
 
 let root: HTMLElement;
@@ -239,9 +242,114 @@ function demoPerson(sex: Sex, i: number): Person {
 /** 지금 이벤트·행동 비용을 누가 내는지: 어릴 땐 부모님 지갑이다 */
 function wallet(g: GameState): { label: string; amount: number } {
   const payer = householder(g);
-  const amount = spendable(g);
-  if (payer.id === head(g).id) return { label: '💵 쓸 수 있는 돈', amount };
-  return { label: `🏠 부모님 지갑`, amount };
+  if (payer.id === head(g).id) {
+    const net = walletNet(g, payer);
+    if (net < 0) return { label: `💳 빚 (연 ${(debtRate(payer) * 100).toFixed(1)}%)`, amount: net };
+    return { label: '💵 쓸 수 있는 돈', amount: spendable(g) };
+  }
+  return { label: `🏠 부모님 지갑`, amount: spendable(g) };
+}
+
+/** 한 사람이 가진 것: 현금(빚)·집 보증금·자산을 줄줄이 */
+function holdingRows(g: GameState, p: Person, sellable: boolean): string {
+  const rows: string[] = [];
+  rows.push(
+    p.cash < 0
+      ? `<div class="arow"><span>💳 생활비 대출</span><span class="neg">${formatMoney(p.cash)} <small>연 ${(debtRate(p) * 100).toFixed(1)}%</small></span></div>`
+      : `<div class="arow"><span>💵 현금·예금</span><span>${formatMoney(p.cash)}</span></div>`,
+  );
+  const h = p.home;
+  if (h && (h.type === 'jeonse' || h.type === 'wolse'))
+    rows.push(`<div class="arow"><span>🔑 ${HOME_TYPE[h.type]} 보증금 <small>${esc(h.name)}</small></span><span>${formatMoney(h.deposit)}${h.loan ? ` <small class="neg">(전세대출 ${formatMoney(h.loan)})</small>` : ''}</span></div>`);
+  for (const a of assetsOf(g, p.id)) {
+    const live = h?.type === 'own' && h.assetId === a.id;
+    rows.push(assetRow(a, sellable, live));
+  }
+  return rows.join('');
+}
+
+/** 사는 집 한 줄 요약 */
+function homeLine(g: GameState, h: Home | undefined): string {
+  if (!h) return '집 정보 없음';
+  if (h.type === 'own') {
+    const a = g.assets.find((x) => x.id === h.assetId);
+    return `${esc(h.name)} · 자가${a ? ` · 시세 ${formatMoney(a.value)}${a.loan ? ` (대출 ${formatMoney(a.loan)})` : ''}` : ''}`;
+  }
+  if (h.type === 'jeonse') return `${esc(h.name)} · 전세 ${formatMoney(h.deposit)}${h.loan ? ` (전세대출 ${formatMoney(h.loan)})` : ''}`;
+  if (h.type === 'wolse') return `${esc(h.name)} · 월세 연 ${formatMoney(h.rent)} (보증금 ${formatMoney(h.deposit)})`;
+  return esc(h.name);
+}
+
+/** 🏡 우리 집: 지금 사는 곳 + 이사·매수 */
+function homeCard(g: GameState): string {
+  const me = head(g);
+  const r = residence(g);
+  if (r.withParents) {
+    return `<section class="card">
+      <h2>🏡 지금 사는 곳 <small class="muted">부모님 댁 (독립 전)</small></h2>
+      <p>${homeLine(g, r.home)}</p>
+      <p class="fine">독립하면 형편에 맞는 집을 구한다. 부모님 형편이 좋으면 집이나 전세금을 보태 주실 수도.</p>
+    </section>`;
+  }
+  const h = r.home;
+  const cur = h ? tierOf(g, h.tier) : undefined;
+  const buy = homeBuyQuote(g, me);
+  const cash = walletNet(g, me);
+  const rows = tiers(g)
+    .map((t) => {
+      const j = moveQuote(g, me, t, 'jeonse');
+      const w = moveQuote(g, me, t, 'wolse');
+      const here = cur?.id === t.id && h?.type !== 'own';
+      return `<div class="mv ${here ? 'here' : ''}">
+        <div class="mv-h"><span>${esc(t.name)}${here ? ' <b class="tag home">지금</b>' : ''}</span><small>시세 ${formatMoney(t.price)}</small></div>
+        <div class="mv-b">
+          <button class="mini" data-action="move" data-id="${t.id}" data-v="jeonse" ${j.ok && !(here && h?.type === 'jeonse') ? '' : 'disabled'}>전세 ${formatMoney(j.deposit)}</button>
+          <button class="mini" data-action="move" data-id="${t.id}" data-v="wolse" ${w.ok && !(here && h?.type === 'wolse') ? '' : 'disabled'}>월세 연 ${formatMoney(w.rent)}</button>
+        </div>
+      </div>`;
+    })
+    .join('');
+  return `<section class="card">
+    <h2>🏡 우리 집</h2>
+    <p class="home-now"><b>${h ? HOME_TYPE[h.type] : '—'}</b> ${homeLine(g, h)}</p>
+    ${buy ? `<div class="arow"><span>이 집을 산다 <small>(보증금 돌려받아 보태고, 대출 ${formatMoney(buy.loan)})</small></span><span>${formatMoney(buy.price)} <button class="mini" data-action="buy-home" ${cash >= buy.need ? '' : 'disabled'}>매수</button></span></div>` : ''}
+    <details class="moves"><summary>이사 가기 (전세·월세)</summary>
+      ${rows}
+      <p class="fine">전세: 보증금의 최대 80%(2억·연 소득 4배 한도)까지 전세대출(연 4%). 월세: 보증금 조금 + 해마다 월세.<br>집을 사려면 부동산 매물에서 산다. 첫 집을 사면 그 집으로 이사하고, 지금 보증금은 돌려받는다.<br>자가에서 전세·월세로 옮기면 살던 집은 세를 놓는다. 집을 팔면 한 단계 작은 집 월세로 옮긴다.</p>
+    </details>
+  </section>`;
+}
+
+/** 🙋 내 소유 */
+function mineCard(g: GameState): string {
+  const me = head(g);
+  const c = me.credit ?? 750;
+  return `<section class="card mine">
+    <h2>🙋 내 소유 <small class="muted">${esc(fullName(me))} 명의</small></h2>
+    <div class="mine-top"><span>순자산</span><b>${formatMoney(personWorth(g, me))}</b></div>
+    ${holdingRows(g, me, true)}
+    <div class="arow"><span>📊 신용점수</span><span>${c} <small>(${creditGrade(c)})</small>${inRehab(me) ? ' <b class="tag warn">개인회생 중</b>' : ''}${me.flags.some((f) => f.startsWith('bankrupt_until:')) ? ' <b class="tag hot">파산 면책 중</b>' : ''}</span></div>
+  </section>`;
+}
+
+/** 👪 부모님 소유 */
+function parentsCard(g: GameState): string {
+  const me = head(g);
+  const pars = parentsOf(g, me).filter(alive);
+  if (!pars.length) return '';
+  const home = pars.map((p) => p.home).find(Boolean);
+  return `<section class="card">
+    <h2>👪 부모님 소유 <small class="muted">합계 ${formatMoney(pars.reduce((t, p) => t + personWorth(g, p), 0))}</small></h2>
+    ${home ? `<p class="fine">부모님 댁: ${homeLine(g, home)}</p>` : ''}
+    ${pars
+      .map(
+        (p) => `<details class="pw" open>
+        <summary><img class="px sm" src="${portraitURL(p, age(g, p))}"> <span>${esc(fullName(p))} <small>${esc(relationLabel(g, p))} · ${age(g, p)}세</small></span><b>${formatMoney(personWorth(g, p))}</b></summary>
+        ${holdingRows(g, p, false)}
+      </details>`,
+      )
+      .join('')}
+  </section>`;
 }
 
 function header(g: GameState): string {
@@ -674,6 +782,9 @@ function personSheet(g: GameState, p: Person): string {
       ${!dead && p.id !== h.id ? `<div class="sh-row"><span>마음</span><span>${happy} 행복 · ${p.affinity >= 0 ? '♥' : '💢'} 관계 ${Math.round(p.affinity)}</span></div>` : ''}
       ${p.desire && p.desireKnown ? `<div class="sh-row"><span>꿈</span><span>${TAG_NAMES[p.desire]}</span></div>` : ''}
       <div class="sh-row"><span>재산</span><span>${formatMoney(personWorth(g, p))}</span></div>
+      ${p.home ? `<div class="sh-row"><span>사는 집</span><span>${homeLine(g, p.home)}</span></div>` : ''}
+      ${assetsOf(g, p.id).length ? `<div class="sh-row"><span>소유</span><span>${assetsOf(g, p.id).map((a) => `${ASSET_ICONS[a.kind]} ${esc(a.name)} ${formatMoney(a.value)}`).join('<br>')}</span></div>` : ''}
+      ${p.cash < 0 ? `<div class="sh-row warn"><span>빚</span><span>${formatMoney(-p.cash)} (연 ${(debtRate(p) * 100).toFixed(1)}%)</span></div>` : ''}
       ${lifeRows(g, p)}
       ${p.flags.includes('grievance') ? `<div class="sh-row warn"><span>⚠</span><span>상속에 불만을 품고 있다</span></div>` : ''}
       ${marital && !dead ? `<div class="sh-row"><span>혼인</span><span>${esc(marital)}</span></div>` : ''}
@@ -784,7 +895,7 @@ function policyScreen(g: GameState): string {
   return `
   ${
     hh !== h
-      ? `<section class="card"><h2>지금은 부모님 슬하</h2><p class="fine">${esc(fullName(hh))}(${esc(relationLabel(g, hh))})이(가) 살림을 꾸린다. 학비·학원비도 부모님 지갑에서 나간다. 독립하면(취업·결혼) 직접 가계를 맡는다.</p></section>`
+      ? `<section class="card"><h2>지금은 부모님 슬하</h2><p class="fine">${esc(relationLabel(g, hh))} ${esc(iga(fullName(hh)))} 살림을 꾸린다. 학비·학원비도 부모님 지갑에서 나간다. 독립하면(취업·결혼) 직접 가계를 맡는다.</p></section>`
       : ''
   }
   <section class="card">
@@ -824,20 +935,23 @@ function policyScreen(g: GameState): string {
   </section>`;
 }
 
+/** 자산 한 줄: 이름·시세·빚, 실거주면 표시 */
+function assetRow(a: Asset, sellable: boolean, live = false): string {
+  return `<div class="arow"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}${live ? ' <b class="tag home">실거주</b>' : ''}</span><span>${formatMoney(a.value)}${liab(a) ? ` <small class="neg">(빚 ${formatMoney(liab(a))})</small>` : ''} ${sellable ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>`;
+}
+
 const pct = (v?: number) => (v === undefined ? '' : `<small class="${v >= 0 ? 'up' : 'down'}">${v >= 0 ? '▲' : '▼'}${Math.abs(v * 100).toFixed(1)}%</small>`);
 
 function assetsScreen(g: GameState): string {
   const h = head(g);
+  const skip = new Set([h.id, ...parentsOf(g, h).map((p) => p.id)]);
   const members = Object.values(g.people)
-    .filter((p) => alive(p) && (isMainline(g, p) || personWorth(g, p) !== 0))
+    .filter((p) => alive(p) && !skip.has(p.id) && (isMainline(g, p) || personWorth(g, p) !== 0))
     .sort((a, b) => personWorth(g, b) - personWorth(g, a));
   const recipients = Object.values(g.people).filter((p) => alive(p) && (isDescendantOf(g, p, h) || p.id === h.spouseId));
   const to = ui.giftTo && g.people[ui.giftTo] && alive(g.people[ui.giftTo]) ? g.people[ui.giftTo] : recipients[0];
   const mine = assetsOf(g, h.id);
   const et = estateTax(g, h);
-
-  const assetRow = (a: Asset, sellable: boolean) =>
-    `<div class="arow"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}</span><span>${formatMoney(a.value)}${liab(a) ? ` <small class="neg">(빚 ${formatMoney(liab(a))})</small>` : ''} ${sellable ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>`;
 
   const units = TRADE_UNITS.map((u) => [u, formatMoney(u)] as const);
   return `
@@ -854,21 +968,26 @@ function assetsScreen(g: GameState): string {
     <div class="bank-s">${familyBreakdown(g)}</div>
   </section>`
   }
+  ${mineCard(g)}
+  ${homeCard(g)}
+  ${parentsCard(g)}
   ${budgetCard(g)}
 
-  <section class="card">
-    <h2>개인 재산</h2>
+  ${
+    members.length
+      ? `<section class="card">
+    <h2>가족 재산 <small class="muted">배우자·자녀·손주 등</small></h2>
     ${members
-      .map((p) => {
-        const as = assetsOf(g, p.id);
-        return `<details class="pw" ${p.id === h.id ? 'open' : ''}>
+      .map(
+        (p) => `<details class="pw">
           <summary><img class="px sm" src="${portraitURL(p, age(g, p))}"> <span>${esc(fullName(p))} <small>${esc(relationLabel(g, p))}</small></span><b>${formatMoney(personWorth(g, p))}</b></summary>
-          <div class="arow"><span>💵 현금·예금</span><span class="${p.cash < 0 ? 'neg' : ''}">${formatMoney(p.cash)}${p.cash < 0 ? ' (대출)' : ''}</span></div>
-          ${as.map((a) => assetRow(a, p.id === h.id)).join('')}
-        </details>`;
-      })
+          ${holdingRows(g, p, false)}
+        </details>`,
+      )
       .join('')}
-  </section>
+  </section>`
+      : ''
+  }
 
   ${realtyCard(g)}
 
@@ -1187,10 +1306,31 @@ function handle(el: HTMLElement) {
       ui.sheet = undefined;
       ui.outcome = { title: '은퇴', text: retire(g!) };
       break;
-    case 'buy-l':
+    case 'buy-l': {
+      const l = g!.listings?.find((x) => x.id === id);
+      const me = head(g!);
+      const firstHome = !!l && l.house && !l.deposit && homesOf(g!, me).length === 0;
       ui.toast = buyListing(g!, id);
       if (!ui.toast.includes('매수!')) sfx('error');
+      else if (firstHome && householder(g!).id === me.id) {
+        const a = g!.assets[g!.assets.length - 1];
+        ui.outcome = { title: '🏡 내 집 마련', text: ui.toast + '\n' + moveInto(g!, me, a) };
+        ui.toast = undefined;
+      }
       break;
+    }
+    case 'move': {
+      const r = moveTo(g!, head(g!), id, v as 'jeonse' | 'wolse');
+      if (r.startsWith('이사할 수 없다')) (ui.toast = r), sfx('error');
+      else ui.outcome = { title: '🚚 이사', text: r };
+      break;
+    }
+    case 'buy-home': {
+      const r = buyCurrentHome(g!, head(g!));
+      if (r.startsWith('살던 집을 샀다')) ui.outcome = { title: '🏡 내 집 마련', text: r };
+      else (ui.toast = r), sfx('error');
+      break;
+    }
     case 'repay': {
       const a = g!.assets.find((x) => x.id === id);
       if (a) ui.toast = repayLoan(g!, a, head(g!).cash);

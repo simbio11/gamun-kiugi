@@ -6,8 +6,9 @@ import { eul, eun, gate, iga, schedule, type Choice, type Ctx } from './ev-util'
 import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, householder, mark, markOf, parentsOf, spouseOf } from './people';
 import type { GameState, Person, StatKey } from './types';
 import type { LifeDef } from './life';
+import { MORE_STORIES } from './stories-more';
 
-interface Eff {
+export interface Eff {
   str?: number;
   int?: number;
   cha?: number;
@@ -28,7 +29,7 @@ interface Eff {
   /** 보이지 않게 쌓이는 흔적 (seeds.ts) */
   mark?: Record<string, number>;
 }
-interface SC {
+export interface SC {
   label: string;
   /** 이 선택이 남기는 흔적 (보이지 않음) */
   mark?: Record<string, number>;
@@ -40,7 +41,7 @@ interface SC {
   /** 능력치 판정: [능력치, 기준] → 성공/실패 */
   roll?: [StatKey | 'luck', number, [Eff, string], [Eff, string]];
 }
-interface Story {
+export interface Story {
   id: string;
   title: string;
   /** 나이 범위 */
@@ -61,7 +62,8 @@ interface Story {
 function fill(t: string, p: Person): string {
   const n = fullName(p);
   const wa = n + ((n.charCodeAt(n.length - 1) - 0xac00) % 28 ? '과' : '와');
-  return t.replaceAll('{n와}', wa).replaceAll('{n이}', iga(n)).replaceAll('{n은}', eun(n)).replaceAll('{n을}', eul(n)).replaceAll('{n}', n);
+  const elder = p.sex === 'F' ? '할머니' : '할아버지';
+  return t.replaceAll('할머니(할아버지)', elder).replaceAll('할아버지(할머니)', elder).replaceAll('{n와}', wa).replaceAll('{n이}', iga(n)).replaceAll('{n은}', eun(n)).replaceAll('{n을}', eul(n)).replaceAll('{n}', n);
 }
 
 function apply(x: Ctx, e: Eff | undefined) {
@@ -539,5 +541,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = S.map(toLife);
-export const STORY_COUNT = S.length;
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES].map(toLife);
+export const STORY_COUNT = S.length + MORE_STORIES.length;

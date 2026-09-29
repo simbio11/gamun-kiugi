@@ -1,5 +1,6 @@
 import { assessedValue, assetsOf, formatMoney } from './economy';
 import { liab, netOf } from './realty';
+import { passHome } from './housing';
 import { alive, age, childrenOf, clamp, fullName, head, isDescendantOf, parentsOf, siblingsOf, spouseOf, addFlag } from './people';
 import { giftTax, inheritanceTax, type GiftTaxOpts } from './tax';
 import { unlock } from './achievements';
@@ -48,8 +49,9 @@ function willShares(s: GameState, d: Person, successorId?: string): Map<string, 
 export function estateTax(s: GameState, d: Person) {
   const assets = assetsOf(s, d.id);
   // 담보대출·전세보증금은 채무로 빼 준다
-  const gross = d.cash + assets.reduce((t, a) => t + netOf(a), 0);
-  const assessed = d.cash + assets.reduce((t, a) => t + assessedValue(a) - liab(a), 0);
+  const dep = d.home ? d.home.deposit - (d.home.loan ?? 0) : 0;
+  const gross = d.cash + dep + assets.reduce((t, a) => t + netOf(a), 0);
+  const assessed = d.cash + dep + assets.reduce((t, a) => t + assessedValue(a) - liab(a), 0);
   const recent = s.gifts.filter((g) => g.fromId === d.id && s.year - g.year < 10);
   const priorGifts = recent.reduce((t, g) => t + g.amount, 0);
   const priorGiftTax = recent.reduce((t, g) => t + g.tax, 0);
@@ -67,6 +69,7 @@ const LIQUID: Record<string, number> = { stock: 0, coin: 0 };
  * 가주였던 사람이면 유언(s.will)을 따르고, 실물 자산은 가장 큰 지분을 받는 사람(동률이면 후계자)에게.
  */
 export function settleEstate(s: GameState, d: Person, successorId?: string, override?: Map<string, number>): EstateReport {
+  passHome(s, d);
   const wasHead = d.id === s.headId;
   const { tax, deduction, base, gross, assessed, priorGifts, advisorCut, assets } = estateTax(s, d);
 

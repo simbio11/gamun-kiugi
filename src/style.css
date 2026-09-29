@@ -366,3 +366,17 @@ small.down { color: #2d6fb5; }
 .re-f span { display: flex; flex: none; }
 .re-f .mini, .re-f span .mini { white-space: nowrap; flex: none; }
 .re.listing .re-h b { color: var(--blue); }
+
+/* ─── 내 소유 · 우리 집 ─── */
+.card.mine { background: #fff4d6; box-shadow: 0 -3px 0 0 var(--gold), 0 3px 0 0 var(--gold), -3px 0 0 0 var(--gold), 3px 0 0 0 var(--gold), 0 0 0 6px var(--line); }
+.mine-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin-bottom: 4px; }
+.mine-top b { font-family: 'Galmuri14', sans-serif; font-size: 22px; }
+.home-now { margin: 0 0 8px; font-size: 13px; }
+.home-now b { background: var(--ink); color: var(--gold); padding: 1px 6px; margin-right: 4px; font-weight: normal; }
+.moves summary { cursor: pointer; font-size: 13px; padding: 6px 0; border-top: 1px dashed #cbb58c; }
+.mv { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px dashed #e0cfa6; flex-wrap: wrap; }
+.mv.here { background: #fff8e6; }
+.mv-h { display: flex; flex-direction: column; min-width: 0; font-size: 13px; }
+.mv-h small { color: var(--muted); font-size: 10px; }
+.mv-b { display: flex; gap: 2px; }
+.mv-b .mini { white-space: nowrap; }

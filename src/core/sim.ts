@@ -8,7 +8,9 @@ import { heirCandidates } from './family';
 import { FATE_RANDOM, fateYear, lifeInsurancePayout } from './fate';
 import { ROMANCE_RANDOM, romanceYear } from './romance';
 import { nestYear } from './nest';
-import { isRealty, rollListings, sellRealty } from './realty';
+import { isRealty, mortgageFromCash, rollListings, sellRealty } from './realty';
+import { afterHomeSold, homeOf, settleHome } from './housing';
+import { debtYear } from './debt';
 import { STORIES } from './stories';
 import { SEED_EVENTS, seedYear } from './seeds';
 import { AP_PER_YEAR, autoGiftYear } from './actions';
@@ -81,7 +83,11 @@ export function migrate(s: GameState): GameState {
     s.version = 3;
   }
   foldFamilyPot(s);
-  if (!s.listings) rollListings(s);
+  if (!s.listings) {
+    rollListings(s);
+    for (const p of Object.values(s.people)) mortgageFromCash(s, p); // 예전 저장: 주담대가 마이너스 현금으로 남아 있었다
+  }
+  if (!homeOf(s, householder(s))) settleHome(s, householder(s));
   return s;
 }
 
@@ -230,6 +236,8 @@ export function newGame(o: NewGameOpts): GameState {
   queue(s, 'kinder', me.id);
   initMissions(s);
   foldFamilyPot(s);
+  for (const p of Object.values(s.people)) mortgageFromCash(s, p);
+  settleHome(s, householder(s));
   rollListings(s);
   return s;
 }
@@ -268,6 +276,7 @@ export function simulateYear(s: GameState): void {
   for (const m of growthYear(s)) log(s, m, 'life');
   const before = homeTotal(s);
   for (const m of economyYear(s)) log(s, m, 'money');
+  for (const m of debtYear(s)) log(s, m, 'money');
   for (const m of autoGiftYear(s, (to, amt) => giveGift(s, head(s), to, amt).ok)) log(s, m, 'money');
   for (const m of marketYear(s)) log(s, m, 'market');
 
@@ -292,6 +301,10 @@ export function simulateYear(s: GameState): void {
   checkAchievements(s);
   checkMissions(s);
   foldFamilyPot(s);
+  if (!homeOf(s, householder(s))) {
+    const msg = settleHome(s, householder(s));
+    if (msg) log(s, `🏠 ${fullName(householder(s))}: ${msg}`, 'money');
+  }
   rollListings(s);
 }
 
@@ -905,8 +918,10 @@ export function sellAsset(s: GameState, assetId: string): string {
   if (!a) return '';
   if (isRealty(a)) {
     const r = sellRealty(s, a);
+    const moved = afterHomeSold(s, a.id);
+    if (moved) log(s, `🚚 ${moved}`, 'money');
     log(s, `🏷 ${a.name} 매도: 손에 쥔 돈 ${formatMoney(r.got)}${r.tax ? ` (양도세 ${formatMoney(r.tax)})` : ''}`, 'money');
-    return `${a.name} 매도 → ${formatMoney(r.got)}` + (r.tax ? ` · 양도세 ${formatMoney(r.tax)} (${r.note})` : r.note ? ` · ${r.note}` : '');
+    return `${a.name} 매도 → ${formatMoney(r.got)}` + (r.tax ? ` · 양도세 ${formatMoney(r.tax)} (${r.note})` : r.note ? ` · ${r.note}` : '') + (moved ? ` · ${moved}` : '');
   }
   const fake = exposeFakes(s, [a]).length > 0;
   const got = Math.round(a.value * (a.kind === 'stock' || a.kind === 'coin' ? 1 - TRADE_FEE : 1));

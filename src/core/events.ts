@@ -1,5 +1,5 @@
 import { chance, int, normal, pick } from './rng';
-import { ART_TIERS, EXAMS, JOB_CATS, JOB_IDS, JOBS, PREP_TIERS, STAT_NAMES, SURNAMES, TAG_NAMES, TALENTS } from './data';
+import { ART_TIERS, DREAM_QUOTES, EXAMS, JOB_CATS, JOB_IDS, JOBS, PREP_TIERS, STAT_NAMES, SURNAMES, TAG_NAMES, TALENTS } from './data';
 import { MAJOR_JOBS } from './school';
 import { startDating } from './romance';
 import { appealBonus } from './marks';
@@ -185,7 +185,8 @@ const dream: EventDef = {
   title: () => '장래희망',
   text: (c) => {
     c.p.desire = c.p.desire ?? computeDesire(c.p);
-    return `${iga(who(c))} 진지하게 말한다.\n"나는 커서 ${TAG_NAMES[c.p.desire]}${tr(TAG_NAMES[c.p.desire], '이', '')} 하고 싶어!"`;
+    c.ev.data ??= { quote: pick(c.s, DREAM_QUOTES[c.p.desire]) };
+    return `${iga(who(c))} 진지하게 말한다.\n"${c.ev.data.quote}"`;
   },
   choices: () => [
     {
@@ -930,7 +931,7 @@ const rebellion: EventDef = {
         x.p.affinity = clamp(x.p.affinity + 10, -100, 100);
         if (x.p.desire && !x.p.desireKnown) {
           x.p.desireKnown = true;
-          return `밤새 이야기를 나눴다. ${who(x)}의 진짜 꿈은 '${TAG_NAMES[x.p.desire]}'였다.`;
+          return `밤새 이야기를 나눴다. ${who(x)}의 진짜 꿈은 '${TAG_NAMES[x.p.desire]}' 쪽이었다.`;
         }
         return '밤새 이야기를 나눴다. 조금은 풀린 것 같다.';
       },
