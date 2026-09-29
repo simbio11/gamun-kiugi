@@ -10,6 +10,7 @@ import { ROMANCE_RANDOM, romanceYear } from './romance';
 import { nestYear } from './nest';
 import { isRealty, mortgageFromCash, rollListings, sellRealty } from './realty';
 import { afterHomeSold, homeOf, settleHome } from './housing';
+import { giveUsedCar } from './vehicle';
 import { debtYear } from './debt';
 import { bindState } from './school';
 import { STORIES } from './stories';
@@ -198,6 +199,9 @@ export function newGame(o: NewGameOpts): GameState {
       s.familyCash += 200000;
     }
   }
+  // 차: 가난하면 없거나 낡은 경차, 중산층은 중형·SUV, 부자는 수입차
+  const carPick = origin === 'poor' ? (chance(s, 0.5) ? 'kei' : undefined) : origin === 'middle' ? pick(s, ['compact', 'mid', 'suv', 'suv', 'large']) : tycoon ? 'super' : pick(s, ['genesis', 'import', 'import']);
+  if (carPick) giveUsedCar(s, father, carPick, int(s, 1, origin === 'poor' ? 10 : 6));
 
   // 형제자매: 0~3명, 위아래 무작위. 동생은 앞으로 태어난다
   const sibs = pick(s, [0, 0, 1, 1, 1, 1, 2, 2, 3]);
@@ -942,7 +946,7 @@ export function buyAsset(s: GameState, kind: AssetKind, amount = 0): string {
     a.fake = chance(s, ART_TIERS[tier].fake);
     return `${a.name}을(를) ${formatMoney(price)}에 샀다. 진품이길…`;
   }
-  const price = s.market[kind];
+  const price = s.market[kind as MarketKey];
   const total = Math.round(price * (1 + BUY_TAX));
   pay(s, h, total);
   addAsset(s, kind, h.id, price);

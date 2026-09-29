@@ -77,7 +77,14 @@ export function sfx(kind: Sfx) {
   }
 }
 
+let vibe = true;
+export function setVibe(on: boolean) {
+  vibe = on;
+}
+export const vibeOn = () => vibe;
+
 export function buzz(ms = 8) {
+  if (!vibe) return;
   try {
     navigator.vibrate?.(ms);
   } catch {

@@ -6,6 +6,7 @@ import { fmt, getFatigue, grow, jitter, rollTier, say, setFatigue, stat, TIER_MA
 import { P, P2 } from './action-lines';
 import { TRACK_ACTIONS, trackOf } from './tracks';
 import { reverseMortgageRate } from './welfare';
+import { vehicleAP } from './vehicle';
 import { wageIndex } from './pay';
 import { appealBonus } from './marks';
 import { addBargains } from './realty';
@@ -47,7 +48,7 @@ export function stageOf(s: GameState, p: Person): Stage {
 
 /** 생활 수준에 따른 한 해 행동력: 검소 2 · 보통 3 · 호화 4 */
 export function apMax(s: GameState): number {
-  return AP_PER_YEAR + ({ frugal: -1, normal: 0, lux: 1 } as const)[s.policy.living];
+  return AP_PER_YEAR + ({ frugal: -1, normal: 0, lux: 1 } as const)[s.policy.living] + vehicleAP(s);
 }
 
 export interface ActionDef {

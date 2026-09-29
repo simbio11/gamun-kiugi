@@ -7,6 +7,7 @@ import { promoteMult } from './marks';
 import { BASE_YEAR, BASIC_PENSION, GRAD_STIPEND, incomeTax, NPS_A, PAY, PUBLIC_PENSION, wageIndex } from './pay';
 import { isRealty, netOf, realtyForecast, realtyYear, sellRealty } from './realty';
 import { housingYear, JEONSE_LOAN_RATE } from './housing';
+import { vehicleUpkeep, vehicleYear } from './vehicle';
 import { debtRate } from './debt';
 import { allowanceForecast, careYear, childAllowanceYear, reverseMortgageYear, youthAccountYear } from './welfare';
 
@@ -337,6 +338,8 @@ export function householdItems(s: GameState, incomes: Map<string, number>) {
   }
   add('대학 등록금', tuition);
   // 주거비: 월세, 전세자금대출 이자
+  const car = vehicleUpkeep(s, inHouse);
+  add(`차량 유지비 (${car.n}대)`, car.cost);
   const home = hh.home ?? hsp?.home;
   if (home?.type === 'wolse') add(`월세 (${home.name})`, home.rent);
   if (home?.loan) add('전세대출 이자', home.loan * JEONSE_LOAN_RATE);
@@ -515,6 +518,7 @@ export function economyYear(s: GameState): string[] {
   // 4) 부동산·주식: 월세(공실)·배당·재산세·종부세·대출이자·전세 만기 / 우리 집 월세·전세 재계약
   msgs.push(...realtyYear(s));
   msgs.push(...housingYear(s));
+  msgs.push(...vehicleYear(s));
   // 부모급여·아동수당, 부모님 돌봄 비용
   childAllowanceYear(s);
   reverseMortgageYear(s);
@@ -591,6 +595,7 @@ export function marketYear(s: GameState): string[] {
     s.marketChange[k] = r[k];
   }
   for (const a of s.assets) {
+    if (a.kind === 'vehicle') continue; // 탈것은 vehicleYear에서 감가
     // 예술품은 작품마다 따로 논다
     // 부동산은 매물마다 성격이 다르다 (시장 민감도·입지 프리미엄·변동성)
     const own = a.kind === 'art' ? normal(s, 0, 0.08) : a.vol ? normal(s, 0, a.vol) : 0;

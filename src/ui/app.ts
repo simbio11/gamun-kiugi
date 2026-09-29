@@ -4,7 +4,10 @@ import { HOME_TYPE, buyCurrentHome, homeBuyQuote, moveInto, moveQuote, moveTo, r
 import { creditGrade, debtRate, inRehab, walletNet } from '../core/debt';
 import { fixJosa, iga } from '../core/ev-util';
 import { LOAN_RATE, liab, acqTax, buyListing, buyQuote, gainsTax, homesOf, isHouse, isPrimary, isRealty, rentable, repayLoan, yieldOf } from '../core/realty';
-import { buzz, floatDelta, rollNumber, setSound, sfx, soundOn, type Sfx } from './fx';
+import { buzz, floatDelta, rollNumber, setSound, setVibe, sfx, soundOn, vibeOn, type Sfx } from './fx';
+import { buildingURL, TIER_SPRITE, type BuildingKind } from '../render/building';
+import { wageIndex } from '../core/pay';
+import { buyVehicle, canDrive, modelOf, myVehicles, vehicleAP, vehiclePrice, VEHICLES } from '../core/vehicle';
 import {
   ACHIEVEMENTS,
   ART_TIERS,
@@ -56,7 +59,7 @@ import {
   simulateYear,
 } from '../core/sim';
 import type { Difficulty } from '../core/sim';
-import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, Person, Sex, WillMode } from '../core/types';
+import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, MarketKey, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
 
 type Tab = 'tree' | 'act' | 'policy' | 'assets' | 'log' | 'achv';
@@ -73,14 +76,27 @@ interface UIState {
   outcome?: { title: string; text: string };
   toast?: string;
   giftTo?: string;
+  settings?: boolean;
+  actCat?: string;
+  confirmReset?: boolean;
   setup: { surname: string; sex: Sex; origin: Difficulty | 'random' };
 }
 
 const SAVE_KEY = 'gamun-kiugi-save-v1';
 const PREF_KEY = 'gamun-kiugi-prefs';
 
-const prefs = loadPrefs();
+type TextSize = 's' | 'm' | 'l';
+interface Prefs {
+  view?: 'tree' | 'list';
+  zoom?: Zoom;
+  sound?: boolean;
+  vibe?: boolean;
+  calm?: boolean;
+  text?: TextSize;
+}
+const prefs: Prefs = loadPrefs();
 setSound(prefs.sound ?? true);
+setVibe(prefs.vibe ?? true);
 const ui: UIState = {
   game: load(),
   tab: 'tree',
@@ -98,7 +114,7 @@ function load(): GameState | null {
     return null;
   }
 }
-function loadPrefs(): { view?: 'tree' | 'list'; zoom?: Zoom; sound?: boolean } {
+function loadPrefs(): Prefs {
   try {
     return JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}');
   } catch {
@@ -107,7 +123,7 @@ function loadPrefs(): { view?: 'tree' | 'list'; zoom?: Zoom; sound?: boolean } {
 }
 function savePrefs() {
   try {
-    localStorage.setItem(PREF_KEY, JSON.stringify({ view: ui.view, zoom: ui.zoom, sound: soundOn() }));
+    localStorage.setItem(PREF_KEY, JSON.stringify({ ...prefs, view: ui.view, zoom: ui.zoom, sound: soundOn(), vibe: vibeOn() }));
   } catch {
     /* noop */
   }
@@ -147,6 +163,9 @@ export function mount(el: HTMLElement) {
 
 function render() {
   const g = ui.game;
+  root.classList.toggle('calm', !!prefs.calm);
+  root.classList.toggle('text-s', prefs.text === 's');
+  root.classList.toggle('text-l', prefs.text === 'l');
   if (!g) {
     root.innerHTML = titleScreen();
     return;
@@ -161,6 +180,7 @@ function render() {
     const ev = g.events[0];
     modalKey = `ev${ev.uid}:${JSON.stringify(ev.data ?? '')}`;
   } else if (ui.sheet) (modal = personSheet(g, g.people[ui.sheet])), (modalKey = 'sheet' + ui.sheet);
+  else if (ui.settings) (modal = settingsModal(g)), (modalKey = 'settings');
 
   const body = { tree: treeScreen, act: actionsScreen, policy: policyScreen, assets: assetsScreen, log: logScreen, achv: achvScreen }[ui.tab](g);
   root.innerHTML = `
@@ -364,7 +384,7 @@ function header(g: GameState): string {
   return `
   <header class="top">
     <div class="top-l">
-      <div class="year">${g.year}년</div>
+      <div class="year">${g.year}년 <button class="gear" data-action="settings" title="설정" aria-label="설정">⚙</button></div>
       <div class="fam">${esc(g.familyName)}씨 ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
       <div class="fam">명성 ${Math.round(g.fame)}</div>
     </div>
@@ -536,7 +556,7 @@ function treeScreen(g: GameState): string {
       ${st.minors ? `<span>🧒 ${st.minors}</span>` : ''}${st.single ? `<span>💌 미혼 ${st.single}</span>` : ''}${st.exam ? `<span>📖 수험생 ${st.exam}</span>` : ''}
       <span>★ ${heir ? esc(heir.name) : '후계자 미정'}</span>
     </div>`;
-  if (ui.view === 'list') return toolbar + rosterScreen(g);
+  if (ui.view === 'list') return toolbar + rosterScreen(g) + propertyStrip(g);
 
   const parents = parentsOf(g, h);
   const grand = parents.flatMap((p) => parentsOf(g, p)).filter((p) => alive(p) || ui.zoom !== 'small');
@@ -555,7 +575,8 @@ function treeScreen(g: GameState): string {
       ${younger.map((p) => `<div class="side">${branch(g, p, 1)}</div>`).join('')}
     </div></div>
     ${!sp && !h.childIds.length ? `<p class="hint">아직 혼자다. 26세 무렵부터 소개팅이 들어온다.</p>` : ''}
-  </div>`;
+  </div>
+  ${propertyStrip(g)}`;
 }
 
 /** 명부: 세대별로 한 줄씩. 큰 가문을 한눈에 */
@@ -933,10 +954,7 @@ function policyScreen(g: GameState): string {
     }
     <p class="fine">미취학: 기본 300만 · 사교육 1,200만 · 올인 3,000만 /년. 학령기부터는 해마다 학년 이벤트로 고른다.<br>사교육비가 쌓일수록 수능에 유리하지만, 아이의 행복은 줄어든다.</p>
   </section>
-  <section class="card">
-    <h2>설정</h2>
-    <div class="field">효과음 ${seg('sound', soundOn() ? 1 : 0, [[1, '🔊 켜기'], [0, '🔇 끄기']])}</div>
-  </section>`;
+  <p class="fine" style="text-align:center">효과음·진동·글자 크기는 위쪽 ⚙ 설정에서.</p>`;
 }
 
 /** 자산 한 줄: 이름·시세·빚, 실거주면 표시 */
@@ -974,6 +992,7 @@ function assetsScreen(g: GameState): string {
   }
   ${mineCard(g)}
   ${homeCard(g)}
+  ${vehicleCard(g)}
   ${parentsCard(g)}
   ${budgetCard(g)}
 
@@ -997,7 +1016,7 @@ function assetsScreen(g: GameState): string {
 
   <section class="card">
     <h2>투자 시장 <small class="muted">가주 명의로 매수</small></h2>
-    <div class="mkt">${(REAL_ESTATE as AssetKind[]).map((k) => `<span>${ASSET_ICONS[k]} ${ASSET_NAMES[k].replace('강남 ', '서울 ')} ${pct(g.marketChange[k])}</span>`).join('')}</div>
+    <div class="mkt">${(REAL_ESTATE as AssetKind[]).map((k) => `<span>${ASSET_ICONS[k]} ${ASSET_NAMES[k].replace('강남 ', '서울 ')} ${pct(g.marketChange[k as MarketKey])}</span>`).join('')}</div>
     ${(['stock', 'coin'] as const)
       .map(
         (k) => `<h4 class="sub">${ASSET_ICONS[k]} ${k === 'stock' ? '주식 (지수 ' + g.market.stock + ')' : '코인 (지수 ' + g.market.coin + ')'} ${pct(g.marketChange[k])}</h4>
@@ -1078,45 +1097,170 @@ function assetsScreen(g: GameState): string {
 
 const AUTO_GIFT_STEPS = [0, 300, 500, 1000, 2500, 5000];
 
-/** 행동 탭: 턴을 넘기기 전에 직접 하는 일 */
+/** 행동 탭: 턴을 넘기기 전에 직접 하는 일. 분류 칩으로 한 묶음씩 보여 줘서 스크롤을 줄인다 */
 function actionsScreen(g: GameState): string {
   const ap = apLeft(g);
   const list = ACTIONS.filter((a) => forHead(g, a));
   const cats = [...new Set(list.map((a) => a.cat))] as ActionCat[];
+  const cat = ui.actCat && cats.includes(ui.actCat as ActionCat) ? (ui.actCat as ActionCat) : cats[0];
   const money = canSpend(g);
+  const car = vehicleAP(g);
+  const row = (a: (typeof list)[number]) => {
+    const targets = a.targets?.(g) ?? [];
+    const blocked = a.blocked?.(g, targets[0]);
+    const used = g.actUsed?.[a.id] ?? 0;
+    const disabled = ap < a.ap || !!blocked || (a.cost ?? 0) > money;
+    const why = blocked ?? ((a.cost ?? 0) > money ? '돈 부족' : ap < a.ap ? '행동력 부족' : used ? `올해 ${used}번 · 효과↓` : '');
+    return `<div class="act ${disabled ? 'off' : ''}">
+      <span class="act-i">${a.icon}</span>
+      <div class="act-m">
+        <b>${a.name}</b>
+        <small>${esc(a.desc)}</small>
+        <span class="badges">${a.ap ? `<b>⚡${a.ap}</b>` : '<b>무료</b>'}${a.cost ? `<b class="cost">💰${formatMoney(a.cost)}</b>` : ''}${why ? `<b class="why">${esc(why)}</b>` : ''}</span>
+        ${targets.length > 1 ? `<select id="act-t-${a.id}">${targets.map((p) => `<option value="${p.id}">${esc(fullName(p))} (${esc(relationLabel(g, p))}·${age(g, p)})</option>`).join('')}</select>` : targets.length ? `<input type="hidden" id="act-t-${a.id}" value="${targets[0].id}"><small class="to">→ ${esc(fullName(targets[0]))}</small>` : ''}
+      </div>
+      <button class="do" data-action="act" data-id="${a.id}" ${disabled ? 'disabled' : ''}>하기</button>
+    </div>`;
+  };
   return `
-  <section class="card ap-card">
-    <h2>올해 할 일 <small class="muted">${STAGE_NAMES[stageOf(g, head(g))]}${TRACK_NAMES[trackOf(g, head(g)) ?? ''] ? ` · ${TRACK_NAMES[trackOf(g, head(g))!]}` : ''}</small> <span class="ap">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, apMax(g) - ap))}</span></h2>
-    <p class="fine">행동력 ${apMax(g)} (생활 수준 ${LIVING_NAMES[g.policy.living]}: 검소 2 · 보통 3 · 호화 4). 같은 일을 한 해에 여러 번 하면 효과가 줄고 지친다.<br>인생 단계가 바뀌면 할 수 있는 일도 바뀐다. 갑작스러운 일들은 해가 바뀔 때 일어난다.</p>
+  <section class="ap-bar">
+    <div><b>올해 할 일</b> <small>${STAGE_NAMES[stageOf(g, head(g))]}${TRACK_NAMES[trackOf(g, head(g)) ?? ''] ? ` · ${TRACK_NAMES[trackOf(g, head(g))!]}` : ''}</small></div>
+    <span class="ap" title="행동력: 생활 수준 검소 2·보통 3·호화 4${car ? ` + 탈것 ${car}` : ''}">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, apMax(g) - ap))}</span>
   </section>
-  ${cats
-    .map(
-      (cat) => `<section class="card">
-      <h2>${cat}</h2>
-      ${list.filter((a) => a.cat === cat)
-        .map((a) => {
-          const targets = a.targets?.(g) ?? [];
-          const blocked = a.blocked?.(g, targets[0]);
-          const used = g.actUsed?.[a.id] ?? 0;
-          const disabled = ap < a.ap || !!blocked || (a.cost ?? 0) > money;
-          const why = blocked ?? ((a.cost ?? 0) > money ? '돈 부족' : ap < a.ap ? '행동력 부족' : used ? `올해 ${used}번 함 · 효과↓` : '');
-          return `<div class="act ${disabled ? 'off' : ''}">
-            <div class="act-h"><span class="act-i">${a.icon}</span><div><b>${a.name}</b><small>${esc(a.desc)}</small></div></div>
-            <div class="act-r">
-              ${targets.length ? `<select id="act-t-${a.id}">${targets.map((p) => `<option value="${p.id}">${esc(fullName(p))} (${esc(relationLabel(g, p))}·${age(g, p)})</option>`).join('')}</select>` : ''}
-              <span class="badges">${a.ap ? `<b>⚡${a.ap}</b>` : '<b>무료</b>'}${a.cost ? `<b class="cost">💰${formatMoney(a.cost)}</b>` : ''}${why ? `<b class="why">${esc(why)}</b>` : ''}</span>
-              <button class="mini" data-action="act" data-id="${a.id}" ${disabled ? 'disabled' : ''}>하기</button>
-            </div>
-          </div>`;
-        })
-        .join('')}
-    </section>`,
-    )
-    .join('')}
-  <section class="card">
-    <h2>그 밖에</h2>
-    <p class="fine">부동산·주식·코인·예술품 매매, 현금·현물 증여, 적립식 자동 증여, 세무사, 유언장 → <button class="mini" data-action="tab" data-v="assets">자산 탭</button><br>
-    자녀 교육 방침·생활 방식 → <button class="mini" data-action="tab" data-v="policy">방침 탭</button> · 후계자 지정·은퇴 → 가계도에서 인물을 눌러서</p>
+  <div class="cat-chips">${cats
+    .map((c) => {
+      const n = list.filter((a) => a.cat === c).length;
+      return `<button data-action="act-cat" data-v="${c}" class="${c === cat ? 'on' : ''}">${c} <small>${n}</small></button>`;
+    })
+    .join('')}</div>
+  <section class="card acts">${list.filter((a) => a.cat === cat).map(row).join('')}</section>
+  <details class="card more-help"><summary>도움말 · 다른 할 일</summary>
+    <p class="fine">행동력 ${apMax(g)} = 생활 수준 ${LIVING_NAMES[g.policy.living]} (검소 2 · 보통 3 · 호화 4)${car ? ` + 탈것 ${car}` : ' · 차를 사면 +1, 요트는 +1 더'}. 같은 일을 한 해에 여러 번 하면 효과가 줄고 지친다. 인생 단계가 바뀌면 할 수 있는 일도 바뀐다.</p>
+    <p class="fine">부동산·주식·자동차 매매, 증여, 유언장 → <button class="mini" data-action="tab" data-v="assets">자산 탭</button> · 교육 방침·생활 방식 → <button class="mini" data-action="tab" data-v="policy">방침 탭</button> · 후계자·은퇴 → 가계도에서 인물을 눌러서</p>
+  </details>`;
+}
+
+/** ⚙ 설정 창 */
+function settingsModal(g: GameState): string {
+  const h = head(g);
+  return `
+  <div class="modal" data-action="close-sheet">
+    <div class="sheet settings" data-stop>
+      <h2>⚙ 설정</h2>
+      <div class="set-row"><span>효과음</span>${seg('sound', soundOn() ? 1 : 0, [[1, '🔊 켜기'], [0, '🔇 끄기']])}</div>
+      <div class="set-row"><span>진동</span>${seg('pref-vibe', vibeOn() ? 1 : 0, [[1, '📳 켜기'], [0, '끄기']])}</div>
+      <div class="set-row"><span>움직임</span>${seg('pref-calm', prefs.calm ? 1 : 0, [[0, '보통'], [1, '줄이기']])}</div>
+      <div class="set-row"><span>글자 크기</span>${seg('pref-text', prefs.text ?? 'm', [['s', '작게'], ['m', '보통'], ['l', '크게']])}</div>
+      <div class="set-row"><span>가계도 보기</span>${seg('zoom', ui.zoom, [['big', '크게'], ['mid', '보통'], ['small', '작게']])}</div>
+      <div class="set-info">
+        <div class="sh-row"><span>가문</span><span>${esc(g.familyName)}씨 ${g.generation}대 · ${g.year}년</span></div>
+        <div class="sh-row"><span>가주</span><span>${esc(fullName(h))} ${age(g, h)}세</span></div>
+        <div class="sh-row"><span>저장</span><span>해마다 이 기기(브라우저)에 자동 저장</span></div>
+      </div>
+      ${
+        ui.confirmReset
+          ? `<div class="danger"><p>지금 가문을 지우고 처음부터 시작할까? 되돌릴 수 없다.</p>
+             <div class="row2"><button class="btn" data-action="reset-cancel">아니, 계속할래</button><button class="btn warn" data-action="restart">지우고 새로 시작</button></div></div>`
+          : `<button class="btn ghost wide" data-action="reset-ask">🗑 새 가문 시작…</button>`
+      }
+      <button class="btn big" data-action="close-sheet">닫기</button>
+    </div>
+  </div>`;
+}
+
+/** 부동산·탈것 → 도트 그림 종류 */
+function spriteOf(g: GameState, a: Asset): BuildingKind {
+  if (a.kind === 'vehicle') return (modelOf(a)?.sprite ?? 'car') as BuildingKind;
+  if (a.kind === 'apt_seoul') return a.value >= g.market.apt_seoul * 1.6 ? 'luxury' : 'tower';
+  if (a.kind === 'apt_local') return 'apt';
+  if (a.kind === 'land') return 'land';
+  if (a.kind === 'building') return a.tags?.includes('상가') ? 'shop' : a.tags?.includes('주택') ? 'officetel' : 'building';
+  return 'house';
+}
+
+const seedOf = (id: string) => [...id].reduce((t, c) => t + c.charCodeAt(0), 0);
+
+/** 가계도 아래: 사는 집과 가진 부동산·탈것을 도트 그림으로 */
+function propertyStrip(g: GameState): string {
+  const me = head(g);
+  const sp = spouseOf(g, me);
+  const r = residence(g);
+  const tiles: { img: string; tag: string; cls: string; name: string; val: string }[] = [];
+  const home = r.home;
+  if (home) {
+    const own = home.type === 'own' ? g.assets.find((x) => x.id === home.assetId) : undefined;
+    tiles.push({
+      img: buildingURL(own ? spriteOf(g, own) : (TIER_SPRITE[home.tier] ?? 'house'), seedOf(home.name)),
+      tag: r.withParents ? '🏠 부모님 댁' : `🏠 실거주 · ${HOME_TYPE[home.type]}`,
+      cls: 'live',
+      name: home.name,
+      val: own ? `시세 ${formatMoney(own.value)}` : home.type === 'jeonse' ? `보증금 ${formatMoney(home.deposit)}` : home.type === 'wolse' ? `월세 연 ${formatMoney(home.rent)}` : '',
+    });
+  }
+  const liveId = home?.type === 'own' ? home.assetId : undefined;
+  const ownerIds = [me.id, ...(sp && alive(sp) ? [sp.id] : [])];
+  const parIds = r.withParents ? parentsOf(g, me).filter(alive).map((p) => p.id) : [];
+  const push = (a: Asset, mine: boolean) => {
+    if (a.id === liveId) return;
+    const car = a.kind === 'vehicle';
+    tiles.push({
+      img: buildingURL(spriteOf(g, a), seedOf(a.id)),
+      tag: car ? (mine ? `${modelOf(a)?.icon ?? '🚗'} 내 탈것` : '🚗 부모님 차') : mine ? (isHouse(a) ? '💼 투자 · 세놓음' : '💼 투자') : '👪 부모님 소유',
+      cls: car ? 'car' : mine ? 'inv' : 'par',
+      name: a.name,
+      val: formatMoney(a.value),
+    });
+  };
+  for (const a of g.assets) if (ownerIds.includes(a.ownerId) && (isRealty(a) || a.kind === 'vehicle')) push(a, true);
+  for (const a of g.assets) if (parIds.includes(a.ownerId) && (isRealty(a) || a.kind === 'vehicle')) push(a, false);
+  return `<section class="props">
+    <h3>🏘 우리 집 · 가진 것 <small>${tiles.length ? '누르면 자산 탭' : ''}</small></h3>
+    <div class="prop-row">${
+      tiles.length
+        ? tiles
+            .map(
+              (x) => `<button class="prop ${x.cls}" data-action="tab" data-v="assets">
+          <img src="${x.img}" alt="">
+          <span class="p-tag">${esc(x.tag)}</span>
+          <span class="p-nm">${esc(x.name)}</span>
+          ${x.val ? `<span class="p-v">${x.val}</span>` : ''}
+        </button>`,
+            )
+            .join('')
+        : '<p class="hint">아직 가진 게 없다.</p>'
+    }</div>
+  </section>`;
+}
+
+/** 🚗 탈것: 자동차·요트 */
+function vehicleCard(g: GameState): string {
+  const me = head(g);
+  if (!canDrive(g, me)) return '';
+  const mine = myVehicles(g);
+  const money = householder(g).id === me.id ? canSpend(g) : Math.max(0, me.cash);
+  const ap = vehicleAP(g);
+  return `<section class="card">
+    <h2>🚗 탈것 <small class="muted">${ap ? `행동력 +${ap} 받는 중` : '차가 있으면 행동력 +1, 요트는 +1 더'}</small></h2>
+    ${
+      mine.length
+        ? mine
+            .map((a) => {
+              const m = modelOf(a);
+              return `<div class="arow veh"><span><img class="vpx" src="${buildingURL(spriteOf(g, a), seedOf(a.id))}" alt=""> ${esc(a.name)}<br><small class="muted">${g.year - (a.bought ?? g.year)}년째 · 유지비 연 ${formatMoney(Math.round((m?.upkeep ?? 0) * wageIndex(g.year)))}</small></span>
+              <span>${formatMoney(a.value)} <button class="mini" data-action="sell" data-id="${a.id}">팔기</button></span></div>`;
+            })
+            .join('')
+        : '<p class="fine">차가 없다. 대중교통으로 다닌다.</p>'
+    }
+    <details class="moves"><summary>매장 둘러보기</summary>
+      ${VEHICLES.map((m) => {
+        const price = vehiclePrice(g, m);
+        const tax = Math.round(price * m.tax);
+        return `<div class="arow veh"><span><img class="vpx" src="${buildingURL(m.sprite, seedOf(m.id))}" alt=""> ${m.icon} ${esc(m.name)}<br><small class="muted">${esc(m.note)}<br>취득세 ${formatMoney(tax)} · 유지비 연 ${formatMoney(Math.round(m.upkeep * wageIndex(g.year)))} · 감가 연 ${Math.round(m.dep * 100)}%</small></span>
+        <span class="buy-c"><b>${formatMoney(price)}</b><button class="mini" data-action="buy-car" data-id="${m.id}" ${money >= price + tax ? '' : 'disabled'}>구입</button></span></div>`;
+      }).join('')}
+      <p class="fine">가격은 2025년 국내 신차가 대략치(트림에 따라 폭이 크다)에 물가를 반영. 취득세: 승용차 7% · 경차 4%(75만 감면) · 선박 3%, 고급선박 중과. 유지비엔 보험·자동차세·연료·정비(요트는 계류비·관리)가 들어 있고, 해마다 가계부에서 빠진다. 차는 15년쯤 타면 폐차.</p>
+    </details>
   </section>`;
 }
 
@@ -1178,7 +1322,7 @@ function onInput(e: Event) {
   }
 }
 
-const SFX: Record<string, Sfx> = { choose: 'choose', next: 'next', buy: 'coin', 'buy-l': 'coin', repay: 'coin', sell: 'coin', gift: 'coin', 'gift-asset': 'coin', 'ok-outcome': 'close', 'ok-report': 'close', 'close-sheet': 'close', start: 'great' };
+const SFX: Record<string, Sfx> = { choose: 'choose', next: 'next', buy: 'coin', 'buy-l': 'coin', repay: 'coin', sell: 'coin', gift: 'coin', 'gift-asset': 'coin', 'ok-outcome': 'close', 'ok-report': 'close', 'close-sheet': 'close', start: 'great', 'buy-car': 'coin' };
 let leaving = false;
 
 function onClick(e: MouseEvent) {
@@ -1234,6 +1378,7 @@ function handle(el: HTMLElement) {
       hasSave = false;
       ui.game = null;
       ui.report = ui.outcome = ui.sheet = undefined;
+      ui.settings = ui.confirmReset = false;
       break;
     case 'view':
       ui.view = v as 'tree' | 'list';
@@ -1260,7 +1405,40 @@ function handle(el: HTMLElement) {
       break;
     case 'close-sheet':
       ui.sheet = undefined;
+      ui.settings = ui.confirmReset = false;
       break;
+    case 'settings':
+      ui.settings = true;
+      ui.confirmReset = false;
+      break;
+    case 'reset-ask':
+      ui.confirmReset = true;
+      break;
+    case 'reset-cancel':
+      ui.confirmReset = false;
+      break;
+    case 'pref-vibe':
+      setVibe(v === '1');
+      savePrefs();
+      if (v === '1') buzz(30);
+      break;
+    case 'pref-calm':
+      prefs.calm = v === '1';
+      savePrefs();
+      break;
+    case 'pref-text':
+      prefs.text = v as TextSize;
+      savePrefs();
+      break;
+    case 'act-cat':
+      ui.actCat = v;
+      break;
+    case 'buy-car': {
+      const r = buyVehicle(g!, id);
+      if (r.ok) ui.outcome = { title: '🔑 새 탈것', text: r.text };
+      else (ui.toast = r.text), sfx('error');
+      break;
+    }
     case 'next':
       if (!g) break;
       if (!g.events.length) {
@@ -1268,6 +1446,9 @@ function handle(el: HTMLElement) {
         simulateYear(g);
         const lines = g.log.slice(start).filter((l) => !l.text.startsWith('──')).map((l) => l.text);
         ui.report = { title: `📜 ${g.year}년`, lines };
+        ui.tab = 'tree'; // 새해는 가계도에서 맞는다
+        ui.sheet = undefined;
+        window.scrollTo(0, 0);
       }
       break;
     case 'ok-report':

@@ -520,3 +520,32 @@ function createPersonLike(s: any, h: any) {
   s.people[sp.id] = sp;
   return sp;
 }
+
+describe('탈것', () => {
+  it('차는 행동력 +1, 요트는 +1 더 · 유지비가 가계부에 · 감가 후 폐차', async () => {
+    const { buyVehicle, vehicleYear, VEHICLES } = await import('../src/core/vehicle');
+    const s = newGame({ seed: 9, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    s.year = h.birthYear + 40;
+    h.flags.push('indep');
+    h.cash = 300000;
+    const base = apMax(s);
+    expect(buyVehicle(s, 'mid').ok).toBe(true);
+    expect(apMax(s)).toBe(base + 1);
+    expect(buyVehicle(s, 'compact').ok).toBe(true);
+    expect(apMax(s)).toBe(base + 1); // 차 두 대여도 +1
+    expect(buyVehicle(s, 'sail').ok).toBe(true);
+    expect(apMax(s)).toBe(base + 2);
+    expect(forecast(s).expense.some(([l]) => l.startsWith('차량 유지비 (3대)'))).toBe(true);
+    const car = s.assets.find((a) => a.tags?.[0] === 'mid')!;
+    const v0 = car.value;
+    vehicleYear(s);
+    expect(car.value).toBeLessThan(v0);
+    s.year += VEHICLES.find((m) => m.id === 'mid')!.life;
+    vehicleYear(s);
+    expect(s.assets.includes(car)).toBe(false);
+    const kid = newGame({ seed: 3, familyName: '최', sex: 'F' });
+    expect(buyVehicle(kid, 'kei').ok).toBe(false);
+  });
+});

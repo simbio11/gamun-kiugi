@@ -78,7 +78,7 @@ export interface Person {
 }
 
 export type RealEstateKind = 'apt_seoul' | 'apt_local' | 'land';
-export type AssetKind = RealEstateKind | 'building' | 'stock' | 'coin' | 'art';
+export type AssetKind = RealEstateKind | 'building' | 'stock' | 'coin' | 'art' | 'vehicle';
 /** 사는 집: 자가·전세·월세 (살림을 맡은 사람에게 붙는다) */
 export interface Home {
   type: 'own' | 'jeonse' | 'wolse' | 'parents';
