@@ -2,6 +2,7 @@ import { chance, normal, pick } from './rng';
 import { ASSESS_RATIO, ASSET_NAMES, ASSET_YIELD, CREATORS, EDU_COST, JOBS, TALENTS } from './data';
 import { addFlag, age, alive, check, clamp, discoverTalent, fullName, hasTalent, hasTrait, head, householder, isMainline, livingMainlineMinors } from './people';
 import type { Asset, AssetKind, GameState, MarketKey, Person } from './types';
+import { promoteMult } from './marks';
 
 export function formatMoney(man: number): string {
   const neg = man < 0;
@@ -105,7 +106,7 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
         msg = `🤕 ${name} 업무 중 부상 (건강 -6)`;
       }
       if (p.job === 'doctor' && p.jobYears <= 4) return { income: 4500, msg: p.jobYears === 4 ? `🩺 ${name} 전문의 취득` : msg };
-      const diligent = hasTrait(p, 'diligent') ? 1.3 : hasTrait(p, 'lazy') ? 0.6 : 1;
+      const diligent = (hasTrait(p, 'diligent') ? 1.3 : hasTrait(p, 'lazy') ? 0.6 : 1) * promoteMult(p);
       if (p.jobLevel < j.maxLevel && chance(s, (j.promote ?? 0.1) * workBoost * diligent * (0.5 + sc / 100))) {
         p.jobLevel++;
         msg = `${name} ${jobTitle(p)}(으)로 승진`;

@@ -59,6 +59,8 @@ export interface Person {
   cash: number;
   /** 결혼할 때 가문에 들어온 사람 */
   inLaw: boolean;
+  /** 보이지 않게 쌓이는 흔적 (떡밥): 작은 선택들이 누적돼 나중에 사건으로 돌아온다 */
+  marks?: Record<string, number>;
   /** 연애 중인 상대 (결혼 전) */
   partnerId?: string;
   /** 성격 (TRAITS id) */
@@ -110,6 +112,8 @@ export interface Policy {
   children: Record<string, ChildPolicy>;
   /** 세무사 선임 (연 수임료 ↔ 상속·증여세 절감) */
   taxAdvisor: boolean;
+  /** 적립식 자동 증여: 받는 사람 id → 해마다 보낼 금액(만원) */
+  autoGifts?: Record<string, number>;
 }
 
 export interface PendingEvent {
@@ -159,6 +163,8 @@ export interface GameState {
   policy: Policy;
   heirId?: string;
   will: WillMode;
+  /** 올해 남은 행동력 (대시보드에서 직접 하는 일) */
+  ap?: number;
   /** 가주가 유언장을 써뒀는가 */
   willWritten?: boolean;
   /** 세무 주목도 (v0.3에서 사용) */

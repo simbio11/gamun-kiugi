@@ -2,6 +2,7 @@ import { chance, int, normal, pick } from './rng';
 import { ART_TIERS, EXAMS, JOB_CATS, JOB_IDS, JOBS, PREP_TIERS, STAT_NAMES, SURNAMES, TAG_NAMES, TALENTS } from './data';
 import { MAJOR_JOBS } from './school';
 import { startDating } from './romance';
+import { appealBonus } from './marks';
 import { unlock } from './achievements';
 import { addAsset, formatMoney, jobLabel, jobTitle, pay, personWorth, statScore } from './economy';
 import { estateTax, giveGift } from './estate';
@@ -21,6 +22,7 @@ import {
   head,
   householder,
   isMainline,
+  mark,
 } from './people';
 import type { GameState, JobId, Person, StatKey } from './types';
 
@@ -651,7 +653,7 @@ function makeSuitors(s: GameState, p: Person, quality: number): Person[] {
 
 /** 매력도: 외모·성품·명성·재산 + 직업 번듯함 */
 export function appeal(s: GameState, p: Person): number {
-  return 10 + Math.min(10, p.jobLevel * 2 + Math.max(0, JOBS[p.job].fame) * 2) + (hasTrait(p, 'social') ? 6 : hasTrait(p, 'shy') ? -6 : 0) + (hasTrait(p, 'flirt') ? 4 : 0) + p.actual.cha * 0.7 + p.actual.mor * 0.2 + Math.min(20, s.fame * 0.25) + Math.min(25, (personWorth(s, p) + s.familyCash * 0.3) / 4000);
+  return 10 + appealBonus(p) + Math.min(10, p.jobLevel * 2 + Math.max(0, JOBS[p.job].fame) * 2) + (hasTrait(p, 'social') ? 6 : hasTrait(p, 'shy') ? -6 : 0) + (hasTrait(p, 'flirt') ? 4 : 0) + p.actual.cha * 0.7 + p.actual.mor * 0.2 + Math.min(20, s.fame * 0.25) + Math.min(25, (personWorth(s, p) + s.familyCash * 0.3) / 4000);
 }
 export function desirability(c: Person): number {
   const a = c.actual;
@@ -1131,8 +1133,8 @@ const donation: RandomDef = {
   title: () => '기부 요청',
   text: () => '모교에서 장학기금 기부를 요청해 왔다.',
   choices: (c) => gate(c.s, [
-    { label: '1천만 기부', cost: 1000, run: (x) => ((x.s.fame += 3), chance(x.s, 0.15) && schedule(x.s, int(x.s, 15, 25), 'scholar_return', x.p.id, { years: 20 }), '감사패를 받았다. (명성 +3)') },
-    { label: '1억 기부', cost: 10000, run: (x) => ((x.s.fame += 15), chance(x.s, 0.45) && schedule(x.s, int(x.s, 15, 25), 'scholar_return', x.p.id, { years: 20 }), '도서관에 가문의 이름이 새겨졌다! (명성 +15)') },
+    { label: '1천만 기부', cost: 1000, run: (x) => (mark(x.p, 'kind', 1), (x.s.fame += 3), chance(x.s, 0.15) && schedule(x.s, int(x.s, 15, 25), 'scholar_return', x.p.id, { years: 20 }), '감사패를 받았다. (명성 +3)') },
+    { label: '1억 기부', cost: 10000, run: (x) => (mark(x.p, 'kind', 2), (x.s.fame += 15), chance(x.s, 0.45) && schedule(x.s, int(x.s, 15, 25), 'scholar_return', x.p.id, { years: 20 }), '도서관에 가문의 이름이 새겨졌다! (명성 +15)') },
     { label: '정중히 거절', run: () => '다음 기회에.' } as Choice,
   ]),
 };
@@ -1209,6 +1211,7 @@ const parentCare: RandomDef = {
         x.p.actual.hp = clamp(x.p.actual.hp - 3, 0, 100);
         x.s.fame += 2;
         addFlag(x.p, 'cared_parent');
+        mark(x.p, 'filial', 2);
         return '효자·효녀라는 소문이 났다. (명성 +2) 나중에 유산을 나눌 때 기여분을 주장할 수 있다.';
       },
     },

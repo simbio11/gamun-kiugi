@@ -18,10 +18,12 @@ import {
   hasTrait,
   householder,
   inherit,
+  mark,
   randomGenes,
   spouseOf,
 } from './people';
 import type { GameState, Person } from './types';
+import { illMult } from './marks';
 
 export interface LifeDef extends EventDef {
   /** 한 해에 이 사람에게 일어날 가중치 (0이면 안 일어남) */
@@ -157,7 +159,7 @@ const dodge: Choice = {
 export function cancerRate(s: GameState, p: Person): number {
   const a = age(s, p);
   const base = a < 30 ? 0.0005 : a < 40 ? 0.0015 : a < 50 ? 0.004 : a < 60 ? 0.008 : a < 70 ? 0.014 : 0.02;
-  return base * (p.sex === 'M' ? 1.15 : 0.9) * (hasTrait(p, 'frail') ? 1.5 : hasTrait(p, 'tough') ? 0.7 : 1);
+  return base * (p.sex === 'M' ? 1.15 : 0.9) * (hasTrait(p, 'frail') ? 1.5 : hasTrait(p, 'tough') ? 0.7 : 1) * illMult(p);
 }
 
 /** 병기별 5년 생존율 (%) */
@@ -237,6 +239,7 @@ const depression: LifeDef = {
         label: '혼자 이겨내게 둔다',
         run: (x) => {
           x.p.actual.hp = clamp(x.p.actual.hp - 6, 0, 100);
+          mark(x.p, 'health_x', 1);
           return chance(x.s, 0.4) ? ((x.p.happiness = clamp(x.p.happiness + 12, 0, 100)), '시간이 약이었다.') : '점점 더 방 밖으로 나오지 않는다…';
         },
       },
@@ -698,6 +701,7 @@ const gamble: LifeDef = {
     {
       label: '딱 한 번만…',
       run: (x) => {
+        mark(x.p, 'risk', 1);
         const bet = Math.min(Math.max(500, Math.round(x.p.cash * 0.3)), 10000);
         if (chance(x.s, 0.12)) {
           x.p.cash += bet * 2;
@@ -708,7 +712,7 @@ const gamble: LifeDef = {
         return `${formatMoney(bet)}을 잃었다. 본전 생각이 난다.`;
       },
     },
-    { label: '발길을 돌린다', run: (x) => ((x.p.actual.mor = clamp(x.p.actual.mor + 2, 0, 100)), '잘 참았다.') },
+    { label: '발길을 돌린다', run: (x) => (mark(x.p, 'risk', -1), (x.p.actual.mor = clamp(x.p.actual.mor + 2, 0, 100)), '잘 참았다.') },
   ],
 };
 

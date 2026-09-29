@@ -10,6 +10,9 @@ import { STORY_COUNT } from '../src/core/stories';
 import { makeDate } from '../src/core/events';
 import { breakUp, startDating } from '../src/core/romance';
 import { chooseSuccessor } from '../src/core/estate';
+import { apLeft, doAction } from '../src/core/actions';
+import { SEED_EVENTS } from '../src/core/seeds';
+import { mark, markOf } from '../src/core/people';
 
 describe('콘텐츠 무결성', () => {
   it('직업 100개 이상, 모든 참조가 유효', () => {
@@ -107,6 +110,38 @@ describe('인생 시스템', () => {
     const sib = Object.values(s.people).find((p) => p.fatherId === h.fatherId && p.id !== h.id);
     if (!sib) return;
     expect(chooseSuccessor(s, h)?.id).toBe(sib.id);
+  });
+
+  it('행동: 행동력이 줄고, 보이지 않는 흔적이 쌓이고, 떡밥이 회수될 조건이 된다', () => {
+    const s = newGame({ seed: 3, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    // 어릴 땐 아이용 행동만
+    expect(doAction(s, 'family_trip').ok).toBe(false);
+    expect(doAction(s, 'kid_help').ok).toBe(true);
+    expect(apLeft(s)).toBe(2);
+    expect(markOf(h, 'warmth')).toBe(1);
+    // 어른이 된 뒤
+    s.year = h.birthYear + 40;
+    h.cash = 100000;
+    s.ap = 3;
+    expect(doAction(s, 'volunteer').ok).toBe(true);
+    expect(markOf(h, 'kind')).toBe(1);
+    // 흔적이 쌓이면 회수 이벤트가 열린다
+    mark(h, 'kind', 3);
+    expect(SEED_EVENTS.find((e) => e.id === 'seed_kind')!.weight!(s, h)).toBeGreaterThan(0);
+  });
+
+  it('적립식 자동 증여: 해마다 설정한 만큼 보낸다', () => {
+    const s = newGame({ seed: 4, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    const par = parentsOf(s, h)[0];
+    s.headId = par.id; // 부모를 가주로 두고 자녀에게 보낸다
+    par.cash = 100000;
+    s.policy.autoGifts = { [h.id]: 1000 };
+    simulateYear(s);
+    expect(s.gifts.some((g) => g.toId === h.id && g.amount === 1000)).toBe(true);
   });
 
   it('유언장을 쓰면 수명이 줄어든다', () => {

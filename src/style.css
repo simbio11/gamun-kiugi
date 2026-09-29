@@ -235,3 +235,16 @@ small.down { color: #2d6fb5; }
 .achv-cat summary::-webkit-details-marker { display: none; }
 .achv-cat summary small { color: var(--muted); }
 .affairs { text-align: right; font-size: 12px; }
+
+.tabs button { font-size: 12px; }
+.next-year small { display: block; font-size: 11px; opacity: 0.75; }
+.ap { float: right; color: var(--red); letter-spacing: 2px; }
+.act { border-top: 1px dashed #cbb58c; padding: 8px 0; }
+.act.off { opacity: 0.55; }
+.act-h { display: flex; gap: 8px; align-items: flex-start; }
+.act-i { font-size: 20px; line-height: 1.2; }
+.act-h b { display: block; font-size: 14px; }
+.act-h small { color: var(--muted); font-size: 11px; }
+.act-r { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; justify-content: flex-end; }
+.act-r select { flex: 1 1 100%; background: #fff8e6; border: 2px solid var(--line); padding: 4px 6px; font-size: 13px; }
+.badges b.why { background: #e9c9c3; }

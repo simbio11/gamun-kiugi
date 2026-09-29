@@ -1,6 +1,7 @@
 import { chance } from './rng';
 import { STAT_KEYS, TALENTS } from './data';
 import { age, alive, clamp, discoverTalent, fullName, hasFlag, hasTrait, head, isDescendantOf } from './people';
+import { deathMult } from './marks';
 import type { Focus, GameState, Person, StatKey, Stats } from './types';
 
 /** 나이별 성장 효율 */
@@ -123,6 +124,7 @@ export function deathChance(s: GameState, p: Person): number {
   base *= p.sex === 'M' ? 1.0 : 0.5;
   if (hasTrait(p, 'tough')) base *= 0.8;
   if (hasTrait(p, 'frail')) base *= 1.3;
+  base *= deathMult(p);
   if (p.id === s.headId && a >= 60) base *= s.willWritten ? 1.4 : 0.85;
   let d = clamp(base * Math.max(0.3, hpFactor), 0, 0.6);
   // 암: 5년 생존율을 연간 위험으로

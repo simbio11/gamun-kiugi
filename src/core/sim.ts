@@ -8,6 +8,9 @@ import { heirCandidates } from './family';
 import { FATE_RANDOM, fateYear, lifeInsurancePayout } from './fate';
 import { ROMANCE_RANDOM, romanceYear } from './romance';
 import { STORIES } from './stories';
+import { SEED_EVENTS, seedYear } from './seeds';
+import { AP_PER_YEAR, autoGiftYear } from './actions';
+import { bondDrift } from './marks';
 import { chooseSuccessor, giveAsset, giveGift, settleEstate, transferHeadship } from './estate';
 import { CREATORS } from './data';
 import { exposeFakes, makeDate, marry, examScore, spendable, type Ctx } from './events';
@@ -243,12 +246,14 @@ export function familyTotal(s: GameState): number {
 export function simulateYear(s: GameState): void {
   if (s.events.length || s.gameOver) return;
   s.year++;
+  s.ap = AP_PER_YEAR;
   const h0 = head(s);
   log(s, `── ${s.year}년 · ${fullName(h0)} ${age(s, h0)}세 ──`);
 
   for (const m of growthYear(s)) log(s, m, 'life');
   const before = familyTotal(s);
   for (const m of economyYear(s)) log(s, m, 'money');
+  for (const m of autoGiftYear(s, (to, amt) => giveGift(s, head(s), to, amt).ok)) log(s, m, 'money');
   for (const m of marketYear(s)) log(s, m, 'market');
 
   retirementAndGraduation(s);
@@ -294,7 +299,7 @@ function lifeYear(s: GameState) {
     if (sp && alive(sp) && !p.inLaw) {
       let d = -1.2 + normal(s, 0, 2);
       if (p.id === h.id) d += { work: -1, balance: 0, family: 1.8, self: 0, rest: 0.5 }[s.policy.lifestyle];
-      for (const x of [p, sp]) d += hasTrait(x, 'devoted') ? 1 : hasTrait(x, 'flirt') ? -1.5 : 0;
+      for (const x of [p, sp]) d += (hasTrait(x, 'devoted') ? 1 : hasTrait(x, 'flirt') ? -1.5 : 0) + bondDrift(x);
       if (p.happiness > 60 && sp.happiness > 60) d += 0.5;
       setBond(p, sp, (p.bond ?? 60) + d);
       if ((p.bond ?? 60) < 28 && chance(s, 0.35) && !pending('marital_crisis')) queue(s, 'marital_crisis', p.id);
@@ -326,10 +331,11 @@ function lifeYear(s: GameState) {
 
   // 보험료·청약 추첨·예약된 후폭풍 도착
   fateYear(s);
+  seedYear(s);
   // 무작위 인생사: 가족 전체에서 최대 2건
   const pool: [LifeDef, Person, number][] = [];
   romanceYear(s);
-  for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM, ...ROMANCE_RANDOM]) {
+  for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM, ...ROMANCE_RANDOM, ...SEED_EVENTS]) {
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) pool.push([d, p, w]);
   }

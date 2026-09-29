@@ -299,6 +299,13 @@ export function discoverTalent(p: Person, id: string): boolean {
 
 export const hasTrait = (p: Person, id: string) => !!p.traits?.includes(id);
 
+/** 흔적 쌓기 (음수면 지우기). 플레이어에게는 보이지 않는다 */
+export function mark(p: Person, key: string, n = 1) {
+  const m = (p.marks ??= {});
+  m[key] = Math.max(0, (m[key] ?? 0) + n);
+}
+export const markOf = (p: Person | undefined, key: string) => p?.marks?.[key] ?? 0;
+
 /** 성격 부여: 기존 성격과 반대되는 건 건너뜀 */
 function addTrait(list: string[], id: string) {
   if (list.includes(id) || list.some((t) => TRAITS[t].opp === id)) return;

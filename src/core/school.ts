@@ -19,8 +19,9 @@ import {
   type Ctx,
   type EventDef,
 } from './ev-util';
-import { addFlag, age, check, clamp, discoverTalent, hasFlag, hasTalent, hasTrait } from './people';
+import { addFlag, age, check, clamp, discoverTalent, hasFlag, hasTalent, hasTrait, mark } from './people';
 import type { CareerTag, Focus, GameState, Person } from './types';
+import { studyBoost, suneungBonus } from './marks';
 
 // ───────────────────────── 대학·학과 ─────────────────────────
 
@@ -195,6 +196,7 @@ export function addStudy(s: GameState, p: Person, base: number) {
   if (hasTrait(p, 'diligent')) g *= 1.2;
   if (hasTrait(p, 'lazy')) g *= 0.75;
   if (age(s, p) >= 16) g *= 1.3;
+  g *= studyBoost(p);
   p.study = clamp(cur + g * (1 - cur / 115), 0, 100);
 }
 
@@ -211,6 +213,7 @@ export function suneung(s: GameState, p: Person): number {
     Math.min(3, p.flags.filter((f) => f === 'club').length * 0.6) +
     Math.min(4, retakes * 1.5) +
     (hasTrait(p, 'anxious') ? -2 : hasTrait(p, 'cheerful') ? 1 : 0) +
+    suneungBonus(p) +
     normal(s, 0, 4);
   return Math.round(clamp(100 / (1 + Math.exp(-(raw - 58) / 10)), 0.1, 99.99) * 100) / 100;
 }
@@ -327,6 +330,9 @@ const PLANS: Plan[] = [
   },
 ];
 
+/** 학년 생활이 남기는 흔적: 학원·과외·인강·운동부·예체능·봉사·놀기·연애·알바 */
+const PLAN_MARKS: Record<string, number>[] = [{ study: 1 }, { study: 1, hurt: 1 }, { study: 1 }, { sport: 1 }, { art: 1 }, { kind: 1 }, { warmth: 1 }, {}, { thrift: 1 }];
+
 const GRADE = (a: number) => (a <= 13 ? `초등 ${a - 7}학년` : a <= 16 ? `중학교 ${a - 13}학년` : `고등학교 ${a - 16}학년`);
 
 function runPlan(x: Ctx, i: number): string {
@@ -336,6 +342,7 @@ function runPlan(x: Ctx, i: number): string {
   p.flags = p.flags.filter((f) => !f.startsWith('sy:'));
   p.flags.push('sy:' + i);
   p.eduSpent = (p.eduSpent ?? 0) + pl.cost;
+  for (const [k, n] of Object.entries(PLAN_MARKS[i] ?? {})) mark(p, k, n);
   const before = studyOf(p);
   addStudy(x.s, p, pl.study);
   p.happiness = clamp(p.happiness + pl.happy, 0, 100);

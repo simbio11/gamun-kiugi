@@ -5,7 +5,7 @@ import { chance, int, next, normal, pick } from './rng';
 import { addAsset, formatMoney, personWorth } from './economy';
 import { agePenalty, appeal, desirability, jobless, makeDate, marry, suitorLine } from './events';
 import { eul, eun, gate, iga, queueNext, schedule, wa, who, type Choice, type Ctx, type EventDef } from './ev-util';
-import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, parentsOf, relationLabel } from './people';
+import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, mark, parentsOf, relationLabel } from './people';
 import type { GameState, Person } from './types';
 import { deliver, type LifeDef } from './life';
 
@@ -42,6 +42,7 @@ export function breakUp(s: GameState, p: Person, why: string, mine = true) {
   p.flags = p.flags.filter((f) => !f.startsWith('exes:'));
   p.flags.push('exes:' + exes);
   mood(p, mine ? -6 : -14);
+  mark(p, 'scar', mine ? 1 : 2);
   if (q) {
     q.partnerId = undefined;
     q.flags = q.flags.filter((f) => f !== 'partner');
@@ -247,6 +248,7 @@ const datingYear: EventDef = {
             label: '몰래 만나본다',
             run: (x) => {
               if (chance(x.s, 0.5)) {
+                mark(x.p, 'cheat', 1);
                 breakUp(x.s, x.p, '바람이 들킴', true);
                 return '들켰다. 뺨을 맞고 차였다.';
               }

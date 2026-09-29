@@ -25,6 +25,8 @@ import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
 import { MISSIONS } from '../core/missions';
 import { pendingAffairs } from '../core/fate';
+import { ACTIONS, apLeft, doAction, forHead, type ActionCat } from '../core/actions';
+import { spendable as canSpend } from '../core/ev-util';
 import { writeWill } from '../core/family';
 import {
   BUY_TAX,
@@ -49,7 +51,7 @@ import {
 import type { Asset, AssetKind, Focus, GameState, Lifestyle, Living, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
 
-type Tab = 'tree' | 'policy' | 'assets' | 'log' | 'achv';
+type Tab = 'tree' | 'act' | 'policy' | 'assets' | 'log' | 'achv';
 type Zoom = 'big' | 'mid' | 'small';
 
 interface UIState {
@@ -146,11 +148,11 @@ function render() {
   else if (g.events.length) modal = eventModal(g);
   else if (ui.sheet) modal = personSheet(g, g.people[ui.sheet]);
 
-  const body = { tree: treeScreen, policy: policyScreen, assets: assetsScreen, log: logScreen, achv: achvScreen }[ui.tab](g);
+  const body = { tree: treeScreen, act: actionsScreen, policy: policyScreen, assets: assetsScreen, log: logScreen, achv: achvScreen }[ui.tab](g);
   root.innerHTML = `
     ${header(g)}
     <main class="screen">${body}</main>
-    ${ui.tab === 'tree' ? `<button class="next-year" data-action="next">${g.events.length ? `이벤트 ${g.events.length}개 ▶` : `${g.year + 1}년으로 ▶`}</button>` : ''}
+    ${ui.tab === 'tree' || ui.tab === 'act' ? `<button class="next-year" data-action="next">${g.events.length ? `이벤트 ${g.events.length}개 ▶` : `${g.year + 1}년으로 ▶${apLeft(g) ? `<small>행동력 ${apLeft(g)} 남음</small>` : ''}`}</button>` : ''}
     ${nav()}
     ${modal}
     ${ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ''}
@@ -222,6 +224,7 @@ function header(g: GameState): string {
 function nav(): string {
   const tabs: [Tab, string][] = [
     ['tree', '가계도'],
+    ['act', '행동'],
     ['policy', '방침'],
     ['assets', '자산'],
     ['log', '연대기'],
@@ -789,6 +792,17 @@ function assetsScreen(g: GameState): string {
                   .join('')}`
               : ''
           }
+          <h4 class="sub">적립식 자동 증여 (해마다)</h4>
+          ${seg('autogift', g.policy.autoGifts?.[to.id] ?? 0, AUTO_GIFT_STEPS.map((v) => [v, v ? formatMoney(v) : '안 함']), to.id)}
+          <p class="fine">${esc(fullName(to))}에게 해마다 자동으로 보낸다. 10년 공제 한도(성인 5천만)를 나눠 쓰면 세금이 거의 없다.</p>
+          ${
+            Object.entries(g.policy.autoGifts ?? {}).filter(([, v]) => v).length
+              ? `<div class="auto-list">${Object.entries(g.policy.autoGifts ?? {})
+                  .filter(([id, v]) => v && g.people[id])
+                  .map(([id, v]) => `<div class="arow"><span>🔁 ${esc(fullName(g.people[id]))}</span><span>연 ${formatMoney(v)}</span></div>`)
+                  .join('')}</div>`
+              : ''
+          }
           <p class="fine">10년 합산 공제: 배우자 6억 · 성인 자녀 5천만 · 미성년 2천만. 손주에게 바로 주면 세금 30% 할증(세대생략). 사망 전 10년 내 증여는 상속재산에 다시 합산되니 일찍 줄수록 유리.</p>`
         : '<p class="hint">증여할 가족이 없다.</p>'
     }
@@ -802,6 +816,50 @@ function assetsScreen(g: GameState): string {
       .join('')}</div>
     <div class="sh-row"><span>유언장</span><span>${g.willWritten ? '✍ 작성함' : '없음 — 떠나면 자식들이 다툴 수 있다'}</span></div>
     <p class="fine">유언장을 쓰면 재산이 뜻대로 가지만 기력이 쇠해 수명이 조금 줄어든다. 안 쓰면 오래 버티지만, 떠난 뒤 부동산이 급매되고 자식들이 다툰다.<br>후계자에게 몰아주면 재산을 지키기 쉽지만, 몫을 못 받은 형제는 불만을 품는다.</p>
+  </section>`;
+}
+
+const AUTO_GIFT_STEPS = [0, 300, 500, 1000, 2500, 5000];
+
+/** 행동 탭: 턴을 넘기기 전에 직접 하는 일 */
+function actionsScreen(g: GameState): string {
+  const ap = apLeft(g);
+  const list = ACTIONS.filter((a) => forHead(g, a));
+  const cats = [...new Set(list.map((a) => a.cat))] as ActionCat[];
+  const money = canSpend(g);
+  return `
+  <section class="card ap-card">
+    <h2>올해 할 일 <span class="ap">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, 3 - ap))}</span></h2>
+    <p class="fine">행동력은 해마다 3. 다 쓰지 않아도 된다. 갑작스러운 일들은 해가 바뀔 때 일어난다.${age(g, head(g)) < 20 ? '<br>아직 어려서 할 수 있는 일이 많지 않다. 커 가면서 늘어난다.' : ''}</p>
+  </section>
+  ${cats
+    .map(
+      (cat) => `<section class="card">
+      <h2>${cat}</h2>
+      ${list.filter((a) => a.cat === cat)
+        .map((a) => {
+          const targets = a.targets?.(g) ?? [];
+          const blocked = a.blocked?.(g, targets[0]);
+          const noTarget = a.targets && !targets.length;
+          const disabled = ap < a.ap || !!blocked || noTarget || (a.cost ?? 0) > money;
+          const why = noTarget ? '대상 없음' : blocked ?? ((a.cost ?? 0) > money ? '돈 부족' : ap < a.ap ? '행동력 부족' : '');
+          return `<div class="act ${disabled ? 'off' : ''}">
+            <div class="act-h"><span class="act-i">${a.icon}</span><div><b>${a.name}</b><small>${esc(a.desc)}</small></div></div>
+            <div class="act-r">
+              ${targets.length ? `<select id="act-t-${a.id}">${targets.map((p) => `<option value="${p.id}">${esc(fullName(p))} (${esc(relationLabel(g, p))}·${age(g, p)})</option>`).join('')}</select>` : ''}
+              <span class="badges">${a.ap ? `<b>⚡${a.ap}</b>` : '<b>무료</b>'}${a.cost ? `<b class="cost">💰${formatMoney(a.cost)}</b>` : ''}${why ? `<b class="why">${esc(why)}</b>` : ''}</span>
+              <button class="mini" data-action="act" data-id="${a.id}" ${disabled ? 'disabled' : ''}>하기</button>
+            </div>
+          </div>`;
+        })
+        .join('')}
+    </section>`,
+    )
+    .join('')}
+  <section class="card">
+    <h2>그 밖에</h2>
+    <p class="fine">부동산·주식·코인·예술품 매매, 현금·현물 증여, 적립식 자동 증여, 세무사, 유언장 → <button class="mini" data-action="tab" data-v="assets">자산 탭</button><br>
+    자녀 교육 방침·생활 방식 → <button class="mini" data-action="tab" data-v="policy">방침 탭</button> · 후계자 지정·은퇴 → 가계도에서 인물을 눌러서</p>
   </section>`;
 }
 
@@ -968,6 +1026,20 @@ function onClick(e: MouseEvent) {
     case 'buy':
       ui.toast = buyAsset(g!, v as AssetKind, Number(el.dataset.amt ?? 0));
       break;
+    case 'autogift': {
+      const gifts = (g!.policy.autoGifts ??= {});
+      if (Number(v)) gifts[id] = Number(v);
+      else delete gifts[id];
+      ui.toast = Number(v) ? `해마다 ${formatMoney(Number(v))}씩 증여한다` : '자동 증여를 멈췄다';
+      break;
+    }
+    case 'act': {
+      const target = (root.querySelector(`#act-t-${id}`) as HTMLSelectElement | null)?.value;
+      const r = doAction(g!, id, target);
+      if (!r.ok) ui.toast = r.text;
+      else ui.outcome = { title: ACTIONS.find((a) => a.id === id)!.name, text: r.text };
+      break;
+    }
     case 'gift-asset': {
       const to = (root.querySelector('#gift-to') as HTMLSelectElement | null)?.value;
       if (to) ui.toast = giftAsset(g!, to, id);

@@ -6,7 +6,7 @@ import { FEMALE_NAMES, JOBS, MALE_NAMES, SURNAMES } from './data';
 import { addAsset, addHolding, assetsOf, formatMoney, pay, personWorth } from './economy';
 import { makeDate, marry } from './events';
 import { eul, eun, gate, iga, schedule, who, type Choice, type Ctx, type EventDef } from './ev-util';
-import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, spouseOf } from './people';
+import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, mark, spouseOf } from './people';
 import type { GameState, Person } from './types';
 import type { LifeDef } from './life';
 
@@ -54,6 +54,8 @@ function signGuarantee(x: Ctx, amount: number): string {
   const { friend } = x.ev.data;
   x.p.actual.mor = clamp(x.p.actual.mor + 2, 0, 100);
   addFlag(x.p, 'guarantor');
+  mark(x.p, 'kind', 1);
+  mark(x.p, 'risk', 1);
   if (chance(x.s, 0.45)) schedule(x.s, int(x.s, 1, 5), 'guarantee_default', x.p.id, { friend, amount: Math.round(amount) });
   else if (chance(x.s, 0.6)) schedule(x.s, int(x.s, 3, 8), 'friend_after', x.p.id, { friend, amount, ok: true });
   bondDelta(x.s, x.p, -4);
@@ -169,6 +171,7 @@ const lend: LifeDef = {
     const a: number = c.ev.data.amount;
     const lendIt = (paper: boolean) => (x: Ctx) => {
       x.p.cash -= a;
+      mark(x.p, 'kind', 1);
       const r = next(x.s);
       const outcome = r < 0.5 ? 'repay' : r < 0.7 ? 'partial' : r < 0.93 ? 'vanish' : 'success';
       schedule(x.s, int(x.s, 1, 4), 'lend_result', x.p.id, { ...x.ev.data, outcome, paper });
@@ -225,6 +228,7 @@ const startup: LifeDef = {
   choices: (c) => {
     const inv = (amt: number) => (x: Ctx) => {
       x.p.cash -= amt;
+      mark(x.p, 'risk', 1);
       const merchant = x.p.talents.some((t) => t.id === 'merchant') ? 0.06 : 0;
       const r = next(x.s);
       const mult = r < 0.08 + merchant ? 30 : r < 0.3 + merchant ? 2.5 : r < 0.45 ? 0.5 : 0;
@@ -274,6 +278,7 @@ const ponzi: LifeDef = {
   choices: (c) => {
     const go = (amt: number) => (x: Ctx) => {
       x.p.cash -= amt;
+      mark(x.p, 'risk', 1);
       addFlag(x.p, 'ponzi');
       const smart = check(x.s, x.p.actual.int, 70, 8);
       schedule(x.s, 1, 'ponzi_payout', x.p.id, { amount: amt, left: int(x.s, 1, 3), smart });
@@ -504,6 +509,7 @@ const checkup: LifeDef = {
         run: (x) => {
           x.p.flags = x.p.flags.filter((f) => !f.startsWith('checkup:'));
           x.p.flags.push('checkup:' + x.s.year);
+          mark(x.p, 'health_x', -1);
           return '이상 없음. 한동안은 병이 생겨도 초기에 잡을 수 있다.';
         },
       },
@@ -541,6 +547,8 @@ const drunkDrive: LifeDef = {
           return '🚨 음주 단속에 걸렸다. 벌금 1천만, 면허 취소.';
         }
         addFlag(x.p, 'dui_habit');
+        mark(x.p, 'cheat', 1);
+        mark(x.p, 'health_x', 1);
         return '무사히 집에 왔다. …이번에는.';
       },
     },
@@ -786,6 +794,7 @@ const mlm: LifeDef = {
       run: (x) => {
         if (check(x.s, x.p.actual.int, 50, 8)) return '다단계였다. 정신 차리고 빠져나왔다.';
         x.p.cash -= 2000;
+        mark(x.p, 'risk', 1);
         schedule(x.s, int(x.s, 1, 2), 'mlm_end', x.p.id);
         return '건강식품 2천만원어치를 떠안았다. "직급만 올리면 월 천만원이래!"' + later;
       },
