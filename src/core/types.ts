@@ -59,6 +59,8 @@ export interface Person {
   cash: number;
   /** 결혼할 때 가문에 들어온 사람 */
   inLaw: boolean;
+  /** 연애 중인 상대 (결혼 전) */
+  partnerId?: string;
   /** 성격 (TRAITS id) */
   traits?: string[];
   /** 부부 금슬 0~100 (배우자와 같은 값) */

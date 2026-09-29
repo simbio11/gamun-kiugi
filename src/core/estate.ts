@@ -169,7 +169,20 @@ export function chooseSuccessor(s: GameState, h: Person): Person | undefined {
     if (living.length) return living[0];
     gen = gen.flatMap((p) => childrenOf(s, p));
   }
-  return undefined;
+  // 자손이 없으면 조카를 양자로 (종가의 대를 잇는다)
+  return adoptiveHeirs(s, h)[0];
+}
+
+/** 양자 후보: 형제자매의 자손 (가까운 촌수·젊은 성인 우선), 없으면 사촌 쪽 */
+export function adoptiveHeirs(s: GameState, h: Person): Person[] {
+  const ups = parentsOf(s, h);
+  const gps = ups.flatMap((u) => parentsOf(s, u));
+  for (const root of [ups, gps]) {
+    const cands = Object.values(s.people).filter((p) => alive(p) && !p.inLaw && p.id !== h.id && root.some((r) => isDescendantOf(s, p, r)) && !parentsOf(s, h).includes(p));
+    if (cands.length)
+      return cands.sort((a, b) => Math.abs(age(s, a) - 30) - Math.abs(age(s, b) - 30)).slice(0, 6);
+  }
+  return [];
 }
 
 /** 가주 교체 (사망 승계 / 은퇴 승계 공통). newGen=false면 같은 세대 안에서 플레이 인물만 바꿈 */

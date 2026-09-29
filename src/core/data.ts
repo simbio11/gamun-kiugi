@@ -162,6 +162,7 @@ export const ACHIEVEMENTS: Record<string, { cat: AchvCat; name: string; desc: st
   five_gen: A('가문', '5대가 한자리에', '고조부모부터 고손까지 5대가 동시에 살아 있다'),
   centenarian: A('가문', '백세 장수', '가문에서 100세 어른이 나오다'),
   gangnam3: A('가문', '강남 종가', '3대 연속 가주가 강남 아파트 보유'),
+  adopted_heir: A('가문', '양자 입적', '대가 끊길 위기에 조카를 양자로 들이다'),
   mission10: A('가문', '대업', '세대 미션 10개 달성'),
   jobs10: A('가문', '직업 도감 10', '가문에서 10가지 직업을 거치다'),
   jobs30: A('가문', '직업 도감 30', '가문에서 30가지 직업을 거치다'),

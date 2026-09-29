@@ -6,6 +6,8 @@ import { checkMissions, initMissions } from './missions';
 import { LIFE_RANDOM, cancerRate, deliver, isElectionYear, setBond, type LifeDef } from './life';
 import { heirCandidates } from './family';
 import { FATE_RANDOM, fateYear, lifeInsurancePayout } from './fate';
+import { ROMANCE_RANDOM, romanceYear } from './romance';
+import { STORIES } from './stories';
 import { chooseSuccessor, giveAsset, giveGift, settleEstate, transferHeadship } from './estate';
 import { CREATORS } from './data';
 import { exposeFakes, makeDate, marry, examScore, spendable, type Ctx } from './events';
@@ -326,9 +328,23 @@ function lifeYear(s: GameState) {
   fateYear(s);
   // 무작위 인생사: 가족 전체에서 최대 2건
   const pool: [LifeDef, Person, number][] = [];
-  for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM]) {
+  romanceYear(s);
+  for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM, ...ROMANCE_RANDOM]) {
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) pool.push([d, p, w]);
+  }
+  // 일상 이야기: 해마다 한두 개
+  const stories: [LifeDef, Person, number][] = [];
+  for (const p of members) for (const d of STORIES) {
+    const w = d.weight?.(s, p) ?? 0;
+    if (w > 0) stories.push([d, p, w]);
+  }
+  for (let i = 0; i < 2 && stories.length && chance(s, i === 0 ? 0.85 : 0.35); i++) {
+    const total = stories.reduce((t, [, , w]) => t + w, 0);
+    let r = next(s) * total;
+    const hit = stories.find(([, , w]) => (r -= w) <= 0) ?? stories[stories.length - 1];
+    queue(s, hit[0].id, hit[1].id);
+    stories.splice(stories.indexOf(hit), 1);
   }
   for (let i = 0; i < 2 && pool.length; i++) {
     const total = pool.reduce((t, [, , w]) => t + w, 0);
@@ -544,11 +560,14 @@ function deaths(s: GameState) {
         return;
       }
       const designated = s.heirId === next.id;
+      const adopted = !isDescendantOf(s, next, p);
+      if (adopted) addFlag(next, 'adopted_heir');
       transferHeadship(s, next);
       s.policy.lifestyle = 'balance';
       const text =
         `${iga(fullName(p))} ${cause} 세상을 떠났다. (향년 ${age(s, p)}세)` +
         (hasFlag(p, 'will_written') ? '' : '\n유언장은 남기지 않았다.') +
+        (adopted ? `\n뒤를 이을 자손이 없어, 문중 회의 끝에 조카를 양자로 들이기로 했다.` : '') +
         '\n\n' +
         rep.lines.join('\n');
       const cands = heirCandidates(s, p);
@@ -642,7 +661,7 @@ function births(s: GameState) {
     const target = couple.some((x) => x.id === h.id) ? s.policy.familyPlan : 2;
     const kids = mom.childIds.filter((id) => alive(s.people[id])).length;
     if (kids >= target) continue;
-    const pr = 0.5 * fertility(age(s, mom)) * clamp(mom.actual.hp / 55, 0.3, 1.2);
+    const pr = 0.55 * fertility(age(s, mom)) * clamp(mom.actual.hp / 50, 0.5, 1.2);
     if (!chance(s, pr)) continue;
     deliver(s, dad, mom, blood.surname, 0.015);
   }
@@ -692,7 +711,7 @@ function adultEvents(s: GameState) {
       queue(s, 'election', p.id);
     // 소개팅
     const single = !p.spouseId || !alive(s.people[p.spouseId]);
-    if (single && !hasFlag(p, 'single_life') && !pending('blind_date') && chance(s, dateChance(a, p.id === h.id) * (p.spouseId || hasFlag(p, 'divorced') ? 0.5 : 1))) {
+    if (single && !p.partnerId && !hasFlag(p, 'single_life') && !pending('blind_date') && chance(s, dateChance(a, p.id === h.id) * (p.spouseId || hasFlag(p, 'divorced') ? 0.5 : 1))) {
       queue(s, 'blind_date', p.id, { cand: makeDate(s, p) });
     }
   }

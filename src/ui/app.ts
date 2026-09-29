@@ -370,7 +370,7 @@ function rosterRow(g: GameState, p: Person): string {
     p.id === g.headId ? '👑' : '',
     p.id === g.heirId ? '★' : '',
     g.events.some((e) => e.personId === p.id) ? '❗' : '',
-    p.spouseId && alive(g.people[p.spouseId]) ? '💍' : '',
+    p.spouseId && alive(g.people[p.spouseId]) ? '💍' : p.partnerId ? '💕' : '',
     p.flags.includes('grievance') ? '💢' : '',
   ].join('');
   return `<button class="rrow ${dead ? 'dead' : ''}" data-action="person" data-id="${p.id}">
@@ -471,6 +471,14 @@ function lifeRows(g: GameState, p: Person): string {
   }
   const tries = Number(p.flags.find((f) => f.startsWith('tries:'))?.slice(6) ?? 0);
   if (tries >= 2) rows.push(`<div class="sh-row"><span>수험</span><span>${tries}번 낙방</span></div>`);
+  const partner = p.partnerId ? g.people[p.partnerId] : undefined;
+  if (partner && alive(p)) {
+    const since = Number(p.flags.find((f) => f.startsWith('dating_since:'))?.slice(13) ?? g.year);
+    const l = p.bond ?? 50;
+    rows.push(`<div class="sh-row"><span>연애</span><span>💕 ${esc(fullName(partner))} (${g.year - since + 1}년째 · ${l >= 75 ? '뜨거움' : l >= 50 ? '좋음' : l >= 30 ? '미지근' : '위태'} ${l})${p.flags.includes('cohabit') ? ' · 동거' : ''}</span></div>`);
+  }
+  const exes = Number(p.flags.find((f) => f.startsWith('exes:'))?.slice(5) ?? 0);
+  if (exes && alive(p)) rows.push(`<div class="sh-row"><span>지난 연애</span><span>${exes}번의 이별</span></div>`);
   const affairs = alive(p) ? pendingAffairs(g, p) : [];
   if (affairs.length) rows.push(`<div class="sh-row"><span>진행 중</span><span class="affairs">${affairs.map((a) => esc(a)).join('<br>')}</span></div>`);
   if (p.flags.includes('dui')) rows.push(`<div class="sh-row warn"><span>⚠</span><span>음주운전 전과</span></div>`);

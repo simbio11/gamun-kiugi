@@ -2,7 +2,7 @@
 import { chance } from './rng';
 import { WILL_NAMES } from './data';
 import { formatMoney, jobLabel, personWorth } from './economy';
-import { estateTax, settleEstate, transferHeadship } from './estate';
+import { adoptiveHeirs, estateTax, settleEstate, transferHeadship } from './estate';
 import { eun, iga, type Choice, type Ctx, type EventDef } from './ev-util';
 import { addFlag, age, alive, childrenOf, clamp, fullName, hasTrait, head, isDescendantOf, relationLabel, spouseOf } from './people';
 import type { GameState, Person, WillMode } from './types';
@@ -161,12 +161,16 @@ function kinOf(s: GameState, dead: Person | undefined, p: Person): string {
   const son = p.sex === 'M';
   if (dead.childIds.includes(p.id)) return son ? '아들' : '딸';
   if (dead.childIds.some((c) => s.people[c].childIds.includes(p.id))) return son ? '손자' : '손녀';
-  return son ? '증손자' : '증손녀';
+  if (isDescendantOf(s, p, dead)) return son ? '증손자' : '증손녀';
+  if (p.fatherId && (p.fatherId === dead.fatherId || p.motherId === dead.motherId)) return (son ? '형제' : '자매') + ' → 가주 계승';
+  return (son ? '조카' : '조카딸') + ' → 양자';
 }
 
 /** 가주 사망 뒤 이어갈 수 있는 사람: 고인의 살아 있는 자손 (자녀 → 손주 순) */
 export function heirCandidates(s: GameState, dead: Person): Person[] {
-  return Object.values(s.people)
+  const own = Object.values(s.people).filter((p) => alive(p) && isDescendantOf(s, p, dead));
+  if (!own.length) return adoptiveHeirs(s, dead);
+  return own
     .filter((p) => alive(p) && isDescendantOf(s, p, dead))
     .sort((a, b) => (dead.childIds.includes(b.id) ? 1 : 0) - (dead.childIds.includes(a.id) ? 1 : 0) || a.birthYear - b.birthYear)
     .slice(0, 6);

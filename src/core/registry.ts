@@ -4,7 +4,9 @@ import { SCHOOL_EVENTS } from './school';
 import { FAMILY_EVENTS } from './family';
 import { LIFE_EVENTS } from './life';
 import { FATE_EVENTS, FATE_RANDOM } from './fate';
+import { ROMANCE_EVENTS, ROMANCE_RANDOM } from './romance';
+import { STORIES } from './stories';
 import type { EventDef } from './ev-util';
 
-export const EVENTS: Record<string, EventDef> = { ...CORE, ...Object.fromEntries([...SCHOOL_EVENTS, ...FAMILY_EVENTS, ...LIFE_EVENTS, ...FATE_EVENTS, ...FATE_RANDOM].map((e) => [e.id, e])) };
+export const EVENTS: Record<string, EventDef> = { ...CORE, ...Object.fromEntries([...SCHOOL_EVENTS, ...FAMILY_EVENTS, ...LIFE_EVENTS, ...FATE_EVENTS, ...FATE_RANDOM, ...ROMANCE_EVENTS, ...ROMANCE_RANDOM, ...STORIES].map((e) => [e.id, e])) };
 export { RANDOM_EVENTS };

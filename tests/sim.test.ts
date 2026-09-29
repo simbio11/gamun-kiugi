@@ -16,7 +16,7 @@ function autoplay(seed: number, years: number): GameState {
       const fwd = all.filter(([c]) => !c.label.startsWith('←'));
       const enabled = fwd.length ? fwd : all;
       // 청혼은 적극적으로, 나머지는 무작위
-      const propose = enabled.find(([c]) => c.label.includes('프러포즈') || c.label.includes('청혼'));
+      const propose = enabled.find(([c]) => /프러포즈|청혼|애프터|고백|결혼하자|날을 잡는다|책임진다|전제로/.test(c.label));
       const pickI = propose && next({ rng: seed + y } as any) < 0.8 ? propose[1] : enabled[Math.floor(next(s) * enabled.length)][1];
       resolveChoice(s, pickI);
     }

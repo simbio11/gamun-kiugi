@@ -45,6 +45,8 @@ export const tr = (n: string, a: string, b: string) => {
 /** 조사: 이/가, 은/는, 을/를 */
 export const iga = (n: string) => n + tr(n, '이', '가');
 export const eun = (n: string) => n + tr(n, '은', '는');
+/** 와/과 */
+export const wa = (n: string) => n + tr(n, '과', '와');
 export const eul = (n: string) => n + tr(n, '을', '를');
 
 /** 쓸 수 있는 돈: 살림을 맡은 사람(어릴 땐 부모)과 배우자, 가문 금고 */

@@ -1,0 +1,523 @@
+// 연애: 만남 → 사귐(해마다 일이 생긴다) → 프러포즈 → 상견례·결혼식·신혼집 → 결혼.
+// 어느 단계에서든 헤어질 수 있다. 연애가 곧 결혼은 아니다.
+
+import { chance, int, next, normal, pick } from './rng';
+import { addAsset, formatMoney, personWorth } from './economy';
+import { agePenalty, appeal, desirability, jobless, makeDate, marry, suitorLine } from './events';
+import { eul, eun, gate, iga, queueNext, schedule, wa, who, type Choice, type Ctx, type EventDef } from './ev-util';
+import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, parentsOf, relationLabel } from './people';
+import type { GameState, Person } from './types';
+import { deliver, type LifeDef } from './life';
+
+// ───────────────────────── 기본 동작 ─────────────────────────
+
+export const partnerOf = (s: GameState, p: Person): Person | undefined => (p.partnerId ? s.people[p.partnerId] : undefined);
+const datingYears = (s: GameState, p: Person) => s.year - Number(p.flags.find((f) => f.startsWith('dating_since:'))?.slice(13) ?? s.year);
+const love = (p: Person) => p.bond ?? 50;
+const setLove = (p: Person, q: Person, v: number) => (p.bond = q.bond = clamp(Math.round(v), 0, 100));
+const mood = (p: Person, d: number) => (p.happiness = clamp(p.happiness + d, 0, 100));
+
+/** 사귀기 시작 */
+export function startDating(s: GameState, p: Person, cand: Person, how: string, arranged = false) {
+  cand.inLaw = true;
+  addFlag(cand, 'partner');
+  s.people[cand.id] = cand;
+  p.partnerId = cand.id;
+  cand.partnerId = p.id;
+  p.flags = p.flags.filter((f) => !f.startsWith('dating_since:'));
+  p.flags.push('dating_since:' + s.year);
+  if (arranged) addFlag(p, 'arranged');
+  else p.flags = p.flags.filter((f) => f !== 'arranged');
+  setLove(p, cand, 48 + normal(s, 0, 10) + (hasTrait(p, 'devoted') ? 8 : 0) + (arranged ? -8 : 0));
+  mood(p, 10);
+  s.log.push({ year: s.year, text: `💕 ${fullName(p)}, ${wa(fullName(cand))} 연애 시작 (${how})`, kind: 'life' });
+}
+
+/** 이별. 상대는 아이가 없으면 가계에서 사라진다 */
+export function breakUp(s: GameState, p: Person, why: string, mine = true) {
+  const q = partnerOf(s, p);
+  p.partnerId = undefined;
+  p.flags = p.flags.filter((f) => !f.startsWith('dating_since:') && f !== 'arranged' && f !== 'cohabit');
+  const exes = Number(p.flags.find((f) => f.startsWith('exes:'))?.slice(5) ?? 0) + 1;
+  p.flags = p.flags.filter((f) => !f.startsWith('exes:'));
+  p.flags.push('exes:' + exes);
+  mood(p, mine ? -6 : -14);
+  if (q) {
+    q.partnerId = undefined;
+    q.flags = q.flags.filter((f) => f !== 'partner');
+    if (!q.childIds.length) delete s.people[q.id];
+    else addFlag(q, 'ex_partner');
+    if (chance(s, 0.3)) schedule(s, int(s, 3, 9), 'ex_news', p.id, { name: fullName(q) });
+    s.log.push({ year: s.year, text: `💔 ${fullName(p)}·${fullName(q)} 이별 (${why})`, kind: 'life' });
+  }
+}
+
+/** 사귈 수 있을까 (결혼보다 훨씬 쉽다) */
+function canDate(s: GameState, p: Person, cand: Person): boolean {
+  return check(s, appeal(s, p) + 12 - agePenalty(age(s, p)) * 0.5, desirability(cand), 11);
+}
+
+/** 프러포즈 승낙: 사랑 + 조건 + 나이 */
+function acceptsProposal(s: GameState, p: Person, q: Person): boolean {
+  const years = datingYears(s, p);
+  const score = love(p) * 0.6 + appeal(s, p) * 0.4 + Math.min(10, years * 3) + (hasFlag(p, 'arranged') ? 8 : 0) - agePenalty(age(s, p)) * 0.6 - (jobless(p) ? 12 : 0);
+  return check(s, score, desirability(q) * 0.5 + 24, 9);
+}
+
+// ───────────────────────── 만남 ─────────────────────────
+
+const WAYS = ['동아리에서', '회사에서', '친구 소개로', '소개팅 앱에서', '여행지에서', '동호회에서', '헬스장에서', '교회에서', '결혼식 뒤풀이에서', '단골 카페에서'];
+
+const meet: LifeDef = {
+  id: 'meet',
+  weight: (s, p) => {
+    if (p.inLaw || p.partnerId || hasFlag(p, 'single_life') || (p.spouseId && alive(s.people[p.spouseId])) || p.flags.some((f) => f.startsWith('serving:'))) return 0;
+    const a = age(s, p);
+    return a < 19 ? 0 : a < 30 ? 0.14 : a < 40 ? 0.09 : a < 50 ? 0.04 : a < 65 ? 0.015 : 0;
+  },
+  title: () => '새로운 인연',
+  portraits: (c) => [c.p, c.ev.data.cand],
+  text: (c) => {
+    c.ev.data ??= { cand: makeDate(c.s, c.p), way: pick(c.s, age(c.s, c.p) < 24 ? WAYS.slice(0, 5) : WAYS) };
+    return `${who(c)}, ${c.ev.data.way} 마음이 가는 사람을 만났다.\n${suitorLine(c.ev.data.cand, c.s)}`;
+  },
+  choices: () => [
+    {
+      label: '고백한다',
+      run: (x) => {
+        const cand: Person = x.ev.data.cand;
+        if (canDate(x.s, x.p, cand)) {
+          startDating(x.s, x.p, cand, x.ev.data.way.replace('에서', '').replace('으로', ''));
+          return `💕 "나도 좋아." ${iga(fullName(cand))} 수줍게 웃었다. 연애 시작!`;
+        }
+        mood(x.p, -8);
+        return `"좋은 친구로 지내요." 고백은 실패했다.`;
+      },
+    },
+    { label: '마음만 간직한다', run: () => '인연이 아니었나 보다.' },
+  ],
+};
+
+// ───────────────────────── 해마다 연애 ─────────────────────────
+
+type Situ = 'sweet' | 'fight' | 'boredom' | 'longdist' | 'pressure' | 'cheat_me' | 'cheat_them' | 'pregnant' | 'they_propose' | 'cohabit' | 'dumped' | 'money' | 'parents_meet';
+
+function rollSituation(s: GameState, p: Person, q: Person): Situ {
+  const y = datingYears(s, p);
+  const a = age(s, p);
+  if (love(p) < 22 && chance(s, 0.6)) return 'dumped';
+  const pool: [Situ, number][] = [
+    ['sweet', 3],
+    ['fight', 2],
+    ['boredom', y >= 2 ? 2 : 0],
+    ['longdist', 0.6],
+    ['pressure', age(s, q) >= 30 && y >= 2 && !hasFlag(p, 'arranged') ? 2.5 : 0],
+    ['cheat_me', hasTrait(p, 'flirt') ? 1.2 : 0.1],
+    ['cheat_them', hasTrait(q, 'flirt') ? 1.2 : 0.15],
+    ['pregnant', y >= 1 && a <= 42 ? (hasFlag(p, 'cohabit') ? 0.7 : 0.35) : 0],
+    ['they_propose', love(p) >= 65 && y >= 2 ? 1.5 : 0],
+    ['cohabit', y >= 1 && !hasFlag(p, 'cohabit') && a >= 23 ? 0.8 : 0],
+    ['money', 0.6],
+    ['parents_meet', y >= 1 && !hasFlag(p, 'met_parents') && parentsOf(s, p).some(alive) ? 1 : 0],
+  ];
+  let x = next(s) * pool.reduce((t, [, w]) => t + w, 0);
+  for (const [k, w] of pool) if ((x -= w) <= 0 && w > 0) return k;
+  return 'sweet';
+}
+
+const SITU_TEXT: Record<Situ, (c: Ctx, q: Person) => string> = {
+  sweet: (c, q) => `${wa(fullName(q))} 벚꽃 구경, 바다 여행… 요즘 ${who(c)}의 하루가 반짝인다.`,
+  fight: (_c, q) => `사소한 일로 ${wa(fullName(q))} 크게 싸웠다. 며칠째 연락이 없다.`,
+  boredom: (_c, q) => `${wa(fullName(q))} 만난 지 오래. 설렘이 예전 같지 않다. 권태기인가.`,
+  longdist: (_c, q) => `${iga(fullName(q))} 지방으로 발령이 났다. 주말에만 볼 수 있다.`,
+  pressure: (_c, q) => `${fullName(q)}: "우리 나이도 있는데… 결혼 생각은 있는 거지?" 대답을 기다린다.`,
+  cheat_me: (c) => `${who(c)}, 요즘 자꾸 다른 사람이 눈에 들어온다.`,
+  cheat_them: (_c, q) => `${fullName(q)}의 휴대폰에 낯선 이름이 자주 뜬다. 뭔가 이상하다.`,
+  pregnant: (_c, q) => `${fullName(q)}에게서 떨리는 목소리로 전화가 왔다. "…나 임신했어."`,
+  they_propose: (_c, q) => `${iga(fullName(q))} 무릎을 꿇고 반지를 내밀었다! "나랑 결혼해 줄래?"`,
+  cohabit: (_c, q) => `${fullName(q)}: "우리 같이 살아볼까? 월세도 아끼고."`,
+  dumped: (_c, q) => `${fullName(q)}: "우리 그만하자. 나 많이 지쳤어."`,
+  money: (_c, q) => `${iga(fullName(q))} 급하게 돈이 필요하다며 곤란한 얼굴이다.`,
+  parents_meet: (c, q) => `${who(c)}의 부모님이 ${eul(fullName(q))} 한번 보자고 하신다.`,
+};
+
+const datingYear: EventDef = {
+  id: 'dating_year',
+  valid: (c) => !!partnerOf(c.s, c.p) && alive(partnerOf(c.s, c.p)!),
+  title: (c) => `연애 ${datingYears(c.s, c.p) + 1}년 차`,
+  portraits: (c) => [c.p, partnerOf(c.s, c.p)!],
+  text: (c) => {
+    const q = partnerOf(c.s, c.p)!;
+    c.ev.data ??= { situ: rollSituation(c.s, c.p, q) };
+    const l = love(c.p);
+    return SITU_TEXT[c.ev.data.situ as Situ](c, q) + `\n(애정 ${l >= 75 ? '💞' : l >= 50 ? '❤' : l >= 30 ? '💛' : '💔'} ${l})`;
+  },
+  choices: (c) => {
+    const q = partnerOf(c.s, c.p)!;
+    const situ = c.ev.data.situ as Situ;
+    const y = datingYears(c.s, c.p);
+    const bump = (d: number, text: string) => (x: Ctx) => (setLove(x.p, q, love(x.p) + d), text);
+    const propose: Choice = {
+      label: '💍 프러포즈한다',
+      req: ['애정·조건·나이', ...(jobless(c.p) ? ['무직 불리'] : [])],
+      disabled: y < 1 && !hasFlag(c.p, 'arranged'),
+      run: (x) => {
+        if (acceptsProposal(x.s, x.p, q)) {
+          queueNext(x.s, 'wedding', x.p.id);
+          mood(x.p, 12);
+          return `💍 "응!" ${iga(fullName(q))} 울면서 반지를 받았다. 이제 결혼 준비다.`;
+        }
+        setLove(x.p, q, love(x.p) - 12);
+        mood(x.p, -8);
+        if (chance(x.s, 0.35)) {
+          breakUp(x.s, x.p, '프러포즈 거절', false);
+          return `"…아직 모르겠어." 그 뒤로 사이가 틀어졌고, 결국 헤어졌다.`;
+        }
+        return `"조금만 더 생각해 볼게." 어색한 침묵이 흘렀다.`;
+      },
+    };
+    const keep: Choice = { label: '지금처럼 만난다', run: bump(2, '천천히 가기로 했다.') };
+    const leave: Choice = { label: '헤어진다', run: (x) => (breakUp(x.s, x.p, '내가 이별 통보'), '짧지 않은 인연이 끝났다.') };
+
+    switch (situ) {
+      case 'dumped':
+        return [
+          {
+            label: '붙잡는다',
+            run: (x) => {
+              if (check(x.s, appeal(x.s, x.p) + love(x.p), 70, 10)) {
+                setLove(x.p, q, love(x.p) + 20);
+                return '밤새 편지를 썼다. 다시 한번 해보기로 했다.';
+              }
+              breakUp(x.s, x.p, '차였다', false);
+              return '돌아서는 뒷모습을 잡지 못했다.';
+            },
+          },
+          { label: '보내준다', run: (x) => (breakUp(x.s, x.p, '차였다', false), '"행복해." 그게 마지막 인사였다.') },
+        ];
+      case 'pressure':
+        return [
+          propose,
+          {
+            label: '아직 결혼은 이르다고 한다',
+            run: (x) => {
+              if (chance(x.s, 0.5)) {
+                breakUp(x.s, x.p, '결혼관 차이', false);
+                return `"나는 더 못 기다려." ${iga(fullName(q))} 떠났다.`;
+              }
+              setLove(x.p, q, love(x.p) - 15);
+              return '서운한 기색이 역력하다. 1년만 더 기다려 주기로 했다.';
+            },
+          },
+          leave,
+        ];
+      case 'they_propose':
+        return [
+          { label: '좋아! 결혼하자', run: (x) => (queueNext(x.s, 'wedding', x.p.id), mood(x.p, 12), '💍 반지를 끼웠다. 결혼 준비 시작!') },
+          { label: '아직은… 미안해', run: (x) => (chance(x.s, 0.4) ? (breakUp(x.s, x.p, '프러포즈를 거절', true), '상처받은 상대가 이별을 고했다.') : (setLove(x.p, q, love(x.p) - 15), '어색한 공기가 오래 남았다.')) },
+        ];
+      case 'pregnant':
+        return [
+          {
+            label: '책임진다 — 결혼하자',
+            run: (x) => {
+              addFlag(x.p, 'shotgun');
+              queueNext(x.s, 'wedding', x.p.id, { baby: true });
+              return '속도위반 결혼이다. 양가 부모님이 놀라셨다.';
+            },
+          },
+          {
+            label: '헤어지되 아이는 키운다',
+            run: (x) => {
+              const dad = x.p.sex === 'M' ? x.p : q;
+              const mom = x.p.sex === 'F' ? x.p : q;
+              deliver(x.s, dad, mom, x.p.inLaw ? q.surname : x.p.surname, 0.015);
+              addFlag(x.p, 'single_parent');
+              breakUp(x.s, x.p, '미혼 출산', true);
+              x.s.fame = Math.max(0, x.s.fame - 2);
+              return '혼자 아이를 키우기로 했다. 쉽지 않은 길이다.';
+            },
+          },
+          { label: '헤어진다', run: (x) => (breakUp(x.s, x.p, '임신 후 이별', true), mood(x.p, -15), '서로에게 깊은 상처가 남았다.') },
+        ];
+      case 'cheat_me':
+        return [
+          { label: '마음을 다잡는다', run: (x) => ((x.p.actual.mor = clamp(x.p.actual.mor + 2, 0, 100)), '한눈팔지 않기로 했다.') },
+          {
+            label: '몰래 만나본다',
+            run: (x) => {
+              if (chance(x.s, 0.5)) {
+                breakUp(x.s, x.p, '바람이 들킴', true);
+                return '들켰다. 뺨을 맞고 차였다.';
+              }
+              setLove(x.p, q, love(x.p) - 10);
+              return '아직은 들키지 않았다. 마음이 불편하다.';
+            },
+          },
+          { label: '환승이별한다', run: (x) => (breakUp(x.s, x.p, '환승이별', true), (x.p.actual.mor = clamp(x.p.actual.mor - 3, 0, 100)), '새 사람에게 가려고 이별을 고했다.') },
+        ];
+      case 'cheat_them':
+        return [
+          { label: '모른 척한다', run: bump(-8, '의심이 마음속에서 자란다.') },
+          {
+            label: '따져 묻는다',
+            run: (x) => {
+              if (chance(x.s, hasTrait(q, 'flirt') ? 0.7 : 0.3)) {
+                breakUp(x.s, x.p, '상대의 바람', false);
+                return '바람이 맞았다. 그날로 끝냈다.';
+              }
+              setLove(x.p, q, love(x.p) - 5);
+              return '오해였다. 서로 사과했다.';
+            },
+          },
+        ];
+      case 'cohabit':
+        return [
+          {
+            label: '같이 산다',
+            run: (x) => {
+              addFlag(x.p, 'cohabit');
+              setLove(x.p, q, love(x.p) + 8);
+              for (const par of parentsOf(x.s, x.p).filter(alive)) par.affinity = clamp(par.affinity - 8, -100, 100);
+              return '작은 원룸에 살림을 합쳤다. 부모님은 아직 모르신다(?)';
+            },
+          },
+          { label: '결혼 전엔 안 된다', run: bump(-4, '"그래, 알았어." 조금 서운해 보인다.') },
+          propose,
+        ];
+      case 'money':
+        return gate(c.s, [
+          { label: '1천만원 빌려준다', cost: 1000, run: (x) => (setLove(x.p, q, love(x.p) + 6), chance(x.s, 0.7) ? ((x.p.cash += 1000), '몇 달 뒤 고맙다며 갚았다.') : '갚을 생각이 없는 것 같다…') },
+          { label: '돈 문제는 선을 긋는다', run: bump(-6, '"치사하다" 소리를 들었다.') },
+          keep,
+        ]);
+      case 'parents_meet':
+        return [
+          {
+            label: '부모님께 인사시킨다',
+            run: (x) => {
+              addFlag(x.p, 'met_parents');
+              const obj = parentsObjection(x.s, x.p, q);
+              if (obj) {
+                setLove(x.p, q, love(x.p) - 6);
+                return `부모님의 표정이 굳었다. "${obj}" 반대가 심하다.`;
+              }
+              setLove(x.p, q, love(x.p) + 6);
+              return '부모님이 마음에 들어 하셨다! "언제 결혼할 거니?"';
+            },
+          },
+          { label: '아직 이르다', run: () => '다음에 인사드리기로 했다.' },
+        ];
+      default: {
+        const d = { sweet: 8, fight: -10, boredom: -12, longdist: -8 }[situ as 'sweet'] ?? 0;
+        return [
+          propose,
+          {
+            label: d >= 0 ? '행복하다' : '이번에도 잘 넘겨본다',
+            run: (x) => {
+              setLove(x.p, q, love(x.p) + d + (d < 0 && check(x.s, x.p.actual.mor, 50, 10) ? 8 : 0));
+              mood(x.p, d > 0 ? 6 : -3);
+              return d >= 0 ? '둘은 여전히 좋다.' : '어떻게든 잘 넘겼다.';
+            },
+          },
+          leave,
+        ];
+      }
+    }
+  },
+};
+
+/** 부모님이 반대할 이유 (없으면 빈 문자열) */
+function parentsObjection(s: GameState, p: Person, q: Person): string {
+  const pars = parentsOf(s, p).filter(alive);
+  if (!pars.length) return '';
+  const ours = pars.reduce((t, x) => t + personWorth(s, x), 0) + s.familyCash;
+  if (hasFlag(q, 'divorced') && chance(s, 0.6)) return '이혼한 사람은 안 된다.';
+  if (['none', 'parttime'].includes(q.job) && chance(s, 0.6)) return '직업도 없는 사람한테 어떻게 보내니.';
+  if (ours > q.cash * 30 && ours > 100000 && chance(s, 0.5)) return '집안이 너무 차이 난다.';
+  if (age(s, q) - age(s, p) >= 8 && chance(s, 0.5)) return '나이 차이가 너무 많이 난다.';
+  if (pars.some((x) => hasTrait(x, 'anxious')) && chance(s, 0.2)) return '궁합이 안 좋단다.';
+  return '';
+}
+
+// ───────────────────────── 결혼 준비 ─────────────────────────
+
+const wedding: EventDef = {
+  id: 'wedding',
+  valid: (c) => !!partnerOf(c.s, c.p),
+  title: (c) => ({ undefined: '상견례', ceremony: '결혼식', house: '신혼집' })[c.ev.data?.stage as 'ceremony'] ?? '상견례',
+  portraits: (c) => [c.p, partnerOf(c.s, c.p)!],
+  text: (c) => {
+    const q = partnerOf(c.s, c.p)!;
+    c.ev.data ??= {};
+    const d = c.ev.data;
+    if (d.stage === 'ceremony') return `결혼식을 어떻게 할까? (${wa(fullName(q))} 함께)`;
+    if (d.stage === 'house') return '신혼집은 어디로 할까?';
+    if (d.obj === undefined) d.obj = hasFlag(c.p, 'shotgun') ? '' : parentsObjection(c.s, c.p, q);
+    if (d.clash === undefined) d.clash = chance(c.s, 0.06) ? pick(c.s, ['예단·예물', '신혼집 명의', '제사 문제', '종교']) : '';
+    return (
+      `양가 부모님이 한자리에 모였다.` +
+      (d.obj ? `\n그런데 부모님이 반대하신다. "${d.obj}"` : '\n분위기는 화기애애하다.') +
+      (d.clash ? `\n…양가가 ${d.clash} 문제로 크게 부딪혔다.` : '')
+    );
+  },
+  choices: (c) => {
+    const d = c.ev.data;
+    const q = partnerOf(c.s, c.p)!;
+    const next = (stage: string, text = '') => (x: Ctx) => ((x.ev.data.stage = stage), { text, keep: true as const });
+    if (d.stage === 'ceremony') {
+      const done = (cost: number, text: string, fame = 0, luv = 0) => (x: Ctx) => {
+        x.s.fame += fame;
+        setLove(x.p, q, love(x.p) + luv);
+        x.ev.data.stage = 'house';
+        return { text: text + (cost ? ` (${formatMoney(cost)})` : ''), keep: true as const };
+      };
+      return gate(c.s, [
+        { label: '스몰 웨딩', cost: 500, run: done(500, '가까운 사람들만 모여 소박하게 올렸다.', 0, 6) },
+        { label: '평범한 예식장', cost: 2500, run: done(2500, '축의금 봉투가 수북하다.', 1, 3) },
+        { label: '호텔 웨딩', cost: 9000, run: done(9000, '샹들리에 아래 화려한 결혼식. 하객들이 입을 모아 부러워했다.', 4, 2) },
+        { label: '식은 생략, 혼인신고만', run: done(0, '구청에서 도장 두 개로 끝냈다. 부모님은 서운해하신다.', 0, 0) },
+      ]);
+    }
+    if (d.stage === 'house') {
+      const hh = householder(c.s);
+      const parentHelp = hh.id !== c.p.id && isMainline(c.s, hh);
+      const finish = (text: string) => (x: Ctx) => {
+        marry(x.s, x.p, q);
+        if (x.ev.data.baby) deliver(x.s, x.p.sex === 'M' ? x.p : q, x.p.sex === 'F' ? x.p : q, x.p.inLaw ? q.surname : x.p.surname, 0.015);
+        return `💍 ${who(x)} ♥ ${fullName(q)}, 부부가 되었다!\n` + text;
+      };
+      return gate(c.s, [
+        { label: '월세 원룸에서 시작', run: finish('좁지만 둘이면 충분하다.') },
+        { label: '전세 대출로 신혼집', cost: 3000, run: finish('은행 대출로 전셋집을 구했다.') },
+        ...(parentHelp && personWorth(c.s, hh) > c.s.market.apt_local * 1.5
+          ? [
+              {
+                label: '부모님이 집을 마련해 주신다',
+                run: (x: Ctx) => {
+                  const price = Math.round(x.s.market.apt_local);
+                  hh.cash -= price;
+                  addAsset(x.s, 'apt_local', x.p.id, price, '신혼집');
+                  x.s.gifts.push({ fromId: hh.id, toId: x.p.id, amount: price, tax: Math.round(price * 0.1), year: x.s.year });
+                  x.p.cash -= Math.round(price * 0.1);
+                  return finish(`${relationLabel(x.s, hh)}께서 아파트를 사주셨다. (증여세 ${formatMoney(price * 0.1)})`)(x);
+                },
+              } as Choice,
+            ]
+          : []),
+        ...(parentsOf(c.s, c.p).some(alive)
+          ? [{ label: '본가에 들어가 산다', run: (x: Ctx) => ((q.happiness = clamp(q.happiness - 12, 0, 100)), finish('부모님과 함께 산다. 배우자의 표정이 어둡다.')(x)) } as Choice]
+          : []),
+      ]);
+    }
+    // 상견례
+    const out: Choice[] = [];
+    if (d.obj) {
+      out.push({
+        label: '부모님을 설득한다',
+        req: ['성품·매력'],
+        run: (x) => {
+          if (check(x.s, x.p.actual.mor * 0.5 + x.p.actual.cha * 0.5 + x.p.affinity * 0.2, 45, 8)) return next('ceremony', '몇 달의 설득 끝에 부모님이 허락하셨다.')(x);
+          x.ev.data.obj = '끝까지 반대';
+          return { text: '"내 눈에 흙이 들어가기 전엔 안 된다!"', keep: true };
+        },
+      });
+      out.push({
+        label: '반대를 무릅쓰고 결혼한다',
+        run: (x) => {
+          for (const par of parentsOf(x.s, x.p).filter(alive)) par.affinity = clamp(par.affinity - 30, -100, 100);
+          x.p.affinity = clamp(x.p.affinity - 25, -100, 100);
+          return next('ceremony', '부모님 없이 결혼 준비를 했다. 연락이 끊겼다.')(x);
+        },
+      });
+    } else if (d.clash) {
+      out.push({ label: '우리가 양보하자고 한다', run: (x) => ((x.p.cash -= 1000), next('ceremony', '예단을 넉넉히 보내 겨우 수습했다.')(x)) });
+    } else out.push({ label: '날을 잡는다', run: next('ceremony', '결혼 날짜를 잡았다!') });
+    out.push({
+      label: '결혼을 없던 일로 한다 (파혼)',
+      run: (x) => {
+        breakUp(x.s, x.p, '파혼', true);
+        x.s.fame = Math.max(0, x.s.fame - 1);
+        return '청첩장까지 찍었는데… 파혼했다.';
+      },
+    });
+    return gate(c.s, out);
+  },
+};
+
+// ───────────────────────── 자녀의 연애 (알아서) ─────────────────────────
+
+/** 가주가 아닌 자녀·손주의 연애는 조용히 흘러간다 (가주에게는 가끔 소식만) */
+export function autoRomance(s: GameState) {
+  const h = head(s);
+  for (const p of Object.values(s.people)) {
+    if (!alive(p) || p.id === h.id || !p.partnerId || !isMainline(s, p)) continue;
+    const q = partnerOf(s, p);
+    if (!q || !alive(q)) {
+      breakUp(s, p, '사별');
+      continue;
+    }
+    setLove(p, q, love(p) + normal(s, -1, 8));
+    const y = datingYears(s, p);
+    if (love(p) < 25 || chance(s, 0.12)) {
+      breakUp(s, p, '헤어졌다');
+      continue;
+    }
+    if (y >= 2 && chance(s, 0.3 + love(p) / 300) && acceptsProposal(s, p, q)) {
+      s.events.push({ uid: s.eventSeq++, defId: 'kid_wedding', personId: p.id });
+    }
+  }
+}
+
+const kidWedding: EventDef = {
+  id: 'kid_wedding',
+  valid: (c) => !!partnerOf(c.s, c.p),
+  title: () => '결혼 허락',
+  portraits: (c) => [c.p, partnerOf(c.s, c.p)!],
+  text: (c) => {
+    const q = partnerOf(c.s, c.p)!;
+    return `${iga(who(c))} ${datingYears(c.s, c.p)}년 사귄 사람을 데려왔다. 결혼하겠단다.\n${suitorLine(q, c.s)}`;
+  },
+  choices: (c) => {
+    const q = partnerOf(c.s, c.p)!;
+    return gate(c.s, [
+      { label: '축복한다 (결혼식 비용 지원 3천만)', cost: 3000, run: (x) => (marry(x.s, x.p, q), (x.p.affinity = clamp(x.p.affinity + 12, -100, 100)), `💍 ${who(x)} ♥ ${fullName(q)} 결혼!`) },
+      { label: '축복한다 (알아서 하라고)', run: (x) => (marry(x.s, x.p, q), `💍 ${who(x)} ♥ ${fullName(q)} 결혼! 둘이 알뜰하게 준비했다.`) },
+      {
+        label: '반대한다',
+        run: (x) => {
+          x.p.affinity = clamp(x.p.affinity - 25, -100, 100);
+          if (chance(x.s, 0.5)) {
+            marry(x.s, x.p, q);
+            return `${eun(who(x))} 반대를 무릅쓰고 결혼했다. 부모 자식 사이가 멀어졌다.`;
+          }
+          breakUp(x.s, x.p, '부모 반대');
+          x.p.happiness = clamp(x.p.happiness - 15, 0, 100);
+          return `${iga(who(x))} 울면서 헤어졌다. 원망의 눈빛이다.`;
+        },
+      },
+    ]);
+  },
+};
+
+const exNews: EventDef = {
+  id: 'ex_news',
+  title: () => '옛 연인의 소식',
+  text: (c) => `SNS에 뜬 사진 한 장. 옛 연인 ${iga(c.ev.data.name)} ${pick({ rng: c.s.year }, ['결혼했다', '아이를 안고 웃고 있다', '해외로 이민 갔다', '사업에 성공했다'])}고 한다.`,
+  choices: () => [
+    { label: '행복을 빌어준다', run: (x) => ((x.p.actual.mor = clamp(x.p.actual.mor + 1, 0, 100)), '잘 살아라.') },
+    { label: '괜히 봤다', run: (x) => (mood(x.p, -4), '밤새 뒤척였다.') },
+  ],
+};
+
+/** 가주 본인은 해마다 연애 이벤트 */
+export function romanceYear(s: GameState) {
+  const h = head(s);
+  const q = partnerOf(s, h);
+  if (q && !alive(q)) breakUp(s, h, '사별', false);
+  else if (q && !s.events.some((e) => e.defId === 'dating_year' || e.defId === 'wedding')) s.events.push({ uid: s.eventSeq++, defId: 'dating_year', personId: h.id });
+  autoRomance(s);
+}
+
+export const ROMANCE_EVENTS: EventDef[] = [datingYear, wedding, kidWedding, exNews];
+export const ROMANCE_RANDOM: LifeDef[] = [meet];

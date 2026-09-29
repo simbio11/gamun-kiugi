@@ -1,6 +1,7 @@
 import { chance, int, normal, pick } from './rng';
 import { ART_TIERS, EXAMS, JOB_CATS, JOB_IDS, JOBS, PREP_TIERS, STAT_NAMES, SURNAMES, TAG_NAMES, TALENTS } from './data';
 import { MAJOR_JOBS } from './school';
+import { startDating } from './romance';
 import { unlock } from './achievements';
 import { addAsset, formatMoney, jobLabel, jobTitle, pay, personWorth, statScore } from './economy';
 import { estateTax, giveGift } from './estate';
@@ -611,7 +612,7 @@ const firstJob: EventDef = {
 
 // ───────────────────────── 소개팅 → 프러포즈 ─────────────────────────
 
-const DATE_JOBS: JobId[] = [
+export const DATE_JOBS: JobId[] = [
   'office', 'office', 'office', 'corp', 'civil', 'civil', 'teacher', 'nurse', 'police', 'developer', 'public_corp',
   'parttime', 'none', 'shopkeeper', 'founder', 'doctor', 'lawyer', 'pharmacist', 'accountant', 'youtuber', 'musician', 'writer',
 ];
@@ -649,16 +650,18 @@ function makeSuitors(s: GameState, p: Person, quality: number): Person[] {
 }
 
 /** 매력도: 외모·성품·명성·재산 + 직업 번듯함 */
-function appeal(s: GameState, p: Person): number {
+export function appeal(s: GameState, p: Person): number {
   return 10 + Math.min(10, p.jobLevel * 2 + Math.max(0, JOBS[p.job].fame) * 2) + (hasTrait(p, 'social') ? 6 : hasTrait(p, 'shy') ? -6 : 0) + (hasTrait(p, 'flirt') ? 4 : 0) + p.actual.cha * 0.7 + p.actual.mor * 0.2 + Math.min(20, s.fame * 0.25) + Math.min(25, (personWorth(s, p) + s.familyCash * 0.3) / 4000);
 }
-function desirability(c: Person): number {
+export function desirability(c: Person): number {
   const a = c.actual;
   return (a.str + a.int + a.cha + a.mor + a.hp) / 5 + Math.min(20, c.cash / 1500) + (c.flags.includes('divorced') ? -6 : 0);
 }
 
 export function marry(s: GameState, p: Person, sp: Person) {
-  sp.flags = sp.flags.filter((f) => !f.startsWith('show:'));
+  sp.flags = sp.flags.filter((f) => !f.startsWith('show:') && f !== 'partner');
+  p.partnerId = sp.partnerId = undefined;
+  p.flags = p.flags.filter((f) => !f.startsWith('dating_since:'));
   if (p.spouseId || p.flags.includes('divorced')) p.flags.push('remarried');
   sp.spouseId = p.id;
   sp.affinity = 40;
@@ -684,16 +687,11 @@ export function suitorLine(c: Person, s: GameState): string {
 }
 
 /** 번듯한 직장이 없으면 결혼 승낙을 받기 어렵다 */
-function jobless(p: Person): boolean {
+export function jobless(p: Person): boolean {
   return ['none', 'parttime'].includes(p.job) || p.flags.some((f) => f === 'student' || f.startsWith('prep:') || f.startsWith('serving:'));
 }
 
-/** 프러포즈 성공 판정 */
-function propose(s: GameState, p: Person, cand: Person, bonus: number): boolean {
-  return check(s, appeal(s, p) + bonus - agePenalty(age(s, p)) - (jobless(p) ? 12 : 0), desirability(cand), 10);
-}
-
-const AGENCY_TIERS: [string, number, number][] = [
+export const AGENCY_TIERS: [string, number, number][] = [
   ['결혼정보회사 일반 회원', 500, 6],
   ['결혼정보회사 VIP', 3000, 14],
 ];
@@ -720,14 +718,13 @@ const blindDate: EventDef = {
     const tries: number = c.ev.data.tries ?? 0;
     const out: Choice[] = [
       {
-        label: '만남을 이어가다 프러포즈한다',
-        req: ['매력·집안·명성', ...(a >= 40 ? ['나이 불리'] : []), ...(jobless(c.p) ? ['무직 불리'] : [])],
+        label: c.ev.data.agency ? '결혼을 전제로 만나본다' : '애프터 신청 (연애 시작)',
+        req: ['매력·집안·명성', ...(a >= 40 ? ['나이 불리'] : [])],
         run: (x) => {
-          if (propose(x.s, x.p, cand, x.ev.data.bonus ?? 0)) {
-            marry(x.s, x.p, cand);
+          if (check(x.s, appeal(x.s, x.p) + 12 + (x.ev.data.bonus ?? 0) - agePenalty(a) * 0.5, desirability(cand), 11)) {
+            startDating(x.s, x.p, cand, x.ev.data.agency ? '결혼정보회사' : '소개팅', !!x.ev.data.agency);
             if (!isHead) x.p.affinity = clamp(x.p.affinity + 3, -100, 100);
-            x.p.happiness = clamp(x.p.happiness + 10, 0, 100);
-            return `💍 ${eun(fullName(cand))} 프러포즈를 받아들였다! 두 사람은 부부가 되었다.`;
+            return `💕 ${iga(fullName(cand))} 애프터에 응했다. 연애 시작!` + (isHead ? '\n(사귀는 동안 해마다 이런저런 일이 생긴다. 결혼까지 갈지는 모른다)' : '');
           }
           x.p.happiness = clamp(x.p.happiness - 5, 0, 100);
           return `💔 "좋은 분이지만… 미안해요." ${iga(fullName(cand))} 거절했다.`;
@@ -757,17 +754,13 @@ const blindDate: EventDef = {
       out.push({
         label: '본인에게 맡긴다 (연애결혼)',
         run: (x) => {
-          if (!chance(x.s, clamp(0.55 - Math.max(0, a - 33) * 0.04, 0.08, 0.55))) {
+          if (!chance(x.s, clamp(0.6 - Math.max(0, a - 33) * 0.04, 0.08, 0.6))) {
             return `${iga(who(x))} "알아서 할게"라고 했지만… 아직 소식이 없다.`;
           }
-          const sp = createPerson(x.s, { sex: x.p.sex === 'M' ? 'F' : 'M', surname: pick(x.s, SURNAMES), birthYear: x.p.birthYear + int(x.s, -3, 3), quality: 46, grown: 0.7 });
-          sp.inLaw = true;
-          sp.cash = int(x.s, 500, 4000);
-          sp.job = pick(x.s, DATE_JOBS);
-          marry(x.s, x.p, sp);
-          x.p.happiness = clamp(x.p.happiness + 12, 0, 100);
-          x.p.affinity = clamp(x.p.affinity + 8, -100, 100);
-          return `${iga(who(x))} 사랑하는 사람 ${eul(fullName(sp))} 데려왔다.`;
+          const sp = makeDate(x.s, x.p);
+          startDating(x.s, x.p, sp, '자연스럽게');
+          x.p.affinity = clamp(x.p.affinity + 5, -100, 100);
+          return `${iga(who(x))} ${eul(fullName(sp))} 만나기 시작했다고 한다. 결혼까지 갈지는 두고 볼 일이다.`;
         },
       });
     out.push({ label: '이번엔 인연이 아닌 것 같다', run: () => '정중히 거절했다. 다음 인연을 기다린다.' });

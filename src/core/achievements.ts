@@ -66,6 +66,7 @@ const FLAG_ACHV: [string, string][] = [
   ['draft_dodger', 'draft_dodger'],
   ['bankrupt', 'bankrupt'],
   ['pet', 'pet'],
+  ['adopted_heir', 'adopted_heir'],
   ['guarantee_victim', 'guarantee_victim'],
   ['angel_jackpot', 'angel_jackpot'],
   ['sub_winner', 'sub_winner'],
