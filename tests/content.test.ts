@@ -677,3 +677,36 @@ describe('진짜일까 가짜일까', () => {
     expect(currentEvent(s)!.choices.some((c) => c.label.startsWith('꼬치꼬치'))).toBe(false);
   });
 });
+
+describe('관심사와 지정 상속', () => {
+  it('취미를 고르면 관심 분야가 쌓이고, 첫 직장에 "어릴 때부터 키운 꿈" 분류가 생긴다', async () => {
+    const { topInterests } = await import('../src/core/interests');
+    const s = newGame({ seed: 8, familyName: '최', sex: 'F' });
+    const h = head(s);
+    s.events = [{ uid: s.eventSeq++, defId: 'hobby', personId: h.id }];
+    for (let i = 0; i < 3; i++) {
+      s.events = [{ uid: s.eventSeq++, defId: 'hobby', personId: h.id }];
+      currentEvent(s);
+      resolveChoice(s, 0);
+    }
+    expect(topInterests(h, 1).length).toBe(1);
+    s.year = h.birthYear + 24;
+    s.events = [{ uid: s.eventSeq++, defId: 'first_job', personId: h.id }];
+    expect(currentEvent(s)!.choices.some((c) => c.label.includes('어릴 때부터 키운 꿈'))).toBe(true);
+  });
+  it('유언장에 적은 집은 지정한 자녀에게 간다', async () => {
+    const { settleEstate } = await import('../src/core/estate');
+    const { addAsset } = await import('../src/core/economy');
+    const s = newGame({ seed: 8, familyName: '최', sex: 'F' });
+    const dad = parentsOf(s, head(s)).find((p) => p.sex === 'M')!;
+    const kids = dad.childIds.map((id) => s.people[id]);
+    s.headId = dad.id;
+    s.willWritten = true;
+    const house = addAsset(s, 'apt_local', dad.id, 40000, '고향 집');
+    const heir = kids[kids.length - 1];
+    house.heir = heir.id;
+    dad.cash = 100000; // 상속세는 현금으로 낸다
+    settleEstate(s, dad, kids[0].id);
+    expect(house.ownerId).toBe(heir.id);
+  });
+});

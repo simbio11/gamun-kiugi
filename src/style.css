@@ -460,3 +460,4 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .screen.enter-r, .screen.enter-l { will-change: transform, opacity; }
 @keyframes slide-r { from { opacity: 0; transform: translateX(16px); } }
 @keyframes slide-l { from { opacity: 0; transform: translateX(-16px); } }
+.heir-sel { max-width: 150px; font-size: 12px; padding: 3px 4px; background: #fff8e6; border: 2px solid var(--line); }

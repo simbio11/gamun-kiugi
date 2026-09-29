@@ -8,6 +8,7 @@ import { buzz, floatDelta, rollNumber, setSound, setVibe, sfx, soundOn, vibeOn, 
 import { buildingURL, TIER_SPRITE, type BuildingKind } from '../render/building';
 import { wageIndex } from '../core/pay';
 import { buyPower, MAINTAIN, MARGIN_RATE, stockQuote } from '../core/leverage';
+import { interestSummary } from '../core/interests';
 import { buyVehicle, canDrive, modelOf, myVehicles, vehicleAP, vehiclePrice, VEHICLES } from '../core/vehicle';
 import {
   ACHIEVEMENTS,
@@ -860,6 +861,9 @@ function personSheet(g: GameState, p: Person): string {
         : `<button class="btn" data-action="heir" data-id="${p.id}">★ 후계자로 지명</button>`,
     );
   }
+  if (!dead && (isDesc || p.id === h.spouseId) && p.id !== h.id) {
+    actions.push(`<button class="btn" data-action="gift-to" data-id="${p.id}">🎁 증여하기 (돈·집·차…)</button>`);
+  }
   if (!dead && isMainline(g, p) && !p.potentialKnown && a < 20) {
     actions.push(`<button class="btn" data-action="test" data-id="${p.id}" ${spendable(g) < 300 ? 'disabled' : ''}>정밀 적성검사 (300만)</button>`);
   }
@@ -891,6 +895,7 @@ function personSheet(g: GameState, p: Person): string {
       ${p.desire && p.desireKnown ? `<div class="sh-row"><span>꿈</span><span>${TAG_NAMES[p.desire]}</span></div>` : ''}
       <div class="sh-row"><span>재산</span><span>${formatMoney(personWorth(g, p))}</span></div>
       ${p.home ? `<div class="sh-row"><span>사는 집</span><span>${homeLine(g, p.home)}</span></div>` : ''}
+      ${interestSummary(p) ? `<div class="sh-row"><span>관심 분야</span><span>${esc(interestSummary(p))}</span></div>` : ''}
       ${assetsOf(g, p.id).length ? `<div class="sh-row"><span>소유</span><span>${assetsOf(g, p.id).map((a) => `${ASSET_ICONS[a.kind]} ${esc(a.name)} ${formatMoney(a.value)}`).join('<br>')}</span></div>` : ''}
       ${p.cash < 0 ? `<div class="sh-row warn"><span>빚</span><span>${formatMoney(-p.cash)} (연 ${(debtRate(p) * 100).toFixed(1)}%)</span></div>` : ''}
       ${lifeRows(g, p)}
@@ -1203,6 +1208,19 @@ function assetsScreen(g: GameState): string {
       .map(([k, l]) => `<button class="${g.will === k ? 'on' : ''}" data-action="will" data-v="${k}">${l}</button>`)
       .join('')}</div>
     <div class="sh-row"><span>유언장</span><span>${g.willWritten ? '✍ 작성함' : '없음 — 떠나면 자식들이 다툴 수 있다'}</span></div>
+    ${
+      mine.filter((a) => a.kind !== 'stock' && a.kind !== 'coin').length && recipients.length
+        ? `<h4 class="sub">📌 이건 이 사람에게 (지정 상속)</h4>
+      ${mine
+        .filter((a) => a.kind !== 'stock' && a.kind !== 'coin')
+        .map(
+          (a) => `<div class="arow"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}<br><small class="muted">${formatMoney(a.value)}</small></span>
+          <span><select id="heir-${a.id}" class="heir-sel"><option value="">법대로 나눔</option>${recipients.map((p) => `<option value="${p.id}" ${a.heir === p.id ? 'selected' : ''}>${esc(fullName(p))} (${esc(relationLabel(g, p))})</option>`).join('')}</select></span></div>`,
+        )
+        .join('')}
+      <p class="fine">${g.willWritten ? '유언장에 적어 두었다. 떠나면 이대로 넘어간다.' : '⚠ 유언장을 써야 효력이 있다 (위의 유언 방식 버튼).'} 지정한 자산만큼 그 사람의 몫에서 빠진다. 상속세는 전체 재산에 매긴다.</p>`
+        : ''
+    }
     <p class="fine">유언장을 쓰면 재산이 뜻대로 가지만 기력이 쇠해 수명이 조금 줄어든다. 안 쓰면 오래 버티지만, 떠난 뒤 부동산이 급매되고 자식들이 다툰다.<br>후계자에게 몰아주면 재산을 지키기 쉽지만, 몫을 못 받은 형제는 불만을 품는다.</p>
   </section>`
       : ''
@@ -1431,6 +1449,14 @@ function achvScreen(g: GameState): string {
 function onInput(e: Event) {
   const t = e.target as HTMLInputElement;
   if (t.id === 'surname') ui.setup.surname = t.value.trim();
+  if (t.id.startsWith('heir-')) {
+    const a = ui.game?.assets.find((x) => x.id === t.id.slice(5));
+    if (a) {
+      a.heir = t.value || undefined;
+      save();
+    }
+    return;
+  }
   if (t.id === 'gift-to') {
     ui.giftTo = t.value;
     render();
@@ -1522,6 +1548,13 @@ function handle(el: HTMLElement) {
       break;
     case 'person':
       ui.sheet = id;
+      break;
+    case 'gift-to':
+      ui.giftTo = id;
+      ui.sheet = undefined;
+      ui.tab = 'assets';
+      ui.assetSub = 'tax';
+      window.scrollTo(0, 0);
       break;
     case 'close-sheet':
       ui.sheet = undefined;

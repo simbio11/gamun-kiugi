@@ -7,7 +7,8 @@ import { wageIndex } from './pay';
 import { agePenalty, appeal, desirability, jobless, makeDate, marry, suitorLine } from './events';
 import { eul, eun, gate, iga, queueNext, schedule, wa, who, type Choice, type Ctx, type EventDef } from './ev-util';
 import { nestOf } from './nest';
-import { homeOf, moveInto, moveTo } from './housing';
+import { homeOf, moveInto, moveIntoOwned, moveTo } from './housing';
+import { isHouse } from './realty';
 import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, mark, parentsOf, relationLabel } from './people';
 import type { GameState, Person } from './types';
 import { deliver, type LifeDef } from './life';
@@ -494,7 +495,29 @@ const wedding: EventDef = {
         if (x.ev.data.baby) deliver(x.s, x.p.sex === 'M' ? x.p : q, x.p.sex === 'F' ? x.p : q, x.p.inLaw ? q.surname : x.p.surname, 0.015);
         return `💍 ${who(x)} ♥ ${fullName(q)}, 부부가 되었다!\n` + text;
       };
+      // 둘 중 누가 이미 집을 가지고 있으면 그 집에서 시작할 수 있다 (세입자가 있으면 보증금을 돌려줘야)
+      const cur = homeOf(c.s, c.p);
+      const owned = c.s.assets
+        .filter((a) => [c.p.id, q.id].includes(a.ownerId) && isHouse(a) && !(cur?.type === 'own' && cur.assetId === a.id))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 2);
+      const ownChoices: Choice[] = owned.map((a) => {
+        const need = (a.deposit ?? 0) + 200;
+        const have = Math.max(0, c.p.cash) + Math.max(0, q.cash);
+        return {
+          label: `${a.ownerId === q.id ? `${fullName(q)}의` : '내'} 집 ${a.name}에서 시작${a.deposit ? ` (세입자 보증금 ${formatMoney(a.deposit)} 반환)` : ''}`,
+          disabled: have < need,
+          run: finish('신혼집 걱정이 없다. 가구만 새로 들였다.', (x) => {
+            if (x.p.id !== x.s.headId) return '';
+            const r = moveIntoOwned(x.s, x.p, a.id);
+            return r.text;
+          }),
+        };
+      });
+      if (cur?.type === 'own' && c.p.id === c.s.headId)
+        ownChoices.unshift({ label: `지금 사는 내 집(${cur.name})에서 그대로`, run: finish('살던 집에 배우자의 짐이 들어왔다. 집이 꽉 찼다.') });
       return gate(c.s, [
+        ...ownChoices,
         { label: '월세 원룸에서 시작', run: finish('좁지만 둘이면 충분하다.', (x) => (homeOf(x.s, x.p)?.type === 'own' ? '' : moveTo(x.s, x.p, 'oneroom', 'wolse'))) },
         {
           label: '전세 대출로 빌라 신혼집',

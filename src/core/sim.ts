@@ -14,6 +14,7 @@ import { giveUsedCar } from './vehicle';
 import { debtYear } from './debt';
 import { queueFuneral } from './lifecost';
 import { DECEPTION_EVENTS } from './deception';
+import { HOBBY_AGES } from './interests';
 import { buyPower, leverageYear, stockQuote } from './leverage';
 import { bindState } from './school';
 import { STORIES } from './stories';
@@ -759,6 +760,8 @@ function milestones(s: GameState) {
     const a = age(s, p);
     const ev = { 5: 'kinder', 8: 'elementary', 11: 'aptitude', 12: 'dream', 14: 'middle', 17: 'high', 19: 'path' }[a];
     if (ev) queue(s, ev, p.id);
+    // 관심사 찾기: 해 본 것들이 쌓여 나중의 진로가 된다
+    if (HOBBY_AGES.includes(a)) queue(s, 'hobby', p.id);
     // 매 학년: 어떻게 보낼지 고른다
     if (a >= 9 && a <= 18 && a !== 11 && a !== 14 && a !== 17) queue(s, 'school_year', p.id);
     if (a >= 13 && p.happiness < 25 && chance(s, hasTrait(p, 'rebel') ? 0.8 : 0.5)) queue(s, 'rebellion', p.id);

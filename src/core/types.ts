@@ -120,6 +120,8 @@ export interface Asset {
   vol?: number;
   yield?: number;
   tags?: string[];
+  /** 유언장에 적은 받을 사람 (지정 상속) */
+  heir?: string;
 }
 
 /** 올해 나온 부동산 매물 */

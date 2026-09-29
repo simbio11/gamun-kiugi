@@ -117,19 +117,30 @@ export function settleEstate(s: GameState, d: Person, successorId?: string, over
     for (const a of kept) a.ownerId = 'family';
     lines.push('상속인이 없어 재산이 다음 가주에게 넘어간다');
   } else {
-    const net = cash + kept.reduce((t, a) => t + netOf(a), 0);
+    // 유언장에 "이 집은 누구에게"라고 적어 둔 자산은 그 사람에게 (지정 상속)
+    const named = wasHead && s.willWritten ? kept.filter((a) => a.heir && s.people[a.heir] && alive(s.people[a.heir]) && a.heir !== d.id) : [];
+    const rest = kept.filter((a) => !named.includes(a));
+    const net = cash + kept.filter((a) => !named.includes(a) || shares.has(a.heir!)).reduce((t, a) => t + netOf(a), 0);
     const ranked = [...shares.entries()].sort((a, b) => b[1] - a[1] || (a[0] === successorId ? -1 : b[0] === successorId ? 1 : 0));
     const assetTaker = ranked[0][0];
-    const keptValue = kept.reduce((t, a) => t + netOf(a), 0);
-    for (const a of kept) a.ownerId = assetTaker;
+    const assetOf = new Map<string, number>();
+    for (const a of rest) (a.ownerId = assetTaker), assetOf.set(assetTaker, (assetOf.get(assetTaker) ?? 0) + netOf(a));
+    for (const a of named) {
+      a.ownerId = a.heir!;
+      if (shares.has(a.heir!)) {
+        assetOf.set(a.heir!, (assetOf.get(a.heir!) ?? 0) + netOf(a));
+        lines.push(`📌 유언: ${a.name}은(는) ${fullName(s.people[a.heir!])}에게`);
+      } else lines.push(`📌 유언대로 ${a.name} → ${fullName(s.people[a.heir!])} (유증)`);
+      a.heir = undefined;
+    }
     const targets = new Map<string, number>();
-    for (const [id, sh] of shares) targets.set(id, (net * sh) / total - (id === assetTaker ? keptValue : 0));
+    for (const [id, sh] of shares) targets.set(id, (net * sh) / total - (assetOf.get(id) ?? 0));
     const positive = [...targets.values()].filter((v) => v > 0).reduce((a, b) => a + b, 0);
     for (const [id, t] of targets) {
       const got = positive > 0 && t > 0 ? Math.round((cash * t) / positive) : 0;
       const heir = s.people[id];
       heir.cash += got;
-      const assetPart = id === assetTaker ? keptValue : 0;
+      const assetPart = assetOf.get(id) ?? 0;
       lines.push(`→ ${fullName(heir)}: ${formatMoney(got + assetPart)}` + (assetPart ? ` (실물 자산 포함)` : ''));
       // 유언이 없으면 누군가는 꼭 서운하다
       if (chaos && d.childIds.includes(id) && chance(s, 0.35)) {

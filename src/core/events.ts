@@ -5,6 +5,7 @@ import { MAJOR_JOBS } from './school';
 import { startDating } from './romance';
 import { appealBonus } from './marks';
 import { unlock } from './achievements';
+import { dreamQuote, interestBonus, interestLevel, topInterests } from './interests';
 import { buyPower } from './leverage';
 import { addAsset, formatMoney, jobLabel, jobTitle, pay, personWorth, statScore } from './economy';
 import { estateTax, giveGift } from './estate';
@@ -26,6 +27,8 @@ import {
   isMainline,
   mark,
   markOf,
+  parentsOf,
+  relationLabel,
 } from './people';
 import type { GameState, JobId, Person, StatKey } from './types';
 
@@ -42,7 +45,6 @@ import {
   schedule,
   setJob,
   setStudy,
-  spendable,
   stars,
   tr,
   who,
@@ -188,7 +190,7 @@ const dream: EventDef = {
   title: () => '장래희망',
   text: (c) => {
     c.p.desire = c.p.desire ?? computeDesire(c.p);
-    c.ev.data ??= { quote: pick(c.s, DREAM_QUOTES[c.p.desire]) };
+    c.ev.data ??= { quote: dreamQuote(c.s, c.p) ?? pick(c.s, DREAM_QUOTES[c.p.desire]) };
     return `${iga(who(c))} 진지하게 말한다.\n"${c.ev.data.quote}"`;
   },
   choices: () => [
@@ -495,7 +497,7 @@ function jobChoice(c: Ctx, id: string): Choice | undefined {
         if (id === 'pilot') addFlag(x.p, 'flight_school');
       },
     });
-    ch.req = [...(ch.req ?? []), ...extraReq.filter((r) => !ch.req?.includes(r)), ...(majorFit ? ['전공 일치'] : [])];
+    ch.req = [...(ch.req ?? []), ...extraReq.filter((r) => !ch.req?.includes(r)), ...(majorFit ? ['전공 일치'] : []), ...(interestLevel(p, j.cat) >= 4 ? ['어릴 적 꿈'] : [])];
     return ch;
   }
   if (e.how === 'hire') {
@@ -505,11 +507,11 @@ function jobChoice(c: Ctx, id: string): Choice | undefined {
       cost: e.cost,
       tag: e.tag,
       disabled: !!lacks,
-      req: [...Object.keys(w).slice(0, 2).map((k) => req(k as StatKey, (e.pass ?? 30) + 10)), ...extraReq, ...(majorFit ? ['전공 일치'] : [])],
+      req: [...Object.keys(w).slice(0, 2).map((k) => req(k as StatKey, (e.pass ?? 30) + 10)), ...extraReq, ...(majorFit ? ['전공 일치'] : []), ...(interestLevel(p, j.cat) >= 4 ? ['어릴 적 꿈'] : [])],
       run: (x) => {
         // 스펙: 학점·인턴 경력·자격증·교환학생·인턴 정규직 제안
         const spec = clamp(markOf(x.p, 'gpa') * 1.5, -6, 9) + Math.min(8, markOf(x.p, 'intern') * 3) + Math.min(4, markOf(x.p, 'cert') * 1.5) + (hasFlag(x.p, 'exchange') ? 3 : 0) + (hasFlag(x.p, 'intern_offer') ? 6 : 0);
-        const score = statScore(x.p, w) + (hasFlag(x.p, 'univ_top') ? 5 : 0) + (majorFit ? 8 : 0) + (hasTrait(x.p, 'social') ? 3 : 0) + (hasTrait(x.p, 'diligent') ? 3 : 0) + spec;
+        const score = statScore(x.p, w) + interestBonus(x.p, j.cat) + (hasFlag(x.p, 'univ_top') ? 5 : 0) + (majorFit ? 8 : 0) + (hasTrait(x.p, 'social') ? 3 : 0) + (hasTrait(x.p, 'diligent') ? 3 : 0) + spec;
         if (check(x.s, score, e.pass ?? 30, 7)) {
           setJob(x.p, id, e.level ?? 0);
           return (e.text ?? `${j.name}(으)로 일하게 되었다.`) + applyDesire(x, e.tag);
@@ -635,6 +637,14 @@ const firstJob: EventDef = {
         'rec',
         '🎯 전공 추천',
         () => [...MAJOR_JOBS[major].map((id) => jobChoice(c, id)).filter((x): x is Choice => !!x), ...(hasUniv(p) ? specialChoices(c, 'legal') : []), ...specialChoices(c, 'rec')],
+      ]);
+    // 어릴 때부터 키운 관심 분야
+    const dreams = topInterests(p, 2);
+    if (dreams.length)
+      cats.push([
+        'dream',
+        '💡 어릴 때부터 키운 꿈',
+        () => JOB_IDS.filter((id) => dreams.includes(JOBS[id].cat as never)).map((id) => jobChoice(c, id)).filter((x): x is Choice => !!x),
       ]);
     for (const [cat, label] of Object.entries(JOB_CATS)) {
       cats.push([
@@ -1304,23 +1314,38 @@ const parentCare: RandomDef = {
 
 const landOffer: RandomDef = {
   id: 'r_land',
-  weight: (c) => (spendable(c.s) > c.s.market.land ? 0.8 : 0),
+  // 살 돈이 있거나, 도와줄 부모님이 넉넉할 때만 온다
+  weight: (c) => (buyPower(c.s) >= c.s.market.land * 0.8 || landHelper(c.s, c.p) ? 0.6 : 0),
   title: () => '개발 예정지',
-  text: (c) => `개발 소문이 도는 땅을 ${formatMoney(c.s.market.land * 0.8)}에 사라는 제안이 왔다.`,
-  choices: () => [
-    {
-      label: '산다',
-      run: (x) => {
-        const price = Math.round(x.s.market.land * 0.8);
-        pay(x.s, x.p, price);
-        const a = addAsset(x.s, 'land', x.p.id, x.s.market.land * (chance(x.s, 0.5) ? 1.4 : 0.7));
-        a.name = '개발예정지 토지';
-        return a.value > price ? '진짜 개발 계획이 발표됐다! 땅값이 뛰었다.' : '소문은 소문이었다. 땅값이 떨어졌다.';
-      },
-    },
-    { label: '관심 없다', run: () => '부동산 업자를 돌려보냈다.' },
-  ],
+  text: (c) => {
+    const price = Math.round(c.s.market.land * 0.8);
+    const hp = landHelper(c.s, c.p);
+    return `개발 소문이 도는 땅을 ${formatMoney(price)}에 사라는 제안이 왔다. 소문이 맞으면 크게 오르고, 아니면 묶인다.\n내 돈으로 살 수 있는 한도 ${formatMoney(buyPower(c.s))}` + (hp ? `\n(${relationLabel(c.s, hp)}께서 여유가 있으시다)` : '');
+  },
+  choices: (c) => {
+    const price = Math.round(c.s.market.land * 0.8);
+    const hp = landHelper(c.s, c.p);
+    const buy = (x: Ctx, owner: Person, payer: Person, text: string) => {
+      pay(x.s, payer, price);
+      const a = addAsset(x.s, 'land', owner.id, x.s.market.land * (chance(x.s, 0.5) ? 1.4 : 0.7));
+      a.name = '개발예정지 토지';
+      a.cost = price;
+      return text + (a.value > price ? '\n진짜 개발 계획이 발표됐다! 땅값이 뛰었다.' : '\n소문은 소문이었다. 땅값이 떨어졌다.');
+    };
+    return [
+      { label: `내 돈으로 산다 (${formatMoney(price)})`, disabled: buyPower(c.s) < price, run: (x) => buy(x, x.p, x.p, '계약서에 도장을 찍었다.') },
+      ...(hp
+        ? [{ label: `${relationLabel(c.s, hp)}께 사 두시라고 권한다`, run: (x: Ctx) => ((hp.affinity = clamp(hp.affinity - 2, -100, 100)), buy(x, hp, hp, `${relationLabel(x.s, hp)} 명의로 사 두셨다. 나중에 물려받을 수도 있다.`)) }]
+        : []),
+      { label: '관심 없다', run: () => '부동산 업자를 돌려보냈다.' },
+    ];
+  },
 };
+
+/** 땅을 대신 사 줄 여유가 있는 부모님 */
+function landHelper(s: GameState, p: Person): Person | undefined {
+  return parentsOf(s, p).filter((q) => alive(q) && q.cash >= s.market.land).sort((a, b) => b.cash - a.cash)[0];
+}
 
 const childMoney: RandomDef = {
   id: 'r_child_money',
@@ -1407,7 +1432,7 @@ const coinFever: RandomDef = {
 
 const auction: RandomDef = {
   id: 'r_auction',
-  weight: (c) => (spendable(c.s) > (ART_TIERS[1].price * c.s.market.art) / 100 ? 0.7 : 0),
+  weight: (c) => (buyPower(c.s) > (ART_TIERS[1].price * c.s.market.art) / 100 ? 0.7 : 0),
   title: () => '비공개 경매',
   text: (c) => {
     c.ev.data = c.ev.data ?? { price: Math.round((ART_TIERS[1].price * c.s.market.art) / 100 * 0.6) };
@@ -1416,7 +1441,7 @@ const auction: RandomDef = {
   choices: (c) => [
     {
       label: '낙찰받는다',
-      disabled: spendable(c.s) < (c.ev.data?.price ?? Infinity),
+      disabled: buyPower(c.s) < (c.ev.data?.price ?? Infinity),
       run: (x) => {
         const price = x.ev.data.price;
         pay(x.s, x.p, price);
