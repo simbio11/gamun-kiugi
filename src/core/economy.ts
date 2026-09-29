@@ -197,11 +197,105 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
 const LIVING_MULT = { frugal: 0.7, normal: 1, lux: 1.8 } as const;
 
 /** 한 해 가계 정산. 로그 메시지 목록 반환. */
+/** 한 집에 사는 사람들의 1년 살림 비용 항목. 실제 정산과 '내년 예상'이 같은 계산을 쓴다. */
+export function householdItems(s: GameState, incomes: Map<string, number>) {
+  const h = head(s);
+  const hh = householder(s);
+  const mult = LIVING_MULT[s.policy.living];
+  const hsp = hh.spouseId && alive(s.people[hh.spouseId]) ? s.people[hh.spouseId] : undefined;
+  const minors =
+    hh === h
+      ? livingMainlineMinors(s)
+      : hh.childIds.map((id) => s.people[id]).filter((c) => alive(c) && age(s, c) < 20);
+  // 독립하지 않은 성인 자녀는 부모 집에 얹혀 산다 (본인 생활비 대신 부모 살림에서)
+  const atHome = hh.childIds
+    .map((id) => s.people[id])
+    .filter((c) => c && alive(c) && age(s, c) >= 20 && !c.spouseId && !c.flags.includes('indep') && !c.flags.some((f) => f.startsWith('serving:')));
+  const inHouse = new Set([hh.id, ...(hsp ? [hsp.id] : []), ...minors.map((m) => m.id), ...atHome.map((m) => m.id), h.id]);
+  const items: [string, number][] = [];
+  const add = (label: string, v: number) => v > 0 && items.push([label, Math.round(v)]);
+  add('기본 생활비', 1500 * mult + (hsp ? 1500 * mult : 0));
+  add(`아이 양육비 (${minors.length}명)`, minors.length * 900 * mult);
+  add(`얹혀 사는 성인 자녀 (${atHome.length}명)`, atHome.length * 1200 * mult);
+  const houseIncome = Math.max(0, incomes.get(hh.id) ?? 0) + Math.max(0, (hsp && incomes.get(hsp.id)) || 0);
+  add('소비 (수입에 비례)', houseIncome * 0.35 * mult * (hasTrait(hh, 'frugal') ? 0.8 : hasTrait(hh, 'spender') ? 1.3 : 1));
+  // 미취학 아동 교육비 (학령기는 해마다 학년 이벤트에서 직접 고른다)
+  let pre = 0;
+  for (const c of livingMainlineMinors(s)) if (age(s, c) < 8) pre += EDU_COST[s.policy.children[c.id]?.budget ?? 1];
+  add('미취학 교육비', pre);
+  let tuition = 0;
+  for (const p of Object.values(s.people)) {
+    const tu = p.flags.find((f) => f.startsWith('tuition:'));
+    if (tu && alive(p) && p.flags.includes('student') && isMainline(s, p)) tuition += Number(tu.slice(8));
+  }
+  add('대학 등록금', tuition);
+  return { hh, hsp, inHouse, items };
+}
+
+/** 운에 기대지 않은 평균 연 수입 (내년 예상용) */
+export function expectedIncome(s: GameState, p: Person): number {
+  if (!alive(p)) return 0;
+  if (p.flags.some((f) => f.startsWith('serving:'))) return 1200;
+  if ((age(s, p) < 20 && p.job === 'none') || p.flags.includes('student')) return 0;
+  const j = JOBS[p.job];
+  const a = p.actual;
+  switch (j.kind) {
+    case 'fixed':
+      if (p.job === 'pension') return pensionOf(p);
+      return j.base + j.perLevel * p.jobLevel;
+    case 'salary':
+      if (p.job === 'doctor' && p.jobYears < 4) return 4500;
+      return Math.round((j.base + j.perLevel * p.jobLevel) * (0.75 + statScore(p, j.stats ?? { int: 1 }) / 200));
+    case 'business': {
+      const merchant = hasTalent(p, 'merchant');
+      if (j.biz) {
+        const skill = (a.cha + a.mor + a.int) / 3 + (merchant ? 18 : 0) + p.jobLevel * 5 + Math.min(10, p.jobYears + 1) - 50;
+        return Math.round(j.biz.base + skill * 120 + p.jobLevel * j.biz.step);
+      }
+      const skill = (a.int + a.cha) / 2 + (merchant ? 22 : 0) + p.jobLevel * 4 - 48;
+      return Math.round(skill * 400 * (1 + p.jobLevel * 0.6));
+    }
+    case 'creator':
+      return CREATORS[p.job]!.incomes[p.jobLevel];
+    case 'athlete':
+      return Math.round((j.base + j.perLevel * p.jobLevel) * (0.5 + a.str / 100));
+  }
+}
+
+export interface Forecast {
+  income: [string, number][];
+  expense: [string, number][];
+  net: number;
+  /** 독립 전 가주가 따로 모으는 돈 (내 통장) */
+  mine?: number;
+}
+
+/** 내년 가계 예상: 지갑(살림 맡은 사람 + 배우자 + 가문 금고) 기준 */
+export function forecast(s: GameState): Forecast {
+  const h = head(s);
+  const incomes = new Map<string, number>();
+  for (const p of Object.values(s.people)) if (alive(p)) incomes.set(p.id, expectedIncome(s, p));
+  const { hh, hsp, items } = householdItems(s, incomes);
+  const wallet = [hh, ...(hsp ? [hsp] : [])];
+  const income: [string, number][] = [];
+  const expense: [string, number][] = [...items];
+  const add = (list: [string, number][], label: string, v: number) => Math.round(v) > 0 && list.push([label, Math.round(v)]);
+  for (const p of wallet) add(income, `${fullName(p)} ${JOBS[p.job].name}`, incomes.get(p.id) ?? 0);
+  for (const p of wallet) if ((incomes.get(p.id) ?? 0) < 0) add(expense, `${fullName(p)} 사업 적자`, -(incomes.get(p.id) ?? 0));
+  const owners = new Set([...wallet.map((p) => p.id), 'family']);
+  add(income, '임대료·배당', s.assets.filter((a) => owners.has(a.ownerId)).reduce((t, a) => t + a.value * ASSET_YIELD[a.kind], 0));
+  const cash = wallet.reduce((t, p) => t + p.cash, 0) + s.familyCash;
+  if (cash >= 0) add(income, '예금 이자', cash * 0.02);
+  else add(expense, '대출 이자', -cash * 0.07);
+  if (s.policy.taxAdvisor) add(expense, '세무사 수임료', advisorFee(s));
+  const net = income.reduce((t, [, v]) => t + v, 0) - expense.reduce((t, [, v]) => t + v, 0);
+  return { income, expense, net, mine: hh.id !== h.id ? incomes.get(h.id) || undefined : undefined };
+}
+
 export function economyYear(s: GameState): string[] {
   const msgs: string[] = [];
   const h = head(s);
   const hh = householder(s);
-  const mult = LIVING_MULT[s.policy.living];
 
   // 1) 수입. 복무 중이면 병사 월급만
   const incomes = new Map<string, number>();
@@ -219,24 +313,9 @@ export function economyYear(s: GameState): string[] {
     if (msg) msgs.push(msg);
   }
 
-  // 2) 지출: 살림을 맡은 사람(가주, 가주가 어리면 부모)의 가계
-  const hsp = hh.spouseId && alive(s.people[hh.spouseId]) ? s.people[hh.spouseId] : undefined;
-  const minors =
-    hh === h
-      ? livingMainlineMinors(s)
-      : hh.childIds.map((id) => s.people[id]).filter((c) => alive(c) && age(s, c) < 20);
-  const inHouse = new Set([hh.id, ...(hsp ? [hsp.id] : []), ...minors.map((m) => m.id), h.id]);
-  let household = 1500 * mult + (hsp ? 1500 * mult : 0) + minors.length * 900 * mult;
-  if (hh !== h && age(s, h) >= 20) household += 1200 * mult; // 부모 집에 사는 성인 자녀(가주)
-  const houseIncome = Math.max(0, incomes.get(hh.id) ?? 0) + Math.max(0, (hsp && incomes.get(hsp.id)) || 0);
-  household += houseIncome * 0.35 * mult * (hasTrait(hh, 'frugal') ? 0.8 : hasTrait(hh, 'spender') ? 1.3 : 1);
-  // 미취학 아동 교육비 (학령기는 해마다 학년 이벤트에서 직접 고른다)
-  for (const c of livingMainlineMinors(s)) if (age(s, c) < 8) household += EDU_COST[s.policy.children[c.id]?.budget ?? 1];
-  // 대학 등록금
-  for (const p of Object.values(s.people)) {
-    const tu = p.flags.find((f) => f.startsWith('tuition:'));
-    if (tu && alive(p) && p.flags.includes('student') && isMainline(s, p)) household += Number(tu.slice(8));
-  }
+  // 2) 지출: 살림을 맡은 사람(가주, 가주가 어리거나 독립 전이면 부모)의 가계
+  const { inHouse, items } = householdItems(s, incomes);
+  const household = items.reduce((t, [, v]) => t + v, 0);
   pay(s, hh, Math.round(household));
 
   // 그 외 성인은 각자 생활비: 최소 1,500만, 수입의 60%

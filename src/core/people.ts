@@ -227,7 +227,8 @@ export function isMainline(s: GameState, p: Person): boolean {
 export function householder(s: GameState): Person {
   const h = head(s);
   const a = age(s, h);
-  const dependent = a < 20 || (a < 30 && !h.spouseId && h.flags.some((f) => f === 'student' || f === 'retaking' || f.startsWith('prep:') || f.startsWith('serving:')));
+  // 미성년이거나, 아직 독립(결혼·독립 이벤트)하지 않았으면 부모님 살림에 얹혀 산다
+  const dependent = a < 20 || (!h.spouseId && !h.flags.includes('indep'));
   if (dependent) {
     const par = parentsOf(s, h)
       .filter(alive)

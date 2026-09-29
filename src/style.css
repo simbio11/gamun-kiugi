@@ -77,7 +77,14 @@ img.px.dead, .pc.dead img { filter: grayscale(1) brightness(0.8); }
 .top { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: var(--bg); border-bottom: 3px solid var(--line); }
 .year { font-family: 'Galmuri14', sans-serif; font-size: 20px; color: var(--gold); }
 .fam { font-size: 11px; color: #cdb892; }
-.top-r { text-align: right; }
+.top-r { text-align: right; background: none; border: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+.flow { font-size: 11px; color: #cdb892; white-space: nowrap; }
+.flow small { font-size: 10px; }
+.top-l { min-width: 0; }
+.flow .pos, .flow b.pos { color: #9fd89a; }
+.flow .neg, .flow b.neg { color: #f19a8a; }
+.pos { color: #3d7a3a; }
+.arow.total { border-top: 2px solid var(--line); margin-top: 4px; padding-top: 6px; }
 .money { font-size: 16px; color: #fff3cf; }
 .fame { font-size: 11px; color: #cdb892; }
 .tabs { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; display: flex; background: var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 6; }

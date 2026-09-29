@@ -2,9 +2,10 @@
 // 어느 단계에서든 헤어질 수 있다. 연애가 곧 결혼은 아니다.
 
 import { chance, int, next, normal, pick } from './rng';
-import { addAsset, formatMoney, personWorth } from './economy';
+import { addAsset, formatMoney, pay, personWorth } from './economy';
 import { agePenalty, appeal, desirability, jobless, makeDate, marry, suitorLine } from './events';
 import { eul, eun, gate, iga, queueNext, schedule, wa, who, type Choice, type Ctx, type EventDef } from './ev-util';
+import { nestOf } from './nest';
 import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, mark, parentsOf, relationLabel } from './people';
 import type { GameState, Person } from './types';
 import { deliver, type LifeDef } from './life';
@@ -382,8 +383,9 @@ const wedding: EventDef = {
       ]);
     }
     if (d.stage === 'house') {
-      const hh = householder(c.s);
-      const parentHelp = hh.id !== c.p.id && isMainline(c.s, hh);
+      // 부모님이 현금으로 집을 사줄 형편인가 (독립 때 이미 크게 받았으면 또 해주진 않는다)
+      const hh = parentsOf(c.s, c.p).filter(alive).sort((a, b) => b.cash - a.cash)[0] ?? householder(c.s);
+      const parentHelp = hh.id !== c.p.id && isMainline(c.s, hh) && nestOf(c.p) < c.s.market.apt_local * 0.5 && hh.cash >= c.s.market.apt_local;
       const finish = (text: string) => (x: Ctx) => {
         marry(x.s, x.p, q);
         if (x.ev.data.baby) deliver(x.s, x.p.sex === 'M' ? x.p : q, x.p.sex === 'F' ? x.p : q, x.p.inLaw ? q.surname : x.p.surname, 0.015);
@@ -392,13 +394,13 @@ const wedding: EventDef = {
       return gate(c.s, [
         { label: '월세 원룸에서 시작', run: finish('좁지만 둘이면 충분하다.') },
         { label: '전세 대출로 신혼집', cost: 3000, run: finish('은행 대출로 전셋집을 구했다.') },
-        ...(parentHelp && personWorth(c.s, hh) > c.s.market.apt_local * 1.5
+        ...(parentHelp
           ? [
               {
                 label: '부모님이 집을 마련해 주신다',
                 run: (x: Ctx) => {
                   const price = Math.round(x.s.market.apt_local);
-                  hh.cash -= price;
+                  pay(x.s, hh, price);
                   addAsset(x.s, 'apt_local', x.p.id, price, '신혼집');
                   x.s.gifts.push({ fromId: hh.id, toId: x.p.id, amount: price, tax: Math.round(price * 0.1), year: x.s.year });
                   x.p.cash -= Math.round(price * 0.1);

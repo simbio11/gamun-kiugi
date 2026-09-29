@@ -12,7 +12,9 @@ import { breakUp, startDating } from '../src/core/romance';
 import { chooseSuccessor } from '../src/core/estate';
 import { apLeft, doAction } from '../src/core/actions';
 import { SEED_EVENTS } from '../src/core/seeds';
-import { mark, markOf } from '../src/core/people';
+import { householder, mark, markOf } from '../src/core/people';
+import { nestOf } from '../src/core/nest';
+import { forecast } from '../src/core/economy';
 
 describe('콘텐츠 무결성', () => {
   it('직업 100개 이상, 모든 참조가 유효', () => {
@@ -151,5 +153,36 @@ describe('인생 시스템', () => {
     const without = deathChance(s, h);
     s.willWritten = true;
     expect(deathChance(s, h)).toBeGreaterThan(without);
+  });
+
+  it('독립: 취직하면 독립 이벤트가 오고, 그 전엔 부모님 지갑, 그 뒤엔 내 지갑', () => {
+    let offered = 0;
+    for (let seed = 1; seed <= 15; seed++) {
+      const s = newGame({ seed, familyName: '최', sex: 'M' });
+      s.events = [];
+      const h = head(s);
+      s.year = h.birthYear + 26;
+      h.flags = h.flags.filter((f) => f !== 'student');
+      h.job = 'office';
+      expect(householder(s).id).not.toBe(h.id);
+      for (const p of parentsOf(s, h)) p.cash = 60000;
+      simulateYear(s);
+      let cur = currentEvent(s);
+      while (cur && cur.def.id !== 'leave_home') {
+        resolveChoice(s, cur.choices.findIndex((c) => !c.disabled));
+        cur = currentEvent(s);
+      }
+      if (!cur) continue;
+      const take = cur.choices.findIndex((c) => c.label.startsWith('감사히'));
+      if (take >= 0) {
+        offered++;
+        resolveChoice(s, take);
+        expect(nestOf(h)).toBeGreaterThan(0);
+      } else resolveChoice(s, cur.choices.findIndex((c) => c.label.includes('내 힘으로')));
+      expect(h.flags).toContain('indep');
+      expect(householder(s).id).toBe(h.id);
+      expect(Number.isFinite(forecast(s).net)).toBe(true);
+    }
+    expect(offered).toBeGreaterThan(3);
   });
 });

@@ -2,6 +2,7 @@
 import { chance } from './rng';
 import { WILL_NAMES } from './data';
 import { formatMoney, jobLabel, personWorth } from './economy';
+import { nestOf } from './nest';
 import { adoptiveHeirs, estateTax, settleEstate, transferHeadship } from './estate';
 import { eun, iga, type Choice, type Ctx, type EventDef } from './ev-util';
 import { addFlag, age, alive, childrenOf, clamp, fullName, hasTrait, head, isDescendantOf, relationLabel, spouseOf } from './people';
@@ -50,7 +51,11 @@ const parentEstate: EventDef = {
     const sibs = kids.filter((k) => k.id !== me.id);
     const done = (x: Ctx, shares: Map<string, number>, unfair: number, extra = '') => {
       const rep = settleEstate(x.s, d, undefined, shares);
-      const reactions = sibs.map((sb) => siblingReacts(x.s, sb, unfair)).filter(Boolean);
+      // 독립할 때 혼자 크게 받았으면 형제들이 '특별수익'을 따진다
+      const edge = nestOf(me) - Math.max(0, ...sibs.map(nestOf));
+      const spoiled = unfair >= 0 && edge >= 10000 && sibs.length > 0;
+      const reactions = sibs.map((sb) => siblingReacts(x.s, sb, unfair + (spoiled ? 0.25 : 0))).filter(Boolean);
+      if (spoiled) reactions.unshift(`형제들: "넌 독립할 때 ${formatMoney(nestOf(me))}나 받았잖아." 특별수익 얘기가 나왔다.`);
       d.flags = d.flags.filter((f) => f !== 'estate_pending');
       return [extra, ...rep.lines, ...reactions].filter(Boolean).join('\n');
     };

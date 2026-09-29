@@ -19,7 +19,7 @@ import {
   TALENTS,
   WILL_NAMES,
 } from '../core/data';
-import { advisorFee, assessedValue, assetsOf, familyWorth, formatMoney, jobTitle, personWorth } from '../core/economy';
+import { advisorFee, assessedValue, assetsOf, familyWorth, forecast, formatMoney, jobTitle, personWorth } from '../core/economy';
 import { estateTax, previewAssetGiftTax, previewGiftTax } from '../core/estate';
 import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
@@ -217,17 +217,37 @@ function wallet(g: GameState): { label: string; amount: number } {
 function header(g: GameState): string {
   const h = head(g);
   const w = wallet(g);
+  const f = forecast(g);
+  const inc = f.income.reduce((t, [, v]) => t + v, 0);
+  const exp = f.expense.reduce((t, [, v]) => t + v, 0);
   return `
   <header class="top">
     <div class="top-l">
       <div class="year">${g.year}년</div>
-      <div class="fam">${esc(g.familyName)}씨 가문 · ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
+      <div class="fam">${esc(g.familyName)}씨 ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
+      <div class="fam">명성 ${Math.round(g.fame)}</div>
     </div>
-    <div class="top-r">
+    <button class="top-r" data-action="tab" data-v="assets" title="자산 탭에서 내년 가계부 보기">
       <div class="money">${w.label} ${formatMoney(w.amount)}</div>
-      <div class="fame">총재산 ${formatMoney(familyTotal(g))} · 명성 ${Math.round(g.fame)}</div>
-    </div>
+      <div class="flow">내년 <b class="${f.net < 0 ? 'neg' : 'pos'}">${f.net < 0 ? '' : '+'}${formatMoney(f.net)}</b> <small>(수입 ${formatMoney(inc)} · 지출 ${formatMoney(exp)})</small></div>
+      ${w.label.includes('부모님') && (h.cash || f.mine) ? `<div class="fame">내 통장 ${formatMoney(h.cash)}${f.mine ? ` (+${formatMoney(f.mine)}/년)` : ''}</div>` : ''}
+    </button>
   </header>`;
+}
+
+/** 자산 탭: 내년 가계부 */
+function budgetCard(g: GameState): string {
+  const f = forecast(g);
+  const w = wallet(g);
+  const row = (label: string, v: number, sign: '+' | '−') => `<div class="arow"><span>${esc(label)}</span><span class="${sign === '+' ? 'pos' : 'neg'}">${sign}${formatMoney(v)}</span></div>`;
+  return `<section class="card">
+    <h2>📒 내년 가계부 <small>(${w.label.replace(/^\S+ /, '')} 기준 · 예상)</small></h2>
+    ${f.income.map(([l, v]) => row(l, v, '+')).join('') || '<div class="arow"><span>수입 없음</span><span></span></div>'}
+    ${f.expense.map(([l, v]) => row(l, v, '−')).join('')}
+    <div class="arow total"><span>한 해 남는 돈</span><b class="${f.net < 0 ? 'neg' : 'pos'}">${f.net < 0 ? '' : '+'}${formatMoney(f.net)}</b></div>
+    ${f.mine ? `<p class="fine">독립 전이라 내 수입(${formatMoney(f.mine)})은 살림에 안 보태고 내 통장에 모인다.</p>` : ''}
+    <p class="fine">사업·크리에이터 수입과 시세는 해마다 출렁인다. 학년·진학 이벤트에서 고르는 사교육비는 따로 나간다.</p>
+  </section>`;
 }
 
 function nav(): string {
@@ -714,11 +734,20 @@ function assetsScreen(g: GameState): string {
 
   const units = TRADE_UNITS.map((u) => [u, formatMoney(u)] as const);
   return `
-  <section class="bank">
+  ${
+    householder(g).id !== h.id
+      ? `<section class="bank">
+    <div class="bank-l">🏠 우리 집 재산 (독립 전 · 부모님 살림)</div>
+    <div class="bank-v">${formatMoney(parentsOf(g, h).filter(alive).reduce((t, p) => t + personWorth(g, p), 0) + familyTotal(g))}</div>
+    <div class="bank-s">부모님 ${formatMoney(parentsOf(g, h).filter(alive).reduce((t, p) => t + personWorth(g, p), 0))} · 가문 금고 ${formatMoney(familyWorth(g))} · 내 몫 ${formatMoney(personWorth(g, h))}<br>일을 해서 버는 돈은 내 통장에 모이고, 취직하거나 나이가 차면 독립한다.</div>
+  </section>`
+      : `<section class="bank">
     <div class="bank-l">${esc(g.familyName)}씨 가문 총자산</div>
     <div class="bank-v">${formatMoney(familyTotal(g))}</div>
     <div class="bank-s">가문 재산 ${formatMoney(familyWorth(g))} · 직계 개인 재산 ${formatMoney(familyTotal(g) - familyWorth(g))}</div>
-  </section>
+  </section>`
+  }
+  ${budgetCard(g)}
 
   <section class="card">
     <h2>가문 재산 (공동)</h2>

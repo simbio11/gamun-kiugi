@@ -7,6 +7,7 @@ import { LIFE_RANDOM, cancerRate, deliver, isElectionYear, setBond, type LifeDef
 import { heirCandidates } from './family';
 import { FATE_RANDOM, fateYear, lifeInsurancePayout } from './fate';
 import { ROMANCE_RANDOM, romanceYear } from './romance';
+import { nestYear } from './nest';
 import { STORIES } from './stories';
 import { SEED_EVENTS, seedYear } from './seeds';
 import { AP_PER_YEAR, autoGiftYear } from './actions';
@@ -335,6 +336,7 @@ function lifeYear(s: GameState) {
   // 무작위 인생사: 가족 전체에서 최대 2건
   const pool: [LifeDef, Person, number][] = [];
   romanceYear(s);
+  nestYear(s);
   for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM, ...ROMANCE_RANDOM, ...SEED_EVENTS]) {
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) pool.push([d, p, w]);

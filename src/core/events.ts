@@ -671,8 +671,9 @@ export function marry(s: GameState, p: Person, sp: Person) {
   const bond = 62 + normal(s, 0, 12) + [p, sp].reduce((t, x) => t + (hasTrait(x, 'devoted') ? 10 : hasTrait(x, 'flirt') ? -10 : 0), 0);
   p.bond = sp.bond = Math.round(Math.max(20, Math.min(100, bond)));
   for (const x of [p, sp]) {
-    x.flags = x.flags.filter((f) => !f.startsWith('wed:'));
+    x.flags = x.flags.filter((f) => !f.startsWith('wed:') && !f.startsWith('kangaroo:'));
     x.flags.push('wed:' + s.year);
+    if (!x.flags.includes('indep')) x.flags.push('indep'); // 결혼하면 살림을 따로 난다
   }
   const a = age(s, p);
   if (a >= 45) p.flags.push('late_marriage');

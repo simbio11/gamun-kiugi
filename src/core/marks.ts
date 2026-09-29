@@ -14,7 +14,7 @@ export const illMult = (p: Person) => 1 + cap(markOf(p, 'health_x'), 5) * 0.1;
 /** 연애·결혼 매력 보정 */
 export const appealBonus = (p: Person) => cap(markOf(p, 'network')) * 1 - cap(markOf(p, 'scar')) * 2 + cap(markOf(p, 'kind'), 3);
 /** 승진 확률 배수 */
-export const promoteMult = (p: Person) => 1 + cap(markOf(p, 'honest')) * 0.03 + cap(markOf(p, 'network')) * 0.03;
+export const promoteMult = (p: Person) => 1 + cap(markOf(p, 'honest')) * 0.03 + cap(markOf(p, 'network')) * 0.03 + cap(markOf(p, 'selfmade'), 4) * 0.04;
 /** 해마다 금슬 변화 보정 */
 export const bondDrift = (p: Person) => cap(markOf(p, 'family'), 8) * 0.25;
 
