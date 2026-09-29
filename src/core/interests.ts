@@ -20,6 +20,73 @@ export function topInterests(p: Person, n = 2, min = 2): Interest[] {
     .slice(0, n);
 }
 
+// ───────────────────────── 성향 ─────────────────────────
+// 타고난 성격(특성)·재능·능력치로 어떤 일이 잘 맞을지. 재능은 드러나지 않았어도 은근히 끌린다.
+
+const TRAIT_FIT: Record<string, Interest[]> = {
+  diligent: ['office', 'legal', 'public', 'trade'],
+  lazy: ['media', 'service'],
+  cheerful: ['service', 'sport', 'edu'],
+  anxious: ['tech', 'legal', 'office'],
+  social: ['service', 'biz', 'media', 'edu'],
+  shy: ['tech', 'farm', 'trade', 'media'],
+  filial: ['edu', 'medical', 'public'],
+  rebel: ['media', 'sport', 'biz'],
+  frugal: ['office', 'farm'],
+  spender: ['biz', 'service'],
+  gambler: ['biz'],
+  flirt: ['service', 'media'],
+  devoted: ['medical', 'edu'],
+  leader: ['public', 'biz', 'edu'],
+  tough: ['sport', 'trade', 'transport', 'farm', 'public'],
+  frail: ['tech', 'media', 'office'],
+  ambitious: ['legal', 'biz', 'public', 'medical'],
+};
+const TALENT_FIT: Record<string, Interest[]> = {
+  genius: ['tech', 'medical', 'legal'],
+  athlete: ['sport', 'public', 'transport'],
+  star: ['media', 'service'],
+  merchant: ['biz', 'office'],
+  artist: ['media', 'service'],
+};
+const STAT_FIT: Record<StatKey, Interest[]> = {
+  str: ['sport', 'trade', 'transport', 'farm', 'public'],
+  int: ['tech', 'medical', 'legal', 'office'],
+  cha: ['media', 'service', 'biz', 'edu'],
+  mor: ['public', 'edu', 'medical'],
+  hp: ['sport', 'transport'],
+};
+
+/** 분야별 궁합 점수 */
+export function fitScores(p: Person): Record<Interest, number> {
+  const sc = Object.fromEntries(INTEREST_KEYS.map((k) => [k, 0])) as Record<Interest, number>;
+  for (const tr of p.traits ?? []) for (const k of TRAIT_FIT[tr] ?? []) sc[k] += 2;
+  for (const tl of p.talents ?? []) for (const k of TALENT_FIT[tl.id] ?? []) sc[k] += 3;
+  // 가장 두드러진 능력치 두 개 (잠재력 기준)
+  const stats = (Object.keys(STAT_FIT) as StatKey[]).sort((a, b) => p.potential[b] - p.potential[a]).slice(0, 2);
+  for (const st of stats) for (const k of STAT_FIT[st]) sc[k] += 1.5;
+  return sc;
+}
+
+/** 잘 맞을 것 같은 분야 (높은 순) */
+export function fitCats(p: Person, n = 3): Interest[] {
+  const sc = fitScores(p);
+  return INTEREST_KEYS.filter((k) => sc[k] > 0).sort((a, b) => sc[b] - sc[a]).slice(0, n);
+}
+
+const TRAIT_LABEL: Record<string, string> = {
+  diligent: '성실', lazy: '느긋함', cheerful: '낙천적', anxious: '꼼꼼·예민', social: '사교적', shy: '내성적', filial: '다정함',
+  rebel: '자유로움', frugal: '알뜰함', spender: '통 큼', gambler: '모험심', flirt: '인기 많음', devoted: '한결같음',
+  leader: '리더십', tough: '튼튼함', frail: '섬세함', ambitious: '야심',
+};
+
+/** "사교적·리더십 아이. 사람을 이끄는 일이 잘 맞을 것 같다" */
+export function temperamentLine(p: Person): string {
+  const tr = (p.traits ?? []).map((t) => TRAIT_LABEL[t]).filter(Boolean).slice(0, 3);
+  const cats = fitCats(p, 3).map((k) => JOB_CATS[k]);
+  return `성향: ${tr.length ? tr.join('·') : '무난함'}${cats.length ? ` → 잘 맞을 것 같은 분야: ${cats.join(', ')}` : ''}`;
+}
+
 interface Hobby {
   label: string;
   cat: Interest;
@@ -79,6 +146,27 @@ const HOBBIES: Hobby[] = [
   { label: '텃밭·곤충 기르기', cat: 'farm', stat: 'mor', age: [5, 12], lines: ['상추를 직접 길러 먹었다.', '장수풍뎅이 애벌레를 키워 성충으로 만들었다.'] },
   { label: '시골 농장 체험', cat: 'farm', stat: 'str', age: [7, 15], cost: 20, lines: ['소젖을 짰다! 흙냄새가 좋단다.', '딸기 수확 체험에서 한 바구니를 땄다.'] },
   { label: '낚시·바다 체험', cat: 'farm', stat: 'str', age: [8, 17], lines: ['우럭을 낚았다. 어부 할아버지가 칭찬했다.', '갯벌에서 조개를 한 바구니 캤다.'] },
+  // ── 추가 취미 ──
+  { label: '3D 프린터·메이커 교실', cat: 'tech', stat: 'int', age: [10, 18], cost: 30, lines: ['직접 설계한 폰 거치대를 뽑았다.', '고장 난 장난감 부품을 프린터로 만들어 끼웠다.'] },
+  { label: '어린이 약사 체험', cat: 'medical', stat: 'int', age: [7, 12], lines: ['약봉투에 이름을 또박또박 썼다.', '"이 약은 식후 30분!" 제법 약사 같다.'] },
+  { label: '치과 놀이·양치 교실', cat: 'medical', stat: 'mor', age: [5, 9], lines: ['인형 이빨을 하나하나 닦아 줬다.', '치과가 이제 안 무섭단다.'] },
+  { label: '청소년 모의 법정', cat: 'legal', stat: 'cha', age: [13, 18], cost: 10, lines: ['판사 역을 맡아 판결문을 읽었다.', '반대 신문에서 증인을 흔들었다.'] },
+  { label: '은행 견학·금융 교실', cat: 'office', stat: 'int', age: [8, 15], lines: ['금고 문이 이렇게 두꺼운 줄 몰랐다.', '복리 계산에 빠졌다.'] },
+  { label: '어린이 기자단', cat: 'media', stat: 'cha', age: [10, 16], lines: ['구청장을 인터뷰했다! 기사가 소식지에 실렸다.', '취재 수첩이 빼곡하다.'] },
+  { label: '우주소년단·군사 체험', cat: 'public', stat: 'str', age: [9, 15], cost: 20, lines: ['전투식량을 먹어 봤다. 맛있단다.', '제식 훈련에서 칭찬받았다.'] },
+  { label: '어린이 사서 체험', cat: 'edu', stat: 'int', age: [8, 14], lines: ['도서관 책을 분류 번호대로 꽂았다.', '동생들에게 동화를 읽어 줬다.'] },
+  { label: '꽃꽂이·플라워 클래스', cat: 'service', stat: 'cha', age: [8, 17], cost: 20, lines: ['엄마에게 꽃다발을 만들어 드렸다.', '색 조합 감각이 좋다는 칭찬.'] },
+  { label: '반려동물 미용 체험', cat: 'service', stat: 'cha', age: [9, 17], cost: 20, lines: ['강아지 발톱을 떨지 않고 잘랐다.', '푸들 털을 곰돌이 모양으로 다듬었다.'] },
+  { label: '자동차 정비 체험', cat: 'trade', stat: 'str', age: [11, 18], cost: 10, lines: ['타이어를 직접 갈아 봤다. 손에 기름때가 훈장 같다.', '엔진 소리만 듣고 차종을 맞힌다.'] },
+  { label: '레고 테크닉 크레인', cat: 'trade', stat: 'int', age: [8, 14], cost: 30, lines: ['크레인이 진짜로 물건을 들어 올렸다.', '설명서보다 튼튼하게 개조했다.'] },
+  { label: '해양소년단 (보트·항해)', cat: 'transport', stat: 'str', age: [10, 17], cost: 20, lines: ['돛을 올리고 직접 방향을 잡았다.', '매듭 스무 가지를 외웠다.'] },
+  { label: '지하철 노선도 외우기', cat: 'transport', stat: 'int', age: [6, 12], lines: ['서울 지하철역을 전부 외웠다. 역무원이 놀랐다.', '버스 노선을 줄줄 꿴다.'] },
+  { label: '연극·뮤지컬 교실', cat: 'media', stat: 'cha', age: [8, 17], cost: 30, lines: ['주인공을 맡았다! 커튼콜에서 울었다.', '무대 위에선 딴사람이 된다.'] },
+  { label: '댄스 학원', cat: 'media', stat: 'str', age: [9, 18], cost: 30, lines: ['아이돌 안무를 완벽하게 땄다.', '학교 축제 무대에 섰다.'] },
+  { label: '클라이밍·등산', cat: 'sport', stat: 'str', age: [8, 18], cost: 20, lines: ['벽 꼭대기 종을 쳤다!', '산 정상에서 "야호"를 외쳤다.'] },
+  { label: '바둑·체스', cat: 'tech', stat: 'int', age: [6, 16], cost: 10, lines: ['급수를 따서 아마 3단이 됐다.', '어른을 이겼다. 수읽기가 깊다.'] },
+  { label: '떡볶이 장사 체험 (알뜰 시장)', cat: 'biz', stat: 'cha', age: [10, 17], cost: 10, lines: ['원가 계산을 해 보니 이익이 남았다!', '줄이 길게 섰다. 장사 체질이다.'] },
+  { label: '양봉·버섯 농장 체험', cat: 'farm', stat: 'mor', age: [8, 16], cost: 10, lines: ['벌에 한 방 쏘였지만 꿀맛은 최고였다.', '표고버섯이 자라는 걸 신기해했다.'] },
 ];
 
 /** 이 나이에 해 볼 만한 취미 4가지 (이미 좋아하는 쪽이 조금 더 자주) */
@@ -86,9 +174,16 @@ function hobbyChoices(s: GameState, p: Person): Hobby[] {
   const a = age(s, p);
   const pool = HOBBIES.filter((h) => a >= h.age[0] && a <= h.age[1]);
   const tops = topInterests(p, 2, 1);
+  const fits = fitCats(p, 3);
   const out: Hobby[] = [];
   const favored = pool.filter((h) => tops.includes(h.cat));
   if (favored.length && chance(s, 0.7)) out.push(pick(s, favored));
+  // 성향에 맞는 것 두 개는 꼭 (다른 분야로)
+  for (const cat of fits) {
+    if (out.filter((h) => fits.includes(h.cat)).length >= 2) break;
+    const c = pool.filter((h) => h.cat === cat && !out.some((o) => o.cat === cat));
+    if (c.length) out.push(pick(s, c));
+  }
   while (out.length < 4 && out.length < pool.length) {
     const h = pick(s, pool);
     if (!out.includes(h) && !out.some((o) => o.cat === h.cat)) out.push(h);
@@ -104,24 +199,28 @@ export const HOBBY_EVENT: EventDef = {
     const tops = topInterests(c.p, 2);
     return (
       `${fullName(c.p)}(${age(c.s, c.p)}세)이(가) 요즘 이것저것 해 보고 싶어 한다. 어떤 걸 시켜 볼까?` +
+      `\n${temperamentLine(c.p)}` +
       (tops.length ? `\n지금까지 쌓인 관심: ${tops.map((k) => JOB_CATS[k]).join(', ')}` : '\n아직 뭘 좋아하는지 모르겠다. 이것저것 해 보면 알게 된다.') +
-      '\n(어릴 때 해 본 것들이 쌓여 나중에 그 분야 직업으로 가는 길이 열린다)'
+      '\n(★ 성향에 맞는 활동은 관심이 빨리 자라고 아이도 즐거워한다. 쌓인 관심이 나중에 그 분야 직업으로 가는 길이 된다)'
     );
   },
   choices: (c) => {
     const opts: number[] = c.ev.data?.opts ?? [];
+    const fits = fitCats(c.p, 3);
     const out: Choice[] = opts.map((i) => {
       const h = HOBBIES[i];
+      const fit = fits.includes(h.cat);
       return {
-        label: `${h.label} ${JOB_CATS[h.cat].split(' ')[0]}`,
+        label: `${fit ? '★ ' : ''}${h.label} ${JOB_CATS[h.cat].split(' ')[0]}`,
         cost: h.cost,
         run: (x: Ctx) => {
-          mark(x.p, 'i:' + h.cat, 2);
-          const d = grow(x.s, x.p, h.stat, chance(x.s, 0.4) ? 'good' : 'meh');
-          x.p.happiness = clamp(x.p.happiness + 5, 0, 100);
+          // 성향에 맞으면 푹 빠지고, 안 맞으면 시큰둥
+          mark(x.p, 'i:' + h.cat, fit ? 3 : 1);
+          const d = grow(x.s, x.p, h.stat, fit ? (chance(x.s, 0.6) ? 'good' : 'meh') : 'meh');
+          x.p.happiness = clamp(x.p.happiness + (fit ? 8 : 1), 0, 100);
           const t = x.p.talents.find((t) => !t.discovered && TALENTS[t.id].stat === h.stat);
-          let tail = '';
-          if (t && chance(x.s, 0.2)) {
+          let tail = fit ? ' 시간 가는 줄 모른다. 딱 맞는 옷을 입은 것 같다.' : chance(x.s, 0.5) ? ' …그런데 영 재미없어한다. 억지로 다니는 눈치다.' : '';
+          if (t && chance(x.s, fit ? 0.35 : 0.1)) {
             discoverTalent(x.p, t.id);
             tail = ` ✨ [${TALENTS[t.id].name}] 재능이 보인다!`;
           }

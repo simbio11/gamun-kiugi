@@ -8,7 +8,7 @@ import { buzz, floatDelta, rollNumber, setSound, setVibe, sfx, soundOn, vibeOn, 
 import { buildingURL, TIER_SPRITE, type BuildingKind } from '../render/building';
 import { wageIndex } from '../core/pay';
 import { buyPower, MAINTAIN, MARGIN_RATE, stockQuote } from '../core/leverage';
-import { interestSummary } from '../core/interests';
+import { interestSummary, temperamentLine } from '../core/interests';
 import { buyVehicle, canDrive, modelOf, myVehicles, vehicleAP, vehiclePrice, VEHICLES } from '../core/vehicle';
 import {
   ACHIEVEMENTS,
@@ -895,6 +895,7 @@ function personSheet(g: GameState, p: Person): string {
       ${p.desire && p.desireKnown ? `<div class="sh-row"><span>꿈</span><span>${TAG_NAMES[p.desire]}</span></div>` : ''}
       <div class="sh-row"><span>재산</span><span>${formatMoney(personWorth(g, p))}</span></div>
       ${p.home ? `<div class="sh-row"><span>사는 집</span><span>${homeLine(g, p.home)}</span></div>` : ''}
+      ${!dead && a < 30 ? `<div class="sh-row"><span>성향</span><span>${esc(temperamentLine(p).replace('성향: ', ''))}</span></div>` : ''}
       ${interestSummary(p) ? `<div class="sh-row"><span>관심 분야</span><span>${esc(interestSummary(p))}</span></div>` : ''}
       ${assetsOf(g, p.id).length ? `<div class="sh-row"><span>소유</span><span>${assetsOf(g, p.id).map((a) => `${ASSET_ICONS[a.kind]} ${esc(a.name)} ${formatMoney(a.value)}`).join('<br>')}</span></div>` : ''}
       ${p.cash < 0 ? `<div class="sh-row warn"><span>빚</span><span>${formatMoney(-p.cash)} (연 ${(debtRate(p) * 100).toFixed(1)}%)</span></div>` : ''}

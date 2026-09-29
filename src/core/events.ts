@@ -5,7 +5,7 @@ import { MAJOR_JOBS } from './school';
 import { startDating } from './romance';
 import { appealBonus } from './marks';
 import { unlock } from './achievements';
-import { dreamQuote, interestBonus, interestLevel, topInterests } from './interests';
+import { dreamQuote, fitCats, interestBonus, interestLevel, temperamentLine, topInterests } from './interests';
 import { buyPower } from './leverage';
 import { addAsset, formatMoney, jobLabel, jobTitle, pay, personWorth, statScore } from './economy';
 import { estateTax, giveGift } from './estate';
@@ -111,7 +111,7 @@ const elementary: EventDef = {
 const aptitude: EventDef = {
   id: 'aptitude',
   title: () => '재능을 찾아서',
-  text: (c) => `${iga(who(c))} 열한 살. 이것저것 해보게 할 시기다. 하나만 골라 도전시켜 보자.`,
+  text: (c) => `${iga(who(c))} 열한 살. 이것저것 해보게 할 시기다. 하나만 골라 도전시켜 보자.\n${temperamentLine(c.p)}`,
   choices: (c) => gate(c.s, [
     {
       label: '영재원 시험',
@@ -530,7 +530,7 @@ function jobChoice(c: Ctx, id: string): Choice | undefined {
       run: (x) => {
         // 스펙: 학점·인턴 경력·자격증·교환학생·인턴 정규직 제안
         const spec = clamp(markOf(x.p, 'gpa') * 1.5, -6, 9) + Math.min(8, markOf(x.p, 'intern') * 3) + Math.min(4, markOf(x.p, 'cert') * 1.5) + (hasFlag(x.p, 'exchange') ? 3 : 0) + (hasFlag(x.p, 'intern_offer') ? 6 : 0);
-        const score = statScore(x.p, w) + interestBonus(x.p, j.cat) + (hasFlag(x.p, 'univ_top') ? 5 : 0) + (majorFit ? 8 : 0) + (hasTrait(x.p, 'social') ? 3 : 0) + (hasTrait(x.p, 'diligent') ? 3 : 0) + spec;
+        const score = statScore(x.p, w) + interestBonus(x.p, j.cat) + (fitCats(x.p, 3).includes(j.cat as never) ? 3 : 0) + (hasFlag(x.p, 'univ_top') ? 5 : 0) + (majorFit ? 8 : 0) + (hasTrait(x.p, 'social') ? 3 : 0) + (hasTrait(x.p, 'diligent') ? 3 : 0) + spec;
         if (check(x.s, score, e.pass ?? 30, 7)) {
           setJob(x.p, id, e.level ?? 0);
           return (e.text ?? `${j.name}(으)로 일하게 되었다.`) + applyDesire(x, e.tag);
@@ -643,7 +643,7 @@ const firstJob: EventDef = {
     const p = c.p;
     const school = p.flags.filter((f) => f.startsWith('school:')).pop()?.slice(7);
     return (
-      `${iga(who(c))} 사회로 나갈 차례다. (${age(c.s, p)}세 · ${school ? school + ' 졸업' : hasUniv(p) ? '대졸' : '고졸'})` +
+      `${iga(who(c))} 사회로 나갈 차례다. (${age(c.s, p)}세 · ${school ? school + ' 졸업' : hasUniv(p) ? '대졸' : '고졸'})\n${temperamentLine(p)}` +
       (c.ev.data?.cat ? '' : `\n어느 분야로 가볼까? 시험은 붙을 때까지 매년 볼 수 있고, 떨어지면 다른 분야를 골라도 된다.`)
     );
   },
@@ -656,6 +656,14 @@ const firstJob: EventDef = {
         'rec',
         '🎯 전공 추천',
         () => [...MAJOR_JOBS[major].map((id) => jobChoice(c, id)).filter((x): x is Choice => !!x), ...(hasUniv(p) ? specialChoices(c, 'legal') : []), ...specialChoices(c, 'rec')],
+      ]);
+    // 타고난 성향에 맞는 분야
+    const fits = fitCats(p, 2);
+    if (fits.length)
+      cats.push([
+        'fit',
+        '🧭 성향에 맞는 일',
+        () => JOB_IDS.filter((id) => fits.includes(JOBS[id].cat as never)).map((id) => jobChoice(c, id)).filter((x): x is Choice => !!x),
       ]);
     // 어릴 때부터 키운 관심 분야
     const dreams = topInterests(p, 2);
