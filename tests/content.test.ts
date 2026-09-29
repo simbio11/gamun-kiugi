@@ -635,3 +635,22 @@ describe('내 집 입주', () => {
     expect(h.cash).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe('이직', () => {
+  it('경력 2년 미만이거나 3년 안에 시도했으면 막히고, 시도하면 3년 쿨다운', () => {
+    const s = newGame({ seed: 5, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    s.year = h.birthYear + 32;
+    h.flags.push('indep');
+    h.job = 'corp';
+    h.jobLevel = 1;
+    h.jobYears = 1;
+    const hop = ACTIONS.find((a) => a.id === 'job_hop')!;
+    expect(hop.blocked!(s, h)).toContain('2년');
+    h.jobYears = 5;
+    expect(hop.blocked!(s, h)).toBeUndefined();
+    hop.run(s, h);
+    expect(hop.blocked!(s, h)).toContain('3년');
+  });
+});

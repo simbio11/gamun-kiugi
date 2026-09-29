@@ -54,15 +54,24 @@ const OPPS: Opp[] = [
     eff: (s, p, t) => (ok(t) && (mark(p, 'cert', 1), addFlag(p, 'cert')), [stat('int', grow(s, p, 'int', t))]),
   },
   {
-    id: 'o_headhunt', icon: '💼', name: '헤드헌터 연락: 이직 면접', desc: '붙으면 직급이 한 단계 오른다 (28~50세 직장인)', stages: ['adult'], when: (s) => working(s) && age(s, h(s)) >= 28 && age(s, h(s)) <= 50, stat: 'cha',
-    lines: L(['연봉 협상까지 완벽했다. 한 직급 높여 옮겼다.'], ['조건이 괜찮아 옮겼다.'], ['최종 면접에서 떨어졌다. 그래도 몸값은 확인했다.'], ['면접 전날 과음. 기억이 없다.']),
+    id: 'o_headhunt', icon: '💼', name: '헤드헌터 연락: 이직 면접', desc: '붙으면 직급 한 단계↑ · 경력 2년 이상, 최근 3년 안에 옮기지 않았을 때', stages: ['adult'],
+    when: (s) => working(s) && age(s, h(s)) >= 28 && age(s, h(s)) <= 55 && h(s).jobYears >= 2 && s.year - Number(h(s).flags.find((f) => f.startsWith('hop:'))?.slice(4) ?? -99) >= 3, stat: 'cha',
+    lines: L(['연봉 협상까지 완벽했다. 한 직급 높여 옮겼다.'], ['최종 합격했는데 지금 회사가 연봉을 올려 주며 붙잡았다.'], ['최종 면접에서 떨어졌다. 그래도 몸값은 확인했다.'], ['면접 전날 과음. 기억이 없다.']),
     eff: (s, p, t) => {
-      if (ok(t)) {
+      p.flags = p.flags.filter((f) => !f.startsWith('hop:'));
+      p.flags.push('hop:' + s.year);
+      if (t === 'great') {
         p.jobLevel = Math.min(JOBS[p.job].maxLevel, p.jobLevel + 1);
         p.jobYears = 0;
-        return ['직급 +1', stat('cha', grow(s, p, 'cha', 'meh'))];
+        return ['직급 +1'];
       }
-      return [['행복', t === 'bad' ? (mood(p, -4), -4) : 0]];
+      if (t === 'good') {
+        const bonus = Math.round(JOBS[p.job].perLevel * 0.4);
+        p.cash += bonus;
+        return [`카운터 오퍼 ${formatMoney(bonus)}`];
+      }
+      mood(p, -4);
+      return [['행복', -4]];
     },
   },
   {

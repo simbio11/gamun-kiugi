@@ -1,7 +1,7 @@
 // 주도적 행동: 턴을 넘기기 전에 대시보드에서 직접 하는 일. 해마다 행동력 3.
 // (갑작스러운 사건·선택형 이벤트는 턴을 넘길 때 일어난다)
 
-import { chance, int, pick } from './rng';
+import { chance, int, next, pick } from './rng';
 import { fmt, getFatigue, grow, jitter, rollTier, say, setFatigue, stat, TIER_MARK } from './practice';
 import { P, P2 } from './action-lines';
 import { TRACK_ACTIONS, trackOf } from './tracks';
@@ -414,19 +414,57 @@ export const ACTIONS: ActionDef[] = [
     cat: '진로·자기계발',
     icon: '📈',
     name: '이직 시도',
-    desc: '더 좋은 조건으로 옮긴다 (능력·인맥 판정)',
+    desc: '경력 2년 이상 · 3년에 한 번 · 서류 → 면접 → 처우 협의. 대부분 떨어진다 (능력·인맥·자격증·경력·경기·나이)',
     ap: 1,
     targets: (s) => adultsOfLine(s).filter((p) => JOBS[p.job].kind === 'salary' && p.jobLevel < JOBS[p.job].maxLevel),
+    blocked: (s, t) => {
+      if (!t) return undefined;
+      if (t.jobYears < 2) return '경력 2년은 채워야';
+      const last = Number(t.flags.find((f) => f.startsWith('hop:'))?.slice(4) ?? -99);
+      if (s.year - last < 3) return `이직한 지 ${s.year - last}년 (3년 뒤에)`;
+      return undefined;
+    },
     run: (s, t) => {
       const p = t!;
-      const sc = statScore(p, JOBS[p.job].stats ?? { int: 1 }) + Math.min(10, markOf(p, 'network') * 2);
+      const a = age(s, p);
+      // 지원자 경쟁력: 능력 + 인맥 + 자격증 + 경력 − 나이 − 불경기
+      const skill = statScore(p, JOBS[p.job].stats ?? { int: 1 });
+      const bonus = Math.min(10, markOf(p, 'network') * 2) + Math.min(6, markOf(p, 'cert') * 2) + Math.min(8, p.jobYears);
+      const agePen = Math.max(0, a - 45) * 1.5;
+      const slump = (s.marketChange.stock ?? 0) < -0.1 ? 8 : 0;
+      const sc = skill + bonus - agePen - slump;
+      const bar = 50 + p.jobLevel * 6;
+      p.flags = p.flags.filter((f) => !f.startsWith('hop:'));
+      p.flags.push('hop:' + s.year); // 떨어져도 3년은 조용히
       mark(p, 'network', 1);
-      if (check(s, sc, 45 + p.jobLevel * 6, 8)) {
-        p.jobLevel++;
-        return `헤드헌터를 통해 옮겼다. ${jobTitle(p)}(으)로 한 단계 올라갔다!`;
+      const note = slump ? ' (불경기라 채용 자체가 줄었다)' : agePen > 10 ? ' (나이 얘기가 나왔다)' : '';
+      // 1) 서류
+      if (!check(s, sc, bar, 9)) {
+        mood(p, -3);
+        return pick(s, ['💦 지원한 다섯 곳 모두 서류 탈락.', '💦 서류는 냈는데 연락이 없다.', '💦 "귀하의 역량은 뛰어나나…" 불합격 메일만 쌓였다.']) + note + '\n지금 회사에 조용히 남는다.';
       }
-      mood(p, -4);
-      return '서류에서 떨어졌다. 지금 회사에 조용히 남기로 했다.';
+      // 2) 면접
+      if (!check(s, sc + p.actual.cha * 0.2, bar + 8, 9)) {
+        mood(p, -5);
+        return pick(s, ['💦 최종 면접까지 갔는데 떨어졌다. 2명 중 1명이었단다.', '💦 면접에서 "왜 지금 회사를 나오려 하냐"는 질문에 말이 꼬였다.', '💦 임원 면접 분위기가 싸했다. 역시 불합격.']) + note;
+      }
+      // 3) 처우 협의: 붙었다
+      const r = next(s);
+      if (r < 0.2) {
+        // 지금 회사가 붙잡는다
+        const raise = Math.round(JOBS[p.job].perLevel * 0.5 * wageIndex(s.year));
+        p.cash += raise;
+        mood(p, 4);
+        return `최종 합격! 그런데 사표를 내자 팀장이 붙잡았다. "연봉 올려 줄게." 카운터 오퍼로 남았다. (일시금 ${formatMoney(raise)})`;
+      }
+      p.jobLevel++;
+      p.jobYears = 0;
+      if (r < 0.35) {
+        mood(p, -8);
+        return `🌟 합격해서 옮겼다. ${jobTitle(p)}. …그런데 새 회사 분위기가 영 아니다. 텃세와 야근. 연봉만 올랐다.`;
+      }
+      mood(p, 6);
+      return `🌟 서류·면접·처우 협의까지 통과! ${jobTitle(p)}(으)로 한 단계 올라 옮겼다.`;
     },
   },
   {
