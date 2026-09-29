@@ -1,6 +1,11 @@
 import {
   ACHIEVEMENTS,
+  ART_TIERS,
+  ASSET_ICONS,
   BUDGET_NAMES,
+  EXAMS,
+  REAL_ESTATE,
+  TRADE_UNITS,
   FOCUS_NAMES,
   JOBS,
   LIFESTYLE_NAMES,
@@ -11,15 +16,20 @@ import {
   TALENTS,
   WILL_NAMES,
 } from '../core/data';
-import { assetsOf, familyWorth, formatMoney, personWorth } from '../core/economy';
-import { previewGiftTax } from '../core/estate';
+import { advisorFee, assessedValue, assetsOf, familyWorth, formatMoney, jobTitle, personWorth } from '../core/economy';
+import { estateTax, previewAssetGiftTax, previewGiftTax } from '../core/estate';
 import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
 import {
   BUY_TAX,
   aptitudeTest,
+  artPrice,
   buyAsset,
+  canBuy,
   canRetire,
+  giftAsset,
+  migrate,
+  setTaxAdvisor,
   currentEvent,
   designateHeir,
   familyTotal,
@@ -31,14 +41,18 @@ import {
   setWill,
   simulateYear,
 } from '../core/sim';
-import type { AssetKind, Focus, GameState, Lifestyle, Living, Person, Sex, WillMode } from '../core/types';
+import type { Asset, AssetKind, Focus, GameState, Lifestyle, Living, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
 
 type Tab = 'tree' | 'policy' | 'assets' | 'log' | 'achv';
+type Zoom = 'big' | 'mid' | 'small';
 
 interface UIState {
   game: GameState | null;
   tab: Tab;
+  view: 'tree' | 'list';
+  zoom: Zoom;
+  showDead: boolean;
   sheet?: string;
   report?: { title: string; lines: string[] };
   outcome?: { title: string; text: string };
@@ -48,19 +62,38 @@ interface UIState {
 }
 
 const SAVE_KEY = 'gamun-kiugi-save-v1';
+const PREF_KEY = 'gamun-kiugi-prefs';
 
+const prefs = loadPrefs();
 const ui: UIState = {
   game: load(),
   tab: 'tree',
+  view: prefs.view ?? 'tree',
+  zoom: prefs.zoom ?? 'mid',
+  showDead: false,
   setup: { surname: '김', sex: 'M', origin: 'middle' },
 };
 
 function load(): GameState | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    return raw ? (JSON.parse(raw) as GameState) : null;
+    return raw ? migrate(JSON.parse(raw) as GameState) : null;
   } catch {
     return null;
+  }
+}
+function loadPrefs(): { view?: 'tree' | 'list'; zoom?: Zoom } {
+  try {
+    return JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+function savePrefs() {
+  try {
+    localStorage.setItem(PREF_KEY, JSON.stringify({ view: ui.view, zoom: ui.zoom }));
+  } catch {
+    /* noop */
   }
 }
 function save() {
@@ -153,7 +186,7 @@ function titleScreen(): string {
       <div class="field">시대 <div class="seg"><button class="on">현대 한국</button><button disabled>근현대사 (준비 중)</button></div></div>
       <button class="btn big primary" data-action="start">가문 시작</button>
     </section>
-    <p class="fine">v0.1 · 한 세대를 끝까지 돌려보자</p>
+    <p class="fine">v0.2 · 직업 29종 · 시험 · 소개팅 · 투자와 절세</p>
   </div>`;
 }
 
@@ -197,57 +230,147 @@ function card(g: GameState, p: Person, extra = ''): string {
   const isHead = p.id === g.headId;
   const heir = p.id === g.heirId;
   const pending = g.events.some((e) => e.personId === p.id);
-  return `<button class="pc ${dead ? 'dead' : ''} ${isHead ? 'head' : ''} ${extra}" data-action="person" data-id="${p.id}">
+  const small = ui.zoom === 'small';
+  return `<button class="pc ${dead ? 'dead' : ''} ${isHead ? 'head' : ''} ${p.inLaw ? 'inlaw' : ''} ${extra}" data-action="person" data-id="${p.id}">
     ${isHead ? '<span class="crown">👑</span>' : heir ? '<span class="crown">★</span>' : ''}
     ${pending ? '<span class="bang">!</span>' : ''}
     <img class="px" src="${portraitURL(p, a)}" alt="">
     <span class="nm">${esc(p.name)}</span>
-    <span class="ag">${dead ? '†' + a : a + '세'}</span>
-    <span class="rl">${esc(relationLabel(g, p))}</span>
+    <span class="ag">${dead ? '†' + a : a + (small ? '' : '세')}</span>
+    ${small ? '' : `<span class="rl">${esc(jobShort(g, p))}</span>`}
   </button>`;
 }
 
-function row(label: string, inner: string): string {
-  return inner ? `<div class="gen"><div class="gen-l">${label}</div><div class="gen-row">${inner}</div></div>` : '';
+/** 카드 아래 한 줄: 학생/수험생/직업 */
+function jobShort(g: GameState, p: Person): string {
+  if (!alive(p)) return relationLabel(g, p);
+  const a = age(g, p);
+  if (a < 8) return '아이';
+  if (a < 20 && p.job === 'none') return '학생';
+  if (p.flags.includes('student')) return '대학생';
+  if (p.flags.some((f) => f.startsWith('prep:'))) return '수험생';
+  return JOBS[p.job].name;
+}
+
+/** 부부 + 그 아래 자녀 가지 (재귀). 작게 보기에서는 자손 없는 고인은 숨김 */
+function branch(g: GameState, p: Person, depth: number, extra = ''): string {
+  const sp = spouseOf(g, p);
+  const kids = childrenOf(g, p)
+    .filter((k) => alive(k) || ui.zoom !== 'small' || hasLivingDescendant(g, k))
+    .sort((x, y) => x.birthYear - y.birthYear);
+  const couple = `<div class="br-couple ${extra}">${card(g, p)}${sp ? `<span class="ring">♥</span>${card(g, sp)}` : ''}</div>`;
+  const inner = depth < 6 && kids.length ? `<div class="br-kids">${kids.map((k) => branch(g, k, depth + 1)).join('')}</div>` : '';
+  return `<div class="br">${couple}${inner}</div>`;
+}
+
+function hasLivingDescendant(g: GameState, p: Person): boolean {
+  return childrenOf(g, p).some((k) => alive(k) || hasLivingDescendant(g, k));
+}
+
+function familyStats(g: GameState) {
+  const living = Object.values(g.people).filter(alive);
+  const h = head(g);
+  const main = living.filter((p) => isMainline(g, p));
+  return {
+    living: living.length,
+    main: main.length,
+    minors: main.filter((p) => age(g, p) < 20).length,
+    single: main.filter((p) => !p.inLaw && age(g, p) >= 26 && !p.spouseId).length,
+    exam: main.filter((p) => p.flags.some((f) => f.startsWith('prep:'))).length,
+    desc: living.filter((p) => isDescendantOf(g, p, h)).length,
+  };
 }
 
 function treeScreen(g: GameState): string {
   const h = head(g);
+  const st = familyStats(g);
+  const heir = g.heirId && alive(g.people[g.heirId]) ? g.people[g.heirId] : undefined;
+  const toolbar = `
+    <div class="tree-bar">
+      ${seg('view', ui.view, [['tree', '🌳 가계도'], ['list', '📋 명부']])}
+      ${ui.view === 'tree' ? seg('zoom', ui.zoom, [['big', '크게'], ['mid', '보통'], ['small', '작게']]) : seg('dead', ui.showDead ? 1 : 0, [[0, '생존자만'], [1, '고인 포함']])}
+    </div>
+    <div class="fam-stats">
+      <span>👥 ${st.living}명</span><span>직계 ${st.main}</span><span>자손 ${st.desc}</span>
+      ${st.minors ? `<span>🧒 ${st.minors}</span>` : ''}${st.single ? `<span>💌 미혼 ${st.single}</span>` : ''}${st.exam ? `<span>📖 수험생 ${st.exam}</span>` : ''}
+      <span>★ ${heir ? esc(heir.name) : '후계자 미정'}</span>
+    </div>`;
+  if (ui.view === 'list') return toolbar + rosterScreen(g);
+
   const parents = parentsOf(g, h);
-  const grand = parents.flatMap((p) => parentsOf(g, p)).filter(alive);
-  const sibs = siblingsOf(g, h);
+  const grand = parents.flatMap((p) => parentsOf(g, p)).filter((p) => alive(p) || ui.zoom !== 'small');
+  const sibs = siblingsOf(g, h).filter((p) => alive(p) || ui.zoom !== 'small' || hasLivingDescendant(g, p));
   const older = sibs.filter((x) => x.birthYear <= h.birthYear);
   const younger = sibs.filter((x) => x.birthYear > h.birthYear);
   const sp = spouseOf(g, h);
 
-  const couple = (p: Person) => {
-    const s2 = spouseOf(g, p);
-    return `<div class="couple">${card(g, p)}${s2 ? `<span class="ring">♥</span>${card(g, s2)}` : ''}</div>`;
-  };
-
-  let gens = [h];
-  const lower: string[] = [];
-  const labels = ['자녀', '손주', '증손', '고손'];
-  for (let i = 0; i < 4; i++) {
-    const kids = gens.flatMap((p) => childrenOf(g, p));
-    if (!kids.length) break;
-    lower.push(row(labels[i], kids.map(couple).join('')));
-    gens = kids;
-  }
-
-  return `
-  <div class="tree">
-    ${row('조부모', grand.map((p) => card(g, p)).join(''))}
-    ${row('부모', parents.map((p) => card(g, p)).join(''))}
-    ${row(
-      '본인',
-      `${older.map((p) => card(g, p, 'sib')).join('')}
-       <div class="couple me">${card(g, h)}${sp ? `<span class="ring">♥</span>${card(g, sp)}` : ''}</div>
-       ${younger.map((p) => card(g, p, 'sib')).join('')}`,
-    )}
-    ${lower.join('')}
-    ${!lower.length && !sp ? `<p class="hint">아직 혼자다. 25세가 되면 인연이 찾아온다.</p>` : ''}
+  return `${toolbar}
+  <div class="ft z-${ui.zoom}">
+    ${grand.length ? `<div class="ft-up"><span class="ft-l">조부모</span>${grand.map((p) => card(g, p)).join('')}</div>` : ''}
+    ${parents.length ? `<div class="ft-up"><span class="ft-l">부모</span>${parents.map((p) => card(g, p)).join('')}</div>` : ''}
+    <div class="ft-scroll"><div class="ft-inner">
+      ${older.map((p) => `<div class="side">${branch(g, p, 1)}</div>`).join('')}
+      <div class="main-br">${branch(g, h, 0, 'me')}</div>
+      ${younger.map((p) => `<div class="side">${branch(g, p, 1)}</div>`).join('')}
+    </div></div>
+    ${!sp && !h.childIds.length ? `<p class="hint">아직 혼자다. 26세 무렵부터 소개팅이 들어온다.</p>` : ''}
   </div>`;
+}
+
+/** 명부: 세대별로 한 줄씩. 큰 가문을 한눈에 */
+function rosterScreen(g: GameState): string {
+  const h = head(g);
+  const people = Object.values(g.people).filter((p) => (ui.showDead || alive(p)) && !(p.inLaw && !p.spouseId));
+  const groups = new Map<string, Person[]>();
+  const add = (k: string, p: Person) => groups.set(k, [...(groups.get(k) ?? []), p]);
+  const depthOf = (p: Person): number => {
+    let d = 0;
+    let cur: Person | undefined = p;
+    while (cur && cur.id !== h.id && d < 10) {
+      cur = parentsOf(g, cur).find((x) => x.id === h.id || isDescendantOf(g, x, h));
+      d++;
+    }
+    return cur ? d : -1;
+  };
+  const GEN = ['본인 세대', '자녀', '손주', '증손', '고손', '5대손', '6대손'];
+  for (const p of people) {
+    if (p.id === h.id || p.id === h.spouseId) add(GEN[0], p);
+    else if (isDescendantOf(g, p, h)) add(GEN[depthOf(p)] ?? '후손', p);
+    else if (p.spouseId && isDescendantOf(g, g.people[p.spouseId], h)) add(GEN[depthOf(g.people[p.spouseId])] ?? '후손', p);
+    else if (isDescendantOf(g, h, p)) add('윗대', p);
+    else add('방계 (형제·친척)', p);
+  }
+  const order = ['윗대', ...GEN, '후손', '방계 (형제·친척)'];
+  return order
+    .filter((k) => groups.has(k))
+    .map((k) => {
+      const list = groups.get(k)!.sort((a, b) => a.birthYear - b.birthYear);
+      return `<section class="roster">
+        <h3>${k} <small>${list.length}명</small></h3>
+        ${list.map((p) => rosterRow(g, p)).join('')}
+      </section>`;
+    })
+    .join('');
+}
+
+function rosterRow(g: GameState, p: Person): string {
+  const dead = !alive(p);
+  const a = dead ? p.deathYear! - p.birthYear : age(g, p);
+  const badges = [
+    p.id === g.headId ? '👑' : '',
+    p.id === g.heirId ? '★' : '',
+    g.events.some((e) => e.personId === p.id) ? '❗' : '',
+    p.spouseId && alive(g.people[p.spouseId]) ? '💍' : '',
+    p.flags.includes('grievance') ? '💢' : '',
+  ].join('');
+  return `<button class="rrow ${dead ? 'dead' : ''}" data-action="person" data-id="${p.id}">
+    <img class="px" src="${portraitURL(p, a)}" alt="">
+    <span class="r-nm">${esc(fullName(p))}<small>${esc(relationLabel(g, p))}</small></span>
+    <span class="r-ag">${dead ? '†' : ''}${a}</span>
+    <span class="r-job">${esc(dead ? '' : jobShort(g, p) === JOBS[p.job].name ? jobTitle(p) : jobShort(g, p))}</span>
+    <span class="r-w">${dead ? '' : formatMoney(personWorth(g, p))}</span>
+    <span class="r-b">${badges}</span>
+  </button>`;
 }
 
 function statBars(p: Person): string {
@@ -284,6 +407,17 @@ const EDU_LABELS: Record<string, string> = {
   univ_top: '명문대',
   univ_local: '대학',
   med_school: '의대',
+  pharm_school: '약대',
+  nurse_school: '간호학과',
+  edu_school: '교대',
+  police_univ: '경찰대',
+  academy: '사관학교',
+  art_school: '미대',
+  music_school: '음대',
+  law_school: '로스쿨',
+  grad_school: '대학원',
+  bootcamp: '부트캠프',
+  flight_school: '비행교육원',
 };
 
 function personSheet(g: GameState, p: Person): string {
@@ -293,7 +427,19 @@ function personSheet(g: GameState, p: Person): string {
   const edu = p.flags.filter((f) => EDU_LABELS[f]).map((f) => EDU_LABELS[f]);
   const talents = p.talents.filter((t) => t.discovered);
   const job = JOBS[p.job];
-  const jobTxt = a < 20 && p.job === 'none' ? '학생' : p.flags.includes('student') ? '대학생' : job.name + (job.maxLevel ? ` Lv.${p.jobLevel}` : '');
+  const prep = p.flags.find((f) => f.startsWith('prep:'))?.slice(5);
+  const tries = Number(p.flags.find((f) => f.startsWith('tries:'))?.slice(6) ?? 0);
+  const jobTxt =
+    a < 20 && p.job === 'none'
+      ? '학생'
+      : p.flags.includes('student')
+        ? '대학생'
+        : prep
+          ? `${EXAMS[prep].name} 준비생${tries ? ` (${tries + 1}수째)` : ''}`
+          : job.titles
+            ? `${job.name} · ${jobTitle(p)}`
+            : job.name;
+  const marital = p.spouseId ? (alive(g.people[p.spouseId]) ? `💍 ${fullName(g.people[p.spouseId])}` : '사별') : p.flags.includes('single_life') ? '독신' : a >= 26 ? '미혼' : '';
   const isDesc = isDescendantOf(g, p, h);
   const happy = p.happiness >= 70 ? '😊' : p.happiness >= 40 ? '🙂' : p.happiness >= 20 ? '😐' : '😣';
   const retireOk = canRetire(g);
@@ -337,6 +483,8 @@ function personSheet(g: GameState, p: Person): string {
       ${p.desire && p.desireKnown ? `<div class="sh-row"><span>꿈</span><span>${TAG_NAMES[p.desire]}</span></div>` : ''}
       <div class="sh-row"><span>재산</span><span>${formatMoney(personWorth(g, p))}</span></div>
       ${p.flags.includes('grievance') ? `<div class="sh-row warn"><span>⚠</span><span>상속에 불만을 품고 있다</span></div>` : ''}
+      ${marital && !dead ? `<div class="sh-row"><span>혼인</span><span>${esc(marital)}${p.flags.includes('divorced') ? ' · 재혼' : ''}</span></div>` : ''}
+      ${p.flags.includes('bankrupt') ? `<div class="sh-row warn"><span>⚠</span><span>파산 이력이 있다</span></div>` : ''}
       <div class="sh-actions">${actions.join('')}</div>
       <button class="btn ghost" data-action="close-sheet">닫기</button>
     </div>
@@ -425,7 +573,7 @@ function policyScreen(g: GameState): string {
     <div class="field">생활 방식 ${seg('lifestyle', pol.lifestyle, Object.entries(LIFESTYLE_NAMES) as [string, string][])}</div>
     <p class="fine">일 중심: 승진↑ 건강↓ · 자기계발: 능력치↑ · 요양: 건강 회복</p>
     <div class="field">생활 수준 ${seg('living', pol.living, Object.entries(LIVING_NAMES) as [string, string][])}</div>
-    <div class="field">가족계획 (자녀 수 목표) ${seg('plan', pol.familyPlan, [0, 1, 2, 3, 4].map((n) => [n, n + '명']))}</div>
+    <div class="field">가족계획 (자녀 수 목표) ${seg('plan', pol.familyPlan, [0, 1, 2, 3, 4, 5].map((n) => [n, n + '명']))}</div>
   </section>
   <section class="card">
     <h2>자녀 교육</h2>
@@ -447,19 +595,23 @@ function policyScreen(g: GameState): string {
   </section>`;
 }
 
+const pct = (v?: number) => (v === undefined ? '' : `<small class="${v >= 0 ? 'up' : 'down'}">${v >= 0 ? '▲' : '▼'}${Math.abs(v * 100).toFixed(1)}%</small>`);
+
 function assetsScreen(g: GameState): string {
   const h = head(g);
   const members = Object.values(g.people)
     .filter((p) => alive(p) && (isMainline(g, p) || personWorth(g, p) !== 0))
     .sort((a, b) => personWorth(g, b) - personWorth(g, a));
   const fam = assetsOf(g, 'family');
-  const recipients = Object.values(g.people).filter((p) => alive(p) && isDescendantOf(g, p, h));
+  const recipients = Object.values(g.people).filter((p) => alive(p) && (isDescendantOf(g, p, h) || p.id === h.spouseId));
   const to = ui.giftTo && g.people[ui.giftTo] && alive(g.people[ui.giftTo]) ? g.people[ui.giftTo] : recipients[0];
-  const canBuy = (k: AssetKind) => spendable(g) >= g.market[k] * 0.4;
+  const mine = assetsOf(g, h.id);
+  const et = estateTax(g, h);
 
-  const assetRow = (a: { id: string; name: string; value: number; ownerId: string }, sellable: boolean) =>
-    `<div class="arow"><span>🏠 ${esc(a.name)}</span><span>${formatMoney(a.value)} ${sellable ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>`;
+  const assetRow = (a: Asset, sellable: boolean) =>
+    `<div class="arow"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}</span><span>${formatMoney(a.value)} ${sellable ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>`;
 
+  const units = TRADE_UNITS.map((u) => [u, formatMoney(u)] as const);
   return `
   <section class="bank">
     <div class="bank-l">${esc(g.familyName)}씨 가문 총자산</div>
@@ -489,14 +641,40 @@ function assetsScreen(g: GameState): string {
   </section>
 
   <section class="card">
-    <h2>부동산 시장</h2>
-    ${(['apt_seoul', 'apt_local', 'land'] as AssetKind[])
+    <h2>투자 시장 <small class="muted">가주 명의로 매수</small></h2>
+    <h4 class="sub">부동산 (한 채)</h4>
+    ${(REAL_ESTATE as AssetKind[])
       .map(
-        (k) => `<div class="arow"><span>${{ apt_seoul: '강남 아파트', apt_local: '지방 아파트', land: '토지' }[k]}</span>
-        <span>${formatMoney(g.market[k])} <button class="mini" data-action="buy" data-v="${k}" ${canBuy(k) ? '' : 'disabled'}>매수</button></span></div>`,
+        (k) => `<div class="arow"><span>${ASSET_ICONS[k]} ${{ apt_seoul: '강남 아파트', apt_local: '지방 아파트', land: '토지' }[k as 'land']} ${pct(g.marketChange[k])}</span>
+        <span>${formatMoney(g.market[k])} <button class="mini" data-action="buy" data-v="${k}" ${canBuy(g, k) ? '' : 'disabled'}>매수</button></span></div>`,
       )
       .join('')}
-    <p class="fine">취득세 ${BUY_TAX * 100}% · 가격의 40% 이상 있으면 나머지는 대출(연 7%). 임대수익 연 2.5%.<br>상속세는 부동산을 시가의 70%로 평가한다 → 절세 수단.</p>
+    <p class="fine">취득세 ${BUY_TAX * 100}% · 가격의 40%만 있으면 나머지는 대출(연 7%) · 임대수익 연 2.5% · 상속세 평가 70%</p>
+    ${(['stock', 'coin'] as const)
+      .map(
+        (k) => `<h4 class="sub">${ASSET_ICONS[k]} ${k === 'stock' ? '주식 (지수 ' + g.market.stock + ')' : '코인 (지수 ' + g.market.coin + ')'} ${pct(g.marketChange[k])}</h4>
+        <div class="buy-row">${units.map(([u, l]) => `<button class="mini" data-action="buy" data-v="${k}" data-amt="${u}" ${canBuy(g, k, u) ? '' : 'disabled'}>+${l}</button>`).join('')}</div>`,
+      )
+      .join('')}
+    <p class="fine">주식: 배당 2%, 연 ±17% 출렁임 · 코인: 배당 없음, 반토막도 열 배도 흔하다 · 둘 다 상속세는 시가 100% 평가</p>
+    <h4 class="sub">🖼 예술품 (미술 지수 ${g.market.art}) ${pct(g.marketChange.art)}</h4>
+    ${ART_TIERS.map(
+      (tier, i) => `<div class="arow"><span>${tier.name}</span><span>${formatMoney(artPrice(g, i))} <button class="mini" data-action="buy" data-v="art" data-amt="${i}" ${canBuy(g, 'art', artPrice(g, i)) ? '' : 'disabled'}>구입</button></span></div>`,
+    ).join('')}
+    <p class="fine">상속세 평가는 감정가의 50% → 절세 수단. 대신 위작일 수 있다 (비쌀수록 위험). 감정이나 매각 때 드러난다.</p>
+  </section>
+
+  <section class="card">
+    <h2>절세 · 상속 대비</h2>
+    <div class="sh-row"><span>지금 사망 시</span><span>상속세 <b>${formatMoney(et.tax)}</b>${et.gross > 0 ? ` (실효 ${((et.tax / et.gross) * 100).toFixed(1)}%)` : ''}</span></div>
+    <div class="sh-row"><span>세법상 평가액</span><span>${formatMoney(et.assessed)} / 시가 ${formatMoney(et.gross)}</span></div>
+    ${et.priorGifts ? `<div class="sh-row"><span>10년 내 증여 합산</span><span>${formatMoney(et.priorGifts)}</span></div>` : ''}
+    <div class="sh-row"><span>세무사</span><span>${
+      g.policy.taxAdvisor
+        ? `선임 중 · 연 ${formatMoney(advisorFee(g))} <button class="mini" data-action="advisor" data-v="0">해지</button>`
+        : `없음 <button class="mini" data-action="advisor" data-v="1">선임 (연 ${formatMoney(advisorFee(g))})</button>`
+    }</span></div>
+    <p class="fine">세무사: 상속세 과세표준 12%·증여세 6% 절감. 부동산·예술품은 싸게 평가되니 현물로 물려주는 게 유리하다.</p>
   </section>
 
   <section class="card">
@@ -504,16 +682,27 @@ function assetsScreen(g: GameState): string {
     ${
       recipients.length
         ? `<div class="field">받는 사람
-            <select id="gift-to">${recipients.map((p) => `<option value="${p.id}" ${p.id === to.id ? 'selected' : ''}>${esc(fullName(p))} (${age(g, p)}세)</option>`).join('')}</select>
+            <select id="gift-to">${recipients.map((p) => `<option value="${p.id}" ${p.id === to.id ? 'selected' : ''}>${esc(fullName(p))} · ${esc(relationLabel(g, p))} (${age(g, p)}세)</option>`).join('')}</select>
           </div>
+          <h4 class="sub">현금</h4>
           <div class="gift-btns">${[5000, 10000, 50000, 100000]
             .map(
               (amt) =>
-                `<button class="btn" data-action="gift" data-v="${amt}" ${h.cash < amt ? 'disabled' : ''}>${formatMoney(amt)}<small>증여세 ${formatMoney(previewGiftTax(g, to, amt))}</small></button>`,
+                `<button class="btn" data-action="gift" data-v="${amt}" ${h.cash < amt ? 'disabled' : ''}>${formatMoney(amt)}<small>증여세 ${formatMoney(previewGiftTax(g, h, to, amt))}</small></button>`,
             )
             .join('')}</div>
-          <p class="fine">성인 자녀 10년간 5천만 비과세(미성년 2천만). 사망 전 10년 내 증여는 상속재산에 합산되니 일찍 줄수록 유리.</p>`
-        : '<p class="hint">증여할 자손이 없다.</p>'
+          ${
+            mine.length
+              ? `<h4 class="sub">현물 (평가액으로 과세)</h4>${mine
+                  .map(
+                    (a) => `<div class="arow"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}<br><small class="muted">시가 ${formatMoney(a.value)} → 평가 ${formatMoney(assessedValue(a))}</small></span>
+                    <span><button class="mini" data-action="gift-asset" data-id="${a.id}">증여 · 세금 ${formatMoney(previewAssetGiftTax(g, h, to, a.id))}</button></span></div>`,
+                  )
+                  .join('')}`
+              : ''
+          }
+          <p class="fine">10년 합산 공제: 배우자 6억 · 성인 자녀 5천만 · 미성년 2천만. 손주에게 바로 주면 세금 30% 할증(세대생략). 사망 전 10년 내 증여는 상속재산에 다시 합산되니 일찍 줄수록 유리.</p>`
+        : '<p class="hint">증여할 가족이 없다.</p>'
     }
   </section>
 
@@ -523,7 +712,7 @@ function assetsScreen(g: GameState): string {
     <div class="will">${(Object.entries(WILL_NAMES) as [WillMode, string][])
       .map(([k, l]) => `<button class="${g.will === k ? 'on' : ''}" data-action="will" data-v="${k}">${l}</button>`)
       .join('')}</div>
-    <p class="fine">후계자에게 몰아주면 부동산을 지키기 쉽지만, 몫을 못 받은 형제는 불만을 품는다.</p>
+    <p class="fine">후계자에게 몰아주면 재산을 지키기 쉽지만, 몫을 못 받은 형제는 불만을 품는다.</p>
   </section>`;
 }
 
@@ -592,6 +781,17 @@ function onClick(e: MouseEvent) {
       ui.game = null;
       ui.report = ui.outcome = ui.sheet = undefined;
       break;
+    case 'view':
+      ui.view = v as 'tree' | 'list';
+      savePrefs();
+      break;
+    case 'zoom':
+      ui.zoom = v as Zoom;
+      savePrefs();
+      break;
+    case 'dead':
+      ui.showDead = v === '1';
+      break;
     case 'tab':
       ui.tab = v as Tab;
       ui.sheet = undefined;
@@ -652,7 +852,16 @@ function onClick(e: MouseEvent) {
       ui.outcome = { title: '은퇴', text: retire(g!) };
       break;
     case 'buy':
-      ui.toast = buyAsset(g!, v as AssetKind);
+      ui.toast = buyAsset(g!, v as AssetKind, Number(el.dataset.amt ?? 0));
+      break;
+    case 'gift-asset': {
+      const to = (root.querySelector('#gift-to') as HTMLSelectElement | null)?.value;
+      if (to) ui.toast = giftAsset(g!, to, id);
+      break;
+    }
+    case 'advisor':
+      setTaxAdvisor(g!, v === '1');
+      ui.toast = v === '1' ? '세무사를 선임했다' : '세무사 계약을 해지했다';
       break;
     case 'sell':
       ui.toast = sellAsset(g!, id);

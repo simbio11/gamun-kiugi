@@ -2,10 +2,16 @@ import { chance, int, next, normal, pick, type RngHolder } from './rng';
 import { FEMALE_NAMES, MALE_NAMES, STAT_KEYS, TALENTS, TALENT_IDS } from './data';
 import type { CareerTag, GameState, Genes, Person, Sex, Stats, Talent } from './types';
 
-export const HAIR_STYLES = 5;
-export const HAIR_COLORS = 6;
-export const SKINS = 4;
-export const EYES = 3;
+export const HAIR_STYLES = 7;
+export const HAIR_COLORS = 9;
+/** 0~2: 흑발·갈색 계열, 3~: 밝은 색·염색 */
+export const DARK_HAIR = 3;
+export const SKINS = 5;
+export const EYES = 5;
+export const FACES = 3;
+export const BROWS = 3;
+export const MOUTHS = 4;
+export const MARKS = 6;
 
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -26,13 +32,35 @@ export function randomName(r: RngHolder, sex: Sex): string {
   return pick(r, sex === 'M' ? MALE_NAMES : FEMALE_NAMES);
 }
 
+/** 유전 안 되는 개인 특징: 절반은 없음, 선글라스는 드묾 */
+export function randomMark(r: RngHolder): number {
+  if (chance(r, 0.5)) return 0;
+  return chance(r, 0.08) ? 5 : int(r, 1, 4);
+}
+
 export function randomGenes(r: RngHolder): Genes {
   return {
     hairStyle: int(r, 0, HAIR_STYLES - 1),
-    hairColor: int(r, 0, 2), // 기본은 어두운 머리색 계열, 밝은 색은 돌연변이로
+    hairColor: chance(r, 0.7) ? int(r, 0, DARK_HAIR - 1) : int(r, 0, HAIR_COLORS - 1),
     skin: int(r, 0, SKINS - 1),
     eyes: int(r, 0, EYES - 1),
+    face: int(r, 0, FACES - 1),
+    brows: int(r, 0, BROWS - 1),
+    mouth: int(r, 0, MOUTHS - 1),
+    mark: randomMark(r),
   };
+}
+
+/** 예전 세이브의 유전자에 새 항목 채우기 (id 기반으로 결정적) */
+export function fillGenes(p: Person) {
+  const g = p.genes as Partial<Genes> & Genes;
+  let h = 0;
+  for (const ch of p.id) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  const r = { rng: h };
+  g.face ??= int(r, 0, FACES - 1);
+  g.brows ??= int(r, 0, BROWS - 1);
+  g.mouth ??= int(r, 0, MOUTHS - 1);
+  g.mark ??= randomMark(r);
 }
 
 function randomStats(r: RngHolder, mean: number, sd: number): Stats {
@@ -56,7 +84,8 @@ interface CreateOpts {
 /** 부모 없이 생성되는 인물 (창시 세대, 배우자 후보, 방계 등) */
 export function createPerson(s: GameState, o: CreateOpts): Person {
   const sex = o.sex ?? (chance(s, 0.5) ? 'M' : 'F');
-  const potential = randomStats(s, o.quality ?? 50, 14);
+  // 같은 '집안 수준'이라도 사람마다 편차가 크다
+  const potential = randomStats(s, (o.quality ?? 50) + normal(s, 0, 6), 17);
   const grown = o.grown ?? 0.1;
   const actual = {} as Stats;
   for (const k of STAT_KEYS) actual[k] = Math.round(potential[k] * clamp(grown + normal(s, 0, 0.06), 0.05, 1));
@@ -93,7 +122,9 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
   const sex: Sex = chance(s, 0.51) ? 'M' : 'F';
   const potential = {} as Stats;
   for (const k of STAT_KEYS) {
-    potential[k] = Math.round(clamp((father.potential[k] + mother.potential[k]) / 2 + normal(s, 0, 8), 1, 100));
+    // 부모 평균 + 큰 변이. 가끔은 한쪽 부모를 쏙 빼닮는다
+    const mid = chance(s, 0.25) ? (chance(s, 0.5) ? father.potential[k] : mother.potential[k]) : (father.potential[k] + mother.potential[k]) / 2;
+    potential[k] = Math.round(clamp(mid + normal(s, 0, 11), 1, 100));
   }
   const mutations: string[] = [];
   if (chance(s, 0.005)) {
@@ -110,12 +141,19 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
     if (!talents.some((x) => x.id === t)) talents.push({ id: t, discovered: false });
     mutations.push('talent:' + t);
   }
-  const g = (a: number, b: number, n: number) => (chance(s, 0.05) ? int(s, 0, n - 1) : chance(s, 0.5) ? a : b);
+  // 각 형질은 부/모 중 한쪽에서, 12%는 새로 (형제끼리도 꽤 다르게 생김)
+  const g = (a: number, b: number, n: number) => (chance(s, 0.12) ? int(s, 0, n - 1) : chance(s, 0.5) ? a : b);
+  const fg = father.genes;
+  const mg = mother.genes;
   const genes: Genes = {
-    hairStyle: g(father.genes.hairStyle, mother.genes.hairStyle, HAIR_STYLES),
-    hairColor: g(father.genes.hairColor, mother.genes.hairColor, HAIR_COLORS),
-    skin: g(father.genes.skin, mother.genes.skin, SKINS),
-    eyes: g(father.genes.eyes, mother.genes.eyes, EYES),
+    hairStyle: int(s, 0, HAIR_STYLES - 1), // 머리 모양은 유전보다 취향
+    hairColor: chance(s, 0.12) ? (chance(s, 0.7) ? int(s, 0, DARK_HAIR - 1) : int(s, 0, HAIR_COLORS - 1)) : chance(s, 0.5) ? fg.hairColor : mg.hairColor,
+    skin: g(fg.skin, mg.skin, SKINS),
+    eyes: g(fg.eyes, mg.eyes, EYES),
+    face: g(fg.face ?? 0, mg.face ?? 0, FACES),
+    brows: g(fg.brows ?? 0, mg.brows ?? 0, BROWS),
+    mouth: g(fg.mouth ?? 0, mg.mouth ?? 0, MOUTHS),
+    mark: randomMark(s),
   };
   const actual = {} as Stats;
   for (const k of STAT_KEYS) actual[k] = Math.max(1, Math.round(potential[k] * 0.1));

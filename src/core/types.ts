@@ -2,13 +2,49 @@ export type StatKey = 'str' | 'int' | 'cha' | 'mor' | 'hp';
 export type Stats = Record<StatKey, number>;
 export type Sex = 'M' | 'F';
 
-export type TalentId = 'genius' | 'athlete' | 'star' | 'merchant';
+export type TalentId = 'genius' | 'athlete' | 'star' | 'merchant' | 'artist';
 export interface Talent {
   id: TalentId;
   discovered: boolean;
 }
 
-export type JobId = 'none' | 'office' | 'civil' | 'doctor' | 'founder' | 'youtuber' | 'athlete' | 'pension';
+export type JobId =
+  // 무직·기타
+  | 'none'
+  | 'parttime'
+  | 'pension'
+  // 직장 (시험·공채)
+  | 'office'
+  | 'corp'
+  | 'civil'
+  | 'police'
+  | 'firefighter'
+  | 'teacher'
+  | 'public_corp'
+  | 'officer'
+  | 'developer'
+  | 'journalist'
+  | 'pilot'
+  // 전문직
+  | 'doctor'
+  | 'pharmacist'
+  | 'nurse'
+  | 'lawyer'
+  | 'accountant'
+  | 'professor'
+  // 사업
+  | 'founder'
+  | 'shopkeeper'
+  // 창작·연예·스포츠
+  | 'youtuber'
+  | 'entertainer'
+  | 'gamer'
+  | 'writer'
+  | 'musician'
+  | 'painter'
+  | 'athlete'
+  // 정치
+  | 'politician';
 
 /** 진로 성향. 자녀의 '꿈'과 이벤트 선택지의 태그. */
 export type CareerTag = 'study' | 'sport' | 'stage' | 'business' | 'public' | 'free';
@@ -18,6 +54,14 @@ export interface Genes {
   hairColor: number;
   skin: number;
   eyes: number;
+  /** 얼굴형 (갸름/보통/둥근) */
+  face: number;
+  /** 눈썹 */
+  brows: number;
+  /** 입 모양 */
+  mouth: number;
+  /** 유전 안 되는 개인 특징: 0 없음, 1 안경, 2 주근깨, 3 점, 4 볼터치, 5 선글라스 */
+  mark: number;
 }
 
 export interface Person {
@@ -52,7 +96,8 @@ export interface Person {
   inLaw: boolean;
 }
 
-export type AssetKind = 'apt_seoul' | 'apt_local' | 'land';
+export type RealEstateKind = 'apt_seoul' | 'apt_local' | 'land';
+export type AssetKind = RealEstateKind | 'stock' | 'coin' | 'art';
 export interface Asset {
   id: string;
   kind: AssetKind;
@@ -61,6 +106,8 @@ export interface Asset {
   ownerId: string;
   /** 시가 (만원) */
   value: number;
+  /** 예술품: 위작 여부 (감정·매각 전까지 숨김) */
+  fake?: boolean;
 }
 
 export interface Gift {
@@ -86,6 +133,8 @@ export interface Policy {
   living: Living;
   familyPlan: number;
   children: Record<string, ChildPolicy>;
+  /** 세무사 선임 (연 수임료 ↔ 상속·증여세 절감) */
+  taxAdvisor: boolean;
 }
 
 export interface PendingEvent {
@@ -101,8 +150,10 @@ export interface LogEntry {
   kind?: 'birth' | 'death' | 'money' | 'market' | 'life' | 'achv' | 'succession';
 }
 
+export type MarketKey = 'apt_seoul' | 'apt_local' | 'land' | 'stock' | 'coin' | 'art';
+
 export interface GameState {
-  version: 1;
+  version: 2;
   rng: number;
   seed: number;
   year: number;
@@ -117,7 +168,10 @@ export interface GameState {
   gifts: Gift[];
   familyCash: number;
   fame: number;
-  market: { apt_seoul: number; apt_local: number; land: number };
+  /** 부동산은 한 채 가격, 주식·코인·예술품은 지수 (시작 = 100) */
+  market: Record<MarketKey, number>;
+  /** 작년 대비 변동률 (UI 표시용) */
+  marketChange: Partial<Record<MarketKey, number>>;
   policy: Policy;
   heirId?: string;
   will: WillMode;

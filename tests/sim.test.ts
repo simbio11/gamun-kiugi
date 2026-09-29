@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { currentEvent, familyTotal, newGame, resolveChoice, simulateYear } from '../src/core/sim';
+import { currentEvent, familyTotal, migrate, newGame, resolveChoice, simulateYear } from '../src/core/sim';
+import { agePenalty } from '../src/core/events';
 import { inherit, createPerson } from '../src/core/people';
 import { next } from '../src/core/rng';
 import type { GameState } from '../src/core/types';
@@ -12,7 +13,7 @@ function autoplay(seed: number, years: number): GameState {
       const cur = currentEvent(s)!;
       const enabled = cur.choices.map((c, i) => [c, i] as const).filter(([c]) => !c.disabled);
       // 청혼은 적극적으로, 나머지는 무작위
-      const propose = enabled.find(([c]) => c.label.includes('청혼'));
+      const propose = enabled.find(([c]) => c.label.includes('프러포즈') || c.label.includes('청혼'));
       const pickI = propose && next({ rng: seed + y } as any) < 0.8 ? propose[1] : enabled[Math.floor(next(s) * enabled.length)][1];
       resolveChoice(s, pickI);
     }
@@ -54,5 +55,29 @@ describe('시뮬레이션', () => {
     const a = autoplay(123, 60);
     const b = autoplay(123, 60);
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+  });
+
+  it('v0.1 세이브 마이그레이션', () => {
+    const s = autoplay(9, 10) as any;
+    s.version = 1;
+    s.market = { apt_seoul: 1, apt_local: 1, land: 1 };
+    delete s.marketChange;
+    delete s.policy.taxAdvisor;
+    for (const p of Object.values(s.people) as any[]) delete p.genes.face;
+    const m = migrate(JSON.parse(JSON.stringify(s)));
+    expect(m.version).toBe(2);
+    expect(m.market.coin).toBe(100);
+    for (const p of Object.values(m.people)) expect(p.genes.face).toBeTypeOf('number');
+    for (let i = 0; i < 5; i++) {
+      while (m.events.length) resolveChoice(m, currentEvent(m)!.choices.findIndex((c) => !c.disabled));
+      simulateYear(m);
+    }
+    expect(Number.isFinite(familyTotal(m))).toBe(true);
+  });
+
+  it('혼인: 나이가 들수록 불리해진다', () => {
+    expect(agePenalty(28)).toBe(0);
+    expect(agePenalty(40)).toBeGreaterThan(agePenalty(35));
+    expect(agePenalty(46)).toBeGreaterThan(agePenalty(40) + 10);
   });
 });
