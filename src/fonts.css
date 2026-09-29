@@ -1,0 +1,11 @@
+/* Galmuri by Lee Minseo (quiple) — SIL Open Font License 1.1 */
+@font-face {
+  font-family: Galmuri14;
+  font-display: swap;
+  src: url('galmuri/dist/Galmuri14.woff2') format('woff2');
+}
+@font-face {
+  font-family: Galmuri11;
+  font-display: swap;
+  src: url('galmuri/dist/Galmuri11.woff2') format('woff2');
+}

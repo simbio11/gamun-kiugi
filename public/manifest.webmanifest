@@ -1,0 +1,10 @@
+{
+  "name": "가문 키우기",
+  "short_name": "가문 키우기",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2a1f1a",
+  "theme_color": "#2a1f1a",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
