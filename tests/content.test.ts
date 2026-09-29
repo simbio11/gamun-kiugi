@@ -710,3 +710,15 @@ describe('관심사와 지정 상속', () => {
     expect(house.ownerId).toBe(heir.id);
   });
 });
+
+describe('MBTI', () => {
+  it('사람마다 16가지 유형이 고르게 나온다', async () => {
+    const { mbtiOf } = await import('../src/core/interests');
+    const seen = new Map<string, number>();
+    for (let seed = 1; seed <= 60; seed++) {
+      const s = newGame({ seed, familyName: '김', sex: seed % 2 ? 'M' : 'F' });
+      for (const p of Object.values(s.people)) seen.set(mbtiOf(p), (seen.get(mbtiOf(p)) ?? 0) + 1);
+    }
+    expect(seen.size).toBe(16);
+  });
+});

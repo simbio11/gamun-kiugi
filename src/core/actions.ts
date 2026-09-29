@@ -8,6 +8,7 @@ import { TRACK_ACTIONS, trackOf } from './tracks';
 import { reverseMortgageRate } from './welfare';
 import { vehicleAP } from './vehicle';
 import { oppActions } from './opportunities';
+import { STUDENT_ACTIONS } from './student-actions';
 import { wageIndex } from './pay';
 import { appealBonus } from './marks';
 import { addBargains } from './realty';
@@ -1254,7 +1255,7 @@ const STAGE_ACTIONS: ActionDef[] = [
 ];
 // 올해의 기회: 목록 맨 앞 (분류 칩도 맨 앞에 선다)
 ACTIONS.unshift(...oppActions((s) => stageOf(s, h(s))));
-ACTIONS.push(...STAGE_ACTIONS, ...TRACK_ACTIONS, {
+ACTIONS.push(...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...TRACK_ACTIONS, {
   id: 'license',
   cat: '진로·자기계발',
   icon: '🚦',
