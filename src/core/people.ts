@@ -32,6 +32,22 @@ export function randomName(r: RngHolder, sex: Sex): string {
   return pick(r, sex === 'M' ? MALE_NAMES : FEMALE_NAMES);
 }
 
+/** 집안에서 이미 쓰는 이름: 부모·조부모·형제 (항렬 문화에서도 같은 이름은 피한다) */
+export function takenNames(s: GameState, p: Person): Set<string> {
+  const ps = [p.fatherId, p.motherId].map((id) => (id ? s.people[id] : undefined)).filter((x): x is Person => !!x);
+  const gps = ps.flatMap((q) => [q.fatherId, q.motherId].map((id) => (id ? s.people[id] : undefined)).filter((x): x is Person => !!x));
+  const sibs = ps.flatMap((q) => q.childIds.map((id) => s.people[id])).filter((x) => x && x.id !== p.id);
+  return new Set([...ps, ...gps, ...sibs].map((x) => x.name));
+}
+
+/** 집안 이름과 겹치지 않는 새 이름 */
+export function freshName(s: GameState, p: Person): string {
+  const taken = takenNames(s, p);
+  let n = p.name;
+  for (let i = 0; i < 30 && (!n || taken.has(n)); i++) n = randomName(s, p.sex);
+  return n;
+}
+
 /** 유전 안 되는 개인 특징: 절반은 없음, 선글라스는 드묾 */
 export function randomMark(r: RngHolder): number {
   if (chance(r, 0.5)) return 0;

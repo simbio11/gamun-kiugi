@@ -1,6 +1,7 @@
 // 인생사 이벤트: 가주뿐 아니라 직계 가족 모두에게 일어난다.
 // 확률은 통계를 참고했다 (현역판정 86%, 암 평생 발병 남 45%·여 38%, 5년 생존율 병기별, 조이혼율 등).
 
+import { queuePostnatal } from './lifecost';
 import { chance, int, normal, pick } from './rng';
 import { JOBS, MALE_NAMES, FEMALE_NAMES } from './data';
 import { addHolding, formatMoney, jobTitle, personWorth, settlePension } from './economy';
@@ -23,6 +24,8 @@ import {
   mark,
   randomGenes,
   spouseOf,
+  freshName,
+  takenNames,
 } from './people';
 import type { GameState, Person } from './types';
 import { illMult } from './marks';
@@ -414,12 +417,17 @@ export function deliver(s: GameState, dad: Person, mom: Person, surname: string,
     dad.childIds.push(baby.id);
     mom.childIds.push(baby.id);
     s.policy.children[baby.id] = { budget: 1, focus: 'free' };
+    baby.name = freshName(s, baby);
     if (n === 2) addFlag(baby, 'twin');
     out.push(baby);
     if (name) {
       const pool = baby.sex === 'M' ? MALE_NAMES : FEMALE_NAMES;
       const names = new Set<string>([baby.name]);
-      while (names.size < 3) names.add(pick(s, pool));
+      const taken = takenNames(s, baby);
+      for (let i = 0; names.size < 3 && i < 60; i++) {
+        const n = pick(s, pool);
+        if (!taken.has(n)) names.add(n);
+      }
       s.events.push({ uid: s.eventSeq++, defId: 'naming', personId: dad.id, data: { childId: baby.id, names: [...names] } });
     }
   }
@@ -427,6 +435,7 @@ export function deliver(s: GameState, dad: Person, mom: Person, surname: string,
   // 첫만남이용권, 그리고 가주 부부라면 육아휴직을 정한다
   const sup = birthSupport(s, mom, dad, n);
   if (sup && (dad.id === s.headId || mom.id === s.headId)) s.log.push({ year: s.year, text: `🎁 첫만남이용권 ${formatMoney(sup)}`, kind: 'money' });
+  queuePostnatal(s, mom, dad);
   const hd = dad.id === s.headId ? dad : mom.id === s.headId ? mom : undefined;
   if (hd && !s.events.some((e) => e.defId === 'parental_leave')) s.events.push({ uid: s.eventSeq++, defId: 'parental_leave', personId: hd.id });
   if (out.some((b) => b.flags.includes('mutation'))) s.log.push({ year: s.year, text: '…아기에게서 범상치 않은 기운이 느껴진다', kind: 'birth' });
@@ -844,7 +853,7 @@ const pet: LifeDef = {
   id: 'pet',
   weight: (s, p) => (p.id === s.headId && age(s, p) >= 25 && !hasFlag(p, 'pet') ? 0.03 : 0),
   title: () => '유기견',
-  text: () => '비 오는 날, 집 앞에 떨고 있는 강아지가 있다.',
+  text: () => '비 오는 날, 집 앞에 떨고 있는 강아지가 있다.\n(키우면 사료·간식·병원비로 한 달 16만 원 남짓, 해마다 가계부에 잡힌다)',
   choices: () => [
     {
       label: '데려와 키운다',

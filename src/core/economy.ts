@@ -8,6 +8,7 @@ import { BASE_YEAR, BASIC_PENSION, GRAD_STIPEND, incomeTax, NPS_A, PAY, PUBLIC_P
 import { isRealty, netOf, realtyForecast, realtyYear, sellRealty } from './realty';
 import { housingYear, JEONSE_LOAN_RATE } from './housing';
 import { vehicleUpkeep, vehicleYear } from './vehicle';
+import { petUpkeep } from './lifecost';
 import { debtRate } from './debt';
 import { allowanceForecast, careYear, childAllowanceYear, reverseMortgageYear, youthAccountYear } from './welfare';
 
@@ -338,6 +339,7 @@ export function householdItems(s: GameState, incomes: Map<string, number>) {
   }
   add('대학 등록금', tuition);
   // 주거비: 월세, 전세자금대출 이자
+  add('반려견 양육비', petUpkeep(s, inHouse));
   const car = vehicleUpkeep(s, inHouse);
   add(`차량 유지비 (${car.n}대)`, car.cost);
   const home = hh.home ?? hsp?.home;

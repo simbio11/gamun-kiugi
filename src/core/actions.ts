@@ -1214,6 +1214,26 @@ const STAGE_ACTIONS: ActionDef[] = [
   },
 ];
 ACTIONS.push(...STAGE_ACTIONS, ...TRACK_ACTIONS, {
+  id: 'license',
+  cat: '진로·자기계발',
+  icon: '🚦',
+  name: '운전면허 따기',
+  desc: '1종 보통 · 학원비 약 77만 (학과 → 장내기능 → 도로주행). 차를 사려면 필요하다 (만 18세부터)',
+  ap: 1,
+  cost: 77,
+  stages: ['teen', 'univ', 'prep', 'adult', 'senior'],
+  show: (s) => age(s, h(s)) >= 18 && !hasFlag(h(s), 'license'),
+  run: (s) => {
+    const p = h(s);
+    const t = rollTier(s, p, { stat: 'int' });
+    if (t === 'bad') {
+      addFlag(p, 'license');
+      return pick(s, ['💦 도로주행에서 두 번 떨어졌다. 세 번째에 겨우 붙었다. 재시험비가 아깝다.', '💦 장내기능 T자 코스에서 탈선. 재응시 끝에 면허증을 받았다.']);
+    }
+    addFlag(p, 'license');
+    return pick(s, ['🌟 필기 100점, 기능·도로주행 한 번에 합격! 강사님이 "타고났다"고 했다.', '한 번에 붙었다. 면허증 사진이 영 마음에 안 든다.', '도로주행 시험관이 "브레이크 좀 부드럽게"라고 했지만 합격!']);
+  },
+}, {
   id: 'youth_account',
   cat: '재산',
   icon: '🌱',

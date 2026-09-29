@@ -12,6 +12,7 @@ import { isRealty, mortgageFromCash, rollListings, sellRealty } from './realty';
 import { afterHomeSold, homeOf, settleHome } from './housing';
 import { giveUsedCar } from './vehicle';
 import { debtYear } from './debt';
+import { queueFuneral } from './lifecost';
 import { buyPower, leverageYear, stockQuote } from './leverage';
 import { bindState } from './school';
 import { STORIES } from './stories';
@@ -45,6 +46,7 @@ import {
   relationLabel,
   spouseOf,
   parentsOf,
+  freshName,
 } from './people';
 import type { AssetKind, GameState, MarketKey, Person, Sex, WillMode } from './types';
 
@@ -224,6 +226,7 @@ export function newGame(o: NewGameOpts): GameState {
   const me = born(5);
   me.sex = o.sex;
   me.name = pick(s, o.sex === 'M' ? MALE_NAMES : FEMALE_NAMES);
+  for (const p of Object.values(s.people)) p.name = freshName(s, p);
   // 다섯 살까지 쌓인 능력치는 운
   for (const k of Object.keys(me.actual) as (keyof typeof me.actual)[]) me.actual[k] = Math.round(me.potential[k] * (0.12 + next(s) * 0.2));
   me.actual.hp = Math.round(me.potential.hp * (0.45 + next(s) * 0.3));
@@ -665,6 +668,7 @@ function deaths(s: GameState) {
     if ((p.id === h.fatherId || p.id === h.motherId) && age(s, h) >= 20 && personWorth(s, p) > 0) {
       addFlag(p, 'estate_pending');
       queue(s, 'notice', h.id, { title: '부고', text: `${relationLabel(s, p)} ${fullName(p)}이(가) ${cause} 세상을 떠났다. (향년 ${age(s, p)}세)\n장례를 치르고 나니 유산 이야기가 나온다.`, portrait: p.id });
+      queueFuneral(s, p);
       queue(s, 'parent_estate', h.id, { deadId: p.id });
       continue;
     }
@@ -676,6 +680,8 @@ function deaths(s: GameState) {
         text: `${fullName(p)}이(가) ${cause} 세상을 떠났다. (향년 ${age(s, p)}세)` + (rep ? '\n\n' + rep.lines.join('\n') : ''),
         portrait: p.id,
       });
+      // 가주의 부모·배우자·자녀는 가주가 장례를 치른다
+      if (p.id === h.fatherId || p.id === h.motherId || p.id === h.spouseId || h.childIds.includes(p.id)) queueFuneral(s, p);
     }
   }
 }
@@ -951,7 +957,7 @@ export function buyAsset(s: GameState, kind: AssetKind, amount = 0): string {
       pay(s, h, Math.round(amount * (1 + TRADE_FEE)) - q.loan);
       const acc = addHolding(s, 'stock', h.id, amount);
       if (q.loan) acc.loan = (acc.loan ?? 0) + q.loan;
-      return `주식 ${formatMoney(amount)} 매수` + (q.loan ? ` · 신용융자 ${formatMoney(q.loan)} (연 8.5%, 담보비율 140% 밑이면 반대매매)` : '');
+      return `주식 ${formatMoney(amount)} 매수` + (q.loan ? ` · 신용융자 ${formatMoney(q.loan)} (연 9.5%, 담보비율 140% 밑이면 반대매매)` : '');
     }
     if (!canBuy(s, kind, amount)) return '현금이 부족합니다 (코인은 빚내서 못 산다)';
     pay(s, h, Math.round(amount * (1 + TRADE_FEE)));

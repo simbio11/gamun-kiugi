@@ -257,6 +257,34 @@ export const EXTRA_STORIES: Story[] = [
     { label: '조용히 지켜본다', text: '공책은 머리맡에 놓여 있다.', eff: { hap: 3 } },
   ] },
 
+  // ───────── 고증 묶음: 2025년 통계 기반 ─────────
+  // 연말정산: 2024년 귀속 근로자 70.5%가 환급, 추가 납부자는 1인 평균 117만 원 (국세청 통계 보도)
+  { id: 'x_yearend', title: '13월의 월급', age: [23, 64], w: 0.05, cooldown: 4, cond: working, text: '연말정산 시즌이다. {n}의 회사에서 "간소화 자료를 제출하라"는 메일이 왔다.', choices: [
+    { label: '영수증까지 꼼꼼히 챙긴다', mark: { thrift: 1 }, text: '', roll: ['int', 30, [{ cash: 120, hap: 4 }, '의료비·월세·기부금까지 다 챙겼다. 환급 120만 원! 진짜 13월의 월급이다.'], [{ cash: 40 }, '열심히 했는데 40만 원. 그래도 돌려받았다.']] },
+    { label: '간소화 자료만 대충 낸다', text: '', roll: ['luck', 70, [{ cash: 30 }, '30만 원 환급. 나쁘지 않다.'], [{ cash: -117, hap: -5 }, '추가 납부 117만 원… 13월의 세금이었다.']] },
+  ] },
+  // 65세 이상 치과 임플란트: 평생 2개까지 건강보험, 본인부담 30%
+  { id: 'x_implant', title: '임플란트', age: [65, 95], w: 0.04, once: true, text: '{n}의 어금니가 흔들린다. 치과에서 임플란트를 권한다. 만 65세가 넘어 평생 2개까지는 건강보험이 된다.', choices: [
+    { label: '보험으로 2개 (본인부담 30%)', cost: 80, text: '개당 40만 원 남짓. 갈비를 다시 씹는다!', eff: { hp: 2, hap: 6 } },
+    { label: '비보험까지 4개 한 번에', cost: 380, text: '보험 2개 + 비보험 2개(개당 150만 원). 새 이로 웃는 사진을 찍었다.', eff: { hp: 3, hap: 9, cha: 1 } },
+    { label: '틀니로 버틴다', text: '딱딱한 건 이제 못 먹는다.', eff: { hap: -3 } },
+  ] },
+  // 반려동물 치료비: 최근 2년간 평균 약 103만 원, 2년 새 두 배 (KB 2025 반려동물 보고서)
+  { id: 'x_pet_vet', title: '동물병원', age: [25, 90], w: 0.05, head: true, cond: (_s, p) => p.flags.includes('pet'), text: '복실이가 다리를 절뚝인다. 동물병원에서 슬개골 탈구라며 수술을 권한다.', choices: [
+    { label: '수술시킨다', cost: 250, mark: { kind: 1 }, text: '양쪽 다리 수술에 250만 원. 펫보험을 들어 둘 걸 그랬다. 그래도 다시 뛰어논다.', eff: { hap: 4 } },
+    { label: '약과 관리로 지켜본다', cost: 30, text: '', roll: ['luck', 50, [{ hap: 1 }, '다행히 더 나빠지진 않았다.'], [{ hap: -5 }, '결국 1년 뒤 수술했다. 병을 키웠다.']] },
+  ] },
+  // 운전면허 학원비: 1종 보통 전국 평균 77만 원 (2025)
+  { id: 'x_kid_license', title: '면허 따고 싶어', age: [18, 21], w: 0.05, once: true, cond: (s, p) => p.id !== s.headId && !p.flags.includes('license'), text: '수능이 끝난 {n이} 운전면허 학원에 등록하고 싶다고 한다. 학원비가 80만 원 가까이 한다.', choices: [
+    { label: '학원비를 대 준다', cost: 77, mark: { warmth: 1 }, text: '', roll: ['int', 30, [{ hap: 6, flag: 'license' }, '한 번에 합격! 면허증을 흔들며 들어왔다.'], [{ hap: 2, flag: 'license' }, '도로주행 재시험 끝에 합격. 재시험비는 자기 용돈으로 냈다.']] },
+    { label: '알바해서 네가 내라', mark: { thrift: 1 }, text: '석 달 편의점 알바 끝에 제 돈으로 땄다. 면허증이 더 소중하단다.', eff: { mor: 2, flag: 'license' } },
+  ] },
+  { id: 'x_dol', title: '첫돌', age: [1, 1], w: 0.3, once: true, cond: (s, p) => [p.fatherId, p.motherId].includes(s.headId), text: '{n}의 첫 생일이다. 돌잔치를 어떻게 할까?', choices: [
+    { label: '가족끼리 식사 + 돌상 대여', cost: 100, mark: { family: 1 }, text: '양가 조부모님만 모였다. {n이} 돌잡이로 청진기를 집었다. 다들 박수를 쳤다.', eff: { hap: 5 } },
+    { label: '연회장 빌려 돌잔치', cost: 600, mark: { network: 1 }, text: '하객 80명. 성장 동영상에 할머니(할아버지)가 눈물을 훔쳤다. 돌반지가 서랍 한가득.', eff: { hap: 6, cash: 300 } },
+    { label: '사진만 예쁘게 찍는다', cost: 40, text: '스튜디오 한 컷이 거실 벽에 걸렸다.', eff: { hap: 3 } },
+  ] },
+
   // ───────── 사회·계절 ─────────
   { id: 'x_heatwave', title: '폭염', age: [20, 95], w: 0.03, text: '40도 가까운 폭염이다. {n}의 집 에어컨이 덜덜거린다.', choices: [
     { label: '새 에어컨을 산다', cost: 200, text: '시원한 바람 아래 온 가족이 모였다.', eff: { hap: 5 } },

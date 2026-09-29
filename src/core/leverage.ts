@@ -8,14 +8,17 @@ import { isPrimary, isRealty, liab, sellRealty } from './realty';
 import { afterHomeSold } from './housing';
 import { creditOf, walletNet } from './debt';
 
-/** 신용융자 금리 (증권사 신용거래 이자, 연 8~9%대) */
-export const MARGIN_RATE = 0.085;
+/** 신용융자 금리: 대형 증권사 61일 이상 구간 연 9.3~9.5% (2025) */
+export const MARGIN_RATE = 0.095;
 /** 신용매수 때 내 돈으로 넣어야 하는 비율 (증거금) */
 export const MARGIN_MIN = 0.6;
 /** 담보유지비율: 계좌 평가액 ÷ 융자금이 이 아래로 내려가면 반대매매 */
 export const MAINTAIN = 1.4;
-/** 임의경매 낙찰가율 (시세 대비) */
-export const AUCTION_RATE = 0.78;
+/**
+ * 임의경매 낙찰가율 (감정가 대비). 호황기 서울 아파트는 100%를 넘기도 하지만(2025 연평균 97.3%, 지지옥션),
+ * 깡통이 날 만큼 값이 빠진 하락장에선 두세 번 유찰돼 70~80%대로 떨어진다. 지방·상가·토지는 더 낮다.
+ */
+export const AUCTION_RATE: Record<string, number> = { apt_seoul: 0.85, apt_local: 0.76, building: 0.68, land: 0.65 };
 
 const household = (s: GameState, p: Person) => {
   const sp = spouseOf(s, p);
@@ -167,7 +170,7 @@ const foreclosure: EventDef = {
     return (
       `${a.name} 시세가 ${formatMoney(a.value)}까지 떨어졌는데 대출·보증금이 ${formatMoney(liab(a))}이다 (깡통).\n` +
       '통장도 마이너스라 이자가 밀리자, 은행이 기한이익 상실을 통보하고 법원에 임의경매를 신청했다.\n' +
-      `경매로 넘어가면 보통 시세의 ${Math.round(AUCTION_RATE * 100)}% 안팎에 낙찰된다.`
+      `하락장 경매는 두세 번 유찰되기 일쑤다. 이 물건이면 시세의 ${Math.round((AUCTION_RATE[a.kind] ?? 0.75) * 100)}% 안팎에 낙찰될 것이다.`
     );
   },
   choices: (c) => {
@@ -205,7 +208,7 @@ const foreclosure: EventDef = {
     out.push({
       label: '손을 놓는다 (경매로 넘어간다)',
       run: () => {
-        a.value = Math.round(a.value * AUCTION_RATE);
+        a.value = Math.round(a.value * (AUCTION_RATE[a.kind] ?? 0.75));
         const r = sellRealty(s, a);
         const moved = home ? afterHomeSold(s, a.id) : '';
         o.credit = clamp(creditOf(o) - 80, 300, 950);

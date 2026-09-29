@@ -733,7 +733,7 @@ const petFarewell: EventDef = {
         return '보호소에서 눈이 마주친 아이를 데려왔다. 이름은 "복실이 2호".';
       },
     },
-    { label: '다시는 못 키울 것 같다', run: (x) => (mood(x.p, -8), (x.p.flags = x.p.flags.filter((f) => f !== 'pet')), '빈 방석을 오래 치우지 못했다.') },
+    { label: '다시는 못 키울 것 같다', run: (x) => (mood(x.p, -8), (x.p.flags = x.p.flags.filter((f) => f !== 'pet')), (x.p.cash -= 46), '반려동물 장례식장에서 작은 유골함을 받아 왔다 (장례비 46만). 빈 방석을 오래 치우지 못했다.') },
   ],
 };
 

@@ -79,6 +79,7 @@ export function buyVehicle(s: GameState, id: string): { ok: boolean; text: strin
   const h = head(s);
   if (!m) return { ok: false, text: '' };
   if (!canDrive(s, h)) return { ok: false, text: '면허는 만 18세부터. 아직 못 산다' };
+  if (!h.flags.includes('license')) return { ok: false, text: '운전면허가 없다. 행동 탭에서 먼저 면허를 따자 (요트는 조종면허도 필요)' };
   const price = vehiclePrice(s, m);
   const tax = Math.round(price * m.tax) - (m.id === 'kei' ? Math.min(75, Math.round(price * m.tax)) : 0);
   const money = buyPower(s);
@@ -166,9 +167,12 @@ export function acquireCar(s: GameState, p: Person, id: string, installment = fa
   if (loan > 0 && (!installment || loan > price * 0.8)) return '';
   s.assets = s.assets.filter((a) => !old.includes(a));
   p.cash += tradeIn - (price + tax - loan);
+  // 면허가 없으면 이참에 딴다 (학원비)
+  const lic = !p.flags.includes('license');
+  if (lic) (p.flags.push('license'), (p.cash -= Math.round(77 * wageIndex(s.year))));
   const a = addAsset(s, 'vehicle', p.id, price);
   a.name = m.name.replace(/ \((.*)급\)/, ' · $1').replace(/ \((.*)\)/, ' · $1');
   a.tags = [m.id];
   if (loan) a.loan = loan;
-  return `${m.icon} ${a.name}${old.length ? ` (타던 차 보상 ${formatMoney(Math.max(0, tradeIn))})` : ''}${loan ? ` · 할부 ${formatMoney(loan)} (연 ${(CAR_LOAN_RATE * 100).toFixed(1)}%, 5년)` : ''}`;
+  return `${lic ? '(면허부터 땄다) ' : ''}${m.icon} ${a.name}${old.length ? ` (타던 차 보상 ${formatMoney(Math.max(0, tradeIn))})` : ''}${loan ? ` · 할부 ${formatMoney(loan)} (연 ${(CAR_LOAN_RATE * 100).toFixed(1)}%, 5년)` : ''}`;
 }

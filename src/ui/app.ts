@@ -196,8 +196,10 @@ function render() {
   const m = root.querySelector('.modal');
   if (m && modalKey !== fx.modalKey) m.classList.add(fx.modalKey ? 'swap' : 'enter');
   fx.modalKey = modalKey;
-  if (ui.tab !== fx.tab) root.querySelector('.screen')?.classList.add('enter');
+  const tabChanged = ui.tab !== fx.tab;
+  if (tabChanged) root.querySelector('.screen')?.classList.add('enter');
   fx.tab = ui.tab;
+  centerTree(g, tabChanged);
   // 지갑 숫자는 굴러가며 바뀌고, 증감이 떠오른다
   const amt = root.querySelector('.money .amt');
   const w = wallet(g).amount;
@@ -222,8 +224,34 @@ function render() {
   }
 }
 
+/**
+ * 가계도: 가주가 첫째·막내라 한쪽 끝에 있어도 화면 가운데에 오도록 모자란 쪽에 여백을 주고 가운데로 스크롤한다.
+ * 해·탭·확대가 바뀔 때만 다시 맞추고, 그 사이 직접 옆으로 넘겨 본 위치는 지켜 준다.
+ */
+function centerTree(g: GameState, force: boolean) {
+  const sc = root.querySelector<HTMLElement>('.ft-scroll');
+  const inner = root.querySelector<HTMLElement>('.ft-inner');
+  const me = root.querySelector<HTMLElement>('.main-br > .br > .br-couple .pc.head') ?? root.querySelector<HTMLElement>('.main-br');
+  if (!sc || !inner || !me) return;
+  const key = `${g.year}:${ui.zoom}:${g.headId}`;
+  inner.style.paddingLeft = inner.style.paddingRight = '0px';
+  const ir = inner.getBoundingClientRect();
+  const mr = me.getBoundingClientRect();
+  const center = mr.left + mr.width / 2 - ir.left;
+  const half = sc.clientWidth / 2;
+  const padL = Math.max(0, half - center);
+  const padR = Math.max(0, half - (ir.width - center));
+  inner.style.paddingLeft = padL + 'px';
+  inner.style.paddingRight = padR + 'px';
+  if (force || fx.treeKey !== key || fx.treeScroll === undefined) sc.scrollLeft = center + padL - half;
+  else sc.scrollLeft = fx.treeScroll;
+  fx.treeKey = key;
+  sc.onscroll = () => (fx.treeScroll = sc.scrollLeft);
+  fx.treeScroll = sc.scrollLeft;
+}
+
 /** 직전 화면 상태 (애니메이션을 새로 생긴 것에만 주려고) */
-const fx: { modalKey: string; tab?: Tab; wallet?: number; walletLabel?: string } = { modalKey: '' };
+const fx: { modalKey: string; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number } = { modalKey: '' };
 
 function titleScreen(): string {
   const o = ui.setup;
@@ -1258,12 +1286,13 @@ function vehicleCard(g: GameState): string {
             .join('')
         : '<p class="fine">차가 없다. 대중교통으로 다닌다.</p>'
     }
+    ${me.flags.includes('license') ? '' : `<p class="fine">🚦 운전면허가 없다. <button class="mini" data-action="tab" data-v="act">행동 탭</button>에서 먼저 면허를 따야 차를 살 수 있다 (학원비 약 77만).</p>`}
     <details class="moves"><summary>매장 둘러보기</summary>
       ${VEHICLES.map((m) => {
         const price = vehiclePrice(g, m);
         const tax = Math.round(price * m.tax);
         return `<div class="arow veh"><span><img class="vpx" src="${buildingURL(m.sprite, seedOf(m.id))}" alt=""> ${m.icon} ${esc(m.name)}<br><small class="muted">${esc(m.note)}<br>취득세 ${formatMoney(tax)} · 유지비 연 ${formatMoney(Math.round(m.upkeep * wageIndex(g.year)))} · 감가 연 ${Math.round(m.dep * 100)}%</small></span>
-        <span class="buy-c"><b>${formatMoney(price)}</b><button class="mini" data-action="buy-car" data-id="${m.id}" ${money >= price + tax ? '' : 'disabled'}>구입</button></span></div>`;
+        <span class="buy-c"><b>${formatMoney(price)}</b><button class="mini" data-action="buy-car" data-id="${m.id}" ${money >= price + tax && me.flags.includes('license') ? '' : 'disabled'}>구입</button></span></div>`;
       }).join('')}
       <p class="fine">가격은 2025년 국내 신차가 대략치(트림에 따라 폭이 크다)에 물가를 반영. 취득세: 승용차 7% · 경차 4%(75만 감면) · 선박 3%, 고급선박 중과. 유지비엔 보험·자동차세·연료·정비(요트는 계류비·관리)가 들어 있고, 해마다 가계부에서 빠진다. 차는 15년쯤 타면 폐차.</p>
     </details>

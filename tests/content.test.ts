@@ -231,13 +231,15 @@ describe('인생 시스템', () => {
     h.cash = 800000;
     rollListings(s);
     const house = () => s.listings!.find((l) => l.house && !l.deposit)!;
+    for (let i = 0; i < 20 && !house(); i++) rollListings(s);
     let l = house();
     expect(acqTax(s, h, l).rate).toBeLessThanOrEqual(0.03);
     expect(buyListing(s, l.id)).toContain('매수!');
+    rollListings(s);
     const first = s.assets.find((a) => a.name === l.name)!;
     expect(isPrimary(s, first)).toBe(true);
     expect(rentable(s, first)).toBe(false);
-    rollListings(s);
+    for (let i = 0; i < 20 && !house(); i++) rollListings(s);
     l = house();
     expect(acqTax(s, h, l).rate).toBe(0.08);
     buyListing(s, l.id);
@@ -531,6 +533,8 @@ describe('탈것', () => {
     h.flags.push('indep');
     h.cash = 300000;
     const base = apMax(s);
+    expect(buyVehicle(s, 'mid').ok).toBe(false); // 면허 없음
+    h.flags.push('license');
     expect(buyVehicle(s, 'mid').ok).toBe(true);
     expect(apMax(s)).toBe(base + 1);
     expect(buyVehicle(s, 'compact').ok).toBe(true);
@@ -580,5 +584,29 @@ describe('빚내서 사기', () => {
     s.events = [ev!];
     const txt = resolveChoice(s, currentEvent(s)!.choices.length - 1);
     expect(txt).toContain('반대매매');
+  });
+});
+
+describe('살면서 드는 큰돈', () => {
+  it('가주 부부 출산 → 산후조리, 가주 부모 사망 → 장례', async () => {
+    const { deliver } = await import('../src/core/life');
+    const s = newGame({ seed: 4, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    const mom = parentsOf(s, h).find((p) => p.sex === 'F')!;
+    const dad = parentsOf(s, h).find((p) => p.sex === 'M')!;
+    deliver(s, dad, mom, dad.surname, 0);
+    expect(s.events.some((e) => e.defId === 'postnatal')).toBe(false); // 가주 부부가 아니면 없음
+    const { queueFuneral } = await import('../src/core/lifecost');
+    s.year = h.birthYear + 45;
+    h.flags.push('indep');
+    queueFuneral(s, dad);
+    const ev = s.events.find((e) => e.defId === 'funeral')!;
+    s.events = [ev];
+    const cur = currentEvent(s)!;
+    expect(cur.choices.length).toBe(4);
+    const before = h.cash;
+    resolveChoice(s, 0);
+    expect(h.cash).not.toBe(before);
   });
 });

@@ -10,8 +10,9 @@ import { SEED_EVENTS } from './seeds';
 import { NEST_EVENTS } from './nest';
 import { DEBT_EVENTS } from './debt';
 import { LEVERAGE_EVENTS } from './leverage';
+import { LIFECOST_EVENTS } from './lifecost';
 import { WELFARE_EVENTS } from './welfare';
 import type { EventDef } from './ev-util';
 
-export const EVENTS: Record<string, EventDef> = { ...CORE, ...Object.fromEntries([...SCHOOL_EVENTS, ...FAMILY_EVENTS, ...LIFE_EVENTS, ...FATE_EVENTS, ...FATE_RANDOM, ...ROMANCE_EVENTS, ...ROMANCE_RANDOM, ...STORIES, ...SEED_EVENTS, ...NEST_EVENTS, ...DEBT_EVENTS, ...LEVERAGE_EVENTS, ...WELFARE_EVENTS].map((e) => [e.id, e])) };
+export const EVENTS: Record<string, EventDef> = { ...CORE, ...Object.fromEntries([...SCHOOL_EVENTS, ...FAMILY_EVENTS, ...LIFE_EVENTS, ...FATE_EVENTS, ...FATE_RANDOM, ...ROMANCE_EVENTS, ...ROMANCE_RANDOM, ...STORIES, ...SEED_EVENTS, ...NEST_EVENTS, ...DEBT_EVENTS, ...LEVERAGE_EVENTS, ...LIFECOST_EVENTS, ...WELFARE_EVENTS].map((e) => [e.id, e])) };
 export { RANDOM_EVENTS };
