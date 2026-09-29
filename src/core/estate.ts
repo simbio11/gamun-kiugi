@@ -6,7 +6,7 @@ import { giftTax, inheritanceTax, type GiftTaxOpts } from './tax';
 import { unlock } from './achievements';
 import { rollMissions } from './missions';
 import { chance } from './rng';
-import type { GameState, Person } from './types';
+import type { Asset, GameState, Person } from './types';
 
 export interface EstateReport {
   title: string;
@@ -121,23 +121,60 @@ export function settleEstate(s: GameState, d: Person, successorId?: string, over
     const named = wasHead && s.willWritten ? kept.filter((a) => a.heir && s.people[a.heir] && alive(s.people[a.heir]) && a.heir !== d.id) : [];
     const rest = kept.filter((a) => !named.includes(a));
     const net = cash + kept.filter((a) => !named.includes(a) || shares.has(a.heir!)).reduce((t, a) => t + netOf(a), 0);
-    const ranked = [...shares.entries()].sort((a, b) => b[1] - a[1] || (a[0] === successorId ? -1 : b[0] === successorId ? 1 : 0));
-    const assetTaker = ranked[0][0];
+    const want = new Map<string, number>();
+    for (const [id, sh] of shares) want.set(id, (net * sh) / total);
     const assetOf = new Map<string, number>();
-    for (const a of rest) (a.ownerId = assetTaker), assetOf.set(assetTaker, (assetOf.get(assetTaker) ?? 0) + netOf(a));
+    const give = (a: Asset, id: string) => ((a.ownerId = id), assetOf.set(id, (assetOf.get(id) ?? 0) + netOf(a)));
     for (const a of named) {
-      a.ownerId = a.heir!;
       if (shares.has(a.heir!)) {
-        assetOf.set(a.heir!, (assetOf.get(a.heir!) ?? 0) + netOf(a));
+        give(a, a.heir!);
         lines.push(`📌 유언: ${a.name}은(는) ${fullName(s.people[a.heir!])}에게`);
-      } else lines.push(`📌 유언대로 ${a.name} → ${fullName(s.people[a.heir!])} (유증)`);
+      } else {
+        a.ownerId = a.heir!;
+        lines.push(`📌 유언대로 ${a.name} → ${fullName(s.people[a.heir!])} (유증)`);
+      }
       a.heir = undefined;
     }
+    // 실물 자산은 큰 것부터, 아직 몫이 가장 많이 남은 상속인에게 (한 사람이 다 가져가지 않게)
+    const room = (id: string) => (want.get(id) ?? 0) - (assetOf.get(id) ?? 0);
+    for (const a of [...rest].sort((x, y) => netOf(y) - netOf(x))) {
+      const ids = [...shares.keys()].sort((x, y) => room(y) - room(x) || (x === successorId ? -1 : y === successorId ? 1 : 0));
+      const best = ids[0];
+      const v = netOf(a);
+      const over = v - room(best);
+      // 한 사람 몫에 비해 너무 크고, 그 사람이 정산금을 낼 현금도 없으면 → 공동상속 지분으로 나눈다
+      if (v > 0 && over > Math.max(1000, v * 0.15) && Math.max(0, s.people[best].cash) < over) {
+        const parts = ids.map((id) => [id, Math.max(0, room(id))] as [string, number]).filter(([, r]) => r > 0);
+        const sum = parts.reduce((t2, [, r]) => t2 + r, 0);
+        const fr = parts.map(([id, r]) => [id, Math.min(1, r / Math.max(v, sum))] as [string, number]);
+        const used = fr.reduce((t2, [, f]) => t2 + f, 0);
+        if (used < 1) fr[0][1] += 1 - used; // 반올림 찌꺼기는 첫 사람에게
+        const pieces = splitAsset(s, a, fr);
+        for (const [piece, id] of pieces) give(piece, id);
+        lines.push(`🧩 ${a.name}: 공동상속 (${fr.map(([id, f]) => `${fullName(s.people[id])} ${Math.round(f * 100)}%`).join(' · ')})`);
+      } else give(a, best);
+    }
+    // 현금으로 맞춘다: 몫보다 많이 받은 사람은 다른 상속인에게 정산금을 낸다 (가진 현금 안에서)
     const targets = new Map<string, number>();
-    for (const [id, sh] of shares) targets.set(id, (net * sh) / total - (assetOf.get(id) ?? 0));
+    for (const id of shares.keys()) targets.set(id, room(id));
     const positive = [...targets.values()].filter((v) => v > 0).reduce((a, b) => a + b, 0);
+    let pool = Math.max(0, cash);
+    if (pool < positive) {
+      for (const [id, t] of targets) {
+        if (t >= 0 || pool >= positive) continue;
+        const h = s.people[id];
+        const payv = Math.round(Math.min(Math.max(0, h.cash), -t, positive - pool));
+        if (payv > 0) {
+          h.cash -= payv;
+          pool += payv;
+          lines.push(`⚖ ${fullName(h)}: 몫보다 많은 자산을 받아 다른 상속인에게 정산금 ${formatMoney(payv)}`);
+        }
+      }
+    }
+    const paid = Math.min(pool, positive);
+    const leftover = Math.max(0, pool - positive); // 모두 몫을 채우고 남은 현금은 몫대로
     for (const [id, t] of targets) {
-      const got = positive > 0 && t > 0 ? Math.round((cash * t) / positive) : 0;
+      const got = (positive > 0 && t > 0 ? Math.round((paid * t) / positive) : 0) + Math.round((leftover * (shares.get(id) ?? 0)) / total);
       const heir = s.people[id];
       heir.cash += got;
       const assetPart = assetOf.get(id) ?? 0;
@@ -272,4 +309,25 @@ export function giveAsset(s: GameState, from: Person, to: Person, assetId: strin
 export function previewAssetGiftTax(s: GameState, from: Person, to: Person, assetId: string): number {
   const a = s.assets.find((x) => x.id === assetId);
   return a ? previewGiftTax(s, from, to, Math.max(0, assessedValue(a) - liab(a))) : 0;
+}
+
+/** 자산을 지분으로 쪼갠다: 첫 조각은 원래 자산(사는 집이면 그대로 산다), 나머지는 새 자산 */
+function splitAsset(s: GameState, a: Asset, parts: [string, number][]): [Asset, string][] {
+  const base = { value: a.value, loan: a.loan ?? 0, deposit: a.deposit ?? 0, cost: a.cost ?? a.value };
+  const baseName = a.name;
+  const out: [Asset, string][] = [];
+  parts.forEach(([id, f], i) => {
+    const piece: Asset =
+      i === 0
+        ? a
+        : { ...a, id: 'a' + s.idSeq++, tags: a.tags ? [...a.tags] : undefined };
+    piece.value = Math.round(base.value * f);
+    piece.loan = base.loan ? Math.round(base.loan * f) : undefined;
+    piece.deposit = base.deposit ? Math.round(base.deposit * f) : undefined;
+    piece.cost = Math.round(base.cost * f);
+    piece.name = `${baseName} 지분 ${Math.round(f * 100)}%`;
+    if (i > 0) s.assets.push(piece);
+    out.push([piece, id]);
+  });
+  return out;
 }
