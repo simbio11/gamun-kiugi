@@ -57,6 +57,54 @@ const STAT_FIT: Record<StatKey, Interest[]> = {
   hp: ['sport', 'transport'],
 };
 
+// ───────────────────────── MBTI ─────────────────────────
+// 16가지 성격 유형. 특성·능력치로 정하고, 애매한 축은 사람마다 고정된 해시로 (저장 없이 늘 같은 결과).
+
+export const MBTI_INFO: Record<string, [string, Interest[]]> = {
+  INTJ: ['전략가', ['tech', 'legal', 'biz']],
+  INTP: ['논리술사', ['tech', 'edu', 'media']],
+  ENTJ: ['통솔자', ['biz', 'legal', 'public']],
+  ENTP: ['변론가', ['biz', 'media', 'legal']],
+  INFJ: ['옹호자', ['edu', 'medical', 'media']],
+  INFP: ['중재자', ['media', 'edu', 'farm']],
+  ENFJ: ['선도자', ['edu', 'public', 'service']],
+  ENFP: ['활동가', ['media', 'service', 'biz']],
+  ISTJ: ['현실주의자', ['office', 'public', 'legal']],
+  ISFJ: ['수호자', ['medical', 'edu', 'office']],
+  ESTJ: ['경영자', ['office', 'public', 'biz']],
+  ESFJ: ['집정관', ['service', 'medical', 'edu']],
+  ISTP: ['장인', ['trade', 'transport', 'tech']],
+  ISFP: ['모험가', ['media', 'service', 'farm']],
+  ESTP: ['사업가', ['sport', 'biz', 'transport']],
+  ESFP: ['연예인', ['media', 'service', 'sport']],
+};
+
+/** 사람·축마다 고정된 0~1 난수 (잘 섞인 해시) */
+function hashUnit(id: string, salt: string): number {
+  let x = 2166136261;
+  for (const ch of id + '|' + salt) x = Math.imul(x ^ ch.charCodeAt(0), 16777619);
+  x ^= x >>> 16;
+  x = Math.imul(x, 0x85ebca6b);
+  x ^= x >>> 13;
+  x = Math.imul(x, 0xc2b2ae35);
+  x ^= x >>> 16;
+  return (x >>> 0) / 4294967296;
+}
+
+/** 이 사람의 MBTI: 특성·잠재력은 기울기만 주고(±30%), 나머지는 사람마다 고정된 운 */
+export function mbtiOf(p: Person): string {
+  const tr = p.traits ?? [];
+  const pot = p.potential;
+  const tilt = (v: number) => Math.max(-0.3, Math.min(0.3, v));
+  const pE = 0.5 + (tr.includes('social') || tr.includes('leader') ? 0.3 : 0) - (tr.includes('shy') ? 0.3 : 0);
+  const pN = 0.5 + tilt((pot.int - pot.str) / 60);
+  const pT = 0.5 + tilt((pot.int - Math.max(pot.cha, pot.mor)) / 60);
+  const pJ = 0.5 + (tr.includes('diligent') || tr.includes('frugal') ? 0.3 : 0) - (tr.includes('lazy') || tr.includes('spender') || tr.includes('rebel') ? 0.3 : 0);
+  const pick = (pr: number, axis: string) => hashUnit(p.id + ':' + p.birthYear, axis) < pr;
+  return (pick(pE, 'EI') ? 'E' : 'I') + (pick(pN, 'SN') ? 'N' : 'S') + (pick(pT, 'TF') ? 'T' : 'F') + (pick(pJ, 'JP') ? 'J' : 'P');
+}
+export const mbtiLabel = (p: Person) => `${mbtiOf(p)}(${MBTI_INFO[mbtiOf(p)][0]})`;
+
 /** 분야별 궁합 점수 */
 export function fitScores(p: Person): Record<Interest, number> {
   const sc = Object.fromEntries(INTEREST_KEYS.map((k) => [k, 0])) as Record<Interest, number>;
@@ -65,6 +113,7 @@ export function fitScores(p: Person): Record<Interest, number> {
   // 가장 두드러진 능력치 두 개 (잠재력 기준)
   const stats = (Object.keys(STAT_FIT) as StatKey[]).sort((a, b) => p.potential[b] - p.potential[a]).slice(0, 2);
   for (const st of stats) for (const k of STAT_FIT[st]) sc[k] += 1.5;
+  for (const k of MBTI_INFO[mbtiOf(p)][1]) sc[k] += 2.5;
   return sc;
 }
 
@@ -84,7 +133,7 @@ const TRAIT_LABEL: Record<string, string> = {
 export function temperamentLine(p: Person): string {
   const tr = (p.traits ?? []).map((t) => TRAIT_LABEL[t]).filter(Boolean).slice(0, 3);
   const cats = fitCats(p, 3).map((k) => JOB_CATS[k]);
-  return `성향: ${tr.length ? tr.join('·') : '무난함'}${cats.length ? ` → 잘 맞을 것 같은 분야: ${cats.join(', ')}` : ''}`;
+  return `성향: ${mbtiLabel(p)}${tr.length ? ' · ' + tr.join('·') : ''}${cats.length ? ` → 잘 맞을 것 같은 분야: ${cats.join(', ')}` : ''}`;
 }
 
 interface Hobby {

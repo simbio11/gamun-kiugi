@@ -710,3 +710,45 @@ describe('관심사와 지정 상속', () => {
     expect(house.ownerId).toBe(heir.id);
   });
 });
+
+describe('MBTI', () => {
+  it('사람마다 16가지 유형이 고르게 나온다', async () => {
+    const { mbtiOf } = await import('../src/core/interests');
+    const seen = new Map<string, number>();
+    for (let seed = 1; seed <= 60; seed++) {
+      const s = newGame({ seed, familyName: '김', sex: seed % 2 ? 'M' : 'F' });
+      for (const p of Object.values(s.people)) seen.set(mbtiOf(p), (seen.get(mbtiOf(p)) ?? 0) + 1);
+    }
+    expect(seen.size).toBe(16);
+  });
+});
+
+describe('부모님 유산', () => {
+  it('재산이 집 위주여도 법정 몫만큼 자녀에게 간다 (한 사람이 실물을 다 가져가지 않는다)', async () => {
+    const { settleEstate } = await import('../src/core/estate');
+    const { addAsset, personWorth } = await import('../src/core/economy');
+    const s = newGame({ seed: 12, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    s.year = h.birthYear + 45;
+    const dad = parentsOf(s, h).find((p) => p.sex === 'M')!;
+    const mom = parentsOf(s, h).find((p) => p.sex === 'F')!;
+    s.assets = s.assets.filter((a) => a.ownerId !== dad.id);
+    addAsset(s, 'apt_seoul', dad.id, 200000, '반포 아파트');
+    addAsset(s, 'land', dad.id, 60000, '고향 땅');
+    dad.cash = 30000;
+    const kids = dad.childIds.map((id) => s.people[id]).filter((k) => k.deathYear === undefined);
+    const before = new Map(kids.map((k) => [k.id, personWorth(s, k)]));
+    const momBefore = personWorth(s, mom);
+    const shares = new Map<string, number>([[mom.id, 1.5], ...kids.map((k) => [k.id, 1] as [string, number])]);
+    dad.deathYear = s.year;
+    settleEstate(s, dad, undefined, shares);
+    const total = 1.5 + kids.length;
+    const momGot = personWorth(s, mom) - momBefore;
+    for (const k of kids) {
+      const got = personWorth(s, k) - before.get(k.id)!;
+      expect(got).toBeGreaterThan(momGot / 1.5 * 0.5); // 자녀 몫이 0에 가깝지 않다
+    }
+    expect(momGot).toBeLessThan((290000 * 1.5) / total * 1.6);
+  });
+});

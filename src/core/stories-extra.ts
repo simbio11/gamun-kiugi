@@ -52,7 +52,7 @@ export const EXTRA_STORIES: Story[] = [
   ] },
 
   // ───────── 학창 시절 (13~19) ─────────
-  { id: 'x_mbti', title: 'MBTI', age: [13, 25], w: 0.03, text: '{n이} "나 INFP래. 그래서 그랬나 봐"라며 성격 유형 결과를 보여 준다.', choices: [
+  { id: 'x_mbti', title: 'MBTI', age: [13, 25], w: 0.03, text: '{n이} 성격 유형 검사 결과를 내밀며 "이게 딱 나야!"라고 한다. (인물 창의 성향에서 볼 수 있다)', choices: [
     { label: '같이 해 본다', mark: { warmth: 1 }, text: '온 가족 유형을 맞혀 보다 한바탕 웃었다. 아빠는 끝까지 인정 안 했다.', eff: { hap: 4, aff: 2 } },
     { label: '혈액형 같은 거라고 한다', text: '"또 꼰대 소리 하네." 방문이 닫혔다.', eff: { aff: -2 } },
   ] },

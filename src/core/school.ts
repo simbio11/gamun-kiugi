@@ -26,6 +26,7 @@ import { studyBoost, suneungBonus } from './marks';
 import { hoodOf } from './housing';
 import { spendable } from './ev-util';
 import { planLine, specialChoices, yearMood } from './school-flavor';
+import { fitCats, topInterests } from './interests';
 
 // ───────────────────────── 대학·학과 ─────────────────────────
 
@@ -161,7 +162,67 @@ prog('D', '연기예술과', 'acting', 30, { practical: { stat: 'cha', need: 50 
 prog('S', '체육교육과', 'sport', 75, { practical: { stat: 'str', need: 72 }, tag: 'sport' });
 prog('C', '체육학과', 'sport', 45, { practical: { stat: 'str', need: 58 }, tag: 'sport' });
 
+// ── 선택지 보강: 같은 전공 키라도 학교·학과를 다양하게 ──
+prog('B', '회계학과', 'biz', 85, { tag: 'business' });
+prog('C', '무역학과', 'econ', 70, { tag: 'business' });
+prog('D', '국제통상학과', 'econ', 46, { tag: 'business' });
+prog('A', '정치외교학과', 'admin', 95.5, { tag: 'public' });
+prog('B', '심리학과', 'welfare', 88, { tag: 'public' });
+prog('C', '경찰행정학과', 'admin', 74, { tag: 'public' });
+prog('D', '소방행정학과', 'admin', 44, { tag: 'public' });
+prog('D', '군사학과', 'admin', 42, { tag: 'public' });
+prog('B', '광고홍보학과', 'media', 86, { tag: 'stage' });
+prog('C', '문예창작학과', 'media', 66, { tag: 'stage' });
+prog('D', '웹툰·만화콘텐츠학과', 'media', 40, { tag: 'stage', practical: { stat: 'cha', need: 45 } });
+prog('E', '방송영상과', 'media', 32, { years: 2, tag: 'stage' });
+prog('C', '일어일문학과', 'lang', 64);
+prog('B', '국어국문학과', 'lang', 85);
+prog('C', '사학과', 'lang', 66);
+prog('C', '철학과', 'lang', 64);
+prog('B', '통계학과', 'cs', 88);
+prog('A', '데이터사이언스학과', 'cs', 96);
+prog('C', '정보보안학과', 'cs', 70);
+prog('E', '게임콘텐츠과', 'itc', 34, { years: 2 });
+prog('B', '화학공학과', 'bio', 89);
+prog('C', '화학과', 'bio', 70);
+prog('B', '신소재공학과', 'ee', 87);
+prog('C', '전기공학과', 'ee', 72);
+prog('D', '전자공학과', 'ee', 46);
+prog('B', '항공우주공학과', 'mech', 88);
+prog('C', '조선해양공학과', 'mech', 68);
+prog('D', '자동차공학과', 'mech', 44);
+prog('C', '도시공학과', 'arch', 66, { tag: 'stage' });
+prog('C', '토목공학과', 'mech', 62);
+prog('B', '식품영양학과', 'nurse', 80, { tag: 'public' });
+prog('C', '산림환경학과', 'agri', 58, { tag: 'free' });
+prog('C', '해양생명과학과', 'agri', 56, { tag: 'free' });
+prog('D', '동물자원학과', 'agri', 40, { tag: 'free' });
+prog('C', '외식조리학과', 'cook', 55, { tag: 'free' });
+prog('D', '호텔관광경영학과', 'air', 45, { tag: 'free' });
+prog('D', '반려동물학과', 'agri', 38, { tag: 'free' });
+prog('E', '제과제빵과', 'cook', 28, { years: 2, tag: 'free' });
+prog('E', '항공정비과', 'auto', 36, { years: 2, tag: 'free' });
+prog('E', '전기과 (산업체 위탁)', 'auto', 22, { years: 2, tag: 'free' });
+prog('E', '스포츠재활과', 'pt', 34, { years: 3, tag: 'sport' });
+prog('E', '치위생과', 'clinical', 44, { years: 3, tag: 'public' });
+prog('D', '작업치료학과', 'pt', 50, { tag: 'public' });
+prog('B', '체육학과 (스포츠산업)', 'sport', 55, { practical: { stat: 'str', need: 64 }, tag: 'sport' });
+prog('C', '무용학과', 'acting', 40, { practical: { stat: 'cha', need: 60 }, tag: 'stage' });
+prog('D', 'e스포츠학과', 'sport', 30, { practical: { stat: 'str', need: 40 }, tag: 'sport' });
+
 export const PROGRAMS: Record<string, Program> = Object.fromEntries(P.map((p) => [p.id, p]));
+
+/** 전공 → 직업 분야 (관심·성향 추천용) */
+export const KEY_CAT: Record<string, string> = {
+  med: 'medical', dent: 'medical', kmd: 'medical', vet: 'medical', pharm: 'medical', nurse: 'medical', pt: 'medical', radio: 'medical', clinical: 'medical', emt: 'medical',
+  edu: 'edu', edu_elem: 'edu', kinder: 'edu', police: 'public', army: 'public', admin: 'public', welfare: 'public',
+  marine: 'transport', flight: 'transport', air: 'service', biz: 'biz', econ: 'office', law: 'legal',
+  media: 'media', design: 'media', art: 'media', music: 'media', acting: 'media', lang: 'edu',
+  cs: 'tech', ee: 'tech', mech: 'trade', bio: 'tech', arch: 'tech', agri: 'farm', cook: 'service', beauty: 'service',
+  auto: 'trade', itc: 'tech', sport: 'sport',
+};
+/** 이 학생의 관심·성향에 맞는 전공인가 */
+export const fitsMajor = (p: Person, pr: Program) => [...topInterests(p, 2, 2), ...fitCats(p, 2)].includes(KEY_CAT[pr.key] as never);
 export const programName = (p: Program) => `${p.school ?? TIERS[p.tier].name} ${p.major}`;
 
 /** 전공별 추천 진로 (졸업 후 진로 선택의 '전공 추천' 탭) */
@@ -305,13 +366,26 @@ export function recommend(p: Person, pct: number, practical: boolean): Program[]
   const list = P.filter((pr) => !!pr.practical === practical && !pr.special)
     .map((pr) => [pr, admitChance(p, pr, pct)] as const)
     .filter(([pr, c]) => c > 0.02 && !(pr.need && p.actual[pr.need.stat] < pr.need.min));
+  // 한 구간에 같은 전공은 하나만 (의대·경영만 줄줄이 나오지 않게)
+  const uniqKey = (arr: (readonly [Program, number])[]) => {
+    const seen = new Set<string>();
+    return arr.filter(([pr]) => !seen.has(pr.key) && (seen.add(pr.key), true));
+  };
   const pickBand = (lo: number, hi: number, n: number) =>
-    list
-      .filter(([, c]) => c >= lo && c < hi)
-      .sort((a, b) => b[0].cut - a[0].cut)
+    uniqKey(list.filter(([, c]) => c >= lo && c < hi).sort((a, b) => b[0].cut - a[0].cut))
       .slice(0, n)
       .map(([pr]) => pr);
-  return [...pickBand(0.02, 0.1, 2), ...pickBand(0.1, 0.4, 3), ...pickBand(0.4, 0.8, 3), ...pickBand(0.8, 1.01, 3)];
+  // 관심·성향에 맞는 전공 몇 개는 꼭 보여 준다
+  // 소신·적정·안정 구간에서 하나씩, 각 구간에서 가장 좋은 학교로
+  const fitIn = (lo: number, hi: number, not: string[]) =>
+    list.filter(([pr, c]) => c >= lo && c < hi && fitsMajor(p, pr) && !not.includes(pr.key)).sort((a, b) => b[0].cut - a[0].cut)[0]?.[0];
+  const fits: Program[] = [];
+  for (const [lo, hi] of [[0.12, 0.5], [0.5, 0.85], [0.85, 1.01]] as const) {
+    const f = fitIn(lo, hi, fits.map((x) => x.key));
+    if (f) fits.push(f);
+  }
+  const out = [...fits, ...pickBand(0.02, 0.1, 3), ...pickBand(0.1, 0.4, 4), ...pickBand(0.4, 0.8, 4), ...pickBand(0.8, 1.01, 4)];
+  return out.filter((pr, i) => out.indexOf(pr) === i);
 }
 
 // ───────────────────────── 수시·특별 전형 ─────────────────────────
@@ -602,8 +676,8 @@ const path: EventDef = {
         const ch = admitChance(p, pr, d.pct);
         const tuition = pr.tuition ?? TIERS[pr.tier].tuition;
         return {
-          label: programName(pr),
-          req: [`경쟁률 ${ratioOf(c.s, pr)}:1`, band(ch), `${pr.years}년`, ...(tuition ? [`등록금 ${formatMoney(tuition)}/년`] : ['학비 면제']), ...(pr.practical ? ['실기'] : [])],
+          label: (fitsMajor(p, pr) ? '💡 ' : '') + programName(pr),
+          req: [...(fitsMajor(p, pr) ? ['관심·성향'] : []), `경쟁률 ${ratioOf(c.s, pr)}:1`, band(ch), `${pr.years}년`, ...(tuition ? [`등록금 ${formatMoney(tuition)}/년`] : ['학비 면제']), ...(pr.practical ? ['실기'] : [])],
           disabled: apps.length >= 3,
           run: (x: Ctx) => {
             x.ev.data.apps = [...(x.ev.data.apps ?? []), pr.id];
