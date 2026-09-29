@@ -4,6 +4,7 @@
 import { chance, int, pick } from './rng';
 import { fmt, getFatigue, grow, jitter, rollTier, say, setFatigue, stat, TIER_MARK } from './practice';
 import { P, P2 } from './action-lines';
+import { TRACK_ACTIONS, trackOf } from './tracks';
 import { appealBonus } from './marks';
 import { addBargains } from './realty';
 import { standing, standingChange } from './school';
@@ -59,6 +60,8 @@ export interface ActionDef {
   who?: 'kid' | 'adult' | 'any';
   /** 할 수 있는 인생 단계 */
   stages?: Stage[];
+  /** 이 길(전공·시험·직업 그룹)일 때만 (tracks.ts) */
+  tracks?: string[];
   /** 조건이 안 되면 목록에서 아예 숨긴다 (자녀가 없으면 자녀 교육 등) */
   show?: (s: GameState) => boolean;
   /** 대상이 필요하면 후보 목록 */
@@ -652,6 +655,7 @@ export const ACTIONS: ActionDef[] = [
 export function forHead(s: GameState, a: ActionDef): boolean {
   if (a.show && !a.show(s)) return false;
   if (a.targets && !a.targets(s).length) return false;
+  if (a.tracks && !a.tracks.includes(trackOf(s, h(s)) ?? '')) return false;
   const st = a.stages ?? STAGE_DEFAULT[a.id];
   if (st) return st.includes(stageOf(s, h(s)));
   const kid = age(s, h(s)) < 20;
@@ -1204,7 +1208,7 @@ const STAGE_ACTIONS: ActionDef[] = [
     },
   },
 ];
-ACTIONS.push(...STAGE_ACTIONS);
+ACTIONS.push(...STAGE_ACTIONS, ...TRACK_ACTIONS);
 
 /** 학점 표시 (흔적 'gpa'로 4.5 만점 환산) */
 export function gpaLabel(p: Person): string {

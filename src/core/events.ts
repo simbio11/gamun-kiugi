@@ -1,4 +1,5 @@
 import { chance, int, normal, pick } from './rng';
+import { prepBonus as prepMark } from './tracks';
 import { ART_TIERS, DREAM_QUOTES, EXAMS, JOB_CATS, JOB_IDS, JOBS, PREP_TIERS, STAT_NAMES, SURNAMES, TAG_NAMES, TALENTS } from './data';
 import { MAJOR_JOBS } from './school';
 import { startDating } from './romance';
@@ -341,6 +342,7 @@ const clearPrep = (p: Person) => (p.flags = p.flags.filter((f) => !f.startsWith(
 export function startPrep(s: GameState, p: Person, examId: string, now = true) {
   clearPrep(p);
   setJob(p, 'none');
+  if (p.marks) p.marks.prep = 0; // 새 시험은 준비도 0부터
   p.flags.push('prep:' + examId, 'tries:0');
   if (now) queueNext(s, 'exam', p.id);
 }
@@ -372,7 +374,8 @@ export function examScore(p: Person, examId: string, prepBonus: number): number 
   if (hasTrait(p, 'diligent')) v += 3;
   if (hasTrait(p, 'lazy')) v -= 3;
   if (hasTalent(p, 'genius') && e.stats.int) v += 5 * e.stats.int;
-  return v + prepBonus + Math.min(10, triesOf(p) * 2.5);
+  // 준비 행동(학원·스터디·체력 훈련 등)으로 쌓은 준비도가 더해진다
+  return v + prepBonus + Math.min(10, triesOf(p) * 2.5) + prepMark(p);
 }
 
 const exam: EventDef = {

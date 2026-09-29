@@ -101,8 +101,9 @@ export function payOf(s: GameState, p: Person, expected = false): number | undef
   v *= 0.93 + statScore(p, j.stats ?? { int: 1 }) / 700;
   v *= wageIndex(s.year);
   if (!expected) {
-    if (d.bonus) v *= clamp(normal(s, 1, d.bonus), 0.5, 2);
-    if (d.open !== undefined && p.jobLevel >= d.open) v *= clamp(normal(s, 1, 0.3), 0.3, 2.2);
+    if (d.bonus) v *= clamp(normal(s, 1, d.bonus), 0.6, 1.6);
+    // 개원·개업: 잘되는 해와 안되는 해 (평균은 같다)
+    if (d.open !== undefined && p.jobLevel >= d.open) v *= clamp(normal(s, 1, 0.25), 0.4, 1.6);
   }
   return Math.round(v);
 }

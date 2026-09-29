@@ -1,4 +1,5 @@
 import { standingLabel } from '../core/school';
+import { TRACK_NAMES, trackOf } from '../core/tracks';
 import { HOME_TYPE, buyCurrentHome, homeBuyQuote, moveInto, moveQuote, moveTo, residence, tierOf, tiers } from '../core/housing';
 import { creditGrade, debtRate, inRehab, walletNet } from '../core/debt';
 import { fixJosa, iga } from '../core/ev-util';
@@ -1083,7 +1084,7 @@ function actionsScreen(g: GameState): string {
   const money = canSpend(g);
   return `
   <section class="card ap-card">
-    <h2>올해 할 일 <small class="muted">${STAGE_NAMES[stageOf(g, head(g))]}</small> <span class="ap">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, apMax(g) - ap))}</span></h2>
+    <h2>올해 할 일 <small class="muted">${STAGE_NAMES[stageOf(g, head(g))]}${TRACK_NAMES[trackOf(g, head(g)) ?? ''] ? ` · ${TRACK_NAMES[trackOf(g, head(g))!]}` : ''}</small> <span class="ap">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, apMax(g) - ap))}</span></h2>
     <p class="fine">행동력 ${apMax(g)} (생활 수준 ${LIVING_NAMES[g.policy.living]}: 검소 2 · 보통 3 · 호화 4). 같은 일을 한 해에 여러 번 하면 효과가 줄고 지친다.<br>인생 단계가 바뀌면 할 수 있는 일도 바뀐다. 갑작스러운 일들은 해가 바뀔 때 일어난다.</p>
   </section>
   ${cats

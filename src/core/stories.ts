@@ -9,6 +9,8 @@ import type { LifeDef } from './life';
 import { MORE_STORIES } from './stories-more';
 import { PATH_STORIES } from './stories-path';
 import { pathOf, type Path } from './path';
+import { trackOf } from './tracks';
+import { TRACK_STORIES } from './stories-track';
 
 export interface Eff {
   str?: number;
@@ -64,6 +66,8 @@ export interface Story {
   notPaths?: Path[];
   /** 대학생에게만 / 직장인에게만 */
   student?: boolean;
+  /** 이 트랙(tracks.ts: u:전공 · x:시험 · w:직업 그룹)일 때만 */
+  tracks?: string[];
 }
 
 /** {n} 이름, {n이} {n은} {n을} 조사 */
@@ -88,6 +92,14 @@ function apply(x: Ctx, e: Eff | undefined) {
     if (q && alive(q)) p.bond = q.bond = clamp((p.bond ?? 60) + e.bond, 0, 100);
   }
   if (e.flag) addFlag(p, e.flag);
+  // 시험을 접는다 / 회사에서 나온다: 실제로 상태가 바뀐다
+  if (e.flag === 'quit_prep') p.flags = p.flags.filter((f) => !f.startsWith('prep:') && !f.startsWith('tries:') && f !== 'quit_prep');
+  if (e.flag === 'laid_off') {
+    p.flags = p.flags.filter((f) => f !== 'laid_off');
+    p.job = 'none';
+    p.jobLevel = 0;
+    p.jobYears = 0;
+  }
   // 유급: 졸업이 1년 미뤄진다
   if (e.flag === 'repeat_year') {
     const g = p.flags.find((f) => f.startsWith('grad:'));
@@ -131,6 +143,7 @@ function toLife(st: Story): LifeDef {
       if (st.paths && !st.paths.includes(pathOf(p))) return 0;
       if (st.notPaths && st.notPaths.includes(pathOf(p))) return 0;
       if (st.student !== undefined && st.student !== p.flags.includes('student')) return 0;
+      if (st.tracks && !st.tracks.includes(trackOf(s, p) ?? '')) return 0;
       let w = st.w;
       if (st.boost) for (const [k, m] of Object.entries(st.boost)) w *= 1 + Math.min(6, markOf(p, k)) * m;
       return w;
@@ -557,5 +570,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES].map(toLife);
-export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length;
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES].map(toLife);
+export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length;

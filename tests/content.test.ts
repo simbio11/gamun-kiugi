@@ -379,4 +379,44 @@ describe('인생 시스템', () => {
     s.year += 5;
     expect(payOf(s, h, true)!).toBeGreaterThan(first * 1.1);
   });
+
+  it('길마다 행동이 다르다: 경찰 준비생·로스쿨생·사장님·농부', () => {
+    const s = newGame({ seed: 41, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    s.year = h.birthYear + 25;
+    h.flags.push('indep');
+    const ids = () => ACTIONS.filter((a) => forHead(s, a)).map((a) => a.id);
+    h.flags.push('prep:police', 'tries:0');
+    expect(ids()).toContain('x_uniform_fit');
+    expect(ids()).not.toContain('x_civil_nory');
+    h.flags = h.flags.filter((f) => !f.startsWith('prep:'));
+    h.flags.push('student', 'major:law');
+    expect(ids()).toContain('u_law_moot');
+    expect(ids()).not.toContain('u_eng_project');
+    h.flags = h.flags.filter((f) => f !== 'student' && !f.startsWith('major:'));
+    h.job = 'restaurant';
+    expect(ids()).toContain('w_owner_marketing');
+    h.job = 'farmer';
+    expect(ids()).toContain('w_farm_crop');
+    expect(ids()).not.toContain('w_owner_marketing');
+  });
+
+  it('전문직 최고 직급·개원이라도 연 5억을 넘기기 어렵다 (수십억은 연예인·사업가 몫)', () => {
+    const s = newGame({ seed: 42, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year = 2025;
+    h.actual.int = 90;
+    h.actual.cha = 90;
+    h.actual.mor = 90;
+    for (const job of ['dentist', 'kmd', 'pharmacist', 'vet', 'lawyer', 'accountant', 'tax_accountant']) {
+      h.job = job;
+      h.jobLevel = PAY[job].pay.length - 1;
+      h.flags = h.flags.filter((f) => !f.startsWith('lv:'));
+      let max = 0;
+      for (let i = 0; i < 200; i++) max = Math.max(max, payOf(s, h)!);
+      expect(max, job).toBeLessThan(90000);
+      expect(payOf(s, h, true)!, job).toBeLessThanOrEqual(55000);
+    }
+  });
 });
