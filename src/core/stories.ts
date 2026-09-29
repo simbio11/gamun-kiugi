@@ -7,6 +7,7 @@ import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, househo
 import type { GameState, Person, StatKey } from './types';
 import type { LifeDef } from './life';
 import { MORE_STORIES } from './stories-more';
+import { severance } from './economy';
 import { PATH_STORIES } from './stories-path';
 import { pathOf, type Path } from './path';
 import { trackOf } from './tracks';
@@ -100,6 +101,7 @@ function apply(x: Ctx, e: Eff | undefined) {
   if (e.flag === 'quit_prep') p.flags = p.flags.filter((f) => !f.startsWith('prep:') && !f.startsWith('tries:') && f !== 'quit_prep');
   if (e.flag === 'laid_off') {
     p.flags = p.flags.filter((f) => f !== 'laid_off');
+    severance(x.s, p);
     p.job = 'none';
     p.jobLevel = 0;
     p.jobYears = 0;

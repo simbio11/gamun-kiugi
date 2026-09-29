@@ -15,7 +15,8 @@ import { SEED_EVENTS } from '../src/core/seeds';
 import { householder, mark, markOf } from '../src/core/people';
 import { nestOf } from '../src/core/nest';
 import { forecast, payOf } from '../src/core/economy';
-import { PAY } from '../src/core/pay';
+import { PAY, incomeTax } from '../src/core/pay';
+import { pensionOf, settlePension, severance } from '../src/core/economy';
 import { acqTax, buyListing, gainsTax, isPrimary, rentable, rollListings } from '../src/core/realty';
 import { recommendSusi, standing } from '../src/core/school';
 import { hoodOf } from '../src/core/housing';
@@ -458,5 +459,33 @@ describe('인생 시스템', () => {
     mark(h, 'warmth', 4);
     const keys = new Set(recommendSusi(s, h, 70).map((p) => p.key));
     expect([...keys].some((k) => ['edu', 'edu_elem', 'welfare', 'nurse', 'kinder', 'pt'].includes(k))).toBe(true);
+  });
+
+  it('세금·퇴직금·연금: 누진세, 근속만큼 퇴직금, 공무원연금 > 국민연금', () => {
+    const r = (x: number) => { const t = incomeTax(x, 2025); return (t.tax + t.social) / x; };
+    expect(r(3000)).toBeGreaterThan(0.09);
+    expect(r(3000)).toBeLessThan(0.15);
+    expect(r(10000)).toBeGreaterThan(r(5000));
+    expect(r(30000)).toBeGreaterThan(r(10000));
+    const s = newGame({ seed: 61, familyName: '최', sex: 'M' });
+    const h = head(s);
+    h.job = 'corp';
+    h.jobLevel = 3;
+    h.jobYears = 20;
+    const before = h.cash;
+    const sev = severance(s, h);
+    expect(sev).toBeGreaterThan(10000); // 20년 × 월급
+    expect(h.cash).toBe(before + sev);
+    mark(h, 'npy', 30);
+    mark(h, 'npsum', 30 * 6000);
+    settlePension(h);
+    const nps = pensionOf(h, 2025);
+    h.job = 'civil';
+    h.jobLevel = 4;
+    h.jobYears = 30;
+    settlePension(h);
+    expect(pensionOf(h, 2025)).toBeGreaterThan(nps);
+    expect(nps).toBeGreaterThan(1000);
+    expect(nps).toBeLessThan(2600);
   });
 });

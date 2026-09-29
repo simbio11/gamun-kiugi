@@ -1,7 +1,7 @@
 import { chance, int, next, normal, pick } from './rng';
 import { ACHIEVEMENTS, ART_TIERS, EXAMS, FEMALE_NAMES, JOBS, MALE_NAMES, REAL_ESTATE } from './data';
 import { checkAchievements } from './achievements';
-import { addAsset, addHolding, assetsOf, economyYear, familyWorth, foldFamilyPot, formatMoney, jobLabel, marketYear, pay, personWorth, settlePension, totalWorth } from './economy';
+import { addAsset, addHolding, assetsOf, economyYear, familyWorth, foldFamilyPot, formatMoney, jobLabel, marketYear, pay, personWorth, settlePension, severance, totalWorth } from './economy';
 import { checkMissions, initMissions } from './missions';
 import { LIFE_RANDOM, cancerRate, deliver, isElectionYear, setBond, type LifeDef } from './life';
 import { heirCandidates } from './family';
@@ -489,8 +489,10 @@ function retirementAndGraduation(s: GameState) {
     // 정년 (창작·스포츠·정치는 따로)
     const ra = JOBS[p.job].retireAge;
     if (ra && a >= ra) {
-      if (p.job !== 'none' && p.job !== 'parttime') log(s, `${fullName(p)} ${JOBS[p.job].kind === 'salary' ? '정년퇴직' : '은퇴'}`, 'life');
+      const sev = severance(s, p);
+      if (p.job !== 'none' && p.job !== 'parttime') log(s, `${fullName(p)} ${JOBS[p.job].kind === 'salary' ? '정년퇴직' : '은퇴'}${sev ? ` (퇴직금 ${formatMoney(sev)})` : ''}`, 'life');
       settlePension(p);
+      if (p.id === s.headId) queue(s, 'pension_timing', p.id), queue(s, 'second_life', p.id);
       p.job = 'pension';
       p.flags = p.flags.filter((f) => !f.startsWith('prep:') && !f.startsWith('tries:'));
     } else if ((JOBS[p.job].kind === 'creator' || JOBS[p.job].kind === 'business' || p.job === 'politician') && a >= 78) {

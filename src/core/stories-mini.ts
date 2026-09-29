@@ -227,4 +227,25 @@ export const MINI_STORIES: Story[] = [
     { label: '참여한다', mark: { study: 1, network: 1 }, text: '한 달에 한 권. 생각이 넓어진다.', eff: { int: 1, hap: 3 } },
     { label: '책은 혼자 읽는 거다', text: '', eff: {} },
   ] },
+  // ───────── 제도·돈 (현실 고증) ─────────
+  { id: 'm_year_end_tax', title: '연말정산', age: [23, 64], w: 0.05, cond: (_s, p) => !['none', 'parttime', 'pension'].includes(p.job) && !p.flags.includes('student'), text: '연말정산 시즌. {n}, 영수증을 챙겨 볼까?', choices: [
+    { label: '의료비·기부금·월세까지 꼼꼼히', mark: { thrift: 1 }, text: '', roll: ['int', 40, [{ cash: 150, hap: 5 }, '13월의 월급! 환급금이 들어왔다.'], [{ cash: 20 }, '조금 돌려받았다.']] },
+    { label: '회사에 맡긴다', text: '', roll: ['luck', 50, [{ cash: 30 }, '소소하게 환급.'], [{ cash: -80, hap: -3 }, '오히려 토해 냈다.']] },
+  ] },
+  { id: 'm_health_ins', title: '건강보험료 고지서', age: [60, 90], w: 0.04, once: true, cond: (s, p) => p.job === 'pension' && s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0) > 90000, text: '{n}, 재산이 많아 자녀의 피부양자 자격을 잃었다. 지역가입자 건강보험료가 나왔다.', choices: [
+    { label: '낸다', text: '매달 수십만 원이 빠져나간다. 은퇴하면 돈 들 일이 없을 줄 알았는데.', eff: { cash: -300, hap: -3 } },
+    { label: '재산을 자녀에게 미리 넘긴다', mark: { family: 1 }, text: '증여를 알아보기로 했다. (자산 탭 → 생전 증여)', eff: {} },
+  ] },
+  { id: 'm_leak', title: '아랫집 누수', age: [28, 85], w: 0.03, text: '아랫집 천장에 물이 샌다며 {n}의 집으로 연락이 왔다. 욕실 배관 문제다.', choices: [
+    { label: '일상배상책임보험으로 처리', text: '', roll: ['luck', 60, [{ cash: -20 }, '가입해 둔 보험 덕에 자기부담금만 냈다.'], [{ cash: -300, hap: -4 }, '보험이 없었다. 공사비와 아랫집 도배비까지 물었다.']] },
+    { label: '직접 사과하고 수리', mark: { honest: 1 }, cost: 250, text: '아랫집과 오히려 친해졌다.', eff: { mor: 2 } },
+  ] },
+  { id: 'm_car_insurance', title: '자동차보험 갱신', age: [25, 80], w: 0.03, text: '{n}의 자동차보험 갱신 문자가 왔다. 작년보다 20% 올랐다.', choices: [
+    { label: '다이렉트로 갈아탄다', mark: { thrift: 1 }, text: '비교해 보니 30만 원이 싸다.', eff: { cash: 30 } },
+    { label: '그냥 갱신한다', text: '', eff: {} },
+  ] },
+  { id: 'm_jury_duty_insurance', title: '실손보험', age: [30, 70], w: 0.03, text: '보험설계사 친구가 {n}에게 실손보험을 권한다.', choices: [
+    { label: '가입한다', cost: 30, mark: { thrift: 1 }, text: '매달 몇 만 원. 병원비 걱정이 조금 줄었다.', eff: { flag: 'health_insured' } },
+    { label: '나는 건강하다', text: '', eff: {} },
+  ] },
 ];

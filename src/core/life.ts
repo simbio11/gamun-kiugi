@@ -4,6 +4,7 @@
 import { chance, int, normal, pick } from './rng';
 import { JOBS, MALE_NAMES, FEMALE_NAMES } from './data';
 import { addHolding, formatMoney, jobTitle, settlePension } from './economy';
+import { birthSupport } from './welfare';
 import { applyDesire, gate, iga, queueNext, req, schedule, setJob, who, type Choice, type Ctx, type EventDef } from './ev-util';
 import {
   isMedStudent,
@@ -412,6 +413,11 @@ export function deliver(s: GameState, dad: Person, mom: Person, surname: string,
     }
   }
   s.log.push({ year: s.year, text: `👶 ${fullName(dad)}·${fullName(mom)} 부부에게 ${n === 2 ? '쌍둥이' : out[0].sex === 'M' ? '아들' : '딸'} 출생`, kind: 'birth' });
+  // 첫만남이용권, 그리고 가주 부부라면 육아휴직을 정한다
+  const sup = birthSupport(s, mom, dad, n);
+  if (sup && (dad.id === s.headId || mom.id === s.headId)) s.log.push({ year: s.year, text: `🎁 첫만남이용권 ${formatMoney(sup)}`, kind: 'money' });
+  const hd = dad.id === s.headId ? dad : mom.id === s.headId ? mom : undefined;
+  if (hd && !s.events.some((e) => e.defId === 'parental_leave')) s.events.push({ uid: s.eventSeq++, defId: 'parental_leave', personId: hd.id });
   if (out.some((b) => b.flags.includes('mutation'))) s.log.push({ year: s.year, text: '…아기에게서 범상치 않은 기운이 느껴진다', kind: 'birth' });
   return out;
 }

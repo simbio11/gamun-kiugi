@@ -445,7 +445,7 @@ function budgetCard(g: GameState): string {
     ${f.expense.map(([l, v]) => row(l, v, '−')).join('')}
     <div class="arow total"><span>한 해 남는 돈</span><b class="${f.net < 0 ? 'neg' : 'pos'}">${f.net < 0 ? '' : '+'}${formatMoney(f.net)}</b></div>
     ${f.mine ? `<p class="fine">독립 전이라 내 수입(${formatMoney(f.mine)})은 살림에 안 보태고 내 통장에 모인다.</p>` : ''}
-    <p class="fine">사업·크리에이터 수입과 시세는 해마다 출렁인다. 학년·진학 이벤트에서 고르는 사교육비는 따로 나간다.</p>
+    <p class="fine">월급은 세전 금액, 소득세·4대보험은 따로 빠진다 (연봉 3천 약 12%, 5천 16%, 1억 21%). 사업·크리에이터 수입과 시세는 해마다 출렁인다. 학년·진학 이벤트에서 고르는 사교육비는 따로 나간다.</p>
   </section>`;
 }
 

@@ -1,13 +1,14 @@
 import { chance, normal, pick } from './rng';
 import { ASSESS_RATIO, ASSET_NAMES, CREATORS, EDU_COST, JOBS, TALENTS } from './data';
-import { mark } from './people';
+import { mark, markOf, parentsOf } from './people';
 import { addFlag, age, alive, check, clamp, hasFlag, discoverTalent, fullName, hasTalent, hasTrait, head, householder, isMainline, livingMainlineMinors } from './people';
 import type { Asset, AssetKind, GameState, MarketKey, Person } from './types';
 import { promoteMult } from './marks';
-import { GRAD_STIPEND, PAY, wageIndex } from './pay';
+import { BASE_YEAR, BASIC_PENSION, GRAD_STIPEND, incomeTax, NPS_A, PAY, PUBLIC_PENSION, wageIndex } from './pay';
 import { isRealty, netOf, realtyForecast, realtyYear, sellRealty } from './realty';
 import { housingYear, JEONSE_LOAN_RATE } from './housing';
 import { debtRate } from './debt';
+import { allowanceForecast, careYear, childAllowanceYear } from './welfare';
 
 export function formatMoney(man: number): string {
   const neg = man < 0;
@@ -109,18 +110,40 @@ export function payOf(s: GameState, p: Person, expected = false): number | undef
 }
 
 /** 연금: 퇴직할 때 정해진 금액 (없으면 기초연금 수준) */
-export function pensionOf(p: Person): number {
-  return Number(p.flags.find((f) => f.startsWith('pens:'))?.slice(5) ?? JOBS.pension.base);
+/** 받는 연금 (2025년 원으로 저장, 해마다 물가만큼 오른다) */
+export function pensionOf(p: Person, year = BASE_YEAR): number {
+  return Math.round(Number(p.flags.find((f) => f.startsWith('pens:'))?.slice(5) ?? BASIC_PENSION) * wageIndex(year));
+}
+
+/** 퇴직금: 마지막 월급 × 근속 연수 (월급 직업만) */
+export function severance(s: GameState, p: Person): number {
+  const j = JOBS[p.job];
+  if (!j || j.kind !== 'salary' || p.jobYears <= 0) return 0;
+  const monthly = (payOf(s, p, true) ?? 0) / 12;
+  const v = Math.round(monthly * Math.min(p.jobYears, 40));
+  p.cash += v;
+  return v;
 }
 
 /** 퇴직 시 연금액 확정: 마지막 연봉 × 연금 비율 */
+/**
+ * 연금 확정 (2025년 원 기준으로 저장):
+ * 공무원·군인·교원 연금 = 마지막 연봉 × 1.7% × 재직 연수(최대 36년)
+ * 국민연금 = (A값 + 본인 평균소득) / 2 × 40% × 가입 연수/40 (+ 기초연금은 소득 적은 사람만)
+ */
 export function settlePension(p: Person) {
-  const j = JOBS[p.job];
-  const last = PAY[p.job] ? Math.round(PAY[p.job].pay[Math.min(p.jobLevel, PAY[p.job].pay.length - 1)] * 1.2) : j.kind === 'salary' ? j.base + j.perLevel * p.jobLevel : j.kind === 'fixed' ? j.base : 3000;
-  const rate = j.pension ?? (j.kind === 'salary' ? 0.3 : 0.15);
-  const amount = Math.max(JOBS.pension.base, Math.round(last * rate));
+  const years = Math.max(0, markOf(p, 'npy'));
+  const avg = years ? markOf(p, 'npsum') / years : 0;
+  let amount: number;
+  if (PUBLIC_PENSION.has(p.job) && PAY[p.job]) {
+    const last = PAY[p.job].pay[Math.min(p.jobLevel, PAY[p.job].pay.length - 1)] * Math.pow(1 + PAY[p.job].raise, 10);
+    amount = last * 0.017 * Math.min(36, Math.max(p.jobYears, years));
+  } else {
+    amount = ((NPS_A + Math.min(avg, 7400)) / 2) * 0.4 * (Math.min(40, years) / 40);
+  }
+  if (amount < 1200) amount += BASIC_PENSION;
   p.flags = p.flags.filter((f) => !f.startsWith('pens:'));
-  p.flags.push('pens:' + amount);
+  p.flags.push('pens:' + Math.round(amount));
 }
 
 /** 능력치 가중합 (0~100) */
@@ -146,7 +169,10 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
   switch (j.kind) {
     case 'fixed': {
       if (p.job === 'parttime') return { income: Math.round(j.base * wageIndex(s.year) * clamp(normal(s, 1, 0.15), 0.6, 1.4)) };
-      if (p.job === 'pension') return { income: pensionOf(p) };
+      if (p.job === 'pension') {
+        const from = Number(p.flags.find((f) => f.startsWith('pens_from:'))?.slice(10) ?? 0);
+        return { income: from > s.year ? 0 : pensionOf(p, s.year) };
+      }
       return { income: Math.round((j.base + j.perLevel * p.jobLevel) * wageIndex(s.year)) };
     }
 
@@ -294,12 +320,12 @@ export function householdItems(s: GameState, incomes: Map<string, number>) {
   const houseIncome = Math.max(0, incomes.get(hh.id) ?? 0) + Math.max(0, (hsp && incomes.get(hsp.id)) || 0);
   // 기본 생활비는 형편 따라: 넉넉하면 1인 1,500만, 빠듯하면 900만까지 줄여 산다
   const wi = wageIndex(s.year); // 임금이 오르는 만큼 생활비도 오른다
-  const perAdult = clamp(700 * wi + houseIncome * 0.12, 900 * wi, 1500 * wi);
+  const perAdult = clamp(600 * wi + houseIncome * 0.1, 850 * wi, 1400 * wi);
   add('기본 생활비', perAdult * mult * (hsp ? 2 : 1));
   add(`아이 양육비 (${minors.length}명)`, minors.length * perAdult * 0.6 * mult);
   add(`얹혀 사는 성인 자녀 (${atHome.length}명)`, atHome.length * perAdult * 0.8 * mult);
   // 여윳돈이 생기면 씀씀이도 커진다 (연 4천만 넘는 부분의 35%)
-  add('소비 (수입에 비례)', Math.max(0, houseIncome - 4000 * wi) * 0.35 * mult * (hasTrait(hh, 'frugal') ? 0.8 : hasTrait(hh, 'spender') ? 1.3 : 1));
+  add('소비 (수입에 비례)', Math.max(0, houseIncome - 4000 * wi) * 0.25 * mult * (hasTrait(hh, 'frugal') ? 0.8 : hasTrait(hh, 'spender') ? 1.3 : 1));
   // 미취학 아동 교육비 (학령기는 해마다 학년 이벤트에서 직접 고른다)
   let pre = 0;
   for (const c of livingMainlineMinors(s)) if (age(s, c) < 8) pre += EDU_COST[s.policy.children[c.id]?.budget ?? 1];
@@ -327,7 +353,7 @@ export function expectedIncome(s: GameState, p: Person): number {
   const a = p.actual;
   switch (j.kind) {
     case 'fixed':
-      if (p.job === 'pension') return pensionOf(p);
+      if (p.job === 'pension') return pensionOf(p, s.year);
       return Math.round((j.base + j.perLevel * p.jobLevel) * wageIndex(s.year));
     case 'salary':
       return payOf(s, p, true) ?? Math.round((j.base + j.perLevel * p.jobLevel) * (0.75 + statScore(p, j.stats ?? { int: 1 }) / 200) * wageIndex(s.year));
@@ -367,6 +393,21 @@ export function forecast(s: GameState): Forecast {
   const add = (list: [string, number][], label: string, v: number) => Math.round(v) > 0 && list.push([label, Math.round(v)]);
   for (const p of wallet) add(income, `${fullName(p)} ${JOBS[p.job].name}`, incomes.get(p.id) ?? 0);
   for (const p of wallet) if ((incomes.get(p.id) ?? 0) < 0) add(expense, `${fullName(p)} 사업 적자`, -(incomes.get(p.id) ?? 0));
+  const taxSum = wallet.reduce((t, p) => {
+    const inc = incomes.get(p.id) ?? 0;
+    if (p.job === 'pension' || inc <= 0) return t;
+    const x = incomeTax(inc, s.year);
+    return t + x.tax + x.social;
+  }, 0);
+  add(expense, '소득세·4대보험', taxSum);
+  add(income, '부모급여·아동수당', allowanceForecast(s, wallet));
+  const h0 = head(s);
+  for (const par of parentsOf(s, h0)) {
+    if (!alive(par) || hh.id !== h0.id) continue;
+    const care = par.flags.find((f) => f.startsWith('care:'))?.slice(5);
+    if (care === 'nursing') add(expense, `${fullName(par)} 요양원`, 1500 * wageIndex(s.year));
+    if (care === 'home') add(expense, `${fullName(par)} 방문 요양`, 400 * wageIndex(s.year));
+  }
   const re = realtyForecast(s, wallet);
   income.push(...re.income);
   expense.push(...re.expense);
@@ -385,6 +426,7 @@ export function economyYear(s: GameState): string[] {
 
   // 1) 수입. 복무 중이면 병사 월급만
   const incomes = new Map<string, number>();
+  const taxes = new Map<string, number>();
   for (const p of Object.values(s.people)) {
     if (!alive(p)) continue;
     if (p.flags.some((f) => f.startsWith('serving:'))) {
@@ -403,8 +445,19 @@ export function economyYear(s: GameState): string[] {
       continue;
     }
     const { income, msg } = workYear(s, p);
-    p.cash += income;
-    incomes.set(p.id, income);
+    // 육아휴직 중이면 육아휴직급여 (월 최대 250만 → 연 약 2,000만), 승진은 멈춘다
+    const onLeave = p.flags.includes('leave:' + s.year);
+    const got = onLeave ? Math.min(income, Math.round(2000 * wageIndex(s.year))) : income;
+    // 세금·4대보험을 떼고 통장에 들어온다 (연금은 과세 생략)
+    const t = p.job === 'pension' ? { tax: 0, social: 0 } : incomeTax(got, s.year);
+    p.cash += got - t.tax - t.social;
+    incomes.set(p.id, got);
+    taxes.set(p.id, t.tax + t.social);
+    // 국민연금 가입 기록 (연금 수령액 계산용, 2025년 원)
+    if (got > 0 && p.job !== 'pension') {
+      mark(p, 'npy', 1);
+      mark(p, 'npsum', Math.round(Math.min(got / wageIndex(s.year), 7400)));
+    }
     if (msg) msgs.push(msg);
   }
 
@@ -457,6 +510,9 @@ export function economyYear(s: GameState): string[] {
   // 4) 부동산·주식: 월세(공실)·배당·재산세·종부세·대출이자·전세 만기 / 우리 집 월세·전세 재계약
   msgs.push(...realtyYear(s));
   msgs.push(...housingYear(s));
+  // 부모급여·아동수당, 부모님 돌봄 비용
+  childAllowanceYear(s);
+  msgs.push(...careYear(s));
 
   // 생활 수준이 아이들에게 남기는 것: 호화는 행복↑·씀씀이 흔적, 검소는 행복 조금↓·절약 흔적
   for (const c of livingMainlineMinors(s)) {

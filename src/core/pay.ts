@@ -129,3 +129,60 @@ export const GRAD_STIPEND = 1500;
 export const WAGE_GROWTH = 0.025;
 export const BASE_YEAR = 2025;
 export const wageIndex = (year: number) => Math.pow(1 + WAGE_GROWTH, Math.max(0, year - BASE_YEAR));
+
+// ───────────────────────── 세금·4대보험·연금 ─────────────────────────
+
+/** 종합소득세율 (2024~, 과세표준 만원, 세율) */
+const BRACKETS: [number, number][] = [
+  [1400, 0.06],
+  [5000, 0.15],
+  [8800, 0.24],
+  [15000, 0.35],
+  [30000, 0.38],
+  [50000, 0.4],
+  [100000, 0.42],
+  [Infinity, 0.45],
+];
+/** 4대보험 근로자 부담(국민연금 4.5·건강 3.5·장기요양 0.45·고용 0.9 ≈ 9.4%), 기준소득 상한 연 7,400만 */
+const SOCIAL_RATE = 0.094;
+const SOCIAL_CAP = 7400;
+
+/** 근로소득공제 (소득 구간별) */
+function earnedDeduction(x: number): number {
+  if (x <= 500) return x * 0.7;
+  if (x <= 1500) return 350 + (x - 500) * 0.4;
+  if (x <= 4500) return 750 + (x - 1500) * 0.15;
+  if (x <= 10000) return 1200 + (x - 4500) * 0.05;
+  return Math.min(2000, 1475 + (x - 10000) * 0.02);
+}
+
+/**
+ * 연 소득에 붙는 소득세(지방세 10% 포함)와 4대보험. 2025년 원 기준으로 계산한 뒤 임금 지수를 곱한다.
+ * 근로소득공제·본인 기본공제 150만·국민연금 보험료 공제·근로소득세액공제(최대 74만)를 반영한 단순 모형.
+ * (연봉 3천 ≈ 13%, 5천 ≈ 16%, 1억 ≈ 21%, 3억 ≈ 30% 가 빠진다)
+ */
+export function incomeTax(income: number, year: number): { tax: number; social: number } {
+  if (income <= 0) return { tax: 0, social: 0 };
+  const wi = wageIndex(year);
+  const x = income / wi;
+  const social = SOCIAL_RATE * Math.min(x, SOCIAL_CAP);
+  let base = Math.max(0, x - earnedDeduction(x) - 150 - 0.045 * Math.min(x, SOCIAL_CAP));
+  let tax = 0;
+  let prev = 0;
+  for (const [cap, rate] of BRACKETS) {
+    if (base <= 0) break;
+    const slice = Math.min(base, cap - prev);
+    tax += slice * rate;
+    base -= slice;
+    prev = cap;
+  }
+  tax = Math.max(0, tax - Math.min(74, tax * 0.55));
+  return { tax: Math.round(tax * 1.1 * wi), social: Math.round(social * wi) };
+}
+
+/** 공무원·군인·교원 연금 대상 (재직 1년에 1.7%, 최대 36년) */
+export const PUBLIC_PENSION = new Set(['civil', 'tax_officer', 'police', 'coast_guard', 'firefighter', 'prison_guard', 'mail_carrier', 'officer', 'diplomat', 'judge', 'prosecutor', 'teacher', 'professor', 'kinder_teacher']);
+/** 국민연금 A값 (전체 가입자 평균소득, 2025년 약 월 300만) */
+export const NPS_A = 3600;
+/** 기초연금 (소득 하위 70% 노인, 2025년 월 약 34만) */
+export const BASIC_PENSION = 410;

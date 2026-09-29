@@ -9,7 +9,7 @@ import { appealBonus } from './marks';
 import { addBargains } from './realty';
 import { bindState, standing, standingChange } from './school';
 import { JOBS } from './data';
-import { formatMoney, jobTitle, pay, statScore } from './economy';
+import { formatMoney, jobTitle, pay, severance, statScore } from './economy';
 import { makeDate } from './events';
 import { eul, iga, schedule, spendable, wa } from './ev-util';
 import { isMedStudent } from './people';
@@ -396,12 +396,13 @@ export const ACTIONS: ActionDef[] = [
     run: (s, t) => {
       const p = t!;
       const was = JOBS[p.job].name;
+      const sev = severance(s, p);
       p.job = 'none';
       p.jobLevel = 0;
       p.jobYears = 0;
       p.flags = p.flags.filter((f) => !f.startsWith('prep:') && !f.startsWith('tries:'));
       queueEv(s, 'first_job', p.id, { second: true });
-      return `${fullName(p)}, ${was} 생활을 정리했다. 이제 뭘 해볼까?`;
+      return `${fullName(p)}, ${was} 생활을 정리했다.${sev ? ` 퇴직금 ${formatMoney(sev)}을 받았다.` : ''} 이제 뭘 해볼까?`;
     },
   },
   {
