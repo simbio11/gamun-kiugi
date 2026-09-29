@@ -2,13 +2,14 @@ export type StatKey = 'str' | 'int' | 'cha' | 'mor' | 'hp';
 export type Stats = Record<StatKey, number>;
 export type Sex = 'M' | 'F';
 
-export type TalentId = 'genius' | 'athlete' | 'star' | 'merchant';
+export type TalentId = 'genius' | 'athlete' | 'star' | 'merchant' | 'artist';
 export interface Talent {
   id: TalentId;
   discovered: boolean;
 }
 
-export type JobId = 'none' | 'office' | 'civil' | 'doctor' | 'founder' | 'youtuber' | 'athlete' | 'pension';
+/** 직업 id (jobs.ts 의 JOBS 키) */
+export type JobId = string;
 
 /** 진로 성향. 자녀의 '꿈'과 이벤트 선택지의 태그. */
 export type CareerTag = 'study' | 'sport' | 'stage' | 'business' | 'public' | 'free';
@@ -18,6 +19,14 @@ export interface Genes {
   hairColor: number;
   skin: number;
   eyes: number;
+  /** 얼굴형 (갸름/보통/둥근) */
+  face: number;
+  /** 눈썹 */
+  brows: number;
+  /** 입 모양 */
+  mouth: number;
+  /** 유전 안 되는 개인 특징: 0 없음, 1 안경, 2 주근깨, 3 점, 4 볼터치, 5 선글라스 */
+  mark: number;
 }
 
 export interface Person {
@@ -50,9 +59,43 @@ export interface Person {
   cash: number;
   /** 결혼할 때 가문에 들어온 사람 */
   inLaw: boolean;
+  /** 보이지 않게 쌓이는 흔적 (떡밥): 작은 선택들이 누적돼 나중에 사건으로 돌아온다 */
+  marks?: Record<string, number>;
+  /** 연애 중인 상대 (결혼 전) */
+  partnerId?: string;
+  /** 성격 (TRAITS id) */
+  traits?: string[];
+  /** 부부 금슬 0~100 (배우자와 같은 값) */
+  bond?: number;
+  /** 사는 집 (살림을 맡은 사람) */
+  home?: Home;
+  /** 신용점수 300~950 (기본 750) */
+  credit?: number;
+  /** 학업 성적 누적 0~100 (수능에 반영) */
+  study?: number;
+  /** 지금까지 들어간 사교육비 (만원) */
+  eduSpent?: number;
 }
 
-export type AssetKind = 'apt_seoul' | 'apt_local' | 'land';
+export type RealEstateKind = 'apt_seoul' | 'apt_local' | 'land';
+export type AssetKind = RealEstateKind | 'building' | 'stock' | 'coin' | 'art' | 'vehicle';
+/** 사는 집: 자가·전세·월세 (살림을 맡은 사람에게 붙는다) */
+export interface Home {
+  type: 'own' | 'jeonse' | 'wolse' | 'parents';
+  /** 집 등급 (housing.ts TIERS) */
+  tier: string;
+  name: string;
+  /** 자가: 그 집 자산 id */
+  assetId?: string;
+  /** 전세·월세 보증금 (내가 맡겨 둔 돈 = 내 자산) */
+  deposit: number;
+  /** 월세: 1년 치 */
+  rent: number;
+  /** 전세자금대출 */
+  loan?: number;
+  since: number;
+}
+
 export interface Asset {
   id: string;
   kind: AssetKind;
@@ -61,6 +104,41 @@ export interface Asset {
   ownerId: string;
   /** 시가 (만원) */
   value: number;
+  /** 예술품: 위작 여부 (감정·매각 전까지 숨김) */
+  fake?: boolean;
+  /** 산 값·산 해 (양도세 계산) */
+  cost?: number;
+  bought?: number;
+  /** 담보대출 잔액 (연 이자) */
+  loan?: number;
+  /** 세입자 전세보증금 (돌려줘야 할 돈) · 만기 해 */
+  deposit?: number;
+  depositEnd?: number;
+  /** 매물 고유 성격: 시장 민감도·연 추가 상승률·변동성·임대수익률 */
+  beta?: number;
+  drift?: number;
+  vol?: number;
+  yield?: number;
+  tags?: string[];
+  /** 유언장에 적은 받을 사람 (지정 상속) */
+  heir?: string;
+}
+
+/** 올해 나온 부동산 매물 */
+export interface Listing {
+  id: string;
+  kind: 'apt_seoul' | 'apt_local' | 'land' | 'building';
+  name: string;
+  price: number;
+  tags: string[];
+  beta: number;
+  drift: number;
+  vol: number;
+  yield: number;
+  /** 전세 낀 매물: 세입자 보증금 */
+  deposit?: number;
+  /** 주택 수에 들어가는가 (아파트·오피스텔) */
+  house: boolean;
 }
 
 export interface Gift {
@@ -86,6 +164,10 @@ export interface Policy {
   living: Living;
   familyPlan: number;
   children: Record<string, ChildPolicy>;
+  /** 세무사 선임 (연 수임료 ↔ 상속·증여세 절감) */
+  taxAdvisor: boolean;
+  /** 적립식 자동 증여: 받는 사람 id → 해마다 보낼 금액(만원) */
+  autoGifts?: Record<string, number>;
 }
 
 export interface PendingEvent {
@@ -101,8 +183,19 @@ export interface LogEntry {
   kind?: 'birth' | 'death' | 'money' | 'market' | 'life' | 'achv' | 'succession';
 }
 
+export interface Mission {
+  id: string;
+  /** 부여된 세대 */
+  gen: number;
+  state: 'open' | 'done' | 'failed';
+  /** 시작 시점 기준값 (자산 2배 등) */
+  base?: number;
+}
+
+export type MarketKey = 'apt_seoul' | 'apt_local' | 'land' | 'building' | 'stock' | 'coin' | 'art';
+
 export interface GameState {
-  version: 1;
+  version: 3;
   rng: number;
   seed: number;
   year: number;
@@ -117,10 +210,19 @@ export interface GameState {
   gifts: Gift[];
   familyCash: number;
   fame: number;
-  market: { apt_seoul: number; apt_local: number; land: number };
+  /** 부동산은 한 채 가격, 주식·코인·예술품은 지수 (시작 = 100) */
+  market: Record<MarketKey, number>;
+  /** 작년 대비 변동률 (UI 표시용) */
+  marketChange: Partial<Record<MarketKey, number>>;
   policy: Policy;
   heirId?: string;
   will: WillMode;
+  /** 올해 남은 행동력 (대시보드에서 직접 하는 일) */
+  ap?: number;
+  /** 올해 행동별 횟수 (반복하면 효과가 줄어든다) */
+  actUsed?: Record<string, number>;
+  /** 가주가 유언장을 써뒀는가 */
+  willWritten?: boolean;
   /** 세무 주목도 (v0.3에서 사용) */
   taxHeat: number;
   events: PendingEvent[];
@@ -128,5 +230,17 @@ export interface GameState {
   idSeq: number;
   log: LogEntry[];
   achievements: string[];
+  /** 가문에서 거쳐 간 직업 (직업 도감) */
+  jobsSeen?: string[];
+  /** 세대 미션 */
+  missions?: Mission[];
+  /** 예약된 후폭풍: 지난 선택의 결과가 몇 년 뒤 터진다 */
+  scheduled?: { year: number; defId: string; personId: string; data?: any }[];
   gameOver?: { reason: string; score: number };
+  /** 올해 부동산 매물 */
+  listings?: Listing[];
+  /** 이야기를 마지막으로 겪은 해 (같은 이야기가 자꾸 반복되지 않게): '사람id:이야기id' → 해 */
+  storySeen?: Record<string, number>;
+  /** 시작 난이도 (없으면 운명에 맡김) */
+  difficulty?: 'easy' | 'normal' | 'hard';
 }

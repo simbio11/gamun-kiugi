@@ -1,12 +1,13 @@
 {
   "name": "gamun-kiugi",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
+    "build:pages": "tsc --noEmit && vite build && rm -rf docs/assets && cp -r dist/. docs/ && touch docs/.nojekyll",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

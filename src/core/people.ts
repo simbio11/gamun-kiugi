@@ -1,11 +1,17 @@
 import { chance, int, next, normal, pick, type RngHolder } from './rng';
-import { FEMALE_NAMES, MALE_NAMES, STAT_KEYS, TALENTS, TALENT_IDS } from './data';
+import { FEMALE_NAMES, MALE_NAMES, STAT_KEYS, TALENTS, TALENT_IDS, TRAITS, TRAIT_IDS } from './data';
 import type { CareerTag, GameState, Genes, Person, Sex, Stats, Talent } from './types';
 
-export const HAIR_STYLES = 5;
-export const HAIR_COLORS = 6;
-export const SKINS = 4;
-export const EYES = 3;
+export const HAIR_STYLES = 7;
+export const HAIR_COLORS = 9;
+/** 0~2: 흑발·갈색 계열, 3~: 밝은 색·염색 */
+export const DARK_HAIR = 3;
+export const SKINS = 5;
+export const EYES = 5;
+export const FACES = 3;
+export const BROWS = 3;
+export const MOUTHS = 4;
+export const MARKS = 6;
 
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -26,18 +32,56 @@ export function randomName(r: RngHolder, sex: Sex): string {
   return pick(r, sex === 'M' ? MALE_NAMES : FEMALE_NAMES);
 }
 
+/** 집안에서 이미 쓰는 이름: 부모·조부모·형제 (항렬 문화에서도 같은 이름은 피한다) */
+export function takenNames(s: GameState, p: Person): Set<string> {
+  const ps = [p.fatherId, p.motherId].map((id) => (id ? s.people[id] : undefined)).filter((x): x is Person => !!x);
+  const gps = ps.flatMap((q) => [q.fatherId, q.motherId].map((id) => (id ? s.people[id] : undefined)).filter((x): x is Person => !!x));
+  const sibs = ps.flatMap((q) => q.childIds.map((id) => s.people[id])).filter((x) => x && x.id !== p.id);
+  return new Set([...ps, ...gps, ...sibs].map((x) => x.name));
+}
+
+/** 집안 이름과 겹치지 않는 새 이름 */
+export function freshName(s: GameState, p: Person): string {
+  const taken = takenNames(s, p);
+  let n = p.name;
+  for (let i = 0; i < 30 && (!n || taken.has(n)); i++) n = randomName(s, p.sex);
+  return n;
+}
+
+/** 유전 안 되는 개인 특징: 절반은 없음, 선글라스는 드묾 */
+export function randomMark(r: RngHolder): number {
+  if (chance(r, 0.5)) return 0;
+  return chance(r, 0.08) ? 5 : int(r, 1, 4);
+}
+
 export function randomGenes(r: RngHolder): Genes {
   return {
     hairStyle: int(r, 0, HAIR_STYLES - 1),
-    hairColor: int(r, 0, 2), // 기본은 어두운 머리색 계열, 밝은 색은 돌연변이로
+    hairColor: chance(r, 0.7) ? int(r, 0, DARK_HAIR - 1) : int(r, 0, HAIR_COLORS - 1),
     skin: int(r, 0, SKINS - 1),
     eyes: int(r, 0, EYES - 1),
+    face: int(r, 0, FACES - 1),
+    brows: int(r, 0, BROWS - 1),
+    mouth: int(r, 0, MOUTHS - 1),
+    mark: randomMark(r),
   };
+}
+
+/** 예전 세이브의 유전자에 새 항목 채우기 (id 기반으로 결정적) */
+export function fillGenes(p: Person) {
+  const g = p.genes as Partial<Genes> & Genes;
+  let h = 0;
+  for (const ch of p.id) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  const r = { rng: h };
+  g.face ??= int(r, 0, FACES - 1);
+  g.brows ??= int(r, 0, BROWS - 1);
+  g.mouth ??= int(r, 0, MOUTHS - 1);
+  g.mark ??= randomMark(r);
 }
 
 function randomStats(r: RngHolder, mean: number, sd: number): Stats {
   const st = {} as Stats;
-  for (const k of STAT_KEYS) st[k] = Math.round(clamp(normal(r, mean, sd), 5, 100));
+  for (const k of STAT_KEYS) st[k] = Math.round(clamp(normal(r, mean, sd), 15, 98));
   return st;
 }
 
@@ -56,7 +100,8 @@ interface CreateOpts {
 /** 부모 없이 생성되는 인물 (창시 세대, 배우자 후보, 방계 등) */
 export function createPerson(s: GameState, o: CreateOpts): Person {
   const sex = o.sex ?? (chance(s, 0.5) ? 'M' : 'F');
-  const potential = randomStats(s, o.quality ?? 50, 14);
+  // 같은 '집안 수준'이라도 사람마다 편차가 크다
+  const potential = randomStats(s, (o.quality ?? 50) + normal(s, 0, 5), 14);
   const grown = o.grown ?? 0.1;
   const actual = {} as Stats;
   for (const k of STAT_KEYS) actual[k] = Math.round(potential[k] * clamp(grown + normal(s, 0, 0.06), 0.05, 1));
@@ -81,6 +126,7 @@ export function createPerson(s: GameState, o: CreateOpts): Person {
     potentialKnown: false,
     cash: 0,
     inLaw: false,
+    traits: randomTraits(s),
   };
 }
 
@@ -93,7 +139,9 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
   const sex: Sex = chance(s, 0.51) ? 'M' : 'F';
   const potential = {} as Stats;
   for (const k of STAT_KEYS) {
-    potential[k] = Math.round(clamp((father.potential[k] + mother.potential[k]) / 2 + normal(s, 0, 8), 1, 100));
+    // 부모 평균 + 큰 변이. 가끔은 한쪽 부모를 쏙 빼닮는다
+    const mid = chance(s, 0.25) ? (chance(s, 0.5) ? father.potential[k] : mother.potential[k]) : (father.potential[k] + mother.potential[k]) / 2;
+    potential[k] = Math.round(clamp(mid + normal(s, 0, 10), 15, 100));
   }
   const mutations: string[] = [];
   if (chance(s, 0.005)) {
@@ -110,12 +158,19 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
     if (!talents.some((x) => x.id === t)) talents.push({ id: t, discovered: false });
     mutations.push('talent:' + t);
   }
-  const g = (a: number, b: number, n: number) => (chance(s, 0.05) ? int(s, 0, n - 1) : chance(s, 0.5) ? a : b);
+  // 각 형질은 부/모 중 한쪽에서, 12%는 새로 (형제끼리도 꽤 다르게 생김)
+  const g = (a: number, b: number, n: number) => (chance(s, 0.12) ? int(s, 0, n - 1) : chance(s, 0.5) ? a : b);
+  const fg = father.genes;
+  const mg = mother.genes;
   const genes: Genes = {
-    hairStyle: g(father.genes.hairStyle, mother.genes.hairStyle, HAIR_STYLES),
-    hairColor: g(father.genes.hairColor, mother.genes.hairColor, HAIR_COLORS),
-    skin: g(father.genes.skin, mother.genes.skin, SKINS),
-    eyes: g(father.genes.eyes, mother.genes.eyes, EYES),
+    hairStyle: int(s, 0, HAIR_STYLES - 1), // 머리 모양은 유전보다 취향
+    hairColor: chance(s, 0.12) ? (chance(s, 0.7) ? int(s, 0, DARK_HAIR - 1) : int(s, 0, HAIR_COLORS - 1)) : chance(s, 0.5) ? fg.hairColor : mg.hairColor,
+    skin: g(fg.skin, mg.skin, SKINS),
+    eyes: g(fg.eyes, mg.eyes, EYES),
+    face: g(fg.face ?? 0, mg.face ?? 0, FACES),
+    brows: g(fg.brows ?? 0, mg.brows ?? 0, BROWS),
+    mouth: g(fg.mouth ?? 0, mg.mouth ?? 0, MOUTHS),
+    mark: randomMark(s),
   };
   const actual = {} as Stats;
   for (const k of STAT_KEYS) actual[k] = Math.max(1, Math.round(potential[k] * 0.1));
@@ -143,6 +198,7 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
     potentialKnown: false,
     cash: 0,
     inLaw: false,
+    traits: inheritTraits(s, father, mother),
   };
 }
 
@@ -179,6 +235,23 @@ export function isMainline(s: GameState, p: Person): boolean {
   if (isDescendantOf(s, p, h)) return true;
   const sp = spouseOf(s, p);
   return !!sp && isDescendantOf(s, sp, h);
+}
+
+/**
+ * 살림을 책임지는 사람. 가주가 아직 어리거나 학생·수험생이면 부모가 돈을 낸다.
+ */
+export function householder(s: GameState): Person {
+  const h = head(s);
+  const a = age(s, h);
+  // 미성년이거나, 아직 독립(결혼·독립 이벤트)하지 않았으면 부모님 살림에 얹혀 산다
+  const dependent = a < 20 || (!h.spouseId && !h.flags.includes('indep'));
+  if (dependent) {
+    const par = parentsOf(s, h)
+      .filter(alive)
+      .sort((x, y) => y.cash - x.cash)[0];
+    if (par) return par;
+  }
+  return h;
 }
 
 export function livingMainlineMinors(s: GameState): Person[] {
@@ -241,6 +314,36 @@ export function discoverTalent(p: Person, id: string): boolean {
   return true;
 }
 
+export const hasTrait = (p: Person, id: string) => !!p.traits?.includes(id);
+
+/** 흔적 쌓기 (음수면 지우기). 플레이어에게는 보이지 않는다 */
+export function mark(p: Person, key: string, n = 1) {
+  const m = (p.marks ??= {});
+  m[key] = Math.max(0, (m[key] ?? 0) + n);
+}
+export const markOf = (p: Person | undefined, key: string) => p?.marks?.[key] ?? 0;
+
+/** 성격 부여: 기존 성격과 반대되는 건 건너뜀 */
+function addTrait(list: string[], id: string) {
+  if (list.includes(id) || list.some((t) => TRAITS[t].opp === id)) return;
+  list.push(id);
+}
+
+/** 무작위 성격 0~2개 */
+export function randomTraits(r: RngHolder, base: string[] = []): string[] {
+  const out = [...base];
+  const n = pick(r, [0, 1, 1, 1, 2, 2]);
+  for (let i = 0; i < n; i++) addTrait(out, pick(r, TRAIT_IDS));
+  return out.slice(0, 3);
+}
+
+/** 부모 성격을 각각 30% 확률로 물려받고, 나머지는 무작위 */
+export function inheritTraits(r: RngHolder, a: Person, b: Person): string[] {
+  const base: string[] = [];
+  for (const t of [...(a.traits ?? []), ...(b.traits ?? [])]) if (chance(r, 0.3)) addTrait(base, t);
+  return randomTraits(r, base);
+}
+
 export function addFlag(p: Person, f: string) {
   if (!p.flags.includes(f)) p.flags.push(f);
 }
@@ -251,3 +354,7 @@ export function check(r: RngHolder, stat: number, threshold: number, width = 8, 
   const p = 1 / (1 + Math.exp(-(stat - threshold) / width)) + bonus;
   return next(r) < p;
 }
+
+const MED_TRACKS = ['track:med_school', 'track:dent_school', 'track:kmd_school', 'track:vet_school', 'track:pharm_school'];
+/** 의약계열(의·치·한·수·약대) 재학 중 */
+export const isMedStudent = (p: Person) => p.flags.includes('student') && p.flags.some((f) => MED_TRACKS.includes(f));

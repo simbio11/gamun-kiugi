@@ -21,9 +21,21 @@ describe('세금', () => {
   });
 
   it('증여세: 성인 5천만 공제, 10년 합산', () => {
-    expect(giftTax(5000, 0, 0, false)).toBe(0);
-    expect(giftTax(15000, 0, 0, false)).toBe(1000);
-    expect(giftTax(10000, 5000, 0, false)).toBe(1000);
-    expect(giftTax(5000, 0, 0, true)).toBe(300);
+    expect(giftTax(5000, 0, 0)).toBe(0);
+    expect(giftTax(15000, 0, 0)).toBe(1000);
+    expect(giftTax(10000, 5000, 0)).toBe(1000);
+    expect(giftTax(5000, 0, 0, { minor: true })).toBe(300);
+  });
+
+  it('증여세: 배우자 6억 공제, 손주 세대생략 30% 할증', () => {
+    expect(giftTax(60000, 0, 0, { spouse: true })).toBe(0);
+    expect(giftTax(15000, 0, 0, { skipGen: true })).toBe(1300);
+  });
+
+  it('세무사: 상속세 과세표준 12% 감면', () => {
+    const plain = inheritanceTax({ assessed: 150000, priorGifts: 0, priorGiftTax: 0, spouseAlive: false });
+    const adv = inheritanceTax({ assessed: 150000, priorGifts: 0, priorGiftTax: 0, spouseAlive: false, advisor: true });
+    expect(adv.base).toBe(88000);
+    expect(adv.tax).toBeLessThan(plain.tax);
   });
 });

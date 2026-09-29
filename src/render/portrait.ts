@@ -1,11 +1,13 @@
 import { JOBS } from '../core/data';
 import type { Person } from '../core/types';
 
-// 16×16 절차 생성 도트 초상화. 유전자(머리형·머리색·피부·눈) + 나이 단계 + 직업(옷 색).
+// 16×16 절차 생성 도트 초상화.
+// 유전자(머리형·머리색·피부·눈·얼굴형·눈썹·입) + 개인 특징(안경·주근깨…) + 나이 단계 + 직업(옷).
 
-const SKIN = ['#f6d7b8', '#eec39a', '#d9a577', '#a8744f'];
-const SKIN_SHADE = ['#e0b08e', '#d49f78', '#b98556', '#865a3a'];
-const HAIR = ['#2b2220', '#4a3426', '#1c1c28', '#7a4b2a', '#c9a15a', '#8c2f2f'];
+const SKIN = ['#f6d7b8', '#eec39a', '#d9a577', '#a8744f', '#fbe3cf'];
+const SKIN_SHADE = ['#e0b08e', '#d49f78', '#b98556', '#865a3a', '#ecc6a8'];
+const HAIR = ['#2b2220', '#4a3426', '#1c1c28', '#7a4b2a', '#c9a15a', '#8c2f2f', '#d8d0c0', '#5b6f8f', '#c76a8a'];
+const LIP = ['#b0645a', '#c97a70', '#9c5048', '#b86b6b'];
 const GRAY = '#c9c4bd';
 const OUTLINE = '#1d1620';
 const EYE = '#231816';
@@ -20,7 +22,8 @@ const cache = new Map<string, string>();
 
 export function portraitURL(p: Person, age: number): string {
   const stage = stageOf(age);
-  const key = [p.genes.hairStyle, p.genes.hairColor, p.genes.skin, p.genes.eyes, p.sex, stage, p.job].join('-');
+  const gn = p.genes;
+  const key = [gn.hairStyle, gn.hairColor, gn.skin, gn.eyes, gn.face, gn.brows, gn.mouth, gn.mark, p.sex, stage, p.job].join('-');
   const hit = cache.get(key);
   if (hit) return hit;
   const grid = draw(p, stage);
@@ -43,7 +46,7 @@ export function portraitURL(p: Person, age: number): string {
 
 function draw(p: Person, stage: Stage): (string | null)[][] {
   const g: (string | null)[][] = Array.from({ length: 16 }, () => Array(16).fill(null));
-  const set = (x: number, y: number, c: string) => {
+  const set = (x: number, y: number, c: string | null) => {
     if (x >= 0 && x < 16 && y >= 0 && y < 16) g[y][x] = c;
   };
   const rect = (x0: number, y0: number, x1: number, y1: number, c: string) => {
@@ -63,24 +66,46 @@ function draw(p: Person, stage: Stage): (string | null)[][] {
   } else {
     rect(3, 13, 12, 15, shirt);
     rect(7, 11, 8, 12, skin);
-    if (p.job === 'doctor') rect(7, 13, 8, 15, '#7fb3d5');
-    if (p.job === 'office' || p.job === 'civil') rect(7, 13, 7, 15, '#a33');
+    if (p.job === 'doctor' || p.job === 'pharmacist') rect(7, 13, 8, 15, '#7fb3d5');
+    if (['office', 'corp', 'civil', 'public_corp', 'lawyer', 'accountant', 'politician'].includes(p.job)) rect(7, 13, 7, 15, p.job === 'politician' ? '#e8b64c' : '#a33');
+    if (['police', 'officer', 'firefighter', 'pilot'].includes(p.job)) set(5, 14, '#f0d060');
+    if (p.job === 'nurse') set(7, 14, '#d33');
+    if (p.job === 'athlete') rect(3, 15, 12, 15, '#fff');
+    if (p.job === 'musician' || p.job === 'entertainer') set(10, 14, '#fff27a');
   }
 
   // 얼굴
   const top = stage === 'baby' || stage === 'child' ? 6 : 4;
   const bottom = stage === 'baby' ? 12 : stage === 'child' ? 11 : 10;
   rect(5, top, 10, bottom, skin);
+  const face = (p.genes.face ?? 1) % 3;
+  if (stage !== 'baby') {
+    if (face === 0) {
+      // 갸름: 턱 끝을 깎는다
+      set(5, bottom, null);
+      set(10, bottom, null);
+      rect(6, bottom + 1, 9, bottom + 1, skin);
+    } else if (face === 2) {
+      // 둥근 얼굴: 볼이 나온다
+      rect(4, top + 2, 4, bottom - 1, skin);
+      rect(11, top + 2, 11, bottom - 1, skin);
+    }
+  }
   if (stage === 'baby') {
     rect(4, top + 1, 4, bottom - 1, skin);
     rect(11, top + 1, 11, bottom - 1, skin);
   }
-  set(5, bottom, shade);
-  set(10, bottom, shade);
+  if (face !== 0 || stage === 'baby') {
+    set(5, bottom, shade);
+    set(10, bottom, shade);
+  } else {
+    set(6, bottom + 1, shade);
+    set(9, bottom + 1, shade);
+  }
 
   // 머리카락
   const ht = top - 2;
-  const style = p.genes.hairStyle % 5;
+  const style = p.genes.hairStyle % 7;
   if (stage === 'baby') {
     rect(6, top - 1, 9, top - 1, hair);
     set(7, top - 2, hair);
@@ -108,6 +133,16 @@ function draw(p: Person, stage: Stage): (string | null)[][] {
         rect(4, ht - 1, 11, top, hair);
         rect(3, top, 4, top + 3, hair);
         rect(11, top, 12, top + 3, hair);
+        break;
+      case 5: // 앞머리 단발
+        rect(4, ht, 11, top + 1, hair);
+        rect(4, top, 4, top + 4, hair);
+        rect(11, top, 11, top + 4, hair);
+        break;
+      case 6: // 양갈래
+        rect(5, ht, 10, top, hair);
+        rect(3, top + 1, 4, top + 6, hair);
+        rect(11, top + 1, 12, top + 6, hair);
         break;
       default: // 올림머리
         rect(5, ht + 1, 10, top, hair);
@@ -139,36 +174,104 @@ function draw(p: Person, stage: Stage): (string | null)[][] {
         rect(4, top, 4, top + 1, hair);
         rect(11, top, 11, top + 1, hair);
         break;
+      case 5: // 투블럭
+        rect(4, ht, 11, top - 1, hair);
+        rect(5, top, 10, top, hair);
+        break;
+      case 6: // 장발
+        rect(4, ht, 11, top, hair);
+        rect(4, top, 4, bottom + 1, hair);
+        rect(11, top, 11, bottom + 1, hair);
+        break;
       default: // 스포츠
         rect(5, ht + 2, 10, top, hair);
     }
   }
 
-  // 눈·입
+  // 눈·눈썹·입
   const ey = top + 3;
-  const eyes = p.genes.eyes % 3;
+  const eyes = p.genes.eyes % 5;
+  const grown = stage !== 'baby';
   set(6, ey, EYE);
   set(9, ey, EYE);
-  if (eyes === 1 && stage !== 'baby') {
-    set(6, ey - 1, EYE);
-    set(9, ey - 1, EYE);
-  }
-  if (eyes === 2 && stage !== 'baby') {
-    set(5, ey - 2, hair);
-    set(6, ey - 2, hair);
-    set(9, ey - 2, hair);
-    set(10, ey - 2, hair);
+  if (grown) {
+    if (eyes === 1) {
+      // 큰 눈
+      set(6, ey - 1, EYE);
+      set(9, ey - 1, EYE);
+    } else if (eyes === 3) {
+      // 가로로 긴 눈
+      set(5, ey, EYE);
+      set(10, ey, EYE);
+    } else if (eyes === 4) {
+      // 반짝이는 눈
+      set(6, ey - 1, EYE);
+      set(9, ey - 1, EYE);
+      set(6, ey - 1, '#fff');
+      set(9, ey - 1, '#fff');
+      set(6, ey, EYE);
+      set(9, ey, EYE);
+    }
+    const brows = (p.genes.brows ?? 0) % 3;
+    const bc = stage === 'elder' ? GRAY : eyes === 2 ? hair : HAIR[p.genes.hairColor % HAIR.length];
+    if (brows === 1 || eyes === 2) {
+      // 짙은 일자 눈썹
+      rect(5, ey - 2, 6, ey - 2, bc);
+      rect(9, ey - 2, 10, ey - 2, bc);
+    } else if (brows === 2) {
+      // 올라간 눈썹
+      set(5, ey - 1, bc);
+      set(6, ey - 2, bc);
+      set(10, ey - 1, bc);
+      set(9, ey - 2, bc);
+    }
   }
   const my = Math.min(bottom - 1, ey + 2);
-  set(7, my, '#b0645a');
-  set(8, my, '#b0645a');
-  if (f || stage === 'baby' || stage === 'child') {
+  const mouth = (p.genes.mouth ?? 0) % 4;
+  const lip = LIP[mouth];
+  if (mouth === 1 && grown) {
+    // 미소
+    set(6, my, lip);
+    set(7, my + 1 <= bottom ? my + 1 : my, lip);
+    set(8, my + 1 <= bottom ? my + 1 : my, lip);
+    set(9, my, lip);
+  } else if (mouth === 2 && grown) {
+    set(7, my, lip); // 작은 입
+  } else {
+    set(7, my, lip);
+    set(8, my, lip);
+  }
+  if (f || stage === 'baby' || stage === 'child' || (p.genes.mark ?? 0) === 4) {
     set(5, ey + 1, '#f19a9a');
     set(10, ey + 1, '#f19a9a');
   }
   if (stage === 'elder') {
     set(5, ey + 1, shade);
     set(10, ey + 1, shade);
+  }
+  // 개인 특징 (유전 안 됨)
+  if (grown) {
+    switch (p.genes.mark ?? 0) {
+      case 1: // 안경
+        for (const x of [5, 6, 9, 10]) set(x, ey - 1, '#3a3a4a');
+        set(7, ey, '#3a3a4a');
+        set(8, ey, '#3a3a4a');
+        set(5, ey, '#3a3a4a');
+        set(10, ey, '#3a3a4a');
+        break;
+      case 2: // 주근깨
+        set(5, ey + 1, '#b9805a');
+        set(6, ey + 2, '#b9805a');
+        set(10, ey + 1, '#b9805a');
+        set(9, ey + 2, '#b9805a');
+        break;
+      case 3: // 점
+        set(9, my, '#3a2a22');
+        break;
+      case 5: // 선글라스
+        if (stage === 'adult') rect(5, ey - 1, 10, ey, '#15151c');
+        break;
+    }
   }
 
   // 외곽선
