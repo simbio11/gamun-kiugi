@@ -105,8 +105,10 @@ const SPECS: Spec[] = [
     lines: L(['가르쳐 준 친구가 수학 100점을 맞았다!'], ['가르치다 보니 나도 정리가 됐다.'], ['설명이 잘 안 됐다.'], ['싸우고 끝났다.']) },
   { id: 's_youth_council', icon: '🏛', cat: '사회', name: '청소년 의회·봉사단', desc: '매력·도덕성↑ · 공공 관심', stages: T, stat: 'mor', interest: 'public', marks: { network: 1 }, hap: [6, 3, 0, -2],
     lines: L(['제안한 안건이 구청 정책에 반영됐다!'], ['동네 벽화 봉사를 했다.'], ['회의만 길었다.'], ['의견이 무시당했다.']) },
-  { id: 's_webtoon', icon: '🎨', name: '웹툰·영상 만들기', desc: '매력↑ · 미디어 관심', stages: ET, stat: 'cha', interest: 'media', hap: [8, 4, 1, -2],
+  { id: 's_webtoon', icon: '🎬', name: '웹툰·영상 만들기', desc: '매력↑ · 미디어 관심', stages: T, stat: 'cha', interest: 'media', hap: [8, 4, 1, -2],
     lines: L(['올린 영상이 조회수 1만!'], ['4컷 만화를 완성했다.'], ['그리다 말았다.'], ['악플이 달렸다.']) },
+  { id: 's_art_lesson', icon: '🎻', name: '미술·음악 실기 레슨', desc: '매력↑ · 예체능 입시 실기 · 미디어 관심', stages: T, cost: 30, stat: 'cha', interest: 'media', marks: { art: 1 }, hap: [6, 3, 0, -3],
+    lines: L(['선생님이 "예고·예대 충분히 간다"고 했다.'], ['연습곡을 끝까지 쳤다. 손가락이 기억한다.'], ['진도가 안 나간다.'], ['레슨 시간에 졸았다.']) },
   { id: 's_career_books', icon: '📚', name: '진로 책·직업 인터뷰 읽기', desc: '지능↑ · 성향에 맞는 분야 관심', stages: ET, stat: 'int', study: [1, 1, 0, 0],
     lines: L(['"나 이거 하고 싶어!" 책을 들고 뛰어왔다.'], ['직업 인터뷰집을 다 읽었다.'], ['재미없어서 덮었다.'], ['펴 놓고 잤다.']),
     extra: (s, p, t) => {
@@ -116,7 +118,7 @@ const SPECS: Spec[] = [
       mark(p, 'i:' + c, 2);
       return `\n(${JOB_CATS[c]} 쪽 책에 빠졌다)`;
     } },
-  { id: 's_fitness', icon: '🏋', name: '체력 단련·줄넘기', desc: '근력·건강↑ · 스포츠·공공 관심', stages: ET, stat: 'str', interest: 'sport', hap: [5, 3, 0, -3],
+  { id: 's_fitness', icon: '🏋', name: '운동부·체력 단련', desc: '근력·건강↑ · 스포츠·공공 관심 · 운동 경험이 쌓이면 스카우트', stages: T, stat: 'str', interest: 'sport', marks: { sport: 1 }, hap: [5, 3, 0, -3],
     lines: L(['팔굽혀펴기 50개! 체력장 1등급.'], ['줄넘기 2단 뛰기 성공.'], ['땀만 났다.'], ['발목을 삐끗했다.']),
     extra: (_s, p, t) => (ok(t) ? ((p.actual.hp = clamp(p.actual.hp + 1, 0, 100)), '') : '') },
   { id: 's_mock_invest', icon: '📈', cat: '재산', name: '모의투자·경제 신문', desc: '지능↑ · 사무·금융 관심', stages: T, stat: 'int', interest: 'office', marks: { thrift: 1 },

@@ -14,6 +14,7 @@ const MAJOR_PATH: Record<string, Path> = {
   art: 'art', design: 'art', music: 'art', acting: 'art', beauty: 'art', cook: 'art',
   sport: 'sport',
   police: 'public', army: 'soldier', marine: 'public', flight: 'tech',
+  rail: 'public', heritage: 'edu', film: 'art', anim: 'art', fashion: 'art', game: 'tech', hotel: 'service',
 };
 
 const CAT_PATH: Record<string, Path> = {

@@ -579,6 +579,36 @@ function graduate(s: GameState, p: Person, track?: string) {
       setJob('officer');
       log(s, `🎖 ${fullName(p)} 소위 임관`, 'life');
       return;
+    case 'academy_air':
+      setJob('officer');
+      addFlag(p, 'flight_school');
+      log(s, `✈️ ${fullName(p)} 공군 소위 임관 · 비행 교육 시작`, 'life');
+      return;
+    case 'academy_nurse':
+      setJob('nurse', 1);
+      addFlag(p, 'officer_served');
+      log(s, `🩺 ${fullName(p)} 간호사 면허 취득 · 간호장교 소위 임관`, 'life');
+      return;
+    case 'coast_guard':
+      setJob('coast_guard', 1);
+      log(s, `🚢 ${fullName(p)} 해양경찰 간부후보로 임용`, 'life');
+      return;
+    case 'rail':
+      setJob('train_driver');
+      log(s, `🚆 ${fullName(p)} 철도차량 운전면허 취득, 기관사로 첫 운행`, 'life');
+      return;
+    case 'agri_univ':
+      setJob('smart_farmer', 1);
+      log(s, `🌾 ${fullName(p)} 한국농수산대 졸업, 청년 농업인으로 창업`, 'life');
+      return;
+    case 'culinary':
+      setJob('chef', 1);
+      log(s, `👨‍🍳 ${fullName(p)} 해외 요리학교 수료! 유명 레스토랑 주방에 들어갔다`, 'life');
+      return;
+    case 'hotel_school':
+      setJob('hotelier', 1);
+      log(s, `🏨 ${fullName(p)} 호텔스쿨 졸업, 특급호텔 매니저 트레이니로`, 'life');
+      return;
     case 'police_univ':
       setJob('police', 3);
       log(s, `👮 ${fullName(p)} 경위 임관`, 'life');

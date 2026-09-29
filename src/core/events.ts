@@ -530,7 +530,7 @@ function jobChoice(c: Ctx, id: string): Choice | undefined {
       run: (x) => {
         // 스펙: 학점·인턴 경력·자격증·교환학생·인턴 정규직 제안
         const spec = clamp(markOf(x.p, 'gpa') * 1.5, -6, 9) + Math.min(8, markOf(x.p, 'intern') * 3) + Math.min(4, markOf(x.p, 'cert') * 1.5) + (hasFlag(x.p, 'exchange') ? 3 : 0) + (hasFlag(x.p, 'intern_offer') ? 6 : 0);
-        const score = statScore(x.p, w) + interestBonus(x.p, j.cat) + (fitCats(x.p, 3).includes(j.cat as never) ? 3 : 0) + (hasFlag(x.p, 'univ_top') ? 5 : 0) + (majorFit ? 8 : 0) + (hasTrait(x.p, 'social') ? 3 : 0) + (hasTrait(x.p, 'diligent') ? 3 : 0) + spec;
+        const score = statScore(x.p, w) + interestBonus(x.p, j.cat) + (fitCats(x.p, 3).includes(j.cat as never) ? 3 : 0) + (hasFlag(x.p, 'univ_top') ? 5 : 0) + (hasFlag(x.p, 'elite:' + j.cat) ? 10 : 0) + (hasFlag(x.p, 'abroad_grad') ? 3 : 0) + (majorFit ? 8 : 0) + (hasTrait(x.p, 'social') ? 3 : 0) + (hasTrait(x.p, 'diligent') ? 3 : 0) + spec;
         if (check(x.s, score, e.pass ?? 30, 7)) {
           setJob(x.p, id, e.level ?? 0);
           return (e.text ?? `${j.name}(으)로 일하게 되었다.`) + applyDesire(x, e.tag);

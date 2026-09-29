@@ -160,7 +160,7 @@ const KID_ACTIONS: ActionDef[] = [
     name: '운동 연습',
     desc: '근력↑ · 운동 경험이 쌓이면 스카우트가 올지도',
     ap: 1,
-    who: 'kid',
+    stages: ['little', 'elem'], // 중학생부터는 더 구체적인 활동(운동부·실기 레슨·웹툰)으로 바뀐다
     run: (s) => {
       const me = h(s);
       const t = rollTier(s, me, { talent: 'athlete', stat: 'str' });
@@ -183,7 +183,7 @@ const KID_ACTIONS: ActionDef[] = [
     name: '그림·악기 연습',
     desc: '매력↑ · 예술 경험이 쌓이면 기회가 온다',
     ap: 1,
-    who: 'kid',
+    stages: ['little', 'elem'], // 중학생부터는 더 구체적인 활동(운동부·실기 레슨·웹툰)으로 바뀐다
     run: (s) => {
       const me = h(s);
       const t = rollTier(s, me, { talent: 'artist', stat: 'cha', bonus: markOf(me, 'art') * 0.01 });
