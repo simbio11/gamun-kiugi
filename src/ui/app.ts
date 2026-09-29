@@ -79,6 +79,7 @@ interface UIState {
   giftTo?: string;
   settings?: boolean;
   actCat?: string;
+  assetSub?: string;
   confirmReset?: boolean;
   setup: { surname: string; sex: Sex; origin: Difficulty | 'random' };
 }
@@ -217,7 +218,14 @@ function render() {
   if (m && modalKey !== fx.modalKey) m.classList.add(fx.modalKey ? 'swap' : 'enter');
   fx.modalKey = modalKey;
   const tabChanged = ui.tab !== fx.tab;
-  if (tabChanged) root.querySelector('.screen')?.classList.add('enter');
+  if (tabChanged) {
+    // 오른쪽 탭으로 가면 오른쪽에서, 왼쪽 탭으로 가면 왼쪽에서 밀려 들어온다
+    const dir = fx.tab === undefined ? 'enter' : TAB_ORDER.indexOf(ui.tab) > TAB_ORDER.indexOf(fx.tab) ? 'enter-r' : 'enter-l';
+    root.querySelector('.screen')?.classList.add(dir);
+    const nv = root.querySelector<HTMLElement>('nav.tabs');
+    if (nv && fx.tab !== undefined) (nv.style.setProperty('--from', String(TAB_ORDER.indexOf(fx.tab))), nv.classList.add('slide'));
+  } else if (ui.tab === 'assets' && fx.assetSub !== ui.assetSub) root.querySelector('.screen')?.classList.add('enter');
+  fx.assetSub = ui.assetSub;
   fx.tab = ui.tab;
   centerTree(g, tabChanged);
   // 지갑 숫자는 굴러가며 바뀌고, 증감이 떠오른다
@@ -280,7 +288,8 @@ function track(name: string, title = name) {
 }
 
 /** 직전 화면 상태 (애니메이션을 새로 생긴 것에만 주려고) */
-const fx: { modalKey: string; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number } = { modalKey: '' };
+const fx: { modalKey: string; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number; assetSub?: string } = { modalKey: '' };
+const TAB_ORDER: Tab[] = ['tree', 'act', 'policy', 'assets', 'log', 'achv'];
 
 function titleScreen(): string {
   const o = ui.setup;
@@ -463,7 +472,7 @@ function header(g: GameState): string {
       <div class="fam">${esc(g.familyName)}씨 ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
       <div class="fam">명성 ${Math.round(g.fame)}</div>
     </div>
-    <button class="top-r" data-action="tab" data-v="assets" title="자산 탭에서 내년 가계부 보기">
+    <button class="top-r" data-action="tab" data-v="assets" data-sub="sum" title="자산 탭에서 내년 가계부 보기">
       <div class="money">${w.label} <span class="amt">${formatMoney(fx.wallet !== undefined && fx.walletLabel === w.label ? fx.wallet : w.amount)}</span></div>
       <div class="flow">내년 <b class="${f.net < 0 ? 'neg' : 'pos'}">${f.net < 0 ? '' : '+'}${formatMoney(f.net)}</b> <small>(수입 ${formatMoney(inc)} · 지출 ${formatMoney(exp)})</small></div>
       ${w.label.includes('부모님') && (h.cash || f.mine) ? `<div class="fame">내 통장 ${formatMoney(h.cash)}${f.mine ? ` (+${formatMoney(f.mine)}/년)` : ''}</div>` : ''}
@@ -516,7 +525,7 @@ function realtyCard(g: GameState): string {
     <h4 class="sub">📋 ${g.year}년 매물 <small class="muted">해마다 바뀐다 · 행동 탭 '임장'으로 급매를 더 찾을 수 있다</small></h4>
     ${adult ? '' : '<p class="fine">스무 살이 되면 살 수 있다.</p>'}
     ${listings || '<p class="hint">올해는 매물이 다 나갔다.</p>'}
-    <p class="fine">첫 집(실거주)은 월세가 없는 대신 재산세가 싸고, 2년 넘게 살면 12억까지 양도세 비과세.<br>두 번째 집부터는 투자: 취득세 8%(3채 이상 12%), 대출 LTV 30%(3채부터 0%), 공시가 9억 넘으면 종부세, 팔 때 양도세 중과. 월세는 공실이면 0원.<br>전세 낀 매물은 적은 돈으로 살 수 있지만(갭투자), 만기에 세입자가 나가면 보증금을 돌려줘야 한다.</p>
+    <details class="moves"><summary>부동산 세금·규칙 보기</summary><p class="fine">첫 집(실거주)은 월세가 없는 대신 재산세가 싸고, 2년 넘게 살면 12억까지 양도세 비과세.<br>두 번째 집부터는 투자: 취득세 8%(3채 이상 12%), 대출 LTV 30%(3채부터 0%), 공시가 9억 넘으면 종부세, 팔 때 양도세 중과. 월세는 공실이면 0원.<br>전세 낀 매물은 적은 돈으로 살 수 있지만(갭투자), 만기에 세입자가 나가면 보증금을 돌려줘야 한다.</p></details>
   </section>`;
 }
 
@@ -553,7 +562,7 @@ function nav(): string {
     ['log', '연대기'],
     ['achv', '업적'],
   ];
-  return `<nav class="tabs">${tabs.map(([t, l]) => `<button data-action="tab" data-v="${t}" class="${ui.tab === t ? 'on' : ''}">${l}</button>`).join('')}</nav>`;
+  return `<nav class="tabs" style="--i:${TAB_ORDER.indexOf(ui.tab)}">${tabs.map(([t, l]) => `<button data-action="tab" data-v="${t}" class="${ui.tab === t ? 'on' : ''}">${l}</button>`).join('')}</nav>`;
 }
 
 function card(g: GameState, p: Person, extra = ''): string {
@@ -1039,6 +1048,15 @@ function assetRow(a: Asset, sellable: boolean, live = false): string {
 
 const pct = (v?: number) => (v === undefined ? '' : `<small class="${v >= 0 ? 'up' : 'down'}">${v >= 0 ? '▲' : '▼'}${Math.abs(v * 100).toFixed(1)}%</small>`);
 
+const ASSET_SUBS: [string, string][] = [
+  ['sum', '📒 요약'],
+  ['home', '🏠 집·부동산'],
+  ['inv', '📈 투자'],
+  ['car', '🚗 차'],
+  ['fam', '👪 가족 재산'],
+  ['tax', '📜 상속·증여'],
+];
+
 function assetsScreen(g: GameState): string {
   const h = head(g);
   const skip = new Set([h.id, ...parentsOf(g, h).map((p) => p.id)]);
@@ -1051,6 +1069,11 @@ function assetsScreen(g: GameState): string {
   const et = estateTax(g, h);
 
   const units = TRADE_UNITS.map((u) => [u, formatMoney(u)] as const);
+  const cur = ui.assetSub ?? 'sum';
+  const on = (k: string) => cur === k;
+  const chips = ASSET_SUBS.filter(([k]) => k !== 'car' || age(g, h) >= 19)
+    .map(([k, l]) => `<button data-action="asset-sub" data-v="${k}" class="${cur === k ? 'on' : ''}">${l}</button>`)
+    .join('');
   return `
   ${
     householder(g).id !== h.id
@@ -1065,14 +1088,14 @@ function assetsScreen(g: GameState): string {
     <div class="bank-s">${familyBreakdown(g)}</div>
   </section>`
   }
-  ${mineCard(g)}
-  ${homeCard(g)}
-  ${vehicleCard(g)}
-  ${parentsCard(g)}
-  ${budgetCard(g)}
+  <div class="cat-chips sub-chips">${chips}</div>
+  ${on('sum') ? mineCard(g) + budgetCard(g) : ''}
+  ${on('home') ? homeCard(g) + realtyCard(g) : ''}
+  ${on('car') ? vehicleCard(g) : ''}
+  ${on('fam') ? parentsCard(g) : ''}
 
   ${
-    members.length
+    on('fam') && members.length
       ? `<section class="card">
     <h2>가족 재산 <small class="muted">배우자·자녀·손주 등</small></h2>
     ${members
@@ -1087,10 +1110,15 @@ function assetsScreen(g: GameState): string {
       : ''
   }
 
-  ${realtyCard(g)}
 
-  <section class="card">
+  ${
+    on('inv')
+      ? `<section class="card">
     <h2>투자 시장 <small class="muted">가주 명의로 매수</small></h2>
+    ${(() => {
+      const held = mine.filter((a) => a.kind === 'stock' || a.kind === 'coin' || a.kind === 'art');
+      return held.length ? `<h4 class="sub">💼 내 투자</h4>${held.map((a) => assetRow(a, true)).join('')}` : '';
+    })()}
     <div class="mkt">${(REAL_ESTATE as AssetKind[]).map((k) => `<span>${ASSET_ICONS[k]} ${ASSET_NAMES[k].replace('강남 ', '서울 ')} ${pct(g.marketChange[k as MarketKey])}</span>`).join('')}</div>
     ${(['stock', 'coin'] as const)
       .map(
@@ -1109,9 +1137,13 @@ function assetsScreen(g: GameState): string {
       (tier, i) => `<div class="arow"><span>${tier.name}</span><span>${formatMoney(artPrice(g, i))} <button class="mini" data-action="buy" data-v="art" data-amt="${i}" ${canBuy(g, 'art', artPrice(g, i)) ? '' : 'disabled'}>구입</button></span></div>`,
     ).join('')}
     <p class="fine">상속세 평가는 감정가의 50% → 절세 수단. 대신 위작일 수 있다 (비쌀수록 위험). 감정이나 매각 때 드러난다.</p>
-  </section>
+  </section>`
+      : ''
+  }
 
-  <section class="card">
+  ${
+    on('tax')
+      ? `<section class="card">
     <h2>절세 · 상속 대비</h2>
     <div class="sh-row"><span>지금 사망 시</span><span>상속세 <b>${formatMoney(et.tax)}</b>${et.gross > 0 ? ` (실효 ${((et.tax / et.gross) * 100).toFixed(1)}%)` : ''}</span></div>
     <div class="sh-row"><span>세법상 평가액</span><span>${formatMoney(et.assessed)} / 시가 ${formatMoney(et.gross)}</span></div>
@@ -1172,7 +1204,9 @@ function assetsScreen(g: GameState): string {
       .join('')}</div>
     <div class="sh-row"><span>유언장</span><span>${g.willWritten ? '✍ 작성함' : '없음 — 떠나면 자식들이 다툴 수 있다'}</span></div>
     <p class="fine">유언장을 쓰면 재산이 뜻대로 가지만 기력이 쇠해 수명이 조금 줄어든다. 안 쓰면 오래 버티지만, 떠난 뒤 부동산이 급매되고 자식들이 다툰다.<br>후계자에게 몰아주면 재산을 지키기 쉽지만, 몫을 못 받은 형제는 불만을 품는다.</p>
-  </section>`;
+  </section>`
+      : ''
+  }`;
 }
 
 const AUTO_GIFT_STEPS = [0, 300, 500, 1000, 2500, 5000];
@@ -1299,7 +1333,7 @@ function propertyStrip(g: GameState): string {
       tiles.length
         ? tiles
             .map(
-              (x) => `<button class="prop ${x.cls}" data-action="tab" data-v="assets">
+              (x) => `<button class="prop ${x.cls}" data-action="tab" data-v="assets" data-sub="${x.cls === 'car' ? 'car' : 'home'}">
           <img src="${x.img}" alt="">
           <span class="p-tag">${esc(x.tag)}</span>
           <span class="p-nm">${esc(x.name)}</span>
@@ -1483,6 +1517,7 @@ function handle(el: HTMLElement) {
     case 'tab':
       ui.tab = v as Tab;
       ui.sheet = undefined;
+      if (el.dataset.sub) ui.assetSub = el.dataset.sub;
       break;
     case 'person':
       ui.sheet = id;
@@ -1516,6 +1551,9 @@ function handle(el: HTMLElement) {
       break;
     case 'act-cat':
       ui.actCat = v;
+      break;
+    case 'asset-sub':
+      ui.assetSub = v;
       break;
     case 'buy-car': {
       const r = buyVehicle(g!, id);

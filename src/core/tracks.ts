@@ -328,7 +328,63 @@ const W: Spec[] = [
     lines: L(['만든 앱이 앱스토어 1위를 찍었다!'], ['오픈소스에 기여해 이름이 알려졌다.'], ['주말마다 붙잡고 있지만 진척이 없다.'], ['회사 겸업 규정 위반 경고를 받았다.']) },
 ];
 
-export const TRACK_ACTIONS: ActionDef[] = [...U, ...X, ...W].map(build);
+// ───────────────────────── 트랙 보강: 얇던 길마다 한두 개씩 더 ─────────────────────────
+
+const MORE: Spec[] = [
+  // 대학생
+  { id: 'u_med_anatomy', tracks: ['u:med'], icon: '🦴', name: '해부학 실습·족보 스터디', desc: '의대 본과의 벽 · 학점↑ 국시 대비 · 체력 소모', roll: { stat: 'int', talent: 'genius' }, gpa: true, grow: [['int', 0.7]], hp: [0, -1, -1, -2], hap: [3, -1, -4, -8],
+    lines: L(['카데바 앞에서 한 번도 흔들리지 않았다. 실습 조장이 됐다.'], ['동기들과 족보를 나눠 외웠다. 유급은 면했다.'], ['신경 이름이 머릿속에서 엉킨다.'], ['땡시험에서 절반을 날렸다. 유급 경고장이 나왔다.']) },
+  { id: 'u_med_volunteer', tracks: ['u:med', 'u:health', 'u:kmd'], icon: '🩺', name: '의료봉사 동아리', desc: '도덕성↑ 매력↑ · 방학 무료 진료 보조', cost: 30, roll: { stat: 'mor' }, grow: [['mor', 0.6], ['cha', 0.4]], marks: { kind: 1 }, hap: [8, 4, 1, -3],
+    lines: L(['섬마을 할머니가 손을 꼭 잡고 "의사 선생님 되거든 또 와" 하셨다.'], ['혈압 재는 줄이 끝이 없었다.'], ['약 봉투만 하루 종일 쌌다.'], ['배멀미로 첫날을 날렸다.']) },
+  { id: 'u_gen_club', tracks: ['u:gen', 'u:biz', 'u:hum'], icon: '🎪', name: '중앙동아리 운영진', desc: '인맥↑ 매력↑ · 학점은 조금 손해', roll: { stat: 'cha' }, grow: [['cha', 0.6]], marks: { network: 1 }, hap: [8, 4, 0, -4],
+    lines: L(['축제 공연을 기획했다. 총장님이 SNS에 올렸다.'], ['후배들이 "선배" 하며 따른다.'], ['회의만 많고 되는 일이 없다.'], ['회비 정산이 안 맞아 운영진끼리 싸웠다.']) },
+  { id: 'u_biz_case', tracks: ['u:biz'], icon: '📊', name: '경영 케이스 공모전·금융 동아리', desc: '대기업·금융권 취업 스펙', cost: 20, roll: { stat: 'int' }, grow: [['int', 0.5], ['cha', 0.3]], marks: { intern: 1, network: 1 }, cash: [500, 0, 0, 0], hap: [10, 3, -2, -5],
+    lines: L(['대기업 공모전 대상! 서류 전형 면제권이 나왔다.'], ['주식 리서치 보고서를 매주 썼다.'], ['팀원이 잠수를 탔다.'], ['발표 날 PPT가 안 열렸다.']) },
+  { id: 'u_sea_training', tracks: ['u:sea'], icon: '⚓', name: '승선 실습·비행 훈련', desc: '체력↑ · 항해사·파일럿 면허에 가깝게', roll: { stat: 'str' }, gpa: true, grow: [['str', 0.5], ['mor', 0.4]], hp: [1, 0, -1, -3], hap: [6, 2, -2, -6],
+    lines: L(['첫 단독 조종! 교관이 엄지를 들었다.', '태평양 한가운데서 본 별이 평생 기억날 것 같다.'], ['당직을 무사히 섰다.'], ['뱃멀미가 아직도 심하다.'], ['항법 실수로 교관에게 크게 혼났다.']) },
+  { id: 'u_craft_competition', tracks: ['u:craft'], icon: '🏅', name: '요리·미용 경진대회', desc: '매력↑ · 입상하면 취업·창업에 유리', cost: 50, roll: { stat: 'cha' }, grow: [['cha', 0.6]], marks: { art: 1, cert: 1 }, fame: [1, 0, 0, 0], hap: [12, 4, -2, -6],
+    lines: L(['국제 요리 대회 금메달! 호텔 셰프에게서 명함을 받았다.', '헤어 대회 대상. 청담동 살롱에서 연락이 왔다.'], ['입상했다.'], ['시간 안에 못 끝냈다.'], ['재료를 떨어뜨렸다. 머리가 하얘졌다.']) },
+  { id: 'u_perf_showcase', tracks: ['u:perf', 'u:art'], icon: '🎭', name: '졸업 공연·전시 준비', desc: '매력↑ · 업계 관계자 눈에 들 기회', roll: { stat: 'cha', talent: 'artist' }, grow: [['cha', 0.8]], fame: [2, 0, 0, 0], marks: { art: 2 }, hap: [12, 5, -2, -8],
+    lines: L(['공연이 끝나고 기획사 캐스팅 디렉터가 찾아왔다.', '전시 작품이 첫날 팔렸다.'], ['객석이 꽉 찼다.'], ['관객 절반이 가족이었다.'], ['리허설에서 무대 장치가 무너졌다.']) },
+  // 수험생
+  { id: 'x_academia_paper', tracks: ['x:academia'], icon: '📄', name: '논문 투고 (SCI급)', desc: '교수 임용 실적 · 게재되면 합격 준비↑↑', roll: { stat: 'int', talent: 'genius' }, prep: true, grow: [['int', 0.6]], fame: [1, 0, 0, 0], hap: [10, 2, -4, -8],
+    lines: L(['1저자 논문이 해외 저널에 게재 승인! 임용 서류에 한 줄.'], ['리비전 요청이 왔다. 희망이 보인다.'], ['리뷰어 3번이 모든 걸 부정했다.'], ['투고한 저널에서 한 줄 리젝트 메일이 왔다.']) },
+  { id: 'x_press_essay', tracks: ['x:press'], icon: '🗞', name: '언론사 논술·작문 스터디', desc: '"언론고시" 필기 대비 · 합격 준비↑', roll: { stat: 'int' }, prep: true, grow: [['int', 0.4], ['cha', 0.4]], hap: [4, 0, -3, -6],
+    lines: L(['스터디에서 쓴 칼럼이 실제 신문에 기고문으로 실렸다.'], ['시사 상식 모의고사 1등.'], ['첨삭이 빨간 줄로 가득하다.'], ['마감 시간을 넘겼다. 한 줄도 못 썼다.']) },
+  { id: 'x_medlic_mock', tracks: ['x:medlic'], icon: '🩻', name: '국가고시 모의고사', desc: '의료인 국시 대비 · 합격 준비↑', cost: 30, roll: { stat: 'int' }, prep: true, hap: [4, 0, -3, -6],
+    lines: L(['전국 모의고사 상위 5%. 합격권이다.'], ['약점 과목이 보인다.'], ['외운 게 시험장에서 생각이 안 난다.'], ['과락 과목이 두 개나 나왔다.']) },
+  // 직장인
+  { id: 'w_legal_case', tracks: ['w:legal'], icon: '📁', name: '큰 사건·감사 맡기', desc: '성공하면 명성·보수↑ · 야근 지옥', roll: { stat: 'int' }, grow: [['int', 0.5]], cash: [3000, 800, 0, 0], fame: [2, 1, 0, -1], hp: [-1, -1, -2, -3], hap: [10, 3, -3, -8], promo: 0.5,
+    lines: L(['대법원에서 원심 파기 환송을 이끌어 냈다. 법조 신문에 이름이 났다.', '대기업 세무조사를 막아 냈다. 성공 보수가 두둑하다.'], ['의뢰인이 감사 인사로 과일 상자를 보냈다.'], ['서면만 쓰다 한 해가 갔다.'], ['패소했다. 의뢰인이 수임료를 돌려달라고 한다.']) },
+  { id: 'w_med_surgery', tracks: ['w:med'], icon: '🔪', name: '어려운 수술·진료 맡기', desc: '실력·명성↑ · 의료사고 위험', roll: { stat: 'int', talent: 'genius' }, grow: [['int', 0.5], ['mor', 0.3]], fame: [2, 1, 0, -2], cash: [1000, 300, 0, -2000], hap: [12, 4, -2, -12], promo: 0.4,
+    lines: L(['다른 병원이 포기한 환자를 살렸다. 방송국에서 취재를 왔다.'], ['수술이 잘 끝났다. 보호자가 90도로 인사했다.'], ['당직만 서다 한 해가 갔다.'], ['합병증이 생겼다. 환자 가족이 소송을 예고했다.']) },
+  { id: 'w_med_conference', tracks: ['w:med', 'w:care'], icon: '🏛', name: '학회 발표·연수', desc: '최신 지식 · 인맥↑', cost: 150, roll: { stat: 'int' }, grow: [['int', 0.5]], marks: { network: 1 }, hap: [6, 3, 0, -3],
+    lines: L(['해외 학회 구연 발표! 좌장이 극찬했다.'], ['새 시술법을 배워 왔다.'], ['시차 적응에 실패해 졸았다.'], ['발표 슬라이드가 한글이 다 깨졌다.']) },
+  { id: 'w_trade_master', tracks: ['w:trade'], icon: '🛠', name: '기능장·기술사 도전', desc: '현장 최고 자격 · 합격하면 직급↑', cost: 50, roll: { stat: 'int' }, grow: [['int', 0.4], ['str', 0.3]], marks: { cert: 2 }, hap: [10, 3, -2, -5], promo: 0.8,
+    lines: L(['기능장 합격! 현장 반장 자리가 약속됐다.'], ['필기는 붙었다. 실기는 내년.'], ['야간 공부가 너무 힘들다.'], ['실기 시험에서 손을 다쳤다.']) },
+  { id: 'w_trade_overtime', tracks: ['w:trade', 'w:transport'], icon: '🌙', name: '특근·야간 근무 자원', desc: '돈↑ 건강↓ (주말·야간 수당)', roll: { stat: 'str' }, cash: [900, 600, 400, 200], hp: [0, -1, -2, -3], hap: [2, -1, -3, -6],
+    lines: L(['특근 수당으로 아이 학원비를 한 번에 냈다.'], ['야간 수당이 쏠쏠하다.'], ['피곤이 쌓인다.'], ['졸음운전으로 아찔한 순간이 있었다.']) },
+  { id: 'w_service_signature', tracks: ['w:service'], icon: '⭐', name: '시그니처 메뉴·스타일 개발', desc: '매력↑ · 단골·팔로워가 는다', cost: 50, roll: { stat: 'cha', talent: 'artist' }, grow: [['cha', 0.6]], cash: [800, 300, 0, -50], fame: [1, 0, 0, 0], hap: [10, 4, -1, -4],
+    lines: L(['만든 메뉴가 SNS에서 대박. 웨이팅이 두 시간이다.', '손님 머리 사진이 인스타 인기 게시물에 올랐다.'], ['단골이 늘었다.'], ['반응이 미지근하다.'], ['손님이 컴플레인을 걸었다. 별점 1개 리뷰.']) },
+  { id: 'w_service_indie', tracks: ['w:service'], icon: '🏪', name: '내 가게 차릴 준비 (상권 분석)', desc: '독립 창업의 첫걸음 · 지능↑', roll: { stat: 'int', talent: 'merchant' }, grow: [['int', 0.4], ['cha', 0.3]], marks: { network: 1 }, hap: [6, 2, -1, -3],
+    lines: L(['목 좋은 자리를 권리금 없이 찾았다! 사장님이 은퇴하신단다.'], ['유동 인구를 세러 사흘을 서 있었다.'], ['임대료가 너무 비싸다.'], ['상가 중개사에게 속을 뻔했다.']) },
+  { id: 'w_tech_sideproject', tracks: ['w:tech'], icon: '🧪', name: '사이드 프로젝트·오픈소스', desc: '실력·명성↑ · 대박이면 수익', roll: { stat: 'int', talent: 'genius' }, grow: [['int', 0.6]], cash: [2000, 200, 0, 0], fame: [2, 0, 0, 0], hap: [10, 4, -1, -3],
+    lines: L(['만든 앱이 앱스토어 1위를 찍었다!', '오픈소스 프로젝트에 별이 1만 개. 해외에서 이직 제안이 왔다.'], ['GitHub 잔디가 빼곡하다.'], ['주말이 사라졌다.'], ['회사 겸업 금지 조항에 걸려 경고를 받았다.']) },
+  { id: 'w_office_mba', tracks: ['w:office', 'w:finance'], icon: '🎓', name: '야간 MBA·사내 교육', desc: '지능↑ · 승진 발판', cost: 800, roll: { stat: 'int' }, grow: [['int', 0.6], ['cha', 0.3]], marks: { network: 1 }, hap: [4, 0, -3, -6], promo: 0.6,
+    lines: L(['MBA 동기 중에 임원이 있었다. 팀장 자리 제안이 왔다.'], ['퇴근 후 강의실이 오히려 활력이 된다.'], ['졸면서 들었다.'], ['과제에 치여 가족과 다퉜다.']) },
+  { id: 'w_edu_homeroom', tracks: ['w:edu'], icon: '🏫', name: '담임·입시 지도 맡기', desc: '보람·명성↑ · 업무 폭탄', roll: { stat: 'cha' }, grow: [['cha', 0.4], ['mor', 0.4]], fame: [1, 0, 0, -1], hap: [12, 4, -3, -10],
+    lines: L(['반 아이들이 스승의 날 깜짝 파티를 열어 줬다. 졸업생이 편지를 보냈다.'], ['진학 상담한 아이가 원하는 대학에 붙었다.'], ['민원 전화가 끊이지 않는다.'], ['학부모가 교육청에 민원을 넣었다. 억울하다.']) },
+  { id: 'w_care_night', tracks: ['w:care'], icon: '🌃', name: '3교대 나이트 근무', desc: '수당↑ 건강↓', roll: { stat: 'str' }, cash: [600, 400, 300, 200], hp: [0, -1, -2, -3], hap: [4, 0, -3, -8],
+    lines: L(['위급한 환자를 먼저 알아채 살렸다. 교수님이 이름을 기억했다.'], ['조용한 밤이었다.'], ['밤낮이 바뀌어 머리가 멍하다.'], ['태움을 당했다. 화장실에서 한참 울었다.']) },
+  { id: 'w_sport_comeback', tracks: ['w:sport'], icon: '🔥', name: '재활·컴백 훈련', desc: '체력↑ · 부상 이겨 내기', cost: 200, roll: { stat: 'str' }, grow: [['str', 0.7]], hp: [2, 1, 0, -2], fame: [1, 0, 0, 0], hap: [10, 4, -2, -8],
+    lines: L(['부상 복귀전에서 결승골! 관중이 기립 박수를 쳤다.'], ['예전 폼을 되찾아 간다.'], ['아직 통증이 남아 있다.'], ['재활 중 다시 다쳤다.']) },
+  { id: 'w_creator_collab', tracks: ['w:creator', 'w:press'], icon: '🤝', name: '대형 콜라보·특집 기획', desc: '명성↑ · 대박이면 수익', roll: { stat: 'cha', talent: 'artist' }, grow: [['cha', 0.5]], fame: [3, 1, 0, -1], cash: [2000, 500, 0, 0], hap: [12, 4, -1, -6],
+    lines: L(['콜라보 영상이 1,000만 뷰! 광고 문의가 쏟아진다.', '특집 기사가 이달의 기자상을 받았다.'], ['반응이 좋았다.'], ['조회수가 평소만큼.'], ['발언 하나가 논란이 됐다. 사과문을 올렸다.']) },
+  { id: 'w_farm_smart', tracks: ['w:farm'], icon: '📡', name: '스마트팜 설비·6차 산업', desc: '생산성↑ · 체험농장·가공품으로 수익 다변화', cost: 500, roll: { stat: 'int' }, grow: [['int', 0.4]], cash: [2500, 1000, 200, -200], hap: [8, 4, 0, -5],
+    lines: L(['딸기 체험농장 예약이 주말마다 매진이다.'], ['자동 관수 덕에 일이 줄었다.'], ['설비 적응 중이다.'], ['센서 오작동으로 한 동이 다 말랐다.']) },
+];
+
+export const TRACK_ACTIONS: ActionDef[] = [...U, ...X, ...W, ...MORE].map(build);
 
 /** 가주 입장: 준비 중인 시험의 준비도(흔적 'prep')가 합격 점수에 더해진다 */
 export const prepBonus = (p: Person) => Math.min(10, Math.max(0, markOf(p, 'prep')) * 1.2);
