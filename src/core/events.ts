@@ -193,7 +193,7 @@ const dream: EventDef = {
     c.ev.data ??= { quote: dreamQuote(c.s, c.p) ?? pick(c.s, DREAM_QUOTES[c.p.desire]) };
     return `${iga(who(c))} 진지하게 말한다.\n"${c.ev.data.quote}"`;
   },
-  choices: () => [
+  choices: (c) => gate(c.s, [
     {
       label: '응원한다',
       run: (x) => {
@@ -201,6 +201,25 @@ const dream: EventDef = {
         x.p.affinity = clamp(x.p.affinity + 12, -100, 100);
         x.p.happiness = clamp(x.p.happiness + 8, 0, 100);
         return `${iga(who(x))} 환하게 웃는다. (꿈에 맞는 선택을 하면 성장 보너스)`;
+      },
+    },
+    {
+      label: '그 꿈에 맞는 체험을 시켜 준다',
+      cost: 100,
+      run: (x) => {
+        x.p.desireKnown = true;
+        x.p.affinity = clamp(x.p.affinity + 8, -100, 100);
+        const [top] = topInterests(x.p, 1, 1);
+        if (top) mark(x.p, 'i:' + top, 2);
+        return `직업 체험관에 데려갔다. ${iga(who(x))} 유니폼을 입고 한참을 안 벗으려 했다. (관심이 더 깊어졌다)`;
+      },
+    },
+    {
+      label: '현실적인 이야기를 해 준다',
+      run: (x) => {
+        x.p.desireKnown = true;
+        x.p.actual.int = clamp(x.p.actual.int + 1, 0, Math.max(x.p.potential.int, x.p.actual.int));
+        return `그 일이 실제로 어떤지, 뭘 준비해야 하는지 차근차근 얘기해 줬다. ${iga(who(x))} 고개를 끄덕이며 메모를 했다.`;
       },
     },
     {
@@ -215,7 +234,7 @@ const dream: EventDef = {
         return `${iga(who(x))} 입을 삐죽 내민다. 꿈은 그대로인 것 같다.`;
       },
     },
-  ],
+  ]),
 };
 
 const middle: EventDef = {
