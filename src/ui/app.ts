@@ -1515,6 +1515,7 @@ function handle(el: HTMLElement) {
       if (v === '1') sfx('choose');
       break;
     case 'tab':
+      if (ui.tab !== v) window.scrollTo(0, 0); // 새 탭은 맨 위에서 시작
       ui.tab = v as Tab;
       ui.sheet = undefined;
       if (el.dataset.sub) ui.assetSub = el.dataset.sub;
@@ -1554,6 +1555,7 @@ function handle(el: HTMLElement) {
       break;
     case 'asset-sub':
       ui.assetSub = v;
+      window.scrollTo(0, 0);
       break;
     case 'buy-car': {
       const r = buyVehicle(g!, id);

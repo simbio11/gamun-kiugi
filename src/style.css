@@ -452,3 +452,11 @@ small.down { color: #2d6fb5; }
 @keyframes tab-pop { from { transform: scale(0.85); } }
 .sub-chips { padding-top: 10px; }
 #app.calm .tabs::before { animation: none; }
+
+/* ─── 폰에서 화면 크기 고정 ─── */
+/* 두 번 탭 확대·글자 자동 확대를 막고, 애니메이션 중 옆으로 삐져나온 부분이 화면을 넓히지 않게 자른다 */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow-x: hidden; }
+#app { overflow-x: clip; }
+.screen.enter-r, .screen.enter-l { will-change: transform, opacity; }
+@keyframes slide-r { from { opacity: 0; transform: translateX(16px); } }
+@keyframes slide-l { from { opacity: 0; transform: translateX(-16px); } }
