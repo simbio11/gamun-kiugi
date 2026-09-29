@@ -122,13 +122,16 @@ describe('인생 시스템', () => {
     expect(doAction(s, 'family_trip').ok).toBe(false);
     expect(doAction(s, 'kid_help').ok).toBe(true);
     expect(apLeft(s)).toBe(2);
-    expect(markOf(h, 'warmth')).toBe(1);
+    // 결과는 들쭉날쭉하지만, 몇 번 하면 흔적이 쌓인다
+    for (let i = 0; i < 5 && !markOf(h, 'warmth'); i++) ((s.ap = 3), doAction(s, 'kid_help'));
+    expect(markOf(h, 'warmth')).toBeGreaterThanOrEqual(1);
     // 어른이 된 뒤
     s.year = h.birthYear + 40;
     h.cash = 100000;
     s.ap = 3;
     expect(doAction(s, 'volunteer').ok).toBe(true);
-    expect(markOf(h, 'kind')).toBe(1);
+    for (let i = 0; i < 5 && !markOf(h, 'kind'); i++) ((s.ap = 3), doAction(s, 'volunteer'));
+    expect(markOf(h, 'kind')).toBeGreaterThanOrEqual(1);
     // 흔적이 쌓이면 회수 이벤트가 열린다
     mark(h, 'kind', 3);
     expect(SEED_EVENTS.find((e) => e.id === 'seed_kind')!.weight!(s, h)).toBeGreaterThan(0);
@@ -184,5 +187,21 @@ describe('인생 시스템', () => {
       expect(Number.isFinite(forecast(s).net)).toBe(true);
     }
     expect(offered).toBeGreaterThan(3);
+  });
+
+  it('행동 결과는 매번 다르다: 같은 연습도 오르는 능력치와 대사가 들쭉날쭉', () => {
+    const texts = new Set<string>();
+    const gains = new Set<number>();
+    for (let seed = 1; seed <= 30; seed++) {
+      const s = newGame({ seed, familyName: '최', sex: 'M' });
+      s.events = [];
+      const h = head(s);
+      const before = h.actual.cha;
+      const r = doAction(s, 'kid_art');
+      texts.add(r.text.replace(/ \(.*\)$/, ''));
+      gains.add(h.actual.cha - before);
+    }
+    expect(texts.size).toBeGreaterThan(5);
+    expect(gains.size).toBeGreaterThan(2);
   });
 });

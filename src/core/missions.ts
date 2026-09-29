@@ -90,7 +90,7 @@ export function checkMissions(s: GameState) {
     m.state = 'done';
     s.fame += d.fame;
     if (d.cash) s.familyCash += d.cash;
-    s.log.push({ year: s.year, text: `🎯 세대 미션 달성: ${d.name}` + (d.fame ? ` (명성 +${d.fame})` : '') + (d.cash ? ` (가문 금고 +${d.cash >= 10000 ? d.cash / 10000 + '억' : d.cash + '만'})` : ''), kind: 'achv' });
+    s.log.push({ year: s.year, text: `🎯 세대 미션 달성: ${d.name}` + (d.fame ? ` (명성 +${d.fame})` : '') + (d.cash ? ` (상금 +${d.cash >= 10000 ? d.cash / 10000 + '억' : d.cash + '만'})` : ''), kind: 'achv' });
   }
   const done = (s.missions ?? []).filter((m) => m.state === 'done').length;
   if (done >= 10) unlock(s, 'mission10');

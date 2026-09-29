@@ -21,6 +21,18 @@ export function personWorth(s: GameState, p: Person): number {
   return p.cash + assetsOf(s, p.id).reduce((t, a) => t + a.value, 0);
 }
 
+/**
+ * 공동 금고는 없다: 누구 명의도 아닌 돈·재산(옛 저장의 가문 금고, 미션 상금, 상속인 없는 재산 등)은
+ * 지금 살림을 맡은 사람 명의로 옮긴다. 가문 자산 = 가족 각자의 재산 합계.
+ */
+export function foldFamilyPot(s: GameState) {
+  if (!s.familyCash && !s.assets.some((a) => a.ownerId === 'family')) return;
+  const to = householder(s);
+  to.cash += s.familyCash;
+  s.familyCash = 0;
+  for (const a of s.assets) if (a.ownerId === 'family') a.ownerId = to.id;
+}
+
 export function familyWorth(s: GameState): number {
   return s.familyCash + assetsOf(s, 'family').reduce((t, a) => t + a.value, 0);
 }

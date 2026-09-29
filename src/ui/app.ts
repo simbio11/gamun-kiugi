@@ -1,3 +1,4 @@
+import { buzz, floatDelta, rollNumber, setSound, sfx, soundOn, type Sfx } from './fx';
 import {
   ACHIEVEMENTS,
   ART_TIERS,
@@ -19,7 +20,7 @@ import {
   TALENTS,
   WILL_NAMES,
 } from '../core/data';
-import { advisorFee, assessedValue, assetsOf, familyWorth, forecast, formatMoney, jobTitle, personWorth } from '../core/economy';
+import { advisorFee, assessedValue, assetsOf, forecast, formatMoney, jobTitle, personWorth } from '../core/economy';
 import { estateTax, previewAssetGiftTax, previewGiftTax } from '../core/estate';
 import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
@@ -72,6 +73,7 @@ const SAVE_KEY = 'gamun-kiugi-save-v1';
 const PREF_KEY = 'gamun-kiugi-prefs';
 
 const prefs = loadPrefs();
+setSound(prefs.sound ?? true);
 const ui: UIState = {
   game: load(),
   tab: 'tree',
@@ -89,7 +91,7 @@ function load(): GameState | null {
     return null;
   }
 }
-function loadPrefs(): { view?: 'tree' | 'list'; zoom?: Zoom } {
+function loadPrefs(): { view?: 'tree' | 'list'; zoom?: Zoom; sound?: boolean } {
   try {
     return JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}');
   } catch {
@@ -98,7 +100,7 @@ function loadPrefs(): { view?: 'tree' | 'list'; zoom?: Zoom } {
 }
 function savePrefs() {
   try {
-    localStorage.setItem(PREF_KEY, JSON.stringify({ view: ui.view, zoom: ui.zoom }));
+    localStorage.setItem(PREF_KEY, JSON.stringify({ view: ui.view, zoom: ui.zoom, sound: soundOn() }));
   } catch {
     /* noop */
   }
@@ -129,6 +131,7 @@ export function mount(el: HTMLElement) {
   hasSave = !!ui.game;
   ui.game = null;
   root.addEventListener('click', onClick);
+  root.addEventListener('touchstart', () => {}, { passive: true }); // iOS에서 :active 눌림 효과 켜기
   root.addEventListener('input', onInput);
   render();
 }
@@ -142,11 +145,15 @@ function render() {
     return;
   }
   let modal = '';
-  if (g.gameOver) modal = gameOverModal(g);
-  else if (ui.report) modal = reportModal(ui.report);
-  else if (ui.outcome) modal = outcomeModal(ui.outcome);
-  else if (g.events.length) modal = eventModal(g);
-  else if (ui.sheet) modal = personSheet(g, g.people[ui.sheet]);
+  let modalKey = '';
+  if (g.gameOver) (modal = gameOverModal(g)), (modalKey = 'over');
+  else if (ui.report) (modal = reportModal(ui.report)), (modalKey = 'rep' + ui.report.title);
+  else if (ui.outcome) (modal = outcomeModal(ui.outcome)), (modalKey = 'out' + ui.outcome.title + ui.outcome.text);
+  else if (g.events.length) {
+    modal = eventModal(g);
+    const ev = g.events[0];
+    modalKey = `ev${ev.uid}:${JSON.stringify(ev.data ?? '')}`;
+  } else if (ui.sheet) (modal = personSheet(g, g.people[ui.sheet])), (modalKey = 'sheet' + ui.sheet);
 
   const body = { tree: treeScreen, act: actionsScreen, policy: policyScreen, assets: assetsScreen, log: logScreen, achv: achvScreen }[ui.tab](g);
   root.innerHTML = `
@@ -157,16 +164,38 @@ function render() {
     ${modal}
     ${ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ''}
   `;
+  // 새로 뜬 것만 움직인다: 같은 창이 다시 그려질 땐 가만히
+  const m = root.querySelector('.modal');
+  if (m && modalKey !== fx.modalKey) m.classList.add(fx.modalKey ? 'swap' : 'enter');
+  fx.modalKey = modalKey;
+  if (ui.tab !== fx.tab) root.querySelector('.screen')?.classList.add('enter');
+  fx.tab = ui.tab;
+  // 지갑 숫자는 굴러가며 바뀌고, 증감이 떠오른다
+  const amt = root.querySelector('.money .amt');
+  const w = wallet(g).amount;
+  if (amt && fx.wallet !== undefined && fx.wallet !== w && fx.walletLabel === wallet(g).label) {
+    rollNumber(amt, fx.wallet, w, formatMoney);
+    floatDelta(amt, `${w > fx.wallet ? '+' : '−'}${formatMoney(Math.abs(w - fx.wallet))}`, w > fx.wallet);
+    amt.parentElement?.classList.add(w > fx.wallet ? 'bump-up' : 'bump-down');
+  }
+  fx.wallet = w;
+  fx.walletLabel = wallet(g).label;
   if (ui.toast) {
     const t = ui.toast;
     setTimeout(() => {
-      if (ui.toast === t) {
+      if (ui.toast !== t) return;
+      root.querySelector('.toast')?.classList.add('out');
+      setTimeout(() => {
+        if (ui.toast !== t) return;
         ui.toast = undefined;
         root.querySelector('.toast')?.remove();
-      }
+      }, 260);
     }, 2200);
   }
 }
+
+/** 직전 화면 상태 (애니메이션을 새로 생긴 것에만 주려고) */
+const fx: { modalKey: string; tab?: Tab; wallet?: number; walletLabel?: string } = { modalKey: '' };
 
 function titleScreen(): string {
   const o = ui.setup;
@@ -228,11 +257,20 @@ function header(g: GameState): string {
       <div class="fam">명성 ${Math.round(g.fame)}</div>
     </div>
     <button class="top-r" data-action="tab" data-v="assets" title="자산 탭에서 내년 가계부 보기">
-      <div class="money">${w.label} ${formatMoney(w.amount)}</div>
+      <div class="money">${w.label} <span class="amt">${formatMoney(fx.wallet !== undefined && fx.walletLabel === w.label ? fx.wallet : w.amount)}</span></div>
       <div class="flow">내년 <b class="${f.net < 0 ? 'neg' : 'pos'}">${f.net < 0 ? '' : '+'}${formatMoney(f.net)}</b> <small>(수입 ${formatMoney(inc)} · 지출 ${formatMoney(exp)})</small></div>
       ${w.label.includes('부모님') && (h.cash || f.mine) ? `<div class="fame">내 통장 ${formatMoney(h.cash)}${f.mine ? ` (+${formatMoney(f.mine)}/년)` : ''}</div>` : ''}
     </button>
   </header>`;
+}
+
+/** 가문 자산을 누구 몫인지 나눠 보여준다 */
+function familyBreakdown(g: GameState): string {
+  const h = head(g);
+  const sp = spouseOf(g, h);
+  const mine = personWorth(g, h) + (sp && alive(sp) ? personWorth(g, sp) : 0);
+  const below = familyTotal(g) - mine;
+  return `우리 부부 ${formatMoney(mine)}${below ? ` · 자녀·손주 가족 ${formatMoney(below)}` : ''}`;
 }
 
 /** 자산 탭: 내년 가계부 */
@@ -615,7 +653,7 @@ function eventModal(g: GameState): string {
       <div class="choices">
         ${cur.choices
           .map(
-            (c, i) => `<button class="choice" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
+            (c, i) => `<button class="choice" style="animation-delay:${140 + i * 55}ms" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
               <span class="cl">${esc(c.label)}</span>
               ${c.cost || c.req?.length ? `<span class="badges">${c.cost ? `<b class="cost">💰${formatMoney(c.cost)}</b>` : ''}${c.disabled && c.cost && c.cost > wallet(g).amount ? '<b class="why">돈 부족</b>' : ''}${(c.req ?? []).map((r) => `<b>${esc(r)}</b>`).join('')}</span>` : ''}
             </button>`,
@@ -626,12 +664,29 @@ function eventModal(g: GameState): string {
   </div>`;
 }
 
+/** 결과 문장 끝의 "(매력 +2 · 행복 +6)"를 색깔 칩으로 */
+function richText(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => {
+      const m = line.match(/^(.*?) \(([^()]*(?:[+\-−]\d|변화 없음)[^()]*)\)$/);
+      if (!m) return esc(line);
+      const chips = m[2]
+        .split(' · ')
+        .map((c, i) => `<span class="dchip ${/[\-−]\d/.test(c) ? 'neg' : /\+\d/.test(c) ? 'pos' : ''}" style="animation-delay:${180 + i * 90}ms">${esc(c)}</span>`)
+        .join('');
+      return `${esc(m[1])}<span class="dchips">${chips}</span>`;
+    })
+    .join('<br>');
+}
+
 function outcomeModal(o: { title: string; text: string }): string {
+  const tier = o.text.startsWith('🌟') ? 'great' : o.text.startsWith('💦') ? 'bad' : '';
   return `
   <div class="modal">
-    <div class="event">
+    <div class="event ${tier}">
       <h3>${esc(o.title)}</h3>
-      <p class="ev-text">${nl(o.text)}</p>
+      <p class="ev-text">${richText(o.text)}</p>
       <button class="btn primary" data-action="ok-outcome">계속</button>
     </div>
   </div>`;
@@ -642,7 +697,7 @@ function reportModal(r: { title: string; lines: string[] }): string {
   <div class="modal">
     <div class="event report">
       <h3>${esc(r.title)}</h3>
-      <ul>${r.lines.map((l) => `<li>${esc(l)}</li>`).join('') || '<li class="muted">조용한 한 해였다.</li>'}</ul>
+      <ul>${r.lines.map((l, i) => `<li style="animation-delay:${120 + Math.min(i, 12) * 45}ms">${esc(l)}</li>`).join('') || '<li class="muted">조용한 한 해였다.</li>'}</ul>
       <button class="btn primary" data-action="ok-report">확인</button>
     </div>
   </div>`;
@@ -713,6 +768,10 @@ function policyScreen(g: GameState): string {
         : '<p class="hint">키울 아이가 없다.</p>'
     }
     <p class="fine">미취학: 기본 300만 · 사교육 1,200만 · 올인 3,000만 /년. 학령기부터는 해마다 학년 이벤트로 고른다.<br>사교육비가 쌓일수록 수능에 유리하지만, 아이의 행복은 줄어든다.</p>
+  </section>
+  <section class="card">
+    <h2>설정</h2>
+    <div class="field">효과음 ${seg('sound', soundOn() ? 1 : 0, [[1, '🔊 켜기'], [0, '🔇 끄기']])}</div>
   </section>`;
 }
 
@@ -723,7 +782,6 @@ function assetsScreen(g: GameState): string {
   const members = Object.values(g.people)
     .filter((p) => alive(p) && (isMainline(g, p) || personWorth(g, p) !== 0))
     .sort((a, b) => personWorth(g, b) - personWorth(g, a));
-  const fam = assetsOf(g, 'family');
   const recipients = Object.values(g.people).filter((p) => alive(p) && (isDescendantOf(g, p, h) || p.id === h.spouseId));
   const to = ui.giftTo && g.people[ui.giftTo] && alive(g.people[ui.giftTo]) ? g.people[ui.giftTo] : recipients[0];
   const mine = assetsOf(g, h.id);
@@ -739,22 +797,15 @@ function assetsScreen(g: GameState): string {
       ? `<section class="bank">
     <div class="bank-l">🏠 우리 집 재산 (독립 전 · 부모님 살림)</div>
     <div class="bank-v">${formatMoney(parentsOf(g, h).filter(alive).reduce((t, p) => t + personWorth(g, p), 0) + familyTotal(g))}</div>
-    <div class="bank-s">부모님 ${formatMoney(parentsOf(g, h).filter(alive).reduce((t, p) => t + personWorth(g, p), 0))} · 가문 금고 ${formatMoney(familyWorth(g))} · 내 몫 ${formatMoney(personWorth(g, h))}<br>일을 해서 버는 돈은 내 통장에 모이고, 취직하거나 나이가 차면 독립한다.</div>
+    <div class="bank-s">부모님 ${formatMoney(parentsOf(g, h).filter(alive).reduce((t, p) => t + personWorth(g, p), 0))} · 내 몫 ${formatMoney(personWorth(g, h))}<br>일을 해서 버는 돈은 내 통장에 모이고, 취직하거나 나이가 차면 독립한다.</div>
   </section>`
       : `<section class="bank">
-    <div class="bank-l">${esc(g.familyName)}씨 가문 총자산</div>
+    <div class="bank-l">${esc(g.familyName)}씨 가문 자산 <small>(나와 배우자, 그 아래 가족 모두의 재산 합계)</small></div>
     <div class="bank-v">${formatMoney(familyTotal(g))}</div>
-    <div class="bank-s">가문 재산 ${formatMoney(familyWorth(g))} · 직계 개인 재산 ${formatMoney(familyTotal(g) - familyWorth(g))}</div>
+    <div class="bank-s">${familyBreakdown(g)}</div>
   </section>`
   }
   ${budgetCard(g)}
-
-  <section class="card">
-    <h2>가문 재산 (공동)</h2>
-    <div class="arow"><span>💰 가문 금고</span><span>${formatMoney(g.familyCash)}</span></div>
-    ${fam.map((a) => assetRow(a, true)).join('')}
-    <p class="fine">가문 재산은 가주가 관리하며 상속세 없이 다음 가주에게 넘어간다.</p>
-  </section>
 
   <section class="card">
     <h2>개인 재산</h2>
@@ -960,11 +1011,36 @@ function onInput(e: Event) {
   }
 }
 
+const SFX: Record<string, Sfx> = { choose: 'choose', next: 'next', buy: 'coin', sell: 'coin', gift: 'coin', 'gift-asset': 'coin', 'ok-outcome': 'close', 'ok-report': 'close', 'close-sheet': 'close', start: 'great' };
+let leaving = false;
+
 function onClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
   const el = target.closest<HTMLElement>('[data-action]');
-  if (!el) return;
+  if (!el || leaving) return;
   if (el.dataset.action === 'close-sheet' && target.closest('[data-stop]') && !target.closest('button')) return;
+  if ((el as HTMLButtonElement).disabled) return;
+  const a = el.dataset.action!;
+  if (a !== 'act') sfx(SFX[a] ?? 'tap');
+  buzz(a === 'next' || a === 'choose' ? 12 : 6);
+  // 창을 닫을 땐 내려가는 모습을 보여 주고 처리
+  if (a === 'ok-outcome' || a === 'ok-report' || a === 'close-sheet') {
+    const m = root.querySelector('.modal');
+    if (m) {
+      leaving = true;
+      m.classList.add('leaving');
+      setTimeout(() => {
+        leaving = false;
+        fx.modalKey = '';
+        handle(el);
+      }, 170);
+      return;
+    }
+  }
+  handle(el);
+}
+
+function handle(el: HTMLElement) {
   const a = el.dataset.action!;
   const v = el.dataset.v!;
   const id = el.dataset.id!;
@@ -1002,6 +1078,11 @@ function onClick(e: MouseEvent) {
       break;
     case 'dead':
       ui.showDead = v === '1';
+      break;
+    case 'sound':
+      setSound(v === '1');
+      savePrefs();
+      if (v === '1') sfx('choose');
       break;
     case 'tab':
       ui.tab = v as Tab;
@@ -1075,6 +1156,7 @@ function onClick(e: MouseEvent) {
     case 'act': {
       const target = (root.querySelector(`#act-t-${id}`) as HTMLSelectElement | null)?.value;
       const r = doAction(g!, id, target);
+      sfx(!r.ok ? 'error' : r.text.startsWith('🌟') ? 'great' : r.text.startsWith('💦') ? 'bad' : 'choose');
       if (!r.ok) ui.toast = r.text;
       else ui.outcome = { title: ACTIONS.find((a) => a.id === id)!.name, text: r.text };
       break;

@@ -110,7 +110,7 @@ export function settleEstate(s: GameState, d: Person, successorId?: string, over
   if (total === 0) {
     s.familyCash += cash;
     for (const a of kept) a.ownerId = 'family';
-    lines.push('상속인이 없어 재산이 가문 금고로 귀속되었다');
+    lines.push('상속인이 없어 재산이 다음 가주에게 넘어간다');
   } else {
     const net = cash + kept.reduce((t, a) => t + a.value, 0);
     const ranked = [...shares.entries()].sort((a, b) => b[1] - a[1] || (a[0] === successorId ? -1 : b[0] === successorId ? 1 : 0));

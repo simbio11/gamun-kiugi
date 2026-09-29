@@ -1,17 +1,24 @@
 // 주도적 행동: 턴을 넘기기 전에 대시보드에서 직접 하는 일. 해마다 행동력 3.
 // (갑작스러운 사건·선택형 이벤트는 턴을 넘길 때 일어난다)
 
-import { chance, int } from './rng';
+import { chance, int, pick } from './rng';
+import { fmt, grow, jitter, rollTier, say, stat, TIER_MARK } from './practice';
+import { P } from './action-lines';
 import { JOBS } from './data';
 import { formatMoney, jobTitle, pay, statScore } from './economy';
 import { makeDate } from './events';
-import { iga, schedule, spendable, wa } from './ev-util';
-import { addFlag, age, alive, check, clamp, discoverTalent, fullName, hasFlag, head, householder, isDescendantOf, mark, markOf, parentsOf, relationLabel, spouseOf } from './people';
+import { eul, iga, schedule, spendable, wa } from './ev-util';
+import { addFlag, age, alive, check, clamp, discoverTalent, fullName, hasFlag, hasTrait, head, householder, isDescendantOf, mark, markOf, parentsOf, relationLabel, spouseOf } from './people';
 import { startDating } from './romance';
 import { TALENTS } from './data';
 import type { GameState, Person } from './types';
 
 export const AP_PER_YEAR = 3;
+
+/** 대사 속 {n}{이}/{n}{와}/{n}{을}/{n}을 이름과 알맞은 조사로 */
+const fillName = (t: string, n: string) => t.replace(/\{n\}\{이\}/g, iga(n)).replace(/\{n\}\{와\}/g, wa(n)).replace(/\{n\}\{을\}/g, eul(n)).replace(/\{n\}/g, n);
+
+const TRIP_PLACES = ['제주도', '강릉', '부산', '경주', '여수', '가평 펜션', '속초', '오사카', '다낭', '방콕', '캠핑장', '전주 한옥마을'];
 
 export type ActionCat = '가족' | '진로·자기계발' | '자녀 교육' | '재산' | '사회';
 
@@ -64,16 +71,24 @@ const KID_ACTIONS: ActionDef[] = [
     id: 'kid_study',
     cat: '진로·자기계발',
     icon: '📚',
-    name: '공부 계획 세우기',
-    desc: '성적↑ · 공부 습관이 쌓인다',
+    name: '공부하기',
+    desc: '성적↑ · 공부 습관이 쌓인다 (컨디션 따라 들쭉날쭉)',
     ap: 1,
     who: 'kid',
     blocked: (s) => (age(s, h(s)) < 8 ? '여덟 살부터' : undefined),
     run: (s) => {
       const me = h(s);
-      me.study = clamp((me.study ?? 20) + 2 + markOf(me, 'study') * 0.3, 0, 100);
-      mark(me, 'study', 1);
-      return '계획표를 벽에 붙였다. 생각보다 잘 지키고 있다.';
+      const t = rollTier(s, me, { talent: 'genius', stat: 'int', bonus: markOf(me, 'study') * 0.01 });
+      const st = { great: int(s, 4, 6), good: int(s, 2, 3), meh: int(s, 0, 1), bad: 0 }[t] * (1 + Math.min(6, markOf(me, 'study')) * 0.05);
+      me.study = clamp((me.study ?? 20) + st, 0, 100);
+      const di = t === 'great' || (t === 'good' && chance(s, 0.3)) ? grow(s, me, 'int', t === 'great' ? 'good' : 'meh') : 0;
+      let hp = 0;
+      if (t === 'bad' && chance(s, 0.5)) {
+        hp = -1;
+        me.actual.hp = clamp(me.actual.hp - 1, 0, 100);
+      }
+      if (t !== 'meh' && t !== 'bad') mark(me, 'study', 1);
+      return TIER_MARK[t] + say(s, me, P.study, t) + fmt([['성적', st], stat('int', di), stat('hp', hp)]);
     },
   },
   {
@@ -81,15 +96,17 @@ const KID_ACTIONS: ActionDef[] = [
     cat: '가족',
     icon: '⚽',
     name: '친구들과 놀기',
-    desc: '행복↑ 매력↑',
+    desc: '행복↑ 매력↑ · 친구가 인맥이 된다',
     ap: 1,
     who: 'kid',
     run: (s) => {
       const me = h(s);
-      mood(me, 10);
-      me.actual.cha = clamp(me.actual.cha + 1, 0, 100);
-      mark(me, 'network', 1);
-      return '해가 질 때까지 놀았다. 친구가 한 명 더 생겼다.';
+      const t = rollTier(s, me, { stat: 'cha', bonus: hasTrait(me, 'social') ? 0.1 : hasTrait(me, 'shy') ? -0.1 : 0 });
+      const joy = { great: jitter(s, 14), good: jitter(s, 8), meh: jitter(s, 2), bad: -jitter(s, 6) }[t];
+      mood(me, joy);
+      const dc = t === 'bad' ? 0 : grow(s, me, 'cha', t, 0.8);
+      if (t === 'great' || t === 'good') mark(me, 'network', 1);
+      return TIER_MARK[t] + say(s, me, P.play, t) + fmt([stat('cha', dc), ['행복', joy]]);
     },
   },
   {
@@ -102,9 +119,17 @@ const KID_ACTIONS: ActionDef[] = [
     who: 'kid',
     run: (s) => {
       const me = h(s);
-      me.actual.str = clamp(me.actual.str + 2, 0, Math.max(me.potential.str, me.actual.str));
-      mark(me, 'sport', 1);
-      return '땀을 뻘뻘 흘렸다. 몸이 가볍다.';
+      const t = rollTier(s, me, { talent: 'athlete', stat: 'str' });
+      const ds = grow(s, me, 'str', t);
+      let hp = t === 'great' || t === 'good' ? grow(s, me, 'hp', 'meh') : 0;
+      if (t === 'bad') {
+        hp = -int(s, 1, 3);
+        me.actual.hp = clamp(me.actual.hp + hp, 0, 100);
+      }
+      if (t !== 'bad') mark(me, 'sport', 1);
+      let extra = '';
+      if (t === 'great' && me.talents.some((x) => x.id === 'athlete' && !x.discovered) && discoverTalent(me, 'athlete')) extra = '\n[운동 신경] 재능이 드러났다!';
+      return TIER_MARK[t] + say(s, me, P.sport, t) + fmt([stat('str', ds), stat('hp', hp)]) + extra;
     },
   },
   {
@@ -117,9 +142,17 @@ const KID_ACTIONS: ActionDef[] = [
     who: 'kid',
     run: (s) => {
       const me = h(s);
-      me.actual.cha = clamp(me.actual.cha + 2, 0, Math.max(me.potential.cha, me.actual.cha));
-      mark(me, 'art', 1);
-      return '스케치북 한 권을 다 채웠다.';
+      const t = rollTier(s, me, { talent: 'artist', stat: 'cha', bonus: markOf(me, 'art') * 0.01 });
+      const dc = grow(s, me, 'cha', t);
+      const joy = t === 'bad' ? -jitter(s, 5) : t === 'great' ? jitter(s, 8) : 0;
+      mood(me, joy);
+      if (t !== 'bad') mark(me, 'art', 1);
+      let extra = '';
+      if (t === 'great') {
+        const hid = me.talents.find((x) => (x.id === 'artist' || x.id === 'star') && !x.discovered);
+        if (hid && discoverTalent(me, hid.id)) extra = `\n[${TALENTS[hid.id].name}] 재능이 드러났다!`;
+      }
+      return TIER_MARK[t] + say(s, me, P.art, t) + fmt([stat('cha', dc), ['행복', joy]]) + extra;
     },
   },
   {
@@ -132,11 +165,13 @@ const KID_ACTIONS: ActionDef[] = [
     who: 'kid',
     run: (s) => {
       const me = h(s);
-      for (const p of parentsOf(s, me).filter(alive)) p.affinity = clamp(p.affinity + 6, -100, 100);
-      me.actual.mor = clamp(me.actual.mor + 2, 0, 100);
-      mark(me, 'warmth', 1);
-      mark(me, 'filial', 1);
-      return '설거지를 했더니 엄마가 꼭 안아줬다.';
+      const t = rollTier(s, me, { stat: 'mor', bonus: hasTrait(me, 'filial') ? 0.1 : 0 });
+      const aff = { great: jitter(s, 10), good: jitter(s, 6), meh: jitter(s, 2), bad: 1 }[t];
+      for (const p of parentsOf(s, me).filter(alive)) p.affinity = clamp(p.affinity + aff, -100, 100);
+      const dm = t === 'bad' ? 0 : grow(s, me, 'mor', t, 0.8);
+      if (t !== 'meh') mark(me, 'warmth', 1);
+      if (t === 'great' || t === 'good') mark(me, 'filial', 1);
+      return TIER_MARK[t] + say(s, me, P.help, t) + fmt([stat('mor', dm), ['부모님 관계', aff]]);
     },
   },
   {
@@ -149,9 +184,12 @@ const KID_ACTIONS: ActionDef[] = [
     who: 'kid',
     run: (s) => {
       const me = h(s);
-      me.cash += 30 + age(s, me) * 5;
-      mark(me, 'thrift', 1);
-      return '저금통이 묵직해졌다.';
+      const t = rollTier(s, me, { bonus: hasTrait(me, 'frugal') ? 0.12 : hasTrait(me, 'spender') ? -0.15 : 0 });
+      const base = 20 + age(s, me) * 5;
+      const got = { great: jitter(s, base * 4), good: jitter(s, base), meh: jitter(s, base * 0.3), bad: -Math.min(Math.max(0, me.cash), jitter(s, base * 0.8)) }[t];
+      me.cash += got;
+      if (t !== 'bad') mark(me, 'thrift', 1);
+      return TIER_MARK[t] + say(s, me, P.save, t) + ` (${got >= 0 ? '+' : ''}${formatMoney(got)})`;
     },
   },
 ];
@@ -169,14 +207,18 @@ export const ACTIONS: ActionDef[] = [
     cost: 500,
     run: (s) => {
       const me = h(s);
-      bond(s, me, 8);
-      mark(me, 'family', 1);
+      const t = rollTier(s, me, { bonus: hasTrait(me, 'devoted') ? 0.08 : 0 });
+      const place = pick(s, TRIP_PLACES);
+      const b = { great: jitter(s, 12), good: jitter(s, 7), meh: jitter(s, 2), bad: -jitter(s, 3) }[t];
+      const joy = { great: jitter(s, 12), good: jitter(s, 8), meh: jitter(s, 3), bad: -jitter(s, 3) }[t];
+      bond(s, me, b);
+      if (t !== 'bad') mark(me, 'family', 1);
       for (const k of minors(s)) {
-        mark(k, 'warmth', 1);
-        mood(k, 8);
+        if (t !== 'bad') mark(k, 'warmth', 1);
+        mood(k, joy);
       }
-      mood(me, 8);
-      return '온 가족이 제주도에 다녀왔다. 사진첩이 한 권 늘었다.';
+      mood(me, joy);
+      return TIER_MARK[t] + say(s, me, P.trip, t).replace('{d}', place) + fmt([...(spouseOf(s, me) && alive(spouseOf(s, me)!) ? [['금슬', b] as [string, number]] : []), ['가족 행복', joy]]);
     },
   },
   {
@@ -189,9 +231,12 @@ export const ACTIONS: ActionDef[] = [
     cost: 50,
     blocked: (s) => (spouseOf(s, h(s)) && alive(spouseOf(s, h(s))!) ? undefined : '배우자가 없다'),
     run: (s) => {
-      bond(s, h(s), 7);
-      mark(h(s), 'family', 1);
-      return '오랜만에 둘만의 저녁. 연애 시절 이야기로 웃었다.';
+      const me = h(s);
+      const t = rollTier(s, me, { stat: 'cha', bonus: ((me.bond ?? 60) - 60) / 400 });
+      const b = { great: jitter(s, 11), good: jitter(s, 6), meh: jitter(s, 1), bad: -jitter(s, 4) }[t];
+      bond(s, me, b);
+      if (t !== 'bad') mark(me, 'family', 1);
+      return TIER_MARK[t] + say(s, me, P.date, t) + fmt([['금슬', b]]);
     },
   },
   {
@@ -231,10 +276,13 @@ export const ACTIONS: ActionDef[] = [
     targets: (s) => parentsOf(s, h(s)).filter(alive),
     run: (s, t) => {
       const p = t!;
-      p.affinity = clamp(p.affinity + 10, -100, 100);
-      mood(p, 8);
-      mark(h(s), 'filial', 1);
-      return `${relationLabel(s, p)}께 용돈을 드리고 말벗이 되어드렸다.`;
+      const me = h(s);
+      const tier = rollTier(s, me, { stat: 'mor', bonus: hasTrait(p, 'anxious') ? -0.08 : 0 });
+      const aff = { great: jitter(s, 15), good: jitter(s, 9), meh: jitter(s, 3), bad: -jitter(s, 4) }[tier];
+      p.affinity = clamp(p.affinity + aff, -100, 100);
+      mood(p, Math.max(0, aff));
+      if (tier !== 'bad') mark(me, 'filial', 1);
+      return TIER_MARK[tier] + say(s, me, P.visit, tier).replace(/\{r\}/g, relationLabel(s, p)) + fmt([['관계', aff]]);
     },
   },
   {
@@ -247,11 +295,15 @@ export const ACTIONS: ActionDef[] = [
     targets: (s) => minors(s, 0, 12).filter((p) => !h(s).childIds.includes(p.id)),
     run: (s, t) => {
       const p = t!;
-      mark(p, 'warmth', 1);
-      p.study = clamp((p.study ?? 20) + 1, 0, 100);
-      for (const par of parentsOf(s, p)) par.affinity = clamp(par.affinity + 4, -100, 100);
-      h(s).actual.hp = clamp(h(s).actual.hp - 1, 0, 100);
-      return `${wa(fullName(p))} 하루 종일 놀아줬다. 허리는 아프지만 행복하다.`;
+      const me = h(s);
+      const tier = rollTier(s, me, { stat: 'hp' });
+      const st = { great: int(s, 2, 3), good: 1, meh: 0, bad: 0 }[tier];
+      p.study = clamp((p.study ?? 20) + st, 0, 100);
+      if (tier !== 'bad') mark(p, 'warmth', 1);
+      for (const par of parentsOf(s, p)) par.affinity = clamp(par.affinity + jitter(s, 4), -100, 100);
+      const hp = tier === 'bad' ? -int(s, 1, 3) : -int(s, 0, 1);
+      me.actual.hp = clamp(me.actual.hp + hp, 0, 100);
+      return TIER_MARK[tier] + fillName(say(s, me, P.grandkid, tier), fullName(p)).replace('할머니(할아버지)', me.sex === 'F' ? '할머니' : '할아버지') + fmt([['손주 공부', st], stat('hp', hp)]);
     },
   },
   {
@@ -347,9 +399,10 @@ export const ACTIONS: ActionDef[] = [
     blocked: (s) => (age(s, h(s)) < 18 ? '아직 어리다' : undefined),
     run: (s) => {
       const me = h(s);
-      me.actual.int = clamp(me.actual.int + 2, 0, Math.max(me.potential.int, me.actual.int));
-      mark(me, 'study', 1);
-      return '퇴근 후 도서관에 다녔다. 머리가 맑아진다.';
+      const t = rollTier(s, me, { stat: 'int', talent: 'genius' });
+      const di = grow(s, me, 'int', t);
+      if (t !== 'meh' && t !== 'bad') mark(me, 'study', 1);
+      return TIER_MARK[t] + say(s, me, P.selfStudy, t) + fmt([stat('int', di)]);
     },
   },
   {
@@ -361,13 +414,17 @@ export const ACTIONS: ActionDef[] = [
     ap: 1,
     cost: 100,
     targets: (s) => adultsOfLine(s).concat(spouseOf(s, h(s)) && alive(spouseOf(s, h(s))!) ? [spouseOf(s, h(s))!] : []),
-    run: (_s, t) => {
+    run: (s, t) => {
       const p = t!;
-      p.actual.hp = clamp(p.actual.hp + 3, 0, Math.max(p.potential.hp, p.actual.hp));
-      p.actual.str = clamp(p.actual.str + 1, 0, 100);
-      mark(p, 'exercise', 1);
-      mark(p, 'health_x', -1);
-      return `${fullName(p)}, 헬스장에 등록했다. 계단 오르기가 덜 힘들다.`;
+      const tier = rollTier(s, p, { stat: 'hp', talent: 'athlete', bonus: -Math.max(0, age(s, p) - 60) / 200 });
+      let hp = tier === 'bad' ? -int(s, 1, 3) : grow(s, p, 'hp', tier);
+      if (tier === 'bad') p.actual.hp = clamp(p.actual.hp + hp, 0, 100);
+      const ds = tier === 'bad' ? 0 : grow(s, p, 'str', tier === 'great' ? 'good' : 'meh');
+      if (tier !== 'bad' && tier !== 'meh') {
+        mark(p, 'exercise', 1);
+        mark(p, 'health_x', -1);
+      }
+      return TIER_MARK[tier] + fillName(say(s, p, P.exercise, tier), fullName(p)) + fmt([stat('hp', hp), stat('str', ds)]);
     },
   },
   {
@@ -397,14 +454,17 @@ export const ACTIONS: ActionDef[] = [
     ap: 1,
     cost: 500,
     targets: (s) => minors(s, 8, 18),
-    run: (_s, t) => {
+    run: (s, t) => {
       const p = t!;
-      p.study = clamp((p.study ?? 30) + 3, 0, 100);
+      const tier = rollTier(s, p, { stat: 'int', talent: 'genius', bonus: hasTrait(p, 'rebel') ? -0.12 : 0 });
+      const st = { great: int(s, 5, 7), good: int(s, 2, 4), meh: int(s, 0, 1), bad: 0 }[tier];
+      p.study = clamp((p.study ?? 30) + st, 0, 100);
       p.eduSpent = (p.eduSpent ?? 0) + 500;
-      mood(p, -4);
-      mark(p, 'study', 1);
-      if (p.happiness < 30) mark(p, 'hurt', 1);
-      return `${fullName(p)}의 주말이 학원으로 채워졌다.`;
+      const joy = -{ great: jitter(s, 2), good: jitter(s, 4), meh: jitter(s, 5), bad: jitter(s, 9) }[tier];
+      mood(p, joy);
+      if (tier !== 'bad' && tier !== 'meh') mark(p, 'study', 1);
+      if (p.happiness < 30 || tier === 'bad') mark(p, 'hurt', 1);
+      return TIER_MARK[tier] + fillName(say(s, p, P.extraClass, tier), fullName(p)) + fmt([['성적', st], ['행복', joy]]);
     },
   },
   {
@@ -477,11 +537,14 @@ export const ACTIONS: ActionDef[] = [
     who: 'any',
     run: (s) => {
       const me = h(s);
-      me.actual.mor = clamp(me.actual.mor + 2, 0, 100);
-      mark(me, 'kind', 1);
-      s.fame += 0.5;
-      mood(me, 5);
-      return '연탄 배달 봉사를 했다. 얼굴은 까맣지만 마음은 환하다.';
+      const t = rollTier(s, me, { stat: 'mor' });
+      const dm = grow(s, me, 'mor', t);
+      const fame = { great: 1.5, good: 0.5, meh: 0.2, bad: 0 }[t];
+      s.fame += fame;
+      const joy = t === 'bad' ? 0 : jitter(s, 5);
+      mood(me, joy);
+      if (t !== 'bad') mark(me, 'kind', 1);
+      return TIER_MARK[t] + say(s, me, P.volunteer, t) + fmt([stat('mor', dm), ['명성', fame], ['행복', joy]]);
     },
   },
   {
@@ -495,13 +558,14 @@ export const ACTIONS: ActionDef[] = [
     blocked: (s) => (age(s, h(s)) < 20 ? '아직 어리다' : undefined),
     run: (s) => {
       const me = h(s);
-      me.actual.cha = clamp(me.actual.cha + 1, 0, 100);
-      mark(me, 'network', 1);
-      if (chance(s, 0.2)) {
-        queueEv(s, 'r_stock_tip', me.id);
-        return '모임에서 솔깃한 정보를 들었다.';
-      }
-      return '명함이 한 뭉치 늘었다.';
+      const t = rollTier(s, me, { stat: 'cha', bonus: hasTrait(me, 'social') ? 0.1 : hasTrait(me, 'shy') ? -0.1 : 0 });
+      const dc = t === 'bad' ? 0 : grow(s, me, 'cha', t, 0.7);
+      const joy = t === 'bad' ? -jitter(s, 5) : 0;
+      mood(me, joy);
+      if (t !== 'bad') mark(me, 'network', t === 'great' ? 2 : 1);
+      const tip = t !== 'bad' && chance(s, t === 'great' ? 0.35 : 0.15);
+      if (tip) queueEv(s, 'r_stock_tip', me.id);
+      return TIER_MARK[t] + say(s, me, P.network, t) + fmt([stat('cha', dc), ['행복', joy]]) + (tip ? '\n누군가 솔깃한 정보를 흘렸다…' : '');
     },
   },
   {

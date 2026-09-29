@@ -1,7 +1,7 @@
 import { chance, int, next, normal, pick } from './rng';
 import { ACHIEVEMENTS, ART_TIERS, EXAMS, FEMALE_NAMES, JOBS, MALE_NAMES, REAL_ESTATE } from './data';
 import { checkAchievements } from './achievements';
-import { addAsset, addHolding, assetsOf, economyYear, familyWorth, formatMoney, jobLabel, marketYear, pay, personWorth, settlePension, totalWorth } from './economy';
+import { addAsset, addHolding, assetsOf, economyYear, familyWorth, foldFamilyPot, formatMoney, jobLabel, marketYear, pay, personWorth, settlePension, totalWorth } from './economy';
 import { checkMissions, initMissions } from './missions';
 import { LIFE_RANDOM, cancerRate, deliver, isElectionYear, setBond, type LifeDef } from './life';
 import { heirCandidates } from './family';
@@ -38,6 +38,7 @@ import {
   randomTraits,
   relationLabel,
   spouseOf,
+  parentsOf,
 } from './people';
 import type { AssetKind, GameState, MarketKey, Person, Sex, WillMode } from './types';
 
@@ -78,6 +79,7 @@ export function migrate(s: GameState): GameState {
     }
     s.version = 3;
   }
+  foldFamilyPot(s);
   return s;
 }
 
@@ -225,6 +227,7 @@ export function newGame(o: NewGameOpts): GameState {
   });
   queue(s, 'kinder', me.id);
   initMissions(s);
+  foldFamilyPot(s);
   return s;
 }
 
@@ -242,6 +245,14 @@ export function familyTotal(s: GameState): number {
   return totalWorth(s, mainlineMembers(s));
 }
 
+/** 독립 전이면 부모님 재산까지 합친 '우리 집' 재산, 독립 후엔 가문 자산 */
+export function homeTotal(s: GameState): { label: string; value: number } {
+  const h = head(s);
+  if (householder(s).id === h.id) return { label: '가문 자산', value: familyTotal(s) };
+  const pars = parentsOf(s, h).filter(alive);
+  return { label: '우리 집 재산', value: familyTotal(s) + pars.reduce((t, p) => t + personWorth(s, p), 0) };
+}
+
 // ─────────────────────── 한 해 진행 ───────────────────────
 
 export function simulateYear(s: GameState): void {
@@ -252,7 +263,7 @@ export function simulateYear(s: GameState): void {
   log(s, `── ${s.year}년 · ${fullName(h0)} ${age(s, h0)}세 ──`);
 
   for (const m of growthYear(s)) log(s, m, 'life');
-  const before = familyTotal(s);
+  const before = homeTotal(s);
   for (const m of economyYear(s)) log(s, m, 'money');
   for (const m of autoGiftYear(s, (to, amt) => giveGift(s, head(s), to, amt).ok)) log(s, m, 'money');
   for (const m of marketYear(s)) log(s, m, 'market');
@@ -273,10 +284,11 @@ export function simulateYear(s: GameState): void {
   }
   s.fame = Math.max(0, Math.round(s.fame * 10) / 10);
 
-  const after = familyTotal(s);
-  log(s, `가문 총자산 ${formatMoney(after)} (${after >= before ? '+' : ''}${formatMoney(after - before)})`, 'money');
+  const after = homeTotal(s);
+  log(s, `💰 ${after.label} ${formatMoney(after.value)} (${after.value >= before.value ? '+' : ''}${formatMoney(after.value - before.value)})`, 'money');
   checkAchievements(s);
   checkMissions(s);
+  foldFamilyPot(s);
 }
 
 /** 인생사: 성격·금슬·병역·질병·난임·선거·유언 + 무작위 사건 (한 해 최대 2건) */
@@ -798,6 +810,7 @@ export function resolveChoice(s: GameState, idx: number): string {
   if (typeof res === 'string' || !res.keep) s.events.shift();
   if (text && cur.def.id !== 'notice') log(s, `[${cur.title}] ${ch.label} → ${text.split('\n')[0]}`, 'life');
   checkAchievements(s);
+  foldFamilyPot(s);
   return text;
 }
 
