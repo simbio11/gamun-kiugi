@@ -85,6 +85,37 @@ export interface Asset {
   value: number;
   /** 예술품: 위작 여부 (감정·매각 전까지 숨김) */
   fake?: boolean;
+  /** 산 값·산 해 (양도세 계산) */
+  cost?: number;
+  bought?: number;
+  /** 담보대출 잔액 (연 이자) */
+  loan?: number;
+  /** 세입자 전세보증금 (돌려줘야 할 돈) · 만기 해 */
+  deposit?: number;
+  depositEnd?: number;
+  /** 매물 고유 성격: 시장 민감도·연 추가 상승률·변동성·임대수익률 */
+  beta?: number;
+  drift?: number;
+  vol?: number;
+  yield?: number;
+  tags?: string[];
+}
+
+/** 올해 나온 부동산 매물 */
+export interface Listing {
+  id: string;
+  kind: 'apt_seoul' | 'apt_local' | 'land' | 'building';
+  name: string;
+  price: number;
+  tags: string[];
+  beta: number;
+  drift: number;
+  vol: number;
+  yield: number;
+  /** 전세 낀 매물: 세입자 보증금 */
+  deposit?: number;
+  /** 주택 수에 들어가는가 (아파트·오피스텔) */
+  house: boolean;
 }
 
 export interface Gift {
@@ -181,4 +212,6 @@ export interface GameState {
   /** 예약된 후폭풍: 지난 선택의 결과가 몇 년 뒤 터진다 */
   scheduled?: { year: number; defId: string; personId: string; data?: any }[];
   gameOver?: { reason: string; score: number };
+  /** 올해 부동산 매물 */
+  listings?: Listing[];
 }

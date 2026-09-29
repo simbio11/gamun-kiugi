@@ -102,17 +102,6 @@ export const ASSESS_RATIO: Record<AssetKind, number> = {
   coin: 1,
   art: 0.5,
 };
-/** 연 수익률 (임대료·배당) */
-export const ASSET_YIELD: Record<AssetKind, number> = {
-  apt_seoul: 0.025,
-  apt_local: 0.025,
-  land: 0.02,
-  building: 0.035,
-  stock: 0.02,
-  coin: 0,
-  art: 0,
-};
-
 export const ASSET_NAMES: Record<AssetKind, string> = {
   apt_seoul: '강남 아파트',
   apt_local: '지방 아파트',

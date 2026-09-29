@@ -4,6 +4,7 @@ import { STAT_NAMES } from './data';
 import { int, next, pick } from './rng';
 import { age, clamp, hasTalent, hasTrait } from './people';
 import type { GameState, Person, StatKey } from './types';
+import { ADULT_OPEN, KID_OPEN, SEASON, TEEN_OPEN, TIER_TAIL, TRAIT_TAIL } from './action-lines';
 
 export type Tier = 'great' | 'good' | 'meh' | 'bad';
 
@@ -55,12 +56,13 @@ export function jitter(s: GameState, base: number, spread = 0.4): number {
   return Math.round(base * (1 - spread + next(s) * spread * 2));
 }
 
-export type Delta = [string, number];
+/** [이름, 변화량] 또는 그대로 보여줄 문구 */
+export type Delta = [string, number] | string;
 export const stat = (k: StatKey, v: number): Delta => [STAT_NAMES[k], v];
 
 /** "(매력 +2 · 행복 +6)" 꼴. 전부 0이면 "(별 변화 없음)" */
 export function fmt(ds: Delta[]): string {
-  const shown = ds.filter(([, v]) => Math.round(v) !== 0).map(([k, v]) => `${k} ${v > 0 ? '+' : ''}${Math.round(v)}`);
+  const shown = ds.flatMap((d) => (typeof d === 'string' ? [d] : Math.round(d[1]) !== 0 ? [`${d[0]} ${d[1] > 0 ? '+' : ''}${Math.round(d[1])}`] : []));
   return shown.length ? ` (${shown.join(' · ')})` : ' (별 변화 없음)';
 }
 
@@ -72,7 +74,18 @@ export function say(s: GameState, p: Person, pool: Pool, tier: Tier): string {
   const a = age(s, p);
   const ok = pool[tier].filter((l) => typeof l === 'string' || (a >= l[0] && a <= l[1]));
   const l = pick(s, ok.length ? ok : pool[tier]);
-  return typeof l === 'string' ? l : l[2];
+  let line = typeof l === 'string' ? l : l[2];
+  // 머리말: 계절이나 상황 (따옴표·이름으로 시작하는 문장엔 붙이지 않는다)
+  if (!/^["{'“]/.test(line) && next(s) < 0.4) {
+    const open = next(s) < 0.55 ? pick(s, SEASON) : pick(s, a < 13 ? KID_OPEN : a < 20 ? TEEN_OPEN : ADULT_OPEN);
+    line = `${open} ${line}`;
+  }
+  // 꼬리말: 성격이 묻어나거나, 그날의 여운
+  const traits = (p.traits ?? []).filter((t) => TRAIT_TAIL[t]);
+  const r = next(s);
+  if (traits.length && r < 0.3) line += ' ' + pick(s, TRAIT_TAIL[pick(s, traits)]);
+  else if (r < 0.55) line += ' ' + pick(s, TIER_TAIL[tier]);
+  return line;
 }
 
 export const TIER_MARK: Record<Tier, string> = { great: '🌟 ', good: '', meh: '', bad: '💦 ' };

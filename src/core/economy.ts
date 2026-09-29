@@ -1,8 +1,9 @@
 import { chance, normal, pick } from './rng';
-import { ASSESS_RATIO, ASSET_NAMES, ASSET_YIELD, CREATORS, EDU_COST, JOBS, TALENTS } from './data';
+import { ASSESS_RATIO, ASSET_NAMES, CREATORS, EDU_COST, JOBS, TALENTS } from './data';
 import { addFlag, age, alive, check, clamp, discoverTalent, fullName, hasTalent, hasTrait, head, householder, isMainline, livingMainlineMinors } from './people';
 import type { Asset, AssetKind, GameState, MarketKey, Person } from './types';
 import { promoteMult } from './marks';
+import { isRealty, netOf, realtyForecast, realtyYear, sellRealty } from './realty';
 
 export function formatMoney(man: number): string {
   const neg = man < 0;
@@ -18,7 +19,7 @@ export function formatMoney(man: number): string {
 export const assetsOf = (s: GameState, ownerId: string) => s.assets.filter((a) => a.ownerId === ownerId);
 
 export function personWorth(s: GameState, p: Person): number {
-  return p.cash + assetsOf(s, p.id).reduce((t, a) => t + a.value, 0);
+  return p.cash + assetsOf(s, p.id).reduce((t, a) => t + netOf(a), 0);
 }
 
 /**
@@ -48,7 +49,7 @@ export function assessedValue(a: Asset): number {
 }
 
 export function addAsset(s: GameState, kind: AssetKind, ownerId: string, value: number, name = ASSET_NAMES[kind]): Asset {
-  const a: Asset = { id: 'a' + s.idSeq++, kind, name, ownerId, value: Math.round(value) };
+  const a: Asset = { id: 'a' + s.idSeq++, kind, name, ownerId, value: Math.round(value), cost: Math.round(value), bought: s.year };
   s.assets.push(a);
   return a;
 }
@@ -294,8 +295,9 @@ export function forecast(s: GameState): Forecast {
   const add = (list: [string, number][], label: string, v: number) => Math.round(v) > 0 && list.push([label, Math.round(v)]);
   for (const p of wallet) add(income, `${fullName(p)} ${JOBS[p.job].name}`, incomes.get(p.id) ?? 0);
   for (const p of wallet) if ((incomes.get(p.id) ?? 0) < 0) add(expense, `${fullName(p)} 사업 적자`, -(incomes.get(p.id) ?? 0));
-  const owners = new Set([...wallet.map((p) => p.id), 'family']);
-  add(income, '임대료·배당', s.assets.filter((a) => owners.has(a.ownerId)).reduce((t, a) => t + a.value * ASSET_YIELD[a.kind], 0));
+  const re = realtyForecast(s, wallet);
+  income.push(...re.income);
+  expense.push(...re.expense);
   const cash = wallet.reduce((t, p) => t + p.cash, 0) + s.familyCash;
   if (cash >= 0) add(income, '예금 이자', cash * 0.02);
   else add(expense, '대출 이자', -cash * 0.07);
@@ -348,12 +350,15 @@ export function economyYear(s: GameState): string[] {
   for (const p of Object.values(s.people)) {
     if (!alive(p) || p.cash >= 0) continue;
     const inc = Math.max(1500, incomes.get(p.id) ?? 0);
-    const limit = () => assetsOf(s, p.id).reduce((t, a) => t + a.value, 0) * 0.7 + inc * 5;
+    const limit = () => assetsOf(s, p.id).reduce((t, a) => t + netOf(a), 0) * 0.7 + inc * 5;
     const owned = assetsOf(s, p.id).sort((a, b) => (a.kind === 'stock' || a.kind === 'coin' ? -1 : 0) - (b.kind === 'stock' || b.kind === 'coin' ? -1 : 0) || a.value - b.value);
     while (-p.cash > limit() && owned.length) {
       const a = owned.shift()!;
-      p.cash += a.fake ? Math.round(a.value * 0.05) : a.value;
-      s.assets = s.assets.filter((x) => x.id !== a.id);
+      if (isRealty(a)) sellRealty(s, a);
+      else {
+        p.cash += a.fake ? Math.round(a.value * 0.05) : a.value;
+        s.assets = s.assets.filter((x) => x.id !== a.id);
+      }
       msgs.push(`🏦 ${fullName(p)}의 ${a.name}이(가) 빚 때문에 경매로 넘어갔다`);
     }
     if (-p.cash > inc * 5 + 20000) {
@@ -365,13 +370,8 @@ export function economyYear(s: GameState): string[] {
     }
   }
 
-  // 4) 임대수익·배당
-  for (const a of s.assets) {
-    const rent = Math.round(a.value * ASSET_YIELD[a.kind]);
-    if (!rent) continue;
-    if (a.ownerId === 'family') s.familyCash += rent;
-    else if (s.people[a.ownerId]) s.people[a.ownerId].cash += rent;
-  }
+  // 4) 부동산·주식: 월세(공실)·배당·재산세·종부세·대출이자·전세 만기
+  msgs.push(...realtyYear(s));
 
   // 5) 세무사 수임료
   if (s.policy.taxAdvisor) pay(s, hh, advisorFee(s));
@@ -429,8 +429,9 @@ export function marketYear(s: GameState): string[] {
   }
   for (const a of s.assets) {
     // 예술품은 작품마다 따로 논다
-    const own = a.kind === 'art' ? normal(s, 0, 0.08) : 0;
-    a.value = Math.max(0, Math.round(a.value * (1 + r[a.kind] + own)));
+    // 부동산은 매물마다 성격이 다르다 (시장 민감도·입지 프리미엄·변동성)
+    const own = a.kind === 'art' ? normal(s, 0, 0.08) : a.vol ? normal(s, 0, a.vol) : 0;
+    a.value = Math.max(0, Math.round(a.value * (1 + r[a.kind] * (a.beta ?? 1) + (a.drift ?? 0) + own)));
   }
   return msgs;
 }

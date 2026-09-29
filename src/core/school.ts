@@ -218,10 +218,34 @@ export function suneung(s: GameState, p: Person): number {
   return Math.round(clamp(100 / (1 + Math.exp(-(raw - 58) / 10)), 0.1, 99.99) * 100) / 100;
 }
 
+/** 백분위 → 9등급 (1등급 상위 4%, 2등급 11%, 3등급 23%, 4등급 40%, 5등급 60%, 6등급 77%, 7등급 89%, 8등급 96%) */
 export function gradeOf(pct: number): number {
   const cuts = [96, 89, 77, 60, 40, 23, 11, 4];
   const i = cuts.findIndex((c) => pct >= c);
   return i < 0 ? 9 : i + 1;
+}
+
+/** 지금 실력으로 본 전국 위치 (시험 운 제외): 백분위·상위 %·등급 */
+export function standing(p: Person): { pct: number; top: number; grade: number } {
+  const raw = studyOf(p) * 0.75 + p.actual.int * 0.35 + eduBonus(p) + suneungBonus(p) + (hasTrait(p, 'anxious') ? -2 : hasTrait(p, 'cheerful') ? 1 : 0);
+  const pct = clamp(100 / (1 + Math.exp(-(raw - 58) / 10)), 0.1, 99.9);
+  return { pct, top: Math.max(0.1, 100 - pct), grade: gradeOf(pct) };
+}
+
+export const topLabel = (top: number) => `상위 ${top < 1 ? top.toFixed(1) : top < 10 ? top.toFixed(1).replace(/\.0$/, '') : Math.round(top)}%`;
+export const standingLabel = (p: Person) => {
+  const r = standing(p);
+  return `${r.grade}등급 (${topLabel(r.top)})`;
+};
+
+/** 성적 변화 한 줄: "3등급→2등급 ▲ (상위 9%)" / "상위 18%→15% ▲" */
+export function standingChange(before: { top: number; grade: number }, p: Person): string {
+  const a = standing(p);
+  const d = before.top - a.top;
+  const arrow = Math.abs(d) < 0.3 ? '' : d > 0 ? ' ▲' : ' ▼';
+  if (a.grade !== before.grade) return `${before.grade}등급→${a.grade}등급${arrow} (${topLabel(a.top)})`;
+  if (!arrow) return `${a.grade}등급 그대로 (${topLabel(a.top)})`;
+  return `${a.grade}등급, ${topLabel(before.top)}→${topLabel(a.top).replace('상위 ', '')}${arrow}`;
 }
 
 /** 합격 확률 */
@@ -343,7 +367,7 @@ function runPlan(x: Ctx, i: number): string {
   p.flags.push('sy:' + i);
   p.eduSpent = (p.eduSpent ?? 0) + pl.cost;
   for (const [k, n] of Object.entries(PLAN_MARKS[i] ?? {})) mark(p, k, n);
-  const before = studyOf(p);
+  const before = standing(p);
   addStudy(x.s, p, pl.study);
   p.happiness = clamp(p.happiness + pl.happy, 0, 100);
   let msg = pl.extra?.(x) ?? '';
@@ -354,8 +378,7 @@ function runPlan(x: Ctx, i: number): string {
     msg += ` ✨ [${TALENTS[t.id].name}] 재능이 보인다!`;
   }
   if (pl.budget === 3 && p.happiness < 25 && chance(x.s, 0.3)) msg += ' 번아웃 직전이다. 표정이 어둡다.';
-  const d = studyOf(p) - before;
-  return `성적 ${d >= 0 ? '▲' : '▼'}${Math.abs(d).toFixed(1)} (현재 ${Math.round(studyOf(p))}점대).${msg}`;
+  return `성적: ${standingChange(before, p)}.${msg}`;
 }
 
 const schoolYear: EventDef = {
@@ -363,11 +386,9 @@ const schoolYear: EventDef = {
   title: (c) => `${GRADE(age(c.s, c.p))}`,
   text: (c) => {
     const a = age(c.s, c.p);
-    const st = Math.round(studyOf(c.p));
-    const rank = st >= 90 ? '전교권' : st >= 75 ? '상위권' : st >= 55 ? '중상위권' : st >= 35 ? '중위권' : '하위권';
     return (
       `${iga(who(c))} ${GRADE(a)}이 되었다. 올해는 어떻게 보낼까?\n` +
-      `성적 ${rank} (${st}) · 누적 사교육비 ${formatMoney(c.p.eduSpent ?? 0)}` +
+      `성적 ${standingLabel(c.p)} · 누적 사교육비 ${formatMoney(c.p.eduSpent ?? 0)}` +
       (a >= 17 ? '\n수능까지 얼마 안 남았다.' : '')
     );
   },

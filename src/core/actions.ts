@@ -4,6 +4,8 @@
 import { chance, int, pick } from './rng';
 import { fmt, grow, jitter, rollTier, say, stat, TIER_MARK } from './practice';
 import { P } from './action-lines';
+import { addBargains } from './realty';
+import { standing, standingChange } from './school';
 import { JOBS } from './data';
 import { formatMoney, jobTitle, pay, statScore } from './economy';
 import { makeDate } from './events';
@@ -79,6 +81,7 @@ const KID_ACTIONS: ActionDef[] = [
     run: (s) => {
       const me = h(s);
       const t = rollTier(s, me, { talent: 'genius', stat: 'int', bonus: markOf(me, 'study') * 0.01 });
+      const was = standing(me);
       const st = { great: int(s, 4, 6), good: int(s, 2, 3), meh: int(s, 0, 1), bad: 0 }[t] * (1 + Math.min(6, markOf(me, 'study')) * 0.05);
       me.study = clamp((me.study ?? 20) + st, 0, 100);
       const di = t === 'great' || (t === 'good' && chance(s, 0.3)) ? grow(s, me, 'int', t === 'great' ? 'good' : 'meh') : 0;
@@ -88,7 +91,7 @@ const KID_ACTIONS: ActionDef[] = [
         me.actual.hp = clamp(me.actual.hp - 1, 0, 100);
       }
       if (t !== 'meh' && t !== 'bad') mark(me, 'study', 1);
-      return TIER_MARK[t] + say(s, me, P.study, t) + fmt([['성적', st], stat('int', di), stat('hp', hp)]);
+      return TIER_MARK[t] + say(s, me, P.study, t) + fmt([standingChange(was, me), stat('int', di), stat('hp', hp)]);
     },
   },
   {
@@ -303,7 +306,7 @@ export const ACTIONS: ActionDef[] = [
       for (const par of parentsOf(s, p)) par.affinity = clamp(par.affinity + jitter(s, 4), -100, 100);
       const hp = tier === 'bad' ? -int(s, 1, 3) : -int(s, 0, 1);
       me.actual.hp = clamp(me.actual.hp + hp, 0, 100);
-      return TIER_MARK[tier] + fillName(say(s, me, P.grandkid, tier), fullName(p)).replace('할머니(할아버지)', me.sex === 'F' ? '할머니' : '할아버지') + fmt([['손주 공부', st], stat('hp', hp)]);
+      return TIER_MARK[tier] + fillName(say(s, me, P.grandkid, tier), fullName(p)).replace('할머니(할아버지)', me.sex === 'F' ? '할머니' : '할아버지') + fmt([...(st ? [`손주 공부 ▲`] : []), stat('hp', hp)]);
     },
   },
   {
@@ -457,6 +460,7 @@ export const ACTIONS: ActionDef[] = [
     run: (s, t) => {
       const p = t!;
       const tier = rollTier(s, p, { stat: 'int', talent: 'genius', bonus: hasTrait(p, 'rebel') ? -0.12 : 0 });
+      const was = standing(p);
       const st = { great: int(s, 5, 7), good: int(s, 2, 4), meh: int(s, 0, 1), bad: 0 }[tier];
       p.study = clamp((p.study ?? 30) + st, 0, 100);
       p.eduSpent = (p.eduSpent ?? 0) + 500;
@@ -464,7 +468,7 @@ export const ACTIONS: ActionDef[] = [
       mood(p, joy);
       if (tier !== 'bad' && tier !== 'meh') mark(p, 'study', 1);
       if (p.happiness < 30 || tier === 'bad') mark(p, 'hurt', 1);
-      return TIER_MARK[tier] + fillName(say(s, p, P.extraClass, tier), fullName(p)) + fmt([['성적', st], ['행복', joy]]);
+      return TIER_MARK[tier] + fillName(say(s, p, P.extraClass, tier), fullName(p)) + fmt([standingChange(was, p), ['행복', joy]]);
     },
   },
   {
@@ -503,13 +507,15 @@ export const ACTIONS: ActionDef[] = [
     cat: '재산',
     icon: '🔎',
     name: '부동산 임장 (급매 찾기)',
-    desc: '발품을 팔면 싼 매물이 나올 수도',
+    desc: '발품을 팔면 시세보다 싼 급매가 매물 목록에 올라온다',
     ap: 1,
+    blocked: (s) => (age(s, h(s)) < 20 ? '아직 어리다' : undefined),
     run: (s) => {
-      if (!chance(s, 0.55)) return '며칠을 돌아다녔지만 마땅한 매물이 없었다.';
-      const pick = spendable(s) > s.market.apt_seoul * 0.4 && chance(s, 0.6) ? 'r_bargain' : 'r_land';
-      queueEv(s, pick, s.headId);
-      return '괜찮은 매물을 찾았다!';
+      const me = h(s);
+      const t = rollTier(s, me, { stat: 'int', talent: 'merchant' });
+      if (t === 'bad' || (t === 'meh' && chance(s, 0.5))) return pick(s, ['며칠을 돌아다녔지만 마땅한 매물이 없었다.', '중개사무소마다 "요즘 급매는 없어요"란다.', '괜찮아 보였던 집이 알고 보니 반지하였다.']);
+      const found = addBargains(s, t === 'great' ? 2 : 1);
+      return `${pick(s, ['동네 중개사 사장님이 조용히 귀띔해 줬다.', '새벽 임장에서 급하게 내놓은 집을 발견했다.', '경매 정보지를 뒤지다 눈에 띄는 물건을 찾았다.'])}\n→ 자산 탭 매물 목록에 추가: ${found.map((l) => `${l.name} ${formatMoney(l.price)}`).join(', ')}`;
     },
   },
   {

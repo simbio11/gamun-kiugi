@@ -15,6 +15,8 @@ import { SEED_EVENTS } from '../src/core/seeds';
 import { householder, mark, markOf } from '../src/core/people';
 import { nestOf } from '../src/core/nest';
 import { forecast } from '../src/core/economy';
+import { acqTax, buyListing, gainsTax, isPrimary, rentable, rollListings } from '../src/core/realty';
+import { standing } from '../src/core/school';
 
 describe('콘텐츠 무결성', () => {
   it('직업 100개 이상, 모든 참조가 유효', () => {
@@ -203,5 +205,47 @@ describe('인생 시스템', () => {
     }
     expect(texts.size).toBeGreaterThan(5);
     expect(gains.size).toBeGreaterThan(2);
+  });
+
+  it('부동산: 첫 집은 실거주(월세 없음), 두 번째부터 취득세 중과, 1주택 2년 보유 비과세', () => {
+    const s = newGame({ seed: 9, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    s.year = h.birthYear + 40;
+    h.flags.push('indep');
+    h.job = 'doctor';
+    h.jobYears = 10;
+    h.cash = 800000;
+    rollListings(s);
+    const house = () => s.listings!.find((l) => l.house && !l.deposit)!;
+    let l = house();
+    expect(acqTax(s, h, l).rate).toBeLessThanOrEqual(0.03);
+    expect(buyListing(s, l.id)).toContain('매수!');
+    const first = s.assets.find((a) => a.name === l.name)!;
+    expect(isPrimary(s, first)).toBe(true);
+    expect(rentable(s, first)).toBe(false);
+    rollListings(s);
+    l = house();
+    expect(acqTax(s, h, l).rate).toBe(0.08);
+    buyListing(s, l.id);
+    const second = s.assets.find((a) => a.name === l.name && a.id !== first.id)!;
+    expect(rentable(s, second) || !!second.deposit || isPrimary(s, second)).toBe(true);
+    // 3년 뒤 1주택만 남기고 팔면 비과세
+    s.assets = s.assets.filter((a) => a.id !== second.id || isPrimary(s, a));
+    const only = s.assets.find((a) => a.ownerId === h.id && (a.kind === 'apt_seoul' || a.kind === 'apt_local'))!;
+    only.cost = Math.round(only.value * 0.8);
+    only.bought = s.year - 3;
+    if (s.assets.filter((a) => a.ownerId === h.id && (a.kind === 'apt_seoul' || a.kind === 'apt_local')).length === 1 && only.value <= 120000) expect(gainsTax(s, only).tax).toBe(0);
+  });
+
+  it('성적은 등급으로: 공부할수록 등급 숫자가 작아진다 (1등급이 최고)', () => {
+    const s = newGame({ seed: 1, familyName: '최', sex: 'M' });
+    const p = head(s);
+    p.study = 20;
+    const low = standing(p);
+    p.study = 95;
+    const high = standing(p);
+    expect(high.grade).toBeLessThan(low.grade);
+    expect(high.top).toBeLessThan(low.top);
   });
 });

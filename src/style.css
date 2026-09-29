@@ -349,3 +349,20 @@ small.down { color: #2d6fb5; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ─── 부동산 ─── */
+.mkt { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; margin-bottom: 4px; }
+.re { border-top: 1px dashed #cbb58c; padding: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.re-h { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.re-h span { min-width: 0; }
+.re-t { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag { font-weight: normal; font-size: 10px; background: var(--panel2); padding: 1px 6px; }
+.tag.home { background: #cfe8c4; }
+.tag.inv { background: #cfe0f2; }
+.tag.hot { background: #f2b8a8; }
+.tag.warn { background: #f2d38a; }
+.re-f { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; }
+.re-f small { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.re-f span { display: flex; flex: none; }
+.re-f .mini, .re-f span .mini { white-space: nowrap; flex: none; }
+.re.listing .re-h b { color: var(--blue); }

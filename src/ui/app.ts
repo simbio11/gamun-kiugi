@@ -1,3 +1,5 @@
+import { standingLabel } from '../core/school';
+import { LOAN_RATE, liab, acqTax, buyListing, buyQuote, gainsTax, homesOf, isHouse, isPrimary, isRealty, rentable, repayLoan, yieldOf } from '../core/realty';
 import { buzz, floatDelta, rollNumber, setSound, sfx, soundOn, type Sfx } from './fx';
 import {
   ACHIEVEMENTS,
@@ -30,7 +32,6 @@ import { ACTIONS, apLeft, doAction, forHead, type ActionCat } from '../core/acti
 import { spendable as canSpend } from '../core/ev-util';
 import { writeWill } from '../core/family';
 import {
-  BUY_TAX,
   aptitudeTest,
   artPrice,
   buyAsset,
@@ -262,6 +263,55 @@ function header(g: GameState): string {
       ${w.label.includes('부모님') && (h.cash || f.mine) ? `<div class="fame">내 통장 ${formatMoney(h.cash)}${f.mine ? ` (+${formatMoney(f.mine)}/년)` : ''}</div>` : ''}
     </button>
   </header>`;
+}
+
+/** 부동산: 내 집·투자 부동산 + 올해 매물 */
+function realtyCard(g: GameState): string {
+  const h = head(g);
+  const mine = g.assets.filter((a) => isRealty(a) && (a.ownerId === h.id || a.ownerId === h.spouseId));
+  const adult = age(g, h) >= 20;
+  const homes = homesOf(g, h).length;
+  const owned = mine
+    .map((a) => {
+      const prim = isPrimary(g, a);
+      const gt = gainsTax(g, a);
+      const gain = a.value - (a.cost ?? a.value);
+      const role = prim ? '<b class="tag home">🏠 실거주</b>' : isHouse(a) ? '<b class="tag inv">💼 투자 주택</b>' : '<b class="tag inv">💼 투자</b>';
+      const extra = [
+        a.deposit ? `<b class="tag">전세 보증금 ${formatMoney(a.deposit)} · ${a.depositEnd}년 만기</b>` : '',
+        a.loan ? `<b class="tag warn">대출 ${formatMoney(a.loan)} (연 ${formatMoney(a.loan * LOAN_RATE)})</b>` : '',
+        rentable(g, a) ? `<b class="tag">월세 수익률 ${(yieldOf(a) * 100).toFixed(1)}%</b>` : '',
+        ...(a.tags ?? []).filter((t) => t !== '주택').map((t) => `<b class="tag">${esc(t)}</b>`),
+      ].join('');
+      return `<div class="re">
+        <div class="re-h"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}</span><b>${formatMoney(a.value)}</b></div>
+        <div class="re-t">${role}${extra}</div>
+        <div class="re-f"><small>${a.cost ? `산 값 ${formatMoney(a.cost)} (${gain >= 0 ? '+' : ''}${formatMoney(gain)}) · ` : ''}팔면 양도세 ${formatMoney(gt.tax)}${gt.note ? ` (${esc(gt.note)})` : ''}</small>
+          <span>${a.loan ? `<button class="mini" data-action="repay" data-id="${a.id}" ${h.cash > 0 ? '' : 'disabled'}>대출 갚기</button>` : ''}${a.ownerId === h.id ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>
+      </div>`;
+    })
+    .join('');
+  const listings = (g.listings ?? [])
+    .map((l) => {
+      const q = buyQuote(g, h, l);
+      const ok = adult && q.cash >= q.need;
+      const tx = acqTax(g, h, l);
+      return `<div class="re listing">
+        <div class="re-h"><span>${ASSET_ICONS[l.kind]} ${esc(l.name)}</span><b>${formatMoney(l.price)}</b></div>
+        <div class="re-t">${l.tags.filter((t) => t !== '주택').map((t) => `<b class="tag ${t === '급매' ? 'hot' : t === '호가 높음' ? 'warn' : ''}">${esc(t)}</b>`).join('')}${l.yield > 0 && !l.deposit ? `<b class="tag">월세 ${(l.yield * 100).toFixed(1)}%</b>` : ''}${l.house ? (l.kind === 'building' ? '<b class="tag">주택 수 포함</b>' : '') : '<b class="tag">주택 수 제외</b>'}</div>
+        <div class="re-f"><small>${l.deposit ? `보증금 ${formatMoney(l.deposit)} 끼고 · ` : ''}취득세 ${formatMoney(q.tax)} (${tx.note}) · 대출 최대 ${formatMoney(q.limit)}${q.ltv ? ` (LTV ${Math.round(q.ltv * 100)}%)` : ''}<br>필요 현금 <b>${formatMoney(Math.max(0, q.need))}</b></small>
+          <button class="mini" data-action="buy-l" data-id="${l.id}" ${ok ? '' : 'disabled'}>매수</button></div>
+      </div>`;
+    })
+    .join('');
+  return `<section class="card">
+    <h2>🏠 부동산 <small class="muted">우리 부부 명의 · 주택 ${homes}채</small></h2>
+    ${owned || '<p class="hint">아직 내 집이 없다.</p>'}
+    <h4 class="sub">📋 ${g.year}년 매물 <small class="muted">해마다 바뀐다 · 행동 탭 '임장'으로 급매를 더 찾을 수 있다</small></h4>
+    ${adult ? '' : '<p class="fine">스무 살이 되면 살 수 있다.</p>'}
+    ${listings || '<p class="hint">올해는 매물이 다 나갔다.</p>'}
+    <p class="fine">첫 집(실거주)은 월세가 없는 대신 재산세가 싸고, 2년 넘게 살면 12억까지 양도세 비과세.<br>두 번째 집부터는 투자: 취득세 8%(3채 이상 12%), 대출 LTV 30%(3채부터 0%), 공시가 9억 넘으면 종부세, 팔 때 양도세 중과. 월세는 공실이면 0원.<br>전세 낀 매물은 적은 돈으로 살 수 있지만(갭투자), 만기에 세입자가 나가면 보증금을 돌려줘야 한다.</p>
+  </section>`;
 }
 
 /** 가문 자산을 누구 몫인지 나눠 보여준다 */
@@ -509,8 +559,7 @@ function lifeRows(g: GameState, p: Person): string {
   if (school) rows.push(`<div class="sh-row"><span>학교</span><span>${esc(school)}</span></div>`);
   const a = age(g, p);
   if (alive(p) && a >= 8 && a < 25 && (p.study !== undefined || p.eduSpent)) {
-    const st = Math.round(p.study ?? 0);
-    rows.push(`<div class="sh-row"><span>성적</span><span>${st}점 ${st >= 90 ? '(전교권)' : st >= 75 ? '(상위권)' : st >= 55 ? '(중상위권)' : st >= 35 ? '(중위권)' : '(하위권)'} · 사교육비 누적 ${formatMoney(p.eduSpent ?? 0)}</span></div>`);
+    rows.push(`<div class="sh-row"><span>성적</span><span>${standingLabel(p)} · 사교육비 누적 ${formatMoney(p.eduSpent ?? 0)}</span></div>`);
   }
   const retake = Number(p.flags.find((f) => f.startsWith('retake:'))?.slice(7) ?? 0);
   if (retake) rows.push(`<div class="sh-row"><span>입시</span><span>${retake + 1}수${p.flags.includes('retaking') ? ' 중' : ''}</span></div>`);
@@ -669,11 +718,11 @@ function richText(text: string): string {
   return text
     .split('\n')
     .map((line) => {
-      const m = line.match(/^(.*?) \(([^()]*(?:[+\-−]\d|변화 없음)[^()]*)\)$/);
+      const m = line.match(/^(.*?) \(((?:[^()]|\([^()]*\))*(?:[+\-−]\d|변화 없음|등급)(?:[^()]|\([^()]*\))*)\)$/);
       if (!m) return esc(line);
       const chips = m[2]
         .split(' · ')
-        .map((c, i) => `<span class="dchip ${/[\-−]\d/.test(c) ? 'neg' : /\+\d/.test(c) ? 'pos' : ''}" style="animation-delay:${180 + i * 90}ms">${esc(c)}</span>`)
+        .map((c, i) => `<span class="dchip ${/[\-−]\d|▼/.test(c) ? 'neg' : /\+\d|▲/.test(c) ? 'pos' : ''}" style="animation-delay:${180 + i * 90}ms">${esc(c)}</span>`)
         .join('');
       return `${esc(m[1])}<span class="dchips">${chips}</span>`;
     })
@@ -758,7 +807,7 @@ function policyScreen(g: GameState): string {
                 a < 8
                   ? `<div class="field">교육비 ${seg('budget', cp.budget, BUDGET_NAMES.map((n, i) => [i, n]), c.id)}</div>
                      <div class="field">집중 분야 ${seg('focus', cp.focus, Object.entries(FOCUS_NAMES) as [string, string][], c.id)}</div>`
-                  : `<p class="fine">올해: ${sy >= 0 ? PLAN_NAMES[sy] : '—'} · 성적 ${Math.round(c.study ?? 0)} · 사교육비 누적 ${formatMoney(c.eduSpent ?? 0)}<br>학년이 바뀔 때마다 어떻게 보낼지 정한다.</p>`;
+                  : `<p class="fine">올해: ${sy >= 0 ? PLAN_NAMES[sy] : '—'} · 성적 ${standingLabel(c)} · 사교육비 누적 ${formatMoney(c.eduSpent ?? 0)}<br>학년이 바뀔 때마다 어떻게 보낼지 정한다.</p>`;
               return `<div class="kid">
                 <div class="kid-h"><img class="px sm" src="${portraitURL(c, a)}"> ${esc(fullName(c))} · ${a}세 · ${esc(jobShort(g, c))}</div>
                 ${body}
@@ -788,7 +837,7 @@ function assetsScreen(g: GameState): string {
   const et = estateTax(g, h);
 
   const assetRow = (a: Asset, sellable: boolean) =>
-    `<div class="arow"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}</span><span>${formatMoney(a.value)} ${sellable ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>`;
+    `<div class="arow"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}</span><span>${formatMoney(a.value)}${liab(a) ? ` <small class="neg">(빚 ${formatMoney(liab(a))})</small>` : ''} ${sellable ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>`;
 
   const units = TRADE_UNITS.map((u) => [u, formatMoney(u)] as const);
   return `
@@ -821,16 +870,11 @@ function assetsScreen(g: GameState): string {
       .join('')}
   </section>
 
+  ${realtyCard(g)}
+
   <section class="card">
     <h2>투자 시장 <small class="muted">가주 명의로 매수</small></h2>
-    <h4 class="sub">부동산 (한 채)</h4>
-    ${(REAL_ESTATE as AssetKind[])
-      .map(
-        (k) => `<div class="arow"><span>${ASSET_ICONS[k]} ${ASSET_NAMES[k]} ${pct(g.marketChange[k])}</span>
-        <span>${formatMoney(g.market[k])} <button class="mini" data-action="buy" data-v="${k}" ${canBuy(g, k) ? '' : 'disabled'}>매수</button></span></div>`,
-      )
-      .join('')}
-    <p class="fine">취득세 ${BUY_TAX * 100}% · 가격의 40%만 있으면 나머지는 대출(연 7%) · 임대수익 연 2.5% · 상속세 평가 70%</p>
+    <div class="mkt">${(REAL_ESTATE as AssetKind[]).map((k) => `<span>${ASSET_ICONS[k]} ${ASSET_NAMES[k].replace('강남 ', '서울 ')} ${pct(g.marketChange[k])}</span>`).join('')}</div>
     ${(['stock', 'coin'] as const)
       .map(
         (k) => `<h4 class="sub">${ASSET_ICONS[k]} ${k === 'stock' ? '주식 (지수 ' + g.market.stock + ')' : '코인 (지수 ' + g.market.coin + ')'} ${pct(g.marketChange[k])}</h4>
@@ -1011,7 +1055,7 @@ function onInput(e: Event) {
   }
 }
 
-const SFX: Record<string, Sfx> = { choose: 'choose', next: 'next', buy: 'coin', sell: 'coin', gift: 'coin', 'gift-asset': 'coin', 'ok-outcome': 'close', 'ok-report': 'close', 'close-sheet': 'close', start: 'great' };
+const SFX: Record<string, Sfx> = { choose: 'choose', next: 'next', buy: 'coin', 'buy-l': 'coin', repay: 'coin', sell: 'coin', gift: 'coin', 'gift-asset': 'coin', 'ok-outcome': 'close', 'ok-report': 'close', 'close-sheet': 'close', start: 'great' };
 let leaving = false;
 
 function onClick(e: MouseEvent) {
@@ -1143,6 +1187,15 @@ function handle(el: HTMLElement) {
       ui.sheet = undefined;
       ui.outcome = { title: '은퇴', text: retire(g!) };
       break;
+    case 'buy-l':
+      ui.toast = buyListing(g!, id);
+      if (!ui.toast.includes('매수!')) sfx('error');
+      break;
+    case 'repay': {
+      const a = g!.assets.find((x) => x.id === id);
+      if (a) ui.toast = repayLoan(g!, a, head(g!).cash);
+      break;
+    }
     case 'buy':
       ui.toast = buyAsset(g!, v as AssetKind, Number(el.dataset.amt ?? 0));
       break;

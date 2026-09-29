@@ -1,4 +1,5 @@
 import { assessedValue, assetsOf, formatMoney } from './economy';
+import { liab, netOf } from './realty';
 import { alive, age, childrenOf, clamp, fullName, head, isDescendantOf, parentsOf, siblingsOf, spouseOf, addFlag } from './people';
 import { giftTax, inheritanceTax, type GiftTaxOpts } from './tax';
 import { unlock } from './achievements';
@@ -46,8 +47,9 @@ function willShares(s: GameState, d: Person, successorId?: string): Map<string, 
 /** 지금 d가 사망하면 내야 할 상속세 (정산과 미리보기 공용) */
 export function estateTax(s: GameState, d: Person) {
   const assets = assetsOf(s, d.id);
-  const gross = d.cash + assets.reduce((t, a) => t + a.value, 0);
-  const assessed = d.cash + assets.reduce((t, a) => t + assessedValue(a), 0);
+  // 담보대출·전세보증금은 채무로 빼 준다
+  const gross = d.cash + assets.reduce((t, a) => t + netOf(a), 0);
+  const assessed = d.cash + assets.reduce((t, a) => t + assessedValue(a) - liab(a), 0);
   const recent = s.gifts.filter((g) => g.fromId === d.id && s.year - g.year < 10);
   const priorGifts = recent.reduce((t, g) => t + g.amount, 0);
   const priorGiftTax = recent.reduce((t, g) => t + g.tax, 0);
@@ -81,7 +83,7 @@ export function settleEstate(s: GameState, d: Person, successorId?: string, over
   const sorted = [...assets].sort((a, b) => (LIQUID[a.kind] ?? 1) - (LIQUID[b.kind] ?? 1) || a.value - b.value);
   while (cash < 0 && sorted.length) {
     const a = sorted.shift()!;
-    const got = a.fake ? Math.round(a.value * 0.05) : a.value;
+    const got = a.fake ? Math.round(a.value * 0.05) : netOf(a);
     cash += got;
     s.assets = s.assets.filter((x) => x.id !== a.id);
     lines.push(`세금 납부를 위해 ${a.name}(${formatMoney(got)}) 매각` + (a.fake ? ' — 감정 결과 위작이었다!' : ''));
@@ -94,7 +96,7 @@ export function settleEstate(s: GameState, d: Person, successorId?: string, over
   if (chaos) {
     lines.push('📜 유언장이 없었다. 상속인들의 합의가 틀어졌다.');
     for (const a of kept) {
-      const got = Math.round((a.fake ? a.value * 0.05 : a.value) * 0.85);
+      const got = Math.round((a.fake ? a.value * 0.05 : a.value) * 0.85 - liab(a));
       cash += got;
       s.assets = s.assets.filter((x) => x.id !== a.id);
       lines.push(`공동상속 분할을 위해 ${a.name} 급매 (${formatMoney(got)})`);
@@ -112,10 +114,10 @@ export function settleEstate(s: GameState, d: Person, successorId?: string, over
     for (const a of kept) a.ownerId = 'family';
     lines.push('상속인이 없어 재산이 다음 가주에게 넘어간다');
   } else {
-    const net = cash + kept.reduce((t, a) => t + a.value, 0);
+    const net = cash + kept.reduce((t, a) => t + netOf(a), 0);
     const ranked = [...shares.entries()].sort((a, b) => b[1] - a[1] || (a[0] === successorId ? -1 : b[0] === successorId ? 1 : 0));
     const assetTaker = ranked[0][0];
-    const keptValue = kept.reduce((t, a) => t + a.value, 0);
+    const keptValue = kept.reduce((t, a) => t + netOf(a), 0);
     for (const a of kept) a.ownerId = assetTaker;
     const targets = new Map<string, number>();
     for (const [id, sh] of shares) targets.set(id, (net * sh) / total - (id === assetTaker ? keptValue : 0));
@@ -244,7 +246,7 @@ export function giveGift(s: GameState, from: Person, to: Person, amount: number)
 export function giveAsset(s: GameState, from: Person, to: Person, assetId: string): { ok: boolean; msg: string; tax: number } {
   const a = s.assets.find((x) => x.id === assetId && x.ownerId === from.id);
   if (!a) return { ok: false, msg: '증여할 수 없는 자산입니다', tax: 0 };
-  const amount = assessedValue(a);
+  const amount = Math.max(0, assessedValue(a) - liab(a)); // 부담부증여: 빚도 같이 넘어간다
   const tax = previewGiftTax(s, from, to, amount);
   a.ownerId = to.id;
   to.cash -= tax;
@@ -255,5 +257,5 @@ export function giveAsset(s: GameState, from: Person, to: Person, assetId: strin
 
 export function previewAssetGiftTax(s: GameState, from: Person, to: Person, assetId: string): number {
   const a = s.assets.find((x) => x.id === assetId);
-  return a ? previewGiftTax(s, from, to, assessedValue(a)) : 0;
+  return a ? previewGiftTax(s, from, to, Math.max(0, assessedValue(a) - liab(a))) : 0;
 }

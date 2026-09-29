@@ -8,6 +8,7 @@ import { heirCandidates } from './family';
 import { FATE_RANDOM, fateYear, lifeInsurancePayout } from './fate';
 import { ROMANCE_RANDOM, romanceYear } from './romance';
 import { nestYear } from './nest';
+import { isRealty, rollListings, sellRealty } from './realty';
 import { STORIES } from './stories';
 import { SEED_EVENTS, seedYear } from './seeds';
 import { AP_PER_YEAR, autoGiftYear } from './actions';
@@ -80,6 +81,7 @@ export function migrate(s: GameState): GameState {
     s.version = 3;
   }
   foldFamilyPot(s);
+  if (!s.listings) rollListings(s);
   return s;
 }
 
@@ -228,6 +230,7 @@ export function newGame(o: NewGameOpts): GameState {
   queue(s, 'kinder', me.id);
   initMissions(s);
   foldFamilyPot(s);
+  rollListings(s);
   return s;
 }
 
@@ -289,6 +292,7 @@ export function simulateYear(s: GameState): void {
   checkAchievements(s);
   checkMissions(s);
   foldFamilyPot(s);
+  rollListings(s);
 }
 
 /** 인생사: 성격·금슬·병역·질병·난임·선거·유언 + 무작위 사건 (한 해 최대 2건) */
@@ -899,6 +903,11 @@ export function buyAsset(s: GameState, kind: AssetKind, amount = 0): string {
 export function sellAsset(s: GameState, assetId: string): string {
   const a = s.assets.find((x) => x.id === assetId);
   if (!a) return '';
+  if (isRealty(a)) {
+    const r = sellRealty(s, a);
+    log(s, `🏷 ${a.name} 매도: 손에 쥔 돈 ${formatMoney(r.got)}${r.tax ? ` (양도세 ${formatMoney(r.tax)})` : ''}`, 'money');
+    return `${a.name} 매도 → ${formatMoney(r.got)}` + (r.tax ? ` · 양도세 ${formatMoney(r.tax)} (${r.note})` : r.note ? ` · ${r.note}` : '');
+  }
   const fake = exposeFakes(s, [a]).length > 0;
   const got = Math.round(a.value * (a.kind === 'stock' || a.kind === 'coin' ? 1 - TRADE_FEE : 1));
   if (a.ownerId === 'family') s.familyCash += got;
