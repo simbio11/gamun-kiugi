@@ -4,7 +4,7 @@ import { chance, int, next, normal, pick } from './rng';
 import type { Asset, GameState, Listing, Person } from './types';
 import { addAsset, expectedIncome, formatMoney, pay } from './economy';
 import { alive, clamp, fullName, head, spouseOf } from './people';
-import { creditBlocked, homeOf, refundOf } from './housing';
+import { creditBlocked, homeOf, JEONSE_TERM, refundOf } from './housing';
 
 export const HOUSE_KINDS = ['apt_seoul', 'apt_local'] as const;
 export const REALTY_KINDS = ['apt_seoul', 'apt_local', 'land', 'building'] as const;
@@ -181,7 +181,7 @@ export function realtyYear(s: GameState): string[] {
         const diff = nd - a.deposit;
         o.cash += diff;
         a.deposit = nd;
-        a.depositEnd = s.year + 2;
+        a.depositEnd = s.year + JEONSE_TERM;
         if (me) msgs.push(diff >= 0 ? `🔑 ${a.name}: 전세 재계약, 보증금 ${formatMoney(diff)} 올려 받았다` : `😰 ${a.name}: 역전세! 보증금 ${formatMoney(-diff)}을 돌려줘야 했다`);
       } else {
         o.cash -= a.deposit;
@@ -396,7 +396,7 @@ export function buyListing(s: GameState, id: string): string {
   const a = addAsset(s, l.kind, me.id, l.price, l.name);
   Object.assign(a, { cost: l.price, bought: s.year, beta: l.beta, drift: l.drift, vol: l.vol, yield: l.yield, tags: l.tags.filter((t) => !['급매', '호가 높음', '전세 낀 매물'].includes(t)) });
   if (q.loan) a.loan = q.loan;
-  if (l.deposit) (a.deposit = l.deposit), (a.depositEnd = s.year + int(s, 1, 2));
+  if (l.deposit) (a.deposit = l.deposit), (a.depositEnd = s.year + int(s, 1, JEONSE_TERM));
   s.listings = s.listings!.filter((x) => x.id !== id);
   return `${l.name} 매수!` + (q.loan ? ` 대출 ${formatMoney(q.loan)}` : '') + (l.deposit ? ` · 세입자 보증금 ${formatMoney(l.deposit)} 승계` : '') + ` · 취득세 ${formatMoney(q.tax)}`;
 }

@@ -181,7 +181,8 @@ export function afterHomeSold(s: GameState, assetId: string): string {
   return `살던 집을 팔고 ${t.name} 월세(연 ${formatMoney(w.rent)})로 옮겼다.`;
 }
 
-/** 해마다: 월세 조정, 전세 2년 만기 재계약 (오른 만큼 더 내거나 돌려받는다) */
+/** 해마다: 월세 조정, 전세 5년 만기 재계약 (오른 만큼 더 내거나 돌려받는다) */
+export const JEONSE_TERM = 5;
 export function housingYear(s: GameState): string[] {
   const msgs: string[] = [];
   const hh = householder(s);
@@ -191,7 +192,7 @@ export function housingYear(s: GameState): string[] {
     const t = tierOf(s, h.tier);
     const mine = p.id === hh.id || p.id === hh.spouseId;
     if (h.type === 'wolse') h.rent = wolseOf(t).rent;
-    if (h.type === 'jeonse' && s.year - h.since >= 2 && (s.year - h.since) % 2 === 0) {
+    if (h.type === 'jeonse' && s.year - h.since >= JEONSE_TERM && (s.year - h.since) % JEONSE_TERM === 0) {
       const nd = jeonseOf(t);
       const diff = nd - h.deposit;
       p.cash -= diff;

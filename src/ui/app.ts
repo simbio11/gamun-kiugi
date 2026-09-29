@@ -315,7 +315,7 @@ function homeCard(g: GameState): string {
     ${buy ? `<div class="arow"><span>이 집을 산다 <small>(보증금 돌려받아 보태고, 대출 ${formatMoney(buy.loan)})</small></span><span>${formatMoney(buy.price)} <button class="mini" data-action="buy-home" ${cash >= buy.need ? '' : 'disabled'}>매수</button></span></div>` : ''}
     <details class="moves"><summary>이사 가기 (전세·월세)</summary>
       ${rows}
-      <p class="fine">전세: 보증금의 최대 80%(2억·연 소득 4배 한도)까지 전세대출(연 4%). 월세: 보증금 조금 + 해마다 월세.<br>집을 사려면 부동산 매물에서 산다. 첫 집을 사면 그 집으로 이사하고, 지금 보증금은 돌려받는다.<br>자가에서 전세·월세로 옮기면 살던 집은 세를 놓는다. 집을 팔면 한 단계 작은 집 월세로 옮긴다.</p>
+      <p class="fine">전세: 5년마다 재계약(그사이 오른 시세만큼 보증금 조정). 보증금의 최대 80%(2억·연 소득 4배 한도)까지 전세대출(연 4%). 월세: 보증금 조금 + 해마다 월세.<br>집을 사려면 부동산 매물에서 산다. 첫 집을 사면 그 집으로 이사하고, 지금 보증금은 돌려받는다.<br>자가에서 전세·월세로 옮기면 살던 집은 세를 놓는다. 집을 팔면 한 단계 작은 집 월세로 옮긴다.</p>
     </details>
   </section>`;
 }
