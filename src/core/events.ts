@@ -5,6 +5,7 @@ import { MAJOR_JOBS } from './school';
 import { startDating } from './romance';
 import { appealBonus } from './marks';
 import { unlock } from './achievements';
+import { buyPower } from './leverage';
 import { addAsset, formatMoney, jobLabel, jobTitle, pay, personWorth, statScore } from './economy';
 import { estateTax, giveGift } from './estate';
 import {
@@ -1129,39 +1130,80 @@ const scam: RandomDef = {
   ],
 };
 
+/** 나이대에 흔한 병: [이름, 설명, 치료비(만원), 최소 나이] */
+const AILMENTS: [string, string, number, number][] = [
+  ['허리 디스크', '아침에 양말 신기가 힘들다. MRI에서 디스크가 튀어나와 있다.', 400, 25],
+  ['역류성 식도염', '야식과 커피에 속이 타들어 간다. 내시경을 권한다.', 60, 25],
+  ['대상포진', '옆구리에 띠 모양 물집이 올라왔다. 과로가 원인이란다.', 80, 30],
+  ['이석증', '아침에 일어나는데 천장이 빙글빙글 돈다.', 40, 30],
+  ['갑상선 결절', '건강검진에서 목에 혹이 보인다. 조직검사가 필요하다.', 150, 30],
+  ['공황 증상', '지하철에서 갑자기 숨이 막히고 심장이 뛰었다.', 120, 25],
+  ['오십견', '팔이 어깨 위로 안 올라간다. 도수치료를 권한다.', 200, 45],
+  ['고지혈증·고혈압', '혈압이 150을 넘었다. 약을 평생 먹어야 할 수도 있다.', 100, 40],
+  ['당뇨 전 단계', '공복 혈당이 높다. 식단부터 바꿔야 한다.', 80, 40],
+  ['통풍', '엄지발가락이 바람만 스쳐도 아프다. 맥주를 끊으라고 한다.', 60, 35],
+  ['무릎 연골 손상', '계단을 내려갈 때마다 무릎이 시큰하다.', 500, 50],
+  ['백내장', '눈앞이 뿌옇다. 수술하면 새 세상이 보인단다.', 300, 55],
+  ['협심증', '가슴이 조여 오는 통증. 스텐트 시술을 권한다.', 900, 55],
+];
+
+function ailment(c: Ctx): { name: string; desc: string; cost: number } {
+  if (!c.ev.data) {
+    const a = age(c.s, c.p);
+    const opts = AILMENTS.filter(([, , , min]) => a >= min);
+    const [name, desc, cost] = pick(c.s, opts.length ? opts : AILMENTS);
+    c.ev.data = { name, desc, cost };
+  }
+  return c.ev.data;
+}
+
 const illness: RandomDef = {
   id: 'r_illness',
   weight: (c) => (c.p.actual.hp < 40 ? 1.2 : age(c.s, c.p) > 45 ? 0.6 : 0.15),
-  title: () => '건강 이상',
-  text: (c) => `${who(c)}의 몸이 예전 같지 않다. 병원에서 정밀 치료를 권한다.`,
-  choices: () => [
+  title: (c) => `건강 이상: ${ailment(c).name}`,
+  text: (c) => {
+    ailment(c);
+    return `${who(c)}: ${c.ev.data.desc}\n진단명은 ${c.ev.data.name}. 치료비는 ${formatMoney(c.ev.data.cost)} 정도.`;
+  },
+  choices: (c) => [
     {
-      label: '치료받는다',
-      cost: 1500,
+      label: `제대로 치료받는다 (${formatMoney(ailment(c).cost)})`,
+      cost: ailment(c).cost,
       run: (x) => {
-        x.p.actual.hp = clamp(x.p.actual.hp + 12, 0, x.p.potential.hp);
-        return '치료를 받고 회복했다.';
+        x.p.actual.hp = clamp(x.p.actual.hp + 10, 0, x.p.potential.hp);
+        return `치료를 받고 한결 나아졌다. 의사가 "이제부터 관리가 중요하다"고 당부했다.`;
       },
     },
-    { label: '참고 버틴다', run: (x) => ((x.p.actual.hp = clamp(x.p.actual.hp - 12, 0, 100)), '병을 키웠다...') },
+    {
+      label: '생활 습관부터 바꾼다',
+      run: (x) =>
+        check(x.s, x.p.actual.mor, 45, 8)
+          ? ((x.p.actual.hp = clamp(x.p.actual.hp + 4, 0, x.p.potential.hp)), '술을 끊고 매일 걸었다. 다음 검진에서 수치가 좋아졌다.')
+          : ((x.p.actual.hp = clamp(x.p.actual.hp - 6, 0, 100)), '작심삼일. 증상이 조금 더 심해졌다.'),
+    },
+    { label: '참고 버틴다', run: (x) => ((x.p.actual.hp = clamp(x.p.actual.hp - 12, 0, 100)), '바쁘다는 핑계로 미뤘다. 병을 키웠다...') },
   ],
 };
 
 const bargain: RandomDef = {
   id: 'r_bargain',
-  weight: (c) => (spendable(c.s) > c.s.market.apt_seoul * 0.4 ? 1.2 : 0),
+  weight: (c) => (buyPower(c.s) > c.s.market.apt_seoul * 0.85 * 0.4 ? 1.2 : 0),
   title: () => '급매물',
   text: (c) => `강남 아파트 급매가 나왔다. 시세 ${formatMoney(c.s.market.apt_seoul)}짜리를 ${formatMoney(c.s.market.apt_seoul * 0.85)}에. (부족분은 대출)`,
   choices: (c) => [
     {
       label: '매수한다',
       run: (x) => {
+        // 내 돈(최대한) + 나머지는 주택담보대출. 통장을 마이너스로 만들지 않는다
         const price = Math.round(x.s.market.apt_seoul * 0.85);
-        x.p.cash -= price;
-        addAsset(x.s, 'apt_seoul', x.p.id, x.s.market.apt_seoul);
-        return `강남 아파트 등기를 쳤다!${x.p.cash < 0 ? ` 대출 ${formatMoney(-x.p.cash)} (연 7%)` : ''}`;
+        const own = Math.min(buyPower(x.s), price);
+        pay(x.s, x.p, own);
+        const a = addAsset(x.s, 'apt_seoul', x.p.id, x.s.market.apt_seoul);
+        a.cost = price;
+        if (price > own) a.loan = price - own;
+        return `강남 아파트 등기를 쳤다!${a.loan ? ` 주택담보대출 ${formatMoney(a.loan)} (연 4.5%)` : ''}`;
       },
-      disabled: spendable(c.s) < c.s.market.apt_seoul * 0.4,
+      disabled: buyPower(c.s) < c.s.market.apt_seoul * 0.85 * 0.4,
     },
     { label: '지나친다', run: () => '괜히 무리하지 않기로 했다.' },
   ],

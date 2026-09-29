@@ -74,7 +74,8 @@ export function buyQuote(s: GameState, buyer: Person, l: Listing) {
   const lim = loanLimit(s, buyer, l);
   // 첫 집이면 지금 사는 전세·월세 보증금을 빼서 보탤 수 있다
   const first = l.house && !l.deposit && homesOf(s, buyer).length === 0;
-  const cash = household(s, buyer).reduce((t, p) => t + Math.max(0, p.cash), 0) + (first ? refundOf(homeOf(s, buyer)) : 0);
+  // 통장 순액 (빚은 뺀다): 마이너스 통장으로는 집을 못 산다
+  const cash = Math.max(0, household(s, buyer).reduce((t, p) => t + p.cash, 0)) + (first ? refundOf(homeOf(s, buyer)) : 0);
   const base = l.price - (l.deposit ?? 0) + tax + fee;
   const loan = Math.max(0, Math.min(lim.amount, base - cash));
   return { tax, fee, loan, limit: lim.amount, ltv: lim.ltv, need: base - lim.amount, total: base, cash };

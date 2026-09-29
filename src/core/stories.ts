@@ -8,12 +8,14 @@ import type { GameState, Person, StatKey } from './types';
 import type { LifeDef } from './life';
 import { MORE_STORIES } from './stories-more';
 import { severance } from './economy';
+import { acquireCar, affordCar } from './vehicle';
 import { PATH_STORIES } from './stories-path';
 import { pathOf, type Path } from './path';
 import { trackOf } from './tracks';
 import { TRACK_STORIES } from './stories-track';
 import { HOOD_STORIES } from './stories-hood';
 import { MINI_STORIES } from './stories-mini';
+import { EXTRA_STORIES } from './stories-extra';
 
 export interface Eff {
   str?: number;
@@ -31,6 +33,8 @@ export interface Eff {
   /** 배우자·연인과의 애정 */
   bond?: number;
   flag?: string;
+  /** 차를 산다 (vehicle.ts 모델 id). 끝에 '+'가 붙으면 할부 허용 */
+  car?: string;
   /** [확률, 최소년, 최대년, 이벤트 id] */
   later?: [number, number, number, string];
   /** 보이지 않게 쌓이는 흔적 (seeds.ts) */
@@ -97,6 +101,10 @@ function apply(x: Ctx, e: Eff | undefined) {
     if (q && alive(q)) p.bond = q.bond = clamp((p.bond ?? 60) + e.bond, 0, 100);
   }
   if (e.flag) addFlag(p, e.flag);
+  if (e.car) {
+    const r = acquireCar(x.s, p, e.car.replace('+', ''), e.car.endsWith('+'));
+    if (r) x.s.log.push({ year: x.s.year, text: `🔑 ${fullName(p)} 새 차: ${r}`, kind: 'money' });
+  }
   // 시험을 접는다 / 회사에서 나온다: 실제로 상태가 바뀐다
   if (e.flag === 'quit_prep') p.flags = p.flags.filter((f) => !f.startsWith('prep:') && !f.startsWith('tries:') && f !== 'quit_prep');
   if (e.flag === 'laid_off') {
@@ -335,10 +343,11 @@ const S: Story[] = [
     { label: '적금을 든다', mark: { thrift: 1 }, text: '월급의 절반을 떼어 적금을 들었다.', eff: { cash: 300, mor: 2 } },
     { label: '나를 위한 선물 (명품)', mark: { spend: 1 }, text: '첫 명품 가방. 카드값이 무섭다.', eff: { hap: 8, cash: -400, cha: 1 } },
   ] },
-  { id: 'car', title: '첫 차', age: [23, 35], w: 0.04, once: true, cond: working, text: '{n이} 차를 사려고 한다.', choices: [
-    { label: '중고 경차', mark: { thrift: 1 }, cost: 800, text: '작지만 소중한 내 차.', eff: { hap: 5 } },
-    { label: '할부로 외제차', mark: { spend: 2 }, text: '카푸어의 길. 할부가 60개월이다.', eff: { hap: 10, cha: 2, cash: -5000 } },
-    { label: '대중교통이면 충분', mark: { thrift: 1 }, text: '', eff: { cash: 500 } },
+  { id: 'car', title: '첫 차', age: [23, 35], w: 0.04, once: true, cond: (s, p) => working(s, p) && !s.assets.some((a) => a.kind === 'vehicle' && a.ownerId === p.id), text: '{n이} 차를 사려고 한다. 친구들 단톡방은 온통 차 얘기다.', choices: [
+    { label: '경차를 할부로', need: (s, p) => affordCar(s, p, 'kei', true), mark: { thrift: 1 }, text: '작지만 소중한 내 차. 주말마다 세차를 한다.', eff: { hap: 5, car: 'kei+' } },
+    { label: '준중형 세단을 할부로', need: (s, p) => affordCar(s, p, 'compact', true), text: '사회초년생 첫 차의 정석. 에어컨 틀고 퇴근하는 맛.', eff: { hap: 7, car: 'compact+' } },
+    { label: '할부로 수입차', need: (s, p) => affordCar(s, p, 'import', true), mark: { spend: 2 }, text: '카푸어의 길. 월급의 절반이 할부로 나간다.', eff: { hap: 10, cha: 2, car: 'import+' } },
+    { label: '대중교통이면 충분', mark: { thrift: 1 }, text: '차 대신 적금을 들었다.', eff: { cash: 500 } },
   ] },
   { id: 'gym', title: '바디프로필', age: [20, 40], w: 0.03, text: '{n이} 바디프로필을 찍겠다며 헬스장에 등록했다.', choices: [
     { label: 'PT까지 등록', mark: { exercise: 1 }, cost: 300, text: '', roll: ['mor', 45, [{ str: 5, hp: 4, cha: 3, hap: 8 }, '석 달 만에 복근이 생겼다! 사진이 인생샷이다.'], [{ hap: -3 }, '3주 만에 치킨에 무너졌다.']] },
@@ -579,5 +588,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES].map(toLife);
-export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length;
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES].map(toLife);
+export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length;

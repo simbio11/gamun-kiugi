@@ -1,6 +1,7 @@
 // 일상 이야기 추가분: 어린 시절 → 학창 시절 → 청년 → 중년 → 노년 → 사회.
 // 일부는 later 로 몇 년 뒤 이어지는 뒷이야기(w: 0, 예약으로만 도착)가 있다.
 import type { Story } from './stories';
+import { affordCar, modelOf } from './vehicle';
 import { age, alive, hasFlag, spouseOf } from './people';
 
 export const MORE_STORIES: Story[] = [
@@ -116,9 +117,10 @@ export const MORE_STORIES: Story[] = [
     { label: '안 나간다', text: '', eff: {} },
   ] },
   // ───────── 중년 (35~65) ─────────
-  { id: 'car', title: '차 바꾸기', age: [30, 65], w: 0.03, text: '{n}의 차가 10년이 넘었다. 이제 바꿀 때일까?', choices: [
-    { label: '외제차', cost: 8000, mark: { spend: 2 }, text: '주차장에서 괜히 한 번 더 뒤돌아본다.', eff: { hap: 8, fame: 1 } },
-    { label: '국산 SUV', cost: 4000, text: '가족 여행이 편해졌다.', eff: { hap: 5 } },
+  { id: 'car', title: '차 바꾸기', age: [30, 65], w: 0.05, cond: (s, p) => s.assets.some((a) => a.kind === 'vehicle' && a.ownerId === p.id && s.year - (a.bought ?? s.year) >= 9 && !modelOf(a)?.yacht), text: '{n}의 차가 10년 가까이 됐다. 정비소 사장님이 "이제 보내 줄 때"라고 한다.', choices: [
+    { label: '수입 세단으로', need: (s, p) => affordCar(s, p, 'import', true), mark: { spend: 2 }, text: '주차장에서 괜히 한 번 더 뒤돌아본다.', eff: { hap: 8, fame: 1, car: 'import+' } },
+    { label: '국산 SUV로', need: (s, p) => affordCar(s, p, 'suv', true), text: '가족 여행이 편해졌다. 트렁크에 캠핑 의자가 들어간다.', eff: { hap: 5, car: 'suv+' } },
+    { label: '제네시스로', need: (s, p) => affordCar(s, p, 'genesis', true), text: '"성공했네" 소리를 들었다. 괜히 어깨가 펴진다.', eff: { hap: 7, fame: 1, car: 'genesis+' } },
     { label: '폐차할 때까지 탄다', mark: { thrift: 1 }, text: '', roll: ['luck', 70, [{}, '오늘도 잘 굴러간다.'], [{ cash: -300, hap: -3 }, '고속도로에서 퍼졌다. 견인비에 수리비까지.']] },
   ] },
   { id: 'health_scare', title: '건강검진 재검', age: [40, 70], w: 0.03, text: '{n}의 건강검진 결과에 "재검 요망"이 찍혀 나왔다.', choices: [

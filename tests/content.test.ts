@@ -549,3 +549,36 @@ describe('탈것', () => {
     expect(buyVehicle(kid, 'kei').ok).toBe(false);
   });
 });
+
+describe('빚내서 사기', () => {
+  it('통장이 마이너스면 주식·코인을 못 사고, 신용융자는 증거금 60%까지 · 반대매매', async () => {
+    const { buyAsset, canBuy } = await import('../src/core/sim');
+    const { leverageYear, buyPower } = await import('../src/core/leverage');
+    const s = newGame({ seed: 9, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    s.year = h.birthYear + 35;
+    h.flags.push('indep');
+    h.spouseId = undefined;
+    s.familyCash = 0;
+    h.cash = -3000;
+    expect(buyPower(s)).toBe(0);
+    expect(canBuy(s, 'stock', 1000)).toBe(false);
+    expect(canBuy(s, 'coin', 1000)).toBe(false);
+    h.cash = 7000;
+    h.credit = 750;
+    expect(canBuy(s, 'coin', 10000)).toBe(false);
+    expect(canBuy(s, 'stock', 10000)).toBe(true); // 70% 있음 → 신용
+    buyAsset(s, 'stock', 10000);
+    expect(h.cash).toBeGreaterThanOrEqual(0);
+    const acc = s.assets.find((a) => a.kind === 'stock' && a.ownerId === h.id)!;
+    expect(acc.loan).toBeGreaterThan(2900);
+    acc.value = Math.round(acc.loan! * 1.2); // 폭락
+    leverageYear(s);
+    const ev = s.events.find((e) => e.defId === 'margin_call');
+    expect(ev).toBeTruthy();
+    s.events = [ev!];
+    const txt = resolveChoice(s, currentEvent(s)!.choices.length - 1);
+    expect(txt).toContain('반대매매');
+  });
+});

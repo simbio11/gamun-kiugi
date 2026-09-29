@@ -12,6 +12,7 @@ import { isRealty, mortgageFromCash, rollListings, sellRealty } from './realty';
 import { afterHomeSold, homeOf, settleHome } from './housing';
 import { giveUsedCar } from './vehicle';
 import { debtYear } from './debt';
+import { buyPower, leverageYear, stockQuote } from './leverage';
 import { bindState } from './school';
 import { STORIES } from './stories';
 import { SEED_EVENTS, seedYear } from './seeds';
@@ -314,6 +315,7 @@ export function simulateYear(s: GameState): void {
   for (const m of debtYear(s)) log(s, m, 'money');
   for (const m of autoGiftYear(s, (to, amt) => giveGift(s, head(s), to, amt).ok)) log(s, m, 'money');
   for (const m of marketYear(s)) log(s, m, 'market');
+  for (const m of leverageYear(s)) log(s, m, 'money');
 
   retirementAndGraduation(s);
   deaths(s);
@@ -404,6 +406,7 @@ function lifeYear(s: GameState) {
   romanceYear(s);
   nestYear(s);
   for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM, ...ROMANCE_RANDOM, ...SEED_EVENTS]) {
+    if (onCooldown(s, p.id + ':' + d.id, 6)) continue;
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) pool.push([d, p, w]);
   }
@@ -426,6 +429,7 @@ function lifeYear(s: GameState) {
     let r = next(s) * total;
     const hit = pool.find(([, , w]) => (r -= w) <= 0) ?? pool[pool.length - 1];
     queue(s, hit[0].id, hit[1].id);
+    (s.storySeen ??= {})[hit[1].id + ':' + hit[0].id] = s.year;
     pool.splice(pool.indexOf(hit), 1);
   }
 }
@@ -796,14 +800,21 @@ function adultEvents(s: GameState) {
   }
 }
 
+/** 같은 무작위 사건이 연달아 나오지 않게: 마지막으로 일어난 뒤 몇 년은 쉰다 */
+const RAND_COOLDOWN: Record<string, number> = { r_illness: 7, holiday: 5, r_parent_care: 7 };
+function onCooldown(s: GameState, key: string, years: number): boolean {
+  const last = s.storySeen?.[key];
+  return last !== undefined && s.year - last < years;
+}
+
 function randomEvents(s: GameState) {
   const h = head(s);
   if (age(s, h) < 20) return;
-  const rolls = chance(s, 0.7) ? (chance(s, 0.25) ? 2 : 1) : 0;
+  const rolls = chance(s, 0.5) ? (chance(s, 0.15) ? 2 : 1) : 0;
   const used = new Set<string>();
   for (let i = 0; i < rolls; i++) {
     const ctx: Ctx = { s, p: h, ev: { uid: 0, defId: '', personId: h.id } };
-    const pool = RANDOM_EVENTS.filter((e) => !used.has(e.id)).map((e) => [e, e.weight(ctx)] as const).filter(([, w]) => w > 0);
+    const pool = RANDOM_EVENTS.filter((e) => !used.has(e.id) && !onCooldown(s, 'rand:' + e.id, RAND_COOLDOWN[e.id] ?? 10)).map((e) => [e, e.weight(ctx)] as const).filter(([, w]) => w > 0);
     const total = pool.reduce((t, [, w]) => t + w, 0);
     if (!total) return;
     let r = next(s) * total;
@@ -812,6 +823,7 @@ function randomEvents(s: GameState) {
       if (r <= 0) {
         used.add(e.id);
         queue(s, e.id, h.id);
+        (s.storySeen ??= {})['rand:' + e.id] = s.year;
         break;
       }
     }
@@ -925,17 +937,26 @@ export function artPrice(s: GameState, tier: number): number {
 
 /** 매수 가능 여부 (부동산은 40%만 있으면 대출, 나머지는 현금으로 전액) */
 export function canBuy(s: GameState, kind: AssetKind, amount = 0): boolean {
-  if (REAL_ESTATE.includes(kind)) return spendable(s) >= s.market[kind as 'land'] * 0.4;
-  return spendable(s) >= amount;
+  if (REAL_ESTATE.includes(kind)) return buyPower(s) >= s.market[kind as 'land'] * 0.4;
+  if (kind === 'stock') return stockQuote(s, amount, TRADE_FEE).ok;
+  return buyPower(s) >= Math.round(amount * (1 + (kind === 'coin' ? TRADE_FEE : 0)));
 }
 
 export function buyAsset(s: GameState, kind: AssetKind, amount = 0): string {
   const h = head(s);
   if (kind === 'stock' || kind === 'coin') {
-    if (!canBuy(s, kind, amount)) return '현금이 부족합니다';
+    if (kind === 'stock') {
+      const q = stockQuote(s, amount, TRADE_FEE);
+      if (!q.ok) return q.why ?? '현금이 부족합니다';
+      pay(s, h, Math.round(amount * (1 + TRADE_FEE)) - q.loan);
+      const acc = addHolding(s, 'stock', h.id, amount);
+      if (q.loan) acc.loan = (acc.loan ?? 0) + q.loan;
+      return `주식 ${formatMoney(amount)} 매수` + (q.loan ? ` · 신용융자 ${formatMoney(q.loan)} (연 8.5%, 담보비율 140% 밑이면 반대매매)` : '');
+    }
+    if (!canBuy(s, kind, amount)) return '현금이 부족합니다 (코인은 빚내서 못 산다)';
     pay(s, h, Math.round(amount * (1 + TRADE_FEE)));
     addHolding(s, kind, h.id, amount);
-    return `${kind === 'stock' ? '주식' : '코인'} ${formatMoney(amount)} 매수`;
+    return `코인 ${formatMoney(amount)} 매수`;
   }
   if (kind === 'art') {
     const tier = amount;

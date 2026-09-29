@@ -7,6 +7,7 @@ import { LOAN_RATE, liab, acqTax, buyListing, buyQuote, gainsTax, homesOf, isHou
 import { buzz, floatDelta, rollNumber, setSound, setVibe, sfx, soundOn, vibeOn, type Sfx } from './fx';
 import { buildingURL, TIER_SPRITE, type BuildingKind } from '../render/building';
 import { wageIndex } from '../core/pay';
+import { buyPower, MAINTAIN, MARGIN_RATE, stockQuote } from '../core/leverage';
 import { buyVehicle, canDrive, modelOf, myVehicles, vehicleAP, vehiclePrice, VEHICLES } from '../core/vehicle';
 import {
   ACHIEVEMENTS,
@@ -867,8 +868,8 @@ function richText(text: string): string {
 function outcomeModal(o: { title: string; text: string }): string {
   const tier = o.text.startsWith('🌟') ? 'great' : o.text.startsWith('💦') ? 'bad' : '';
   return `
-  <div class="modal">
-    <div class="event ${tier}">
+  <div class="modal" data-action="ok-outcome">
+    <div class="event ${tier}" data-stop>
       <h3>${esc(o.title)}</h3>
       <p class="ev-text">${richText(o.text)}</p>
       <button class="btn primary" data-action="ok-outcome">계속</button>
@@ -878,8 +879,8 @@ function outcomeModal(o: { title: string; text: string }): string {
 
 function reportModal(r: { title: string; lines: string[] }): string {
   return `
-  <div class="modal">
-    <div class="event report">
+  <div class="modal" data-action="ok-report">
+    <div class="event report" data-stop>
       <h3>${esc(r.title)}</h3>
       <ul>${r.lines.map((l, i) => `<li style="animation-delay:${120 + Math.min(i, 12) * 45}ms">${esc(l)}</li>`).join('') || '<li class="muted">조용한 한 해였다.</li>'}</ul>
       <button class="btn primary" data-action="ok-report">확인</button>
@@ -1020,10 +1021,15 @@ function assetsScreen(g: GameState): string {
     ${(['stock', 'coin'] as const)
       .map(
         (k) => `<h4 class="sub">${ASSET_ICONS[k]} ${k === 'stock' ? '주식 (지수 ' + g.market.stock + ')' : '코인 (지수 ' + g.market.coin + ')'} ${pct(g.marketChange[k])}</h4>
-        <div class="buy-row">${units.map(([u, l]) => `<button class="mini" data-action="buy" data-v="${k}" data-amt="${u}" ${canBuy(g, k, u) ? '' : 'disabled'}>+${l}</button>`).join('')}</div>`,
+        <div class="buy-row">${units
+          .map(([u, l]) => {
+            const margin = k === 'stock' && stockQuote(g, u, 0.003).loan > 0;
+            return `<button class="mini ${margin ? 'margin' : ''}" data-action="buy" data-v="${k}" data-amt="${u}" ${canBuy(g, k, u) ? '' : 'disabled'}>+${l}${margin ? ' 신용' : ''}</button>`;
+          })
+          .join('')}</div>`,
       )
       .join('')}
-    <p class="fine">주식: 배당 2%, 연 ±17% 출렁임 · 코인: 배당 없음, 반토막도 열 배도 흔하다 · 둘 다 상속세는 시가 100% 평가</p>
+    <p class="fine">내 돈으로 살 수 있는 한도 <b>${formatMoney(buyPower(g))}</b> (통장 순액, 빚은 뺀다)<br>주식: 배당 2%, 연 ±17% 출렁임. 돈이 모자라면 <b>신용융자</b>로 살 수 있다 (내 돈 60% 이상 · 연 ${(MARGIN_RATE * 100).toFixed(1)}% · 신용점수 600 이상). 평가액이 융자의 ${MAINTAIN * 100}% 밑으로 떨어지면 증권사가 <b>반대매매</b>로 강제로 판다.<br>코인: 빚내서 못 산다. 배당 없음, 반토막도 열 배도 흔하다 · 둘 다 상속세는 시가 100% 평가</p>
     <h4 class="sub">🖼 예술품 (미술 지수 ${g.market.art}) ${pct(g.marketChange.art)}</h4>
     ${ART_TIERS.map(
       (tier, i) => `<div class="arow"><span>${tier.name}</span><span>${formatMoney(artPrice(g, i))} <button class="mini" data-action="buy" data-v="art" data-amt="${i}" ${canBuy(g, 'art', artPrice(g, i)) ? '' : 'disabled'}>구입</button></span></div>`,
@@ -1119,7 +1125,7 @@ function actionsScreen(g: GameState): string {
         <span class="badges">${a.ap ? `<b>⚡${a.ap}</b>` : '<b>무료</b>'}${a.cost ? `<b class="cost">💰${formatMoney(a.cost)}</b>` : ''}${why ? `<b class="why">${esc(why)}</b>` : ''}</span>
         ${targets.length > 1 ? `<select id="act-t-${a.id}">${targets.map((p) => `<option value="${p.id}">${esc(fullName(p))} (${esc(relationLabel(g, p))}·${age(g, p)})</option>`).join('')}</select>` : targets.length ? `<input type="hidden" id="act-t-${a.id}" value="${targets[0].id}"><small class="to">→ ${esc(fullName(targets[0]))}</small>` : ''}
       </div>
-      <button class="do" data-action="act" data-id="${a.id}" ${disabled ? 'disabled' : ''}>하기</button>
+      <button class="mini do" data-action="act" data-id="${a.id}" ${disabled ? 'disabled' : ''}>하기</button>
     </div>`;
   };
   return `
@@ -1191,7 +1197,7 @@ function propertyStrip(g: GameState): string {
     const own = home.type === 'own' ? g.assets.find((x) => x.id === home.assetId) : undefined;
     tiles.push({
       img: buildingURL(own ? spriteOf(g, own) : (TIER_SPRITE[home.tier] ?? 'house'), seedOf(home.name)),
-      tag: r.withParents ? '🏠 부모님 댁' : `🏠 실거주 · ${HOME_TYPE[home.type]}`,
+      tag: r.withParents ? '🏠 부모님 댁' : `🏠 ${HOME_TYPE[home.type]}`,
       cls: 'live',
       name: home.name,
       val: own ? `시세 ${formatMoney(own.value)}` : home.type === 'jeonse' ? `보증금 ${formatMoney(home.deposit)}` : home.type === 'wolse' ? `월세 연 ${formatMoney(home.rent)}` : '',
@@ -1205,7 +1211,7 @@ function propertyStrip(g: GameState): string {
     const car = a.kind === 'vehicle';
     tiles.push({
       img: buildingURL(spriteOf(g, a), seedOf(a.id)),
-      tag: car ? (mine ? `${modelOf(a)?.icon ?? '🚗'} 내 탈것` : '🚗 부모님 차') : mine ? (isHouse(a) ? '💼 투자 · 세놓음' : '💼 투자') : '👪 부모님 소유',
+      tag: car ? (mine ? `${modelOf(a)?.icon ?? '🚗'} ${modelOf(a)?.yacht ? '요트' : '내 차'}` : '🚗 부모님 차') : mine ? (isHouse(a) ? '💼 임대' : '💼 투자') : '👪 부모님',
       cls: car ? 'car' : mine ? 'inv' : 'par',
       name: a.name,
       val: formatMoney(a.value),
@@ -1329,7 +1335,8 @@ function onClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
   const el = target.closest<HTMLElement>('[data-action]');
   if (!el || leaving) return;
-  if (el.dataset.action === 'close-sheet' && target.closest('[data-stop]') && !target.closest('button')) return;
+  // 창 바깥(빈 곳)을 누르면 닫히고, 창 안쪽 글자를 누르는 건 무시
+  if (el.classList.contains('modal') && target.closest('[data-stop]') && !target.closest('button')) return;
   if ((el as HTMLButtonElement).disabled) return;
   const a = el.dataset.action!;
   if (a !== 'act') sfx(SFX[a] ?? 'tap');

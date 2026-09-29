@@ -1,8 +1,8 @@
 // 탈것: 자동차·요트. 재산이면서 해마다 값이 깎이고 유지비가 나간다. 대신 움직일 여유(행동력)를 준다.
 import { addAsset, formatMoney, pay } from './economy';
 import { wageIndex } from './pay';
-import { age, alive, head, householder, spouseOf } from './people';
-import { spendable } from './ev-util';
+import { age, alive, head, spouseOf } from './people';
+import { buyPower } from './leverage';
 import type { Asset, GameState, Person } from './types';
 
 export interface VehicleModel {
@@ -81,7 +81,7 @@ export function buyVehicle(s: GameState, id: string): { ok: boolean; text: strin
   if (!canDrive(s, h)) return { ok: false, text: '면허는 만 18세부터. 아직 못 산다' };
   const price = vehiclePrice(s, m);
   const tax = Math.round(price * m.tax) - (m.id === 'kei' ? Math.min(75, Math.round(price * m.tax)) : 0);
-  const money = householder(s).id === h.id ? spendable(s) : Math.max(0, h.cash);
+  const money = buyPower(s);
   if (money < price + tax) return { ok: false, text: '현금이 부족하다' };
   const before = vehicleAP(s);
   pay(s, h, price + tax);
@@ -107,6 +107,14 @@ export function vehicleYear(s: GameState): string[] {
     const m = modelOf(a);
     if (!m) continue;
     a.value = Math.max(0, Math.round(a.value * (1 - m.dep)));
+    // 할부: 이자 + 원금 5분의 1씩
+    if (a.loan) {
+      const o = s.people[a.ownerId];
+      const due = Math.min(a.loan, Math.round((a.cost ?? a.value) * 0.8 * 0.2));
+      if (o) o.cash -= Math.round(a.loan * CAR_LOAN_RATE) + due;
+      a.loan -= due;
+      if (a.loan <= 0) a.loan = undefined;
+    }
     if (s.year - (a.bought ?? s.year) >= m.life) {
       const scrap = Math.round(Math.max(a.value, m.yacht ? 500 : 40));
       const o = s.people[a.ownerId];
@@ -127,4 +135,40 @@ export function giveUsedCar(s: GameState, owner: Person, id: string, yearsOld: n
   a.tags = [m.id];
   a.bought = s.year - yearsOld;
   return a;
+}
+
+/** 할부 금리 (캐피탈 자동차 할부, 연 6~7%) */
+export const CAR_LOAN_RATE = 0.065;
+
+/**
+ * 이야기 속에서 차를 산다: 타던 차는 보상 판매, 모자라면 할부(최대 60개월).
+ * 통장을 마이너스로 만들지 않는다. 할부도 안 되면 false
+ */
+/** 이야기 선택지용: 이 차를 (할부 포함) 살 수 있나 */
+export function affordCar(s: GameState, p: Person, id: string, installment = false): boolean {
+  const m = VEHICLES.find((x) => x.id === id);
+  if (!m || age(s, p) < 19) return false;
+  const tradeIn = s.assets.filter((a) => a.kind === 'vehicle' && a.ownerId === p.id && !modelOf(a)?.yacht).reduce((t, a) => t + Math.round(a.value * 0.9) - (a.loan ?? 0), 0);
+  const price = vehiclePrice(s, m);
+  const loan = Math.max(0, price + Math.round(price * m.tax) - Math.max(0, p.cash) - tradeIn);
+  return loan === 0 || (installment && loan <= price * 0.8 && p.cash >= 0);
+}
+
+export function acquireCar(s: GameState, p: Person, id: string, installment = false): string {
+  const m = VEHICLES.find((x) => x.id === id);
+  if (!m || age(s, p) < 19) return '';
+  const old = s.assets.filter((a) => a.kind === 'vehicle' && a.ownerId === p.id && !modelOf(a)?.yacht);
+  const tradeIn = old.reduce((t, a) => t + Math.round(a.value * 0.9) - (a.loan ?? 0), 0);
+  const price = vehiclePrice(s, m);
+  const tax = Math.round(price * m.tax);
+  const cash = Math.max(0, p.cash) + tradeIn;
+  const loan = Math.max(0, price + tax - cash);
+  if (loan > 0 && (!installment || loan > price * 0.8)) return '';
+  s.assets = s.assets.filter((a) => !old.includes(a));
+  p.cash += tradeIn - (price + tax - loan);
+  const a = addAsset(s, 'vehicle', p.id, price);
+  a.name = m.name.replace(/ \((.*)급\)/, ' · $1').replace(/ \((.*)\)/, ' · $1');
+  a.tags = [m.id];
+  if (loan) a.loan = loan;
+  return `${m.icon} ${a.name}${old.length ? ` (타던 차 보상 ${formatMoney(Math.max(0, tradeIn))})` : ''}${loan ? ` · 할부 ${formatMoney(loan)} (연 ${(CAR_LOAN_RATE * 100).toFixed(1)}%, 5년)` : ''}`;
 }
