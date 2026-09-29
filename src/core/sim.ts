@@ -797,7 +797,10 @@ function adultEvents(s: GameState) {
       queue(s, 'election', p.id);
     // 소개팅
     const single = !p.spouseId || !alive(s.people[p.spouseId]);
-    if (single && !p.partnerId && !hasFlag(p, 'single_life') && !pending('blind_date') && chance(s, dateChance(a, p.id === h.id) * (p.spouseId || hasFlag(p, 'divorced') ? 0.5 : 1))) {
+    // 소개팅은 같은 사람에게 2년에 한 번까지 (해마다 같은 장면이 반복되지 않게)
+    const lastBd = s.storySeen?.['bd:' + p.id];
+    if (single && !p.partnerId && !hasFlag(p, 'single_life') && !pending('blind_date') && !(lastBd !== undefined && s.year - lastBd < 2) && chance(s, dateChance(a, p.id === h.id) * (p.spouseId || hasFlag(p, 'divorced') ? 0.5 : 1))) {
+      (s.storySeen ??= {})['bd:' + p.id] = s.year;
       queue(s, 'blind_date', p.id, { cand: makeDate(s, p) });
     }
   }

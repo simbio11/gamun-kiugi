@@ -304,3 +304,51 @@ export function hoodOf(s: GameState, p: Person): HoodInfo {
   const hood = h ? RANK_HOOD[tierOf(s, h.tier).rank] : 'middle';
   return { hood, ...HOODS[hood] };
 }
+
+const HOUSE_KINDS_OWN = ['apt_seoul', 'apt_local'];
+
+/** 내가(부부가) 가진 집 중 들어가 살 수 있는 곳: 지금 사는 집 빼고, 주택만 */
+export function ownedHomes(s: GameState, p: Person): Asset[] {
+  const ids = household(s, p).map((x) => x.id);
+  const cur = homeOf(s, p);
+  return s.assets.filter((a) => ids.includes(a.ownerId) && (HOUSE_KINDS_OWN.includes(a.kind) || !!a.tags?.includes('주택')) && !(cur?.type === 'own' && cur.assetId === a.id));
+}
+
+/** 내 집으로 들어가는 데 드는 돈: 세입자 보증금 반환 + 이사비 (지금 전세·월세 보증금은 돌려받아 보탠다) */
+export function moveInQuote(s: GameState, p: Person, a: Asset): { need: number; have: number; ok: boolean; tenant: number } {
+  const tenant = a.deposit ?? 0;
+  const fee = MOVING_COST + Math.round(a.value * 0.003);
+  const have = cashOf(s, p) + refundOf(homeOf(s, p));
+  const need = tenant + fee;
+  return { need, have, ok: have >= need, tenant };
+}
+
+/**
+ * 가진 집에 들어가 산다. 세입자가 있으면 보증금을 돌려주고 내보낸다.
+ * 부모님 댁에 얹혀 살던 사람은 이걸로 독립한다. 살던 자가는 세를 놓는 집이 된다.
+ */
+export function moveIntoOwned(s: GameState, p: Person, assetId: string): { ok: boolean; text: string } {
+  const a = s.assets.find((x) => x.id === assetId);
+  if (!a) return { ok: false, text: '그 집이 없다' };
+  const q = moveInQuote(s, p, a);
+  if (!q.ok) return { ok: false, text: `돈이 ${formatMoney(q.need - q.have)} 모자란다${q.tenant ? ` (세입자 보증금 ${formatMoney(q.tenant)} 돌려줘야 함)` : ''}` };
+  const wasDependent = householder(s).id !== p.id;
+  const oldOwn = homeOf(s, p)?.type === 'own' ? s.assets.find((x) => x.id === homeOf(s, p)!.assetId) : undefined;
+  // 이사비·보증금 반환은 가구 통장에서 (먼저 지금 집 보증금을 돌려받는다)
+  const holder = homeHolder(s, p) ?? p;
+  if (holder.home) leaveHome(holder);
+  for (const x of household(s, p)) if (x !== p && x.cash > 0) (p.cash += x.cash), (x.cash = 0);
+  p.cash -= q.need;
+  a.deposit = undefined;
+  a.depositEnd = undefined;
+  if (wasDependent && !p.flags.includes('indep')) p.flags.push('indep');
+  const r = moveInto(s, p, a);
+  return {
+    ok: true,
+    text:
+      r +
+      (q.tenant ? `\n세입자에게 보증금 ${formatMoney(q.tenant)}을 돌려주고 계약을 정리했다.` : '') +
+      (oldOwn ? `\n살던 ${oldOwn.name}은(는) 세를 놓는다.` : '') +
+      (wasDependent ? '\n부모님 품을 떠나 내 집에서 독립했다!' : ''),
+  };
+}

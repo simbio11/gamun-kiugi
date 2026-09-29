@@ -436,3 +436,5 @@ small.down { color: #2d6fb5; }
 .buy-c { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .buy-c b { font-weight: normal; white-space: nowrap; }
 .mini.margin { background: var(--red); color: #fff3cf; }
+.mini { white-space: nowrap; }
+.arow > span:first-child { min-width: 0; }

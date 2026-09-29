@@ -1,6 +1,6 @@
 import { standingLabel } from '../core/school';
 import { TRACK_NAMES, trackOf } from '../core/tracks';
-import { HOME_TYPE, buyCurrentHome, homeBuyQuote, moveInto, moveQuote, moveTo, residence, tierOf, tiers } from '../core/housing';
+import { HOME_TYPE, buyCurrentHome, homeBuyQuote, moveInQuote, moveInto, moveIntoOwned, moveQuote, moveTo, ownedHomes, residence, tierOf, tiers } from '../core/housing';
 import { creditGrade, debtRate, inRehab, walletNet } from '../core/debt';
 import { fixJosa, iga } from '../core/ev-util';
 import { LOAN_RATE, liab, acqTax, buyListing, buyQuote, gainsTax, homesOf, isHouse, isPrimary, isRealty, rentable, repayLoan, yieldOf } from '../core/realty';
@@ -361,6 +361,21 @@ function homeLine(g: GameState, h: Home | undefined): string {
   return esc(h.name);
 }
 
+/** 🔑 내가 가진 집으로 들어가기 */
+function moveInRows(g: GameState, me: Person, dependent: boolean): string {
+  const list = ownedHomes(g, me);
+  if (!list.length || age(g, me) < 19) return '';
+  return `<h4 class="sub">🔑 내 집으로 들어가기</h4>
+    ${list
+      .map((a) => {
+        const q = moveInQuote(g, me, a);
+        return `<div class="arow"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}<br><small class="muted">${q.tenant ? `세입자 보증금 ${formatMoney(q.tenant)} 반환 + ` : '지금 세입자는 월세라 바로 비워 준다 · '}이사비 · 필요 ${formatMoney(q.need)}</small></span>
+        <span><button class="mini" data-action="move-in" data-id="${a.id}" ${q.ok ? '' : 'disabled'}>${dependent ? '입주·독립' : '입주'}</button></span></div>`;
+      })
+      .join('')}
+    <p class="fine">들어가면 실거주 1주택이 되어 세금이 가벼워진다 (2년 넘게 살면 12억까지 양도세 비과세). 원래 살던 자가는 세를 놓는다.</p>`;
+}
+
 /** 🏡 우리 집: 지금 사는 곳 + 이사·매수 */
 function homeCard(g: GameState): string {
   const me = head(g);
@@ -370,6 +385,7 @@ function homeCard(g: GameState): string {
       <h2>🏡 지금 사는 곳 <small class="muted">부모님 댁 (독립 전)</small></h2>
       <p>${homeLine(g, r.home)}</p>
       <p class="fine">독립하면 형편에 맞는 집을 구한다. 부모님 형편이 좋으면 집이나 전세금을 보태 주실 수도.</p>
+      ${moveInRows(g, me, true)}
     </section>`;
   }
   const h = r.home;
@@ -393,6 +409,7 @@ function homeCard(g: GameState): string {
   return `<section class="card">
     <h2>🏡 우리 집</h2>
     <p class="home-now"><b>${h ? HOME_TYPE[h.type] : '—'}</b> ${homeLine(g, h)}</p>
+    ${moveInRows(g, me, false)}
     ${buy ? `<div class="arow"><span>이 집을 산다 <small>(보증금 돌려받아 보태고, 대출 ${formatMoney(buy.loan)})</small></span><span>${formatMoney(buy.price)} <button class="mini" data-action="buy-home" ${cash >= buy.need ? '' : 'disabled'}>매수</button></span></div>` : ''}
     <details class="moves"><summary>이사 가기 (전세·월세)</summary>
       ${rows}
@@ -1579,6 +1596,12 @@ function handle(el: HTMLElement) {
       const r = moveTo(g!, head(g!), id, v as 'jeonse' | 'wolse');
       if (r.startsWith('이사할 수 없다')) (ui.toast = r), sfx('error');
       else ui.outcome = { title: '🚚 이사', text: r };
+      break;
+    }
+    case 'move-in': {
+      const r = moveIntoOwned(g!, head(g!), id);
+      if (r.ok) ui.outcome = { title: '🏡 내 집으로', text: r.text };
+      else (ui.toast = r.text), sfx('error');
       break;
     }
     case 'buy-home': {

@@ -25,6 +25,7 @@ import type { CareerTag, Focus, GameState, Person } from './types';
 import { studyBoost, suneungBonus } from './marks';
 import { hoodOf } from './housing';
 import { spendable } from './ev-util';
+import { planLine, specialChoices, yearMood } from './school-flavor';
 
 // ───────────────────────── 대학·학과 ─────────────────────────
 
@@ -467,7 +468,8 @@ function runPlan(x: Ctx, i: number, paid?: number): string {
     msg += ` ✨ [${TALENTS[t.id].name}] 재능이 보인다!`;
   }
   if (pl.budget === 3 && p.happiness < 25 && chance(x.s, 0.3)) msg += ' 번아웃 직전이다. 표정이 어둡다.';
-  return `성적: ${standingChange(before, p)}.${msg}`;
+  const line = planLine(x.s, i, standing(p).grade <= before.grade && pl.study > 0 ? true : pl.study <= 0 ? p.happiness >= 50 : false);
+  return `${line ? line + '\n' : ''}성적: ${standingChange(before, p)}.${msg}`;
 }
 
 const schoolYear: EventDef = {
@@ -476,7 +478,7 @@ const schoolYear: EventDef = {
   text: (c) => {
     const a = age(c.s, c.p);
     return (
-      `${iga(who(c))} ${GRADE(a)}이 되었다. 올해는 어떻게 보낼까?\n` +
+      `${iga(who(c))} ${GRADE(a)}이 되었다. ${yearMood(c.s, c.p)}\n올해는 어떻게 보낼까?\n` +
       `🏘 ${hoodOf(c.s, c.p).name} (공부 효율 ×${hoodOf(c.s, c.p).study} · 학원비 ×${hoodOf(c.s, c.p).cost})\n` +
       `성적 ${standingLabel(c.p)} · 누적 사교육비 ${formatMoney(c.p.eduSpent ?? 0)}` +
       (a >= 17 ? '\n수능까지 얼마 안 남았다.' : '')
@@ -493,6 +495,8 @@ const schoolYear: EventDef = {
     );
     if (last >= 0 && PLANS[last] && (PLANS[last].minAge ?? 0) <= a && ok(costOf(PLANS[last]), c.s))
       list.unshift({ label: `작년처럼 (${PLANS[last].label})`, cost: costOf(PLANS[last]) || undefined, run: (x) => runPlan(x, last, costOf(PLANS[last])) });
+    // 학년·학교·성적·동네에 따라 올해만 열리는 선택지
+    list.push(...specialChoices(c.s, c.p));
     return gate(c.s, list);
   },
 };

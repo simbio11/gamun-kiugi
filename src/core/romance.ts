@@ -104,7 +104,7 @@ const meet: LifeDef = {
 
 // ───────────────────────── 해마다 연애 ─────────────────────────
 
-type Situ = 'sweet' | 'fight' | 'boredom' | 'longdist' | 'pressure' | 'cheat_me' | 'cheat_them' | 'pregnant' | 'they_propose' | 'cohabit' | 'dumped' | 'money' | 'parents_meet';
+type Situ = 'sweet' | 'fight' | 'boredom' | 'longdist' | 'pressure' | 'cheat_me' | 'cheat_them' | 'pregnant' | 'they_propose' | 'cohabit' | 'dumped' | 'money' | 'parents_meet' | 'ex_contact' | 'friends_meet' | 'sick_partner' | 'abroad_offer' | 'anniversary';
 
 function rollSituation(s: GameState, p: Person, q: Person): Situ {
   const y = datingYears(s, p);
@@ -123,26 +123,53 @@ function rollSituation(s: GameState, p: Person, q: Person): Situ {
     ['cohabit', y >= 1 && !hasFlag(p, 'cohabit') && a >= 23 ? 0.8 : 0],
     ['money', 0.6],
     ['parents_meet', y >= 1 && !hasFlag(p, 'met_parents') && parentsOf(s, p).some(alive) ? 1 : 0],
+    ['ex_contact', 0.5],
+    ['friends_meet', y <= 1 ? 1 : 0.3],
+    ['sick_partner', age(s, q) >= 28 ? 0.35 : 0.15],
+    ['abroad_offer', age(s, q) >= 26 && age(s, q) <= 40 ? 0.35 : 0],
+    ['anniversary', y >= 1 ? 1.2 : 0.4],
   ];
   let x = next(s) * pool.reduce((t, [, w]) => t + w, 0);
   for (const [k, w] of pool) if ((x -= w) <= 0 && w > 0) return k;
   return 'sweet';
 }
 
-const SITU_TEXT: Record<Situ, (c: Ctx, q: Person) => string> = {
-  sweet: (c, q) => `${wa(fullName(q))} 벚꽃 구경, 바다 여행… 요즘 ${who(c)}의 하루가 반짝인다.`,
-  fight: (_c, q) => `사소한 일로 ${wa(fullName(q))} 크게 싸웠다. 며칠째 연락이 없다.`,
-  boredom: (_c, q) => `${wa(fullName(q))} 만난 지 오래. 설렘이 예전 같지 않다. 권태기인가.`,
-  longdist: (_c, q) => `${iga(fullName(q))} 지방으로 발령이 났다. 주말에만 볼 수 있다.`,
-  pressure: (_c, q) => `${fullName(q)}: "우리 나이도 있는데… 결혼 생각은 있는 거지?" 대답을 기다린다.`,
-  cheat_me: (c) => `${who(c)}, 요즘 자꾸 다른 사람이 눈에 들어온다.`,
-  cheat_them: (_c, q) => `${fullName(q)}의 휴대폰에 낯선 이름이 자주 뜬다. 뭔가 이상하다.`,
-  pregnant: (_c, q) => `${fullName(q)}에게서 떨리는 목소리로 전화가 왔다. "…나 임신했어."`,
-  they_propose: (_c, q) => `${iga(fullName(q))} 무릎을 꿇고 반지를 내밀었다! "나랑 결혼해 줄래?"`,
-  cohabit: (_c, q) => `${fullName(q)}: "우리 같이 살아볼까? 월세도 아끼고."`,
-  dumped: (_c, q) => `${fullName(q)}: "우리 그만하자. 나 많이 지쳤어."`,
-  money: (_c, q) => `${iga(fullName(q))} 급하게 돈이 필요하다며 곤란한 얼굴이다.`,
-  parents_meet: (c, q) => `${who(c)}의 부모님이 ${eul(fullName(q))} 한번 보자고 하신다.`,
+const SITU_TEXT: Record<Situ, ((c: Ctx, q: Person) => string)[]> = {
+  sweet: [
+    (c, q) => `${wa(fullName(q))} 벚꽃 구경, 바다 여행… 요즘 ${who(c)}의 하루가 반짝인다.`,
+    (_c, q) => `${wa(fullName(q))} 첫 캠핑. 모닥불 앞에서 밤새 얘기했다.`,
+    (_c, q) => `${iga(fullName(q))} 퇴근길에 좋아하는 붕어빵을 사 들고 기다리고 있었다.`,
+    (_c, q) => `${wa(fullName(q))} 같이 요리를 하다 부엌이 난장판이 됐다. 그래도 웃겼다.`,
+  ],
+  fight: [
+    (_c, q) => `사소한 일로 ${wa(fullName(q))} 크게 싸웠다. 며칠째 연락이 없다.`,
+    (_c, q) => `"왜 답장이 세 시간이나 걸려?" 연락 문제로 ${wa(fullName(q))} 또 다퉜다.`,
+    (_c, q) => `데이트 비용을 누가 더 내느냐로 ${wa(fullName(q))} 언성이 높아졌다.`,
+    (_c, q) => `${fullName(q)}의 친구 모임에 안 갔다고 서운하단다. 말다툼이 길어졌다.`,
+  ],
+  boredom: [
+    (_c, q) => `${wa(fullName(q))} 만난 지 오래. 설렘이 예전 같지 않다. 권태기인가.`,
+    (_c, q) => `${wa(fullName(q))} 만나면 휴대폰만 본다. 대화가 줄었다.`,
+    (_c, q) => `주말 데이트가 늘 똑같다. 영화, 밥, 카페. ${fullName(q)}도 하품을 한다.`,
+  ],
+  longdist: [
+    (_c, q) => `${iga(fullName(q))} 지방으로 발령이 났다. 주말에만 볼 수 있다.`,
+    (_c, q) => `${iga(fullName(q))} 부산 지사로 옮기게 됐다. KTX로 2시간 반.`,
+  ],
+  pressure: [(_c, q) => `${fullName(q)}: "우리 나이도 있는데… 결혼 생각은 있는 거지?" 대답을 기다린다.`, (_c, q) => `친구 결혼식에 다녀온 ${fullName(q)}의 말수가 적다. "우리는 언제?"`],
+  cheat_me: [(c) => `${who(c)}, 요즘 자꾸 다른 사람이 눈에 들어온다.`, (c) => `회사 동기가 ${who(c)}에게 부쩍 연락을 한다. 싫지 않다.`],
+  cheat_them: [(_c, q) => `${fullName(q)}의 휴대폰에 낯선 이름이 자주 뜬다. 뭔가 이상하다.`, (_c, q) => `${iga(fullName(q))} 요즘 야근이 잦다고 한다. 그런데 회사 불은 꺼져 있었다.`],
+  pregnant: [(_c, q) => `${fullName(q)}에게서 떨리는 목소리로 전화가 왔다. "…나 임신했어."`],
+  they_propose: [(_c, q) => `${iga(fullName(q))} 무릎을 꿇고 반지를 내밀었다! "나랑 결혼해 줄래?"`, (_c, q) => `여행지 노을 앞에서 ${iga(fullName(q))} 떨리는 손으로 반지 상자를 열었다.`],
+  cohabit: [(_c, q) => `${fullName(q)}: "우리 같이 살아볼까? 월세도 아끼고."`],
+  dumped: [(_c, q) => `${fullName(q)}: "우리 그만하자. 나 많이 지쳤어."`, (_c, q) => `${fullName(q)}: "생각할 시간이 필요해." 그 뒤로 연락이 뜸하다.`],
+  money: [(_c, q) => `${iga(fullName(q))} 급하게 돈이 필요하다며 곤란한 얼굴이다.`],
+  parents_meet: [(c, q) => `${who(c)}의 부모님이 ${eul(fullName(q))} 한번 보자고 하신다.`],
+  ex_contact: [(c) => `새벽 2시, ${who(c)}의 휴대폰에 전 애인의 메시지가 왔다. "자니…?"`, (c) => `${who(c)}의 전 애인이 결혼한다는 소식이 들렸다. 청첩장이 왔다.`],
+  friends_meet: [(_c, q) => `${fullName(q)}의 친구들이 한번 보자고 한다. 사실상 면접이다.`],
+  sick_partner: [(_c, q) => `${iga(fullName(q))} 갑자기 쓰러져 병원에 실려 갔다. 수술을 받아야 한단다.`],
+  abroad_offer: [(_c, q) => `${fullName(q)}에게 해외 지사 발령 제안이 왔다. 3년이다. "같이 갈래?"`],
+  anniversary: [(_c, q) => `${wa(fullName(q))}의 1000일이 다가온다. 뭘 해야 할까?`, (_c, q) => `${fullName(q)}의 생일이다. 작년 선물은 반응이 영 별로였다.`],
 };
 
 const datingYear: EventDef = {
@@ -154,7 +181,8 @@ const datingYear: EventDef = {
     const q = partnerOf(c.s, c.p)!;
     c.ev.data ??= { situ: rollSituation(c.s, c.p, q) };
     const l = love(c.p);
-    return SITU_TEXT[c.ev.data.situ as Situ](c, q) + `\n(애정 ${l >= 75 ? '💞' : l >= 50 ? '❤' : l >= 30 ? '💛' : '💔'} ${l})`;
+    const texts = SITU_TEXT[c.ev.data.situ as Situ];
+    return texts[c.ev.uid % texts.length](c, q) + `\n(애정 ${l >= 75 ? '💞' : l >= 50 ? '❤' : l >= 30 ? '💛' : '💔'} ${l})`;
   },
   choices: (c) => {
     const q = partnerOf(c.s, c.p)!;
@@ -313,6 +341,67 @@ const datingYear: EventDef = {
           },
           { label: '아직 이르다', run: () => '다음에 인사드리기로 했다.' },
         ];
+      case 'sweet':
+        return gate(c.s, [
+          { label: '커플 여행을 간다 (제주·일본)', cost: 200, run: (x) => (setLove(x.p, q, love(x.p) + 12), mood(x.p, 8), pick(x.s, ['제주 올레길을 걸었다. 사진첩이 둘 얼굴로 가득하다.', '오사카에서 길을 잃었는데, 그래서 더 재밌었다.'])) },
+          propose,
+          { label: '지금처럼 소소하게', run: bump(6, '특별한 건 없지만 좋다. 이게 행복인가 보다.') },
+        ]);
+      case 'fight':
+        return [
+          {
+            label: '먼저 사과한다',
+            run: (x) => (check(x.s, x.p.actual.mor, 45, 10) ? (setLove(x.p, q, love(x.p) + 6), '"나도 미안해." 싸우고 나니 더 가까워졌다.') : (setLove(x.p, q, love(x.p) - 4), '사과했는데 "뭘 잘못했는지는 알아?"라는 말이 돌아왔다.')),
+          },
+          { label: '시간을 갖자고 한다', run: (x) => (chance(x.s, 0.6) ? (setLove(x.p, q, love(x.p) - 2), '일주일 뒤, 아무 일 없었다는 듯 다시 만났다.') : (breakUp(x.s, x.p, '냉전 끝에 이별', false), '시간을 갖다 보니 마음도 멀어졌다. 결국 헤어졌다.')) },
+          { label: '이번엔 내가 옳다, 버틴다', run: (x) => (chance(x.s, 0.3) ? (breakUp(x.s, x.p, '자존심 싸움', false), '누구도 먼저 연락하지 않았다. 그렇게 끝났다.') : (setLove(x.p, q, love(x.p) - 10), mood(x.p, -3), '결국 상대가 먼저 연락했다. 앙금은 남았다.')) },
+          leave,
+        ];
+      case 'boredom':
+        return gate(c.s, [
+          { label: '같이 새로운 걸 배운다 (원데이 클래스)', cost: 30, run: (x) => (setLove(x.p, q, love(x.p) + 10), pick(x.s, ['도자기 공방에서 삐뚤빼뚤한 컵을 만들었다. 설렘이 조금 돌아왔다.', '둘이 클라이밍을 시작했다. 서로 응원하는 게 새롭다.'])) },
+          { label: '잠시 거리를 둔다', run: (x) => (chance(x.s, 0.5) ? (setLove(x.p, q, love(x.p) + 5), '떨어져 있으니 소중함을 알았다.') : (setLove(x.p, q, love(x.p) - 10), '거리를 두니 정말 멀어졌다.')) },
+          propose,
+          leave,
+        ]);
+      case 'longdist':
+        return gate(c.s, [
+          { label: '주말마다 KTX 탄다', cost: 250, run: (x) => (setLove(x.p, q, love(x.p) + 6), mood(x.p, -2), '금요일 밤 기차가 일상이 됐다. 통장은 가벼워졌지만 마음은 채워진다.') },
+          { label: '영상통화로 버틴다', run: (x) => (check(x.s, x.p.actual.mor, 50, 10) ? (setLove(x.p, q, love(x.p) + 2), '매일 밤 영상통화. 잠든 얼굴까지 봤다.') : (setLove(x.p, q, love(x.p) - 12), '통화가 점점 짧아진다.')) },
+          propose,
+          leave,
+        ]);
+      case 'ex_contact':
+        return [
+          { label: '차단한다', run: (x) => (setLove(x.p, q, love(x.p) + 3), (x.p.actual.mor = clamp(x.p.actual.mor + 1, 0, 100)), '미련 없이 차단했다. 지금 사람이 더 소중하다.') },
+          { label: '지금 애인에게 솔직히 말한다', run: (x) => (chance(x.s, 0.7) ? (setLove(x.p, q, love(x.p) + 6), '"말해 줘서 고마워." 오히려 믿음이 생겼다.') : (setLove(x.p, q, love(x.p) - 6), '"아직 연락하는 사이야?" 괜히 긁어 부스럼이 됐다.')) },
+          { label: '답장한다', run: (x) => (chance(x.s, 0.4) ? (breakUp(x.s, x.p, '전 애인 문제', true), mark(x.p, 'cheat', 1), '들켰다. "우리 끝이야."') : (setLove(x.p, q, love(x.p) - 5), '짧게 안부만 나눴다. 마음 한쪽이 찜찜하다.')) },
+        ];
+      case 'friends_meet':
+        return gate(c.s, [
+          { label: '맛있는 걸 쏜다', cost: 30, run: (x) => (check(x.s, appeal(x.s, x.p), 45, 12) ? (setLove(x.p, q, love(x.p) + 8), '친구들이 "괜찮은 사람이네" 하고 합격 도장을 찍었다.') : (setLove(x.p, q, love(x.p) - 3), '분위기가 어색했다. 친구 하나가 계속 떠봤다.')) },
+          { label: '편하게 나간다', run: (x) => (check(x.s, x.p.actual.cha, 45, 12) ? (setLove(x.p, q, love(x.p) + 5), '금세 친해져 새벽까지 수다를 떨었다.') : (setLove(x.p, q, love(x.p) - 5), '말실수를 했다. 돌아오는 길이 조용했다.')) },
+          { label: '아직 부담스럽다', run: bump(-4, '"나를 소개하기 싫은 거야?" 서운해한다.') },
+        ]);
+      case 'sick_partner':
+        return gate(c.s, [
+          { label: '병원에서 곁을 지킨다', run: (x) => (setLove(x.p, q, love(x.p) + 15), mood(x.p, -3), '회사에 연차를 내고 보호자 침대에서 잤다. 수술은 잘 끝났다. "고마워."') },
+          { label: '병원비를 보탠다', cost: 300, run: (x) => (setLove(x.p, q, love(x.p) + 10), '보험이 안 되는 검사비를 대신 냈다. 상대 부모님이 고마워하셨다.') },
+          { label: '바빠서 전화로만', run: bump(-15, '퇴원 날에도 못 갔다. 상대의 눈빛이 달라졌다.') },
+        ]);
+      case 'abroad_offer':
+        return [
+          { label: '같이 간다 (결혼하고)', run: (x) => (queueNext(x.s, 'wedding', x.p.id), mood(x.p, 8), '"그래, 가자!" 결혼하고 함께 떠나기로 했다. 결혼 준비가 급해졌다.') },
+          { label: '장거리로 기다린다', run: (x) => (chance(x.s, 0.55) ? (setLove(x.p, q, love(x.p) - 5), '시차 속 연애가 시작됐다. 1년에 두 번 만난다.') : (breakUp(x.s, x.p, '해외 발령', false), '3년은 길었다. 공항에서의 포옹이 마지막이었다.')) },
+          { label: '가지 말라고 붙잡는다', run: (x) => (chance(x.s, 0.5) ? (setLove(x.p, q, love(x.p) + 4), '상대가 제안을 거절했다. 대신 가끔 그 얘기를 한다.') : (breakUp(x.s, x.p, '해외 발령', false), '"내 커리어야." 결국 떠났다.')) },
+        ];
+      case 'anniversary':
+        return gate(c.s, [
+          { label: '명품 선물', cost: 300, run: (x) => (setLove(x.p, q, love(x.p) + (chance(x.s, 0.7) ? 10 : 2)), '포장을 뜯는 손이 떨렸다. 인증샷이 SNS에 올라왔다.') },
+          { label: '손편지와 직접 만든 앨범', run: (x) => (check(x.s, x.p.actual.cha, 40, 12) ? (setLove(x.p, q, love(x.p) + 12), '편지를 읽다 울었다. 앨범은 평생 보물이란다.') : (setLove(x.p, q, love(x.p) + 3), '정성은 느껴졌는데 글씨를 못 알아봤다.')) },
+          { label: '까먹었다…', run: bump(-12, '자정이 지나서야 알았다. 밤새 사과 문자를 보냈다.') },
+          propose,
+        ]);
       default: {
         const d = { sweet: 8, fight: -10, boredom: -12, longdist: -8 }[situ as 'sweet'] ?? 0;
         return [

@@ -610,3 +610,28 @@ describe('살면서 드는 큰돈', () => {
     expect(h.cash).not.toBe(before);
   });
 });
+
+describe('내 집 입주', () => {
+  it('세 준 집에 들어가면 세입자 보증금을 돌려주고 실거주가 된다 · 부모님 댁에서면 독립', async () => {
+    const { moveIntoOwned, ownedHomes } = await import('../src/core/housing');
+    const { addAsset } = await import('../src/core/economy');
+    const s = newGame({ seed: 7, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    s.year = h.birthYear + 30;
+    expect(householder(s).id).not.toBe(h.id); // 부모님 댁
+    const a = addAsset(s, 'apt_local', h.id, 30000, '수원 아파트');
+    a.deposit = 18000;
+    h.cash = 10000;
+    expect(ownedHomes(s, h).map((x) => x.id)).toContain(a.id);
+    expect(moveIntoOwned(s, h, a.id).ok).toBe(false); // 보증금 1.8억을 돌려줄 돈이 없다
+    h.cash = 20000;
+    const r = moveIntoOwned(s, h, a.id);
+    expect(r.ok).toBe(true);
+    expect(a.deposit).toBeUndefined();
+    expect(householder(s).id).toBe(h.id);
+    expect(h.home?.assetId).toBe(a.id);
+    expect(isPrimary(s, a)).toBe(true);
+    expect(h.cash).toBeGreaterThanOrEqual(0);
+  });
+});
