@@ -270,6 +270,15 @@ function centerTree(g: GameState, force: boolean) {
   fx.treeScroll = sc.scrollLeft;
 }
 
+/** 플레이 통계 (GoatCounter 이벤트). 통계 스크립트가 없는 곳(미리보기·오프라인)에선 아무 일도 안 한다 */
+function track(name: string, title = name) {
+  try {
+    (window as unknown as { goatcounter?: { count: (o: { path: string; title: string; event: boolean }) => void } }).goatcounter?.count({ path: name, title, event: true });
+  } catch {
+    /* noop */
+  }
+}
+
 /** 직전 화면 상태 (애니메이션을 새로 생긴 것에만 주려고) */
 const fx: { modalKey: string; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number } = { modalKey: '' };
 
@@ -1422,11 +1431,13 @@ function handle(el: HTMLElement) {
       break;
     case 'continue':
       ui.game = load();
+      track('continue', '이어하기');
       break;
     case 'start': {
       const sn = (ui.setup.surname || '김').slice(0, 2);
       ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin });
       ui.tab = 'tree';
+      track(`start-${ui.setup.origin}`, `새 가문 (${ui.setup.origin})`);
       break;
     }
     case 'restart':
@@ -1499,7 +1510,11 @@ function handle(el: HTMLElement) {
       if (!g) break;
       if (!g.events.length) {
         const start = g.log.length;
+        const gen = g.generation;
         simulateYear(g);
+        if (g.generation > gen) track(`generation-${g.generation}`, `${g.generation}대 도달`);
+        if (g.gameOver) track('gameover', '게임 오버');
+        if (g.year % 10 === 0) track(`played-${g.year}`, `${g.year}년 도달`);
         const lines = g.log.slice(start).filter((l) => !l.text.startsWith('──')).map((l) => l.text);
         ui.report = { title: `📜 ${g.year}년`, lines };
         ui.tab = 'tree'; // 새해는 가계도에서 맞는다
