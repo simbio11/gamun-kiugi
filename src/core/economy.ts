@@ -240,14 +240,19 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
         }
         return { income, msg };
       }
-      const skill = (a.int + a.cha) / 2 + (merchant ? 22 : 0) + p.jobLevel * 4 - 48;
+      // 창업: 규모가 커질수록 버는 돈이 뛴다. 초기엔 적자도 흔하지만, 살아남으면 월급쟁이를 훌쩍 넘는다
+      // (중소벤처기업부 창업기업 실태조사: 창업 초기 대표 소득은 낮고, 매출 100억 이상 기업 대표는 억대)
+      const skill = (a.int + a.cha) / 2 + (merchant ? 22 : 0) + p.jobLevel * 4 + Math.min(8, p.jobYears) - 48;
       const roll = normal(s, skill, 22);
-      const income = Math.round(roll * 400 * (1 + p.jobLevel * 0.6) * wageIndex(s.year));
+      const LV = [2200, 6000, 14000, 32000, 90000, 250000];
+      const mult = clamp(normal(s, 0.95 + skill / 90, 0.4), p.jobLevel ? 0.25 : -0.4, 2.6);
+      const income = Math.round(LV[p.jobLevel] * mult * wageIndex(s.year));
       let msg: string | undefined;
-      if (roll > 28 && p.jobLevel < j.maxLevel) {
+      if (roll > 26 && p.jobLevel < j.maxLevel) {
         p.jobLevel++;
-        msg = `${name}의 사업이 성장했다 (규모 ${p.jobLevel})`;
-      } else if (roll < -28) {
+        s.fame += p.jobLevel * 0.5;
+        msg = `🚀 ${name}의 회사가 ${jobTitle(p)}(으)로 성장했다!`;
+      } else if (roll < -30) {
         if (p.jobLevel === 0) {
           p.job = 'none';
           p.jobLevel = 0;
@@ -265,7 +270,7 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
       const c = CREATORS[p.job]!;
       const invest = Number(p.flags.find((f) => f.startsWith('invest:'))?.slice(7) ?? 0);
       const tal = hasTalent(p, c.talent) ? 0.07 : 0;
-      const up = (c.base + a[c.stat] / c.div + tal + invest * 0.012 + Math.min(0.02, p.jobYears * 0.002)) * Math.pow(0.8, p.jobLevel);
+      const up = (c.base + a[c.stat] / c.div + tal + invest * 0.012 + Math.min(0.04, p.jobYears * 0.004)) * Math.pow(0.8, p.jobLevel);
       let msg: string | undefined;
       if (p.jobLevel < j.maxLevel && chance(s, up)) {
         p.jobLevel++;
@@ -368,8 +373,9 @@ export function expectedIncome(s: GameState, p: Person): number {
         const skill = (a.cha + a.mor + a.int) / 3 + (merchant ? 18 : 0) + p.jobLevel * 5 + Math.min(10, p.jobYears + 1) - 50;
         return Math.round((j.biz.base + skill * 120 + p.jobLevel * j.biz.step) * wageIndex(s.year));
       }
-      const skill = (a.int + a.cha) / 2 + (merchant ? 22 : 0) + p.jobLevel * 4 - 48;
-      return Math.round(skill * 400 * (1 + p.jobLevel * 0.6) * wageIndex(s.year));
+      const skill = (a.int + a.cha) / 2 + (merchant ? 22 : 0) + p.jobLevel * 4 + Math.min(8, p.jobYears + 1) - 48;
+      const LV = [2200, 6000, 14000, 32000, 90000, 250000];
+      return Math.round(LV[p.jobLevel] * clamp(0.95 + skill / 90, p.jobLevel ? 0.25 : -0.4, 2.6) * wageIndex(s.year));
     }
     case 'creator':
       return Math.round(CREATORS[p.job]!.incomes[p.jobLevel] * wageIndex(s.year));

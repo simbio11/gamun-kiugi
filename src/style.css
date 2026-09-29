@@ -461,3 +461,14 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 @keyframes slide-r { from { opacity: 0; transform: translateX(16px); } }
 @keyframes slide-l { from { opacity: 0; transform: translateX(-16px); } }
 .heir-sel { max-width: 150px; font-size: 12px; padding: 3px 4px; background: #fff8e6; border: 2px solid var(--line); }
+
+/* 라이벌 가문 */
+.rival-strip { margin: 6px 12px 0; padding: 6px 10px; border-radius: 8px; font-size: .8em; background: var(--card, #fff); border: 1px dashed #b98; color: inherit; opacity: .92; }
+.rival-strip.hot { border-color: #c44; }
+.rival-strip.ally { border-color: #4a9; border-style: solid; }
+.feud { height: 6px; border-radius: 3px; background: rgba(128,128,128,.25); overflow: hidden; margin: 4px 0; }
+.feud i { display: block; height: 100%; background: linear-gradient(90deg, #6a9, #d84); }
+
+.act.fit { background: linear-gradient(90deg, rgba(255,210,90,.16), transparent 70%); border-radius: 8px; }
+.fit-b { font-style: normal; font-size: .72em; padding: 1px 6px; border-radius: 9px; background: #f4c542; color: #3a2a00; margin-left: 4px; vertical-align: 1px; }
+.fit-note { margin: 4px 14px; }

@@ -41,6 +41,7 @@ function build(sp: Spec): ActionDef {
     ap: 1,
     cost: sp.cost,
     stages: sp.stages,
+    fit: sp.interest,
     run: (s) => {
       const p = h(s);
       const t = rollTier(s, p, { stat: sp.stat });

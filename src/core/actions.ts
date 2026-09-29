@@ -9,6 +9,8 @@ import { reverseMortgageRate } from './welfare';
 import { vehicleAP } from './vehicle';
 import { oppActions } from './opportunities';
 import { STUDENT_ACTIONS } from './student-actions';
+import { fitCats } from './interests';
+import { JOB_CATS } from './jobs';
 import { wageIndex } from './pay';
 import { appealBonus } from './marks';
 import { addBargains } from './realty';
@@ -73,6 +75,8 @@ export interface ActionDef {
   targets?: (s: GameState) => Person[];
   /** 할 수 없으면 이유 */
   blocked?: (s: GameState, t?: Person) => string | undefined;
+  /** 이 행동이 키우는 관심 분야 (적성에 맞으면 💡 표시하고 위로) */
+  fit?: string;
   run: (s: GameState, t?: Person) => string;
 }
 
@@ -1322,3 +1326,33 @@ export function gpaLabel(p: Person): string {
   const v = clamp(3.0 + markOf(p, 'gpa') * 0.15, 1.5, 4.5);
   return v.toFixed(2);
 }
+
+// 어릴 때 하는 기본 활동도 분야가 있다
+for (const [id, f] of Object.entries({ kid_sport: 'sport', kid_art: 'media', kid_book: 'edu', kid_game: 'tech', teen_club: 'media', u_intern: 'office', u_club: 'public' })) {
+  const a = ACTIONS.find((x) => x.id === id);
+  if (a) a.fit = f;
+}
+
+// 부모가 자녀의 적성에 맞는 체험을 골라 보내 준다
+ACTIONS.push({
+  id: 'kid_explore',
+  cat: '자녀 교육',
+  icon: '💡',
+  name: '적성 맞춤 직업 체험',
+  desc: '아이 성향에 가장 잘 맞는 분야로 체험학습을 보낸다 · 그 분야 관심↑ 행복↑',
+  ap: 1,
+  cost: 50,
+  targets: (s) => Object.values(s.people).filter((p) => alive(p) && isDescendantOf(s, p, h(s)) && age(s, p) >= 7 && age(s, p) <= 18),
+  run: (s, t) => {
+    const p = t!;
+    const f = fitCats(p, 3);
+    const cat = f.length ? f[Math.floor(next(s) * Math.min(2, f.length))] : 'office';
+    const name = JOB_CATS[cat as keyof typeof JOB_CATS];
+    const tier = rollTier(s, p, { stat: 'cha' });
+    const g = { great: 3, good: 2, meh: 1, bad: 1 }[tier];
+    mark(p, 'i:' + cat, g);
+    p.happiness = clamp(p.happiness + g * 2, 0, 100);
+    const place: Record<string, string> = { office: '증권사·은행', public: '소방서·구청', medical: '대학병원', legal: '법원 모의재판', tech: '반도체 연구소', edu: '초등학교 보조교사', service: '호텔 주방', trade: '자동차 정비소', transport: '공항 관제탑', media: '방송국 스튜디오', sport: '프로 구단 훈련장', biz: '스타트업 사무실', farm: '스마트팜' };
+    return `${TIER_MARK[tier]}${fullName(p)}이(가) ${place[cat] ?? name} 체험을 다녀왔다. ${tier === 'great' ? '눈이 반짝반짝. "나 이거 할래!"' : tier === 'bad' ? '생각보다 지루했단다. 그래도 경험은 남는다.' : '재밌었다며 이야기를 쏟아낸다.'}${fmt([`${name.split(' ')[0]} 관심 +${g}`, ['행복', g * 2]])}`;
+  },
+});

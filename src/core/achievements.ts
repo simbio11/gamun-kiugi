@@ -45,6 +45,14 @@ const TOP_JOB: [string, number, string][] = [
 
 /** 가진 플래그 → 업적 */
 const FLAG_ACHV: [string, string][] = [
+  ['audition_win', 'audition_win'],
+  ['patent_win', 'patent_win'],
+  ['saga_shop', 'saga_shop'],
+  ['saga_farm', 'saga_farm'],
+  ['saga_world', 'saga_world'],
+  ['saga_run', 'saga_run'],
+  ['saga_redev', 'saga_redev'],
+  ['saga_hidden', 'saga_hidden'],
   ['masterpiece', 'masterpiece'],
   ['was_politician', 'politics'],
   ['president', 'president'],

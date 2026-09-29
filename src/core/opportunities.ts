@@ -1,4 +1,4 @@
-// 올해의 기회: 해마다 다른 2~3개가 열리는 한정 행동. 인생 단계·길·형편에 맞는 것 중에서 해마다 돌아가며 뜬다.
+// 올해의 기회: 해마다 다른 5개가 열리는 한정 행동. 인생 단계·길·형편에 맞는 것 중에서 해마다 돌아가며 뜬다.
 import type { ActionDef, Stage } from './actions';
 import type { GameState, Person, StatKey } from './types';
 import { chance, int, pick } from './rng';
@@ -26,6 +26,8 @@ interface Opp {
   stat: StatKey;
   lines: Record<Tier, string[]>;
   eff: (s: GameState, p: Person, t: Tier) => Delta[];
+  /** 키우는 관심 분야 (적성에 맞으면 💡) */
+  fit?: string;
 }
 
 const L = (great: string[], good: string[], meh: string[], bad: string[]): Record<Tier, string[]> => ({ great, good, meh, bad });
@@ -300,9 +302,106 @@ function hnum(key: string): number {
 }
 
 /** 올해 열린 기회 (자격이 되는 것 중 해마다 다른 3개) */
+
+/** 관심 분야를 키우는 체험형 기회 (아이·학생) */
+const I = (p: Person, cat: string, t: Tier): Delta[] => {
+  const g = t === 'great' ? 3 : t === 'good' ? 2 : t === 'meh' ? 1 : 0;
+  if (g) mark(p, 'i:' + cat, g);
+  return g ? [`관심 +${g}`] : [];
+};
+const KID: Stage[] = ['elem', 'teen'];
+const exp = (id: string, icon: string, name: string, desc: string, stages: Stage[], st: StatKey, cat: string, lines: Record<Tier, string[]>, cost?: number, extra?: (s: GameState, p: Person, t: Tier) => Delta[]): Opp => ({
+  id, icon, name, desc, stages, stat: st, cost, fit: cat, lines,
+  eff: (s, p, t) => [stat(st, t === 'bad' ? 0 : grow(s, p, st, t)), ...I(p, cat, t), ...(extra?.(s, p, t) ?? [])],
+});
+
+OPPS.push(
+  // ── 아이·청소년 체험 (적성 분야를 키운다) ──
+  exp('o_hospital_day', '🩺', '어린이 병원 체험', '의사 가운 입어 보기 · 의료 관심', KID, 'int', 'medical', L(['청진기로 인형 심장 소리를 들었다. "나 의사 될래!"'], ['붕대 감기를 배웠다. 동생 팔에 감아 줬다.'], ['주사기를 보고 조금 무서웠다.'], ['병원 냄새에 울고 나왔다.'])),
+  exp('o_court_tour', '⚖️', '법원 견학·모의재판', '판사 봉 두드리기 · 법률 관심', KID, 'cha', 'legal', L(['모의재판 판사 역! 판결문을 멋지게 읽었다.'], ['검사 역을 맡아 날카로운 질문을 던졌다.'], ['법정이 생각보다 조용했다.'], ['졸다가 방청석에서 떨어질 뻔했다.'])),
+  exp('o_robot_class', '🤖', '로봇 만들기 교실', '코딩으로 로봇 움직이기 · IT·과학 관심', KID, 'int', 'tech', L(['내 로봇이 미로를 1등으로 탈출했다!'], ['로봇이 앞으로는 간다. 뒤로는 안 간다.'], ['선생님이 거의 다 만들어 줬다.'], ['나사 하나를 삼킬 뻔했다.']), 30),
+  exp('o_fire_station', '🚒', '소방서 안전 체험', '소방관 체험 · 공공·안전 관심', KID, 'str', 'public', L(['소방 호스로 불 끄기 성공! 소방관 아저씨가 경례해 줬다.'], ['연기 탈출 훈련을 씩씩하게 해냈다.'], ['소방차 사진만 잔뜩 찍었다.'], ['사이렌 소리에 놀라 귀를 막았다.'])),
+  exp('o_broadcast', '📺', '방송국 견학', '뉴스 앵커 체험 · 미디어 관심', KID, 'cha', 'media', L(['앵커석에 앉아 뉴스를 읽었다. PD가 "재능 있네"라고 했다.'], ['날씨 예보 코너를 따라 해 봤다.'], ['카메라 앞에서 얼어붙었다.'], ['생방송 스튜디오에서 재채기를 했다.'])),
+  exp('o_bakery', '🥐', '제과제빵 원데이 클래스', '빵 굽기 · 서비스·요식 관심', KID, 'cha', 'service', L(['내가 만든 크루아상을 온 가족이 칭찬했다.'], ['모양은 이상해도 맛은 좋다.'], ['반죽이 부풀지 않았다.'], ['오븐에 너무 오래 뒀다. 숯이 됐다.']), 15),
+  exp('o_airport', '✈️', '공항·항공 체험', '조종석 앉아 보기 · 운송 관심', KID, 'int', 'transport', L(['시뮬레이터 착륙 성공! 기장님이 날개 배지를 줬다.'], ['관제탑에서 비행기들을 내려다봤다.'], ['활주로가 생각보다 멀었다.'], ['멀미가 났다.']), 20),
+  exp('o_market_day', '🧺', '어린이 벼룩시장 장사', '직접 팔아 보기 · 장사·사업 관심 · 용돈', KID, 'cha', 'biz', L(['준비한 물건 완판! 수익 5만 원.'], ['절반은 팔았다. 흥정을 배웠다.'], ['옆 친구 물건만 팔렸다.'], ['잔돈을 잘못 거슬러 줬다.']), 0, (_s, p, t) => (ok(t) ? ((p.cash += t === 'great' ? 5 : 2), [`용돈 +${t === 'great' ? 5 : 2}만`]) : [])),
+  exp('o_bank_kids', '🏦', '어린이 은행 체험', '통장 만들기 · 사무·금융 관심', KID, 'int', 'office', L(['이자 계산을 척척. 은행원 누나가 놀랐다.'], ['첫 통장을 만들었다. 저금하는 재미를 알았다.'], ['도장 찍는 게 제일 재밌었다.'], ['사탕만 먹고 왔다.'])),
+  exp('o_teacher_day', '🍎', '일일 선생님 되기', '동생들 가르치기 · 교육 관심', KID, 'cha', 'edu', L(['동생들이 "선생님!" 하고 따랐다. 뿌듯하다.'], ['받아쓰기를 가르쳐 줬다.'], ['동생들이 말을 안 들었다.'], ['목이 쉬었다.'])),
+  exp('o_car_factory', '🏭', '자동차 공장 견학', '로봇 팔이 차를 만든다 · 기술·생산 관심', KID, 'str', 'trade', L(['엔진 조립 체험에서 "손재주 있네!" 소리를 들었다.'], ['1분에 한 대씩 나오는 차를 넋 놓고 봤다.'], ['시끄러웠다.'], ['기념품 가게에만 관심이 있었다.'])),
+  exp('o_ranch', '🐄', '목장·갯벌 체험', '송아지 우유 주기 · 농림어업 관심', KID, 'mor', 'farm', L(['송아지가 손을 핥았다. 이름까지 지어 줬다.'], ['갯벌에서 조개를 한 바구니 캤다.'], ['냄새가 좀 났다.'], ['갯벌에 장화가 빠졌다.']), 20),
+  exp('o_sports_camp', '⚽', '유소년 스포츠 캠프', '프로 코치에게 배우기 · 스포츠 관심', KID, 'str', 'sport', L(['코치가 "선수반 테스트 받아 봐"라고 했다!'], ['슈팅 폼이 좋아졌다.'], ['벤치에 오래 있었다.'], ['발목을 삐끗했다.']), 40),
+  exp('o_museum_night', '🦕', '박물관 야간 탐험', '공룡 화석 옆에서 1박 · 교육·과학 관심', ['little', 'elem'], 'int', 'edu', L(['티라노 뼈 이름을 전부 외웠다.'], ['손전등 탐험이 너무 재밌었다.'], ['무서워서 엄마 옆에서 잤다.'], ['밤새 한숨도 못 잤다.']), 15),
+  exp('o_webtoon_camp', '✏️', '웹툰 작가 특강', '현역 작가에게 배우기 · 미디어 관심', ['teen'], 'cha', 'media', L(['작가님이 내 컷을 SNS에 올려 줬다!'], ['4컷 만화를 완성했다.'], ['손이 따라 주지 않았다.'], ['펜을 다 부러뜨렸다.']), 20),
+  exp('o_hackathon_teen', '💻', '청소년 해커톤', '24시간 앱 만들기 · IT 관심', ['teen', 'univ'], 'int', 'tech', L(['대상! IT 기업 인턴 제안까지 받았다.'], ['팀 앱이 실제로 돌아갔다.'], ['밤새 버그만 잡았다.'], ['노트북이 꺼졌다. 저장을 안 했다.'])),
+  exp('o_youth_parliament', '🏛', '청소년 모의국회', '법안 발의해 보기 · 공공·법률 관심', ['teen'], 'cha', 'public', L(['내 법안이 본회의를 통과했다! 기자가 인터뷰를 했다.'], ['토론에서 날카로운 질문을 던졌다.'], ['발언 기회를 못 잡았다.'], ['긴장해서 말을 더듬었다.'])),
+  exp('o_barista_teen', '☕', '바리스타 체험', '라떼아트 · 서비스 관심', ['teen', 'univ'], 'cha', 'service', L(['하트 라떼아트 성공!'], ['아메리카노는 완벽하다.'], ['우유 거품이 넘쳤다.'], ['컵을 깼다.']), 10),
+  exp('o_lab_visit', '🔬', '대학 연구실 탐방', '진짜 실험실 · IT·과학·의료 관심', ['teen'], 'int', 'tech', L(['교수님이 "대학 오면 우리 연구실 와"라고 했다.'], ['현미경으로 세포를 봤다.'], ['어려운 말뿐이었다.'], ['실험복이 너무 컸다.'])),
+  exp('o_startup_teen', '🚀', '청소년 창업 캠프', '사업계획서 써 보기 · 사업 관심', ['teen', 'univ'], 'int', 'biz', L(['투자 심사 1위! 모의 투자금 1억을 받았다.'], ['아이디어가 좋다는 평을 받았다.'], ['팀원끼리 싸웠다.'], ['발표 자료를 못 열었다.']), 20),
+  // ── 대학생·취준 ──
+  { id: 'o_ambassador', icon: '🎓', name: '대학 홍보대사 선발', desc: '매력↑ · 스펙 한 줄 · 인맥', stages: ['univ'], stat: 'cha',
+    lines: L(['최종 합격! 입학식 사회를 봤다.'], ['예비 합격 후 추가 합격.'], ['면접에서 떨어졌다.'], ['지각했다.']),
+    eff: (s, p, t) => (ok(t) && (addFlag(p, 'cert'), mark(p, 'network', 1)), [stat('cha', grow(s, p, 'cha', t))]) },
+  { id: 'o_supporters', icon: '📣', name: '대기업 대학생 서포터즈', desc: '기업 활동 · 취업 가산', stages: ['univ', 'prep'], stat: 'cha',
+    lines: L(['우수 활동자! 서류 면제 혜택을 받았다.'], ['콘텐츠가 공식 계정에 올라갔다.'], ['활동비만 받았다.'], ['마감을 두 번 어겼다.']),
+    eff: (s, p, t) => (ok(t) && addFlag(p, 'cert'), [stat('cha', grow(s, p, 'cha', t)), ...I(p, 'office', t)]) },
+  { id: 'o_paper_contest', icon: '📑', name: '학술 논문 공모전', desc: '지능↑ · 대학원·연구직에 유리', stages: ['univ'], stat: 'int',
+    lines: L(['최우수상! 학회에서 발표했다.'], ['장려상.'], ['심사평만 받았다.'], ['표절 검사에 걸렸다. 인용 표시를 빼먹었다.']),
+    eff: (s, p, t) => (ok(t) && addFlag(p, 'cert'), [stat('int', grow(s, p, 'int', t)), ...I(p, 'edu', t)]) },
+  { id: 'o_job_fair', icon: '🧾', name: '채용 박람회', desc: '현장 면접 · 운 좋으면 서류 면제', stages: ['univ', 'prep'], stat: 'cha',
+    lines: L(['현장 면접에서 인사팀장 명함을 받았다. 서류 면제!'], ['기업 부스 여섯 곳 상담.'], ['기념품만 한 봉지.'], ['사람에 치여 아무것도 못 했다.']),
+    eff: (s, p, t) => (ok(t) && addFlag(p, 'cert'), [stat('cha', grow(s, p, 'cha', t))]) },
+  { id: 'o_working_holiday', icon: '🦘', name: '워킹홀리데이 (1년)', desc: '호주·캐나다에서 일하며 여행 · 매력·건강↑ 돈은 본전', cost: 300, ap: 2, stages: ['univ', 'prep'], stat: 'cha',
+    lines: L(['농장·카페에서 일하며 영어가 트였다. 평생 친구도 생겼다.'], ['1년을 무사히 버텼다. 시야가 넓어졌다.'], ['한국인끼리만 어울렸다.'], ['지갑을 도둑맞았다. 고생만 했다.']),
+    eff: (s, p, t) => (mood(p, ok(t) ? 10 : -2), [stat('cha', grow(s, p, 'cha', t)), stat('hp', grow(s, p, 'hp', t)), ['행복', ok(t) ? 10 : -2]]) },
+  // ── 어른 ──
+  { id: 'o_side_shop', icon: '🛒', name: '스마트스토어 부업', desc: '퇴근 후 온라인 판매 · 대박 나면 월급만큼', cost: 100, stages: ['adult'], when: working, stat: 'cha',
+    lines: L(['올린 상품이 대박! 월 매출 1천만 원.'], ['소소하게 용돈벌이.'], ['재고가 방을 채웠다.'], ['반품 폭탄.']),
+    eff: (_s, p, t) => { const g = { great: 1500, good: 300, meh: 0, bad: -100 }[t]; p.cash += g; mark(p, 'i:biz', ok(t) ? 1 : 0); return [g ? `부업 ${g > 0 ? '+' : ''}${formatMoney(g)}` : '본전']; } },
+  { id: 'o_mba', icon: '🎓', name: '야간 MBA 과정', desc: '지능·매력↑ · 승진에 유리 (2천만)', cost: 2000, stages: ['adult'], when: (s) => working(s) && age(s, h(s)) <= 50, stat: 'int',
+    lines: L(['수석 졸업! 동기 네트워크가 든든하다.'], ['주경야독 끝에 학위를 받았다.'], ['과제만 겨우 냈다.'], ['피곤해서 절반은 결석.']),
+    eff: (s, p, t) => { if (ok(t)) { mark(p, 'network', 2); if (chance(s, t === 'great' ? 0.5 : 0.2) && p.jobLevel < JOBS[p.job].maxLevel) { p.jobLevel++; return [stat('int', grow(s, p, 'int', t)), '직급 +1']; } } return [stat('int', grow(s, p, 'int', t)), stat('cha', grow(s, p, 'cha', t))]; } },
+  { id: 'o_quiz_show', icon: '🔔', name: '퀴즈쇼 출연', desc: '지능 승부 · 상금·명성', stages: ['univ', 'adult', 'senior'], stat: 'int',
+    lines: L(['최종 우승! 골든벨을 울렸다. 상금 2천만 원!'], ['3라운드까지 올라가 상품을 받았다.'], ['첫 문제에서 탈락.'], ['카메라 앞에서 이름을 까먹었다.']),
+    eff: (s, p, t) => { const prize = { great: 2000, good: 200, meh: 0, bad: 0 }[t]; p.cash += prize; if (t === 'great') s.fame += 2; return [stat('int', grow(s, p, 'int', t)), ...(prize ? [`상금 ${formatMoney(prize)}`] : [])]; } },
+  { id: 'o_lotto_group', icon: '🎰', name: '직장 동료 로또 공동구매', desc: '만 원씩 모아서 · 거의 안 되지만…', cost: 1, stages: ['adult'], when: working, stat: 'mor',
+    lines: L(['4등이 세 장! 회식비가 생겼다.'], ['5등 두 장. 커피 한 잔씩.'], ['꽝.'], ['꽝. 동료가 번호 하나를 잘못 적었다고 한다.']),
+    eff: (s, p, t) => { if (chance(s, 0.0008)) { p.cash += 30000; s.fame += 1; return ['🎉 2등 당첨! 내 몫 3억!']; } const g = { great: 15, good: 1, meh: 0, bad: 0 }[t]; p.cash += g; return g ? [`+${g}만`] : []; } },
+  { id: 'o_reunion', icon: '🍻', name: '20년 만의 동창회', desc: '옛 친구들 · 인맥↑ 행복↑', stages: ['adult', 'senior'], when: (s) => age(s, h(s)) >= 38, stat: 'cha',
+    lines: L(['첫사랑이 반갑게 인사했다. 단짝과 사업 이야기까지 나눴다.'], ['밤새 웃었다. 단톡방이 생겼다.'], ['다들 자랑만 하더라.'], ['2차에서 필름이 끊겼다.']),
+    eff: (s, p, t) => (ok(t) && mark(p, 'network', 2), mood(p, ok(t) ? 8 : -2), [stat('cha', grow(s, p, 'cha', t)), ['행복', ok(t) ? 8 : -2]]) },
+  { id: 'o_house_repair', icon: '🛠', name: '셀프 인테리어', desc: '집을 고친다 · 잘하면 집값↑ (자가일 때)', cost: 300, stages: ['adult', 'senior'], when: (s) => h(s).home?.type === 'own', stat: 'str',
+    lines: L(['유튜브 보고 한 욕실 리모델링이 전문가 뺨친다. 집값이 올랐다.'], ['벽지와 조명만 바꿔도 새집 같다.'], ['페인트가 얼룩졌다.'], ['타일이 전부 들떴다. 업체를 다시 불렀다.']),
+    eff: (s, p, t) => { const a = s.assets.find((x) => x.ownerId === p.id && (x.kind === 'apt_seoul' || x.kind === 'apt_local')); const up = a ? Math.round(a.value * { great: 0.04, good: 0.015, meh: 0, bad: -0.005 }[t]) : 0; if (a) a.value += up; mood(p, ok(t) ? 5 : -3); return up ? [`집값 ${up > 0 ? '+' : ''}${formatMoney(up)}`] : []; } },
+  { id: 'o_charity_run', icon: '🎗', name: '자선 걷기 대회', desc: '가족과 함께 · 명성↑ 건강↑', stages: ['adult', 'senior'], stat: 'hp',
+    lines: L(['가족 티셔츠를 맞춰 입고 완보! 지역 신문에 사진이 났다.'], ['아이들 손잡고 끝까지 걸었다.'], ['중간에 택시를 탔다.'], ['비가 쏟아졌다.']),
+    eff: (s, p, t) => (ok(t) && (s.fame += 1), [stat('hp', grow(s, p, 'hp', t))]) },
+  { id: 'o_auction_art', icon: '🖼', name: '신진 작가 경매전', desc: '젊은 작가 작품 한 점 (500만) · 뜨면 대박', cost: 500, stages: ['adult', 'senior'], when: (s) => h(s).cash >= 3000, stat: 'int',
+    lines: L(['산 작품의 작가가 해외 비엔날레에 초청됐다!'], ['거실에 걸었더니 분위기가 산다.'], ['작가가 절필했다고 한다.'], ['알고 보니 복제품이었다.']),
+    eff: (s, p, t) => { const v = { great: 4000, good: 700, meh: 400, bad: 50 }[t]; s.assets.push({ id: 'a' + s.idSeq++, kind: 'art', name: '신진 작가 작품', ownerId: p.id, value: v, cost: 500, bought: s.year }); return [`작품 평가 ${formatMoney(v)}`]; } },
+  { id: 'o_council_run', icon: '🗳', name: '구의원 선거 출마', desc: '명성 크게↑ (명성·매력이 받쳐 주면) · 선거비 2천만', cost: 2000, ap: 2, stages: ['adult', 'senior'], when: (s) => s.fame >= 20 && age(s, h(s)) >= 35, stat: 'cha',
+    lines: L(['당선! 구의회 첫 등원. 가문에서 첫 선출직이다.'], ['아쉽게 낙선했지만 득표율 42%. 다음이 기대된다.'], ['득표율 12%. 선거비 보전도 못 받았다.'], ['현수막이 태풍에 날아갔다.']),
+    eff: (s, _p, t) => { const f = { great: 8, good: 3, meh: 0, bad: -1 }[t]; s.fame = Math.max(0, s.fame + f); if (t === 'good') h(s).cash += 1000; return [`명성 ${f >= 0 ? '+' : ''}${f}`]; } },
+  { id: 'o_kids_tv', icon: '📺', name: '가족 예능 섭외', desc: '온 가족 방송 출연 · 명성↑ (자녀가 있을 때)', stages: ['adult'], when: (s) => h(s).childIds.length > 0 && s.fame >= 10, stat: 'cha',
+    lines: L(['아이 한마디가 명장면이 됐다. 광고 제의까지!'], ['훈훈한 가족으로 소개됐다.'], ['통편집됐다.'], ['부부싸움 장면이 나갔다.']),
+    eff: (s, p, t) => { const f = { great: 5, good: 2, meh: 0, bad: -1 }[t]; s.fame = Math.max(0, s.fame + f); if (t === 'great') p.cash += 1500; return [`명성 ${f >= 0 ? '+' : ''}${f}`, ...(t === 'great' ? ['광고 1,500만'] : [])]; } },
+  // ── 노년 ──
+  { id: 'o_senior_model', icon: '🕶', name: '시니어 모델 오디션', desc: '매력↑ · 인생 2막', stages: ['senior'], stat: 'cha',
+    lines: L(['합격! 패션쇼 런웨이를 걸었다. 손주들이 난리다.'], ['화보 촬영 한 번.'], ['서류에서 떨어졌다.'], ['하이힐에 발목을 삐었다.']),
+    eff: (s, p, t) => (ok(t) && (s.fame += 1), mood(p, ok(t) ? 10 : -2), [stat('cha', grow(s, p, 'cha', t)), ['행복', ok(t) ? 10 : -2]]) },
+  { id: 'o_memoir', icon: '📖', name: '자서전 쓰기', desc: '가문의 이야기를 남긴다 · 명성·행복↑', cost: 200, stages: ['senior'], stat: 'int',
+    lines: L(['출판사가 정식 출간을 제안했다! 제목은 「우리 가문 이야기」.'], ['가족용으로 50부를 찍었다. 손주들이 돌려 읽는다.'], ['쓰다 보니 옛 기억에 눈물만 났다.'], ['원고 파일이 날아갔다.']),
+    eff: (s, p, t) => (ok(t) && (s.fame += t === 'great' ? 3 : 1), mood(p, 6), [['행복', 6]]) },
+  { id: 'o_smartphone_class', icon: '📱', name: '어르신 스마트폰 교실', desc: '지능↑ · 손주와 영상통화', stages: ['senior'], stat: 'int',
+    lines: L(['키오스크 주문도 척척. 손주에게 이모티콘을 보냈다!'], ['영상통화를 할 줄 알게 됐다.'], ['비밀번호를 또 잊었다.'], ['보이스피싱 문자를 눌렀다… 다행히 막았다.']),
+    eff: (s, p, t) => (mood(p, ok(t) ? 6 : 0), [stat('int', grow(s, p, 'int', t))]) },
+  { id: 'o_senior_job', icon: '🧓', name: '노인 일자리 (학교 지킴이)', desc: '월 29만 · 건강·행복↑', stages: ['senior'], stat: 'mor',
+    lines: L(['아이들이 "지킴이 어르신!" 하고 반긴다. 삶의 활력이다.'], ['출근할 곳이 있다는 게 좋다.'], ['조금 지루했다.'], ['무릎이 시렸다.']),
+    eff: (_s, p, t) => (p.cash += 348, mood(p, ok(t) ? 8 : 2), ['+348만', ['행복', ok(t) ? 8 : 2]]) },
+);
+
 export function openOpps(s: GameState, stage: Stage): Set<string> {
   const ok = OPPS.filter((o) => o.stages.includes(stage) && (!o.when || o.when(s)));
-  return new Set(ok.sort((a, b) => hnum(s.year + a.id) - hnum(s.year + b.id)).slice(0, 3).map((o) => o.id));
+  return new Set(ok.sort((a, b) => hnum(s.year + a.id) - hnum(s.year + b.id)).slice(0, 5).map((o) => o.id));
 }
 
 export function oppActions(stageOf: (s: GameState) => Stage): ActionDef[] {
@@ -315,6 +414,7 @@ export function oppActions(stageOf: (s: GameState) => Stage): ActionDef[] {
     ap: o.ap ?? 1,
     cost: o.cost,
     stages: o.stages,
+    fit: o.fit,
     show: (s: GameState) => openOpps(s, stageOf(s)).has(o.id),
     blocked: (s: GameState) => (s.actUsed?.[o.id] ? '올해 이미 했다' : undefined),
     run: (s: GameState) => {

@@ -8,7 +8,8 @@ import { buzz, floatDelta, rollNumber, setSound, setVibe, sfx, soundOn, vibeOn, 
 import { buildingURL, TIER_SPRITE, type BuildingKind } from '../render/building';
 import { wageIndex } from '../core/pay';
 import { buyPower, MAINTAIN, MARGIN_RATE, stockQuote } from '../core/leverage';
-import { interestSummary, temperamentLine } from '../core/interests';
+import { fitCats, interestSummary, temperamentLine } from '../core/interests';
+import { JOB_CATS } from '../core/jobs';
 import { buyVehicle, canDrive, modelOf, myVehicles, vehicleAP, vehiclePrice, VEHICLES } from '../core/vehicle';
 import {
   ACHIEVEMENTS,
@@ -36,6 +37,7 @@ import { estateTax, previewAssetGiftTax, previewGiftTax } from '../core/estate';
 import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
 import { MISSIONS } from '../core/missions';
+import { rivalLine, rivalMood } from '../core/rival';
 import { pendingAffairs } from '../core/fate';
 import { ACTIONS, STAGE_NAMES, apLeft, apMax, doAction, forHead, stageOf, type ActionCat } from '../core/actions';
 import { spendable as canSpend } from '../core/ev-util';
@@ -641,7 +643,7 @@ function treeScreen(g: GameState): string {
       ${st.minors ? `<span>🧒 ${st.minors}</span>` : ''}${st.single ? `<span>💌 미혼 ${st.single}</span>` : ''}${st.exam ? `<span>📖 수험생 ${st.exam}</span>` : ''}
       <span>★ ${heir ? esc(heir.name) : '후계자 미정'}</span>
     </div>`;
-  if (ui.view === 'list') return toolbar + rosterScreen(g) + propertyStrip(g);
+  if (ui.view === 'list') return toolbar + rosterScreen(g) + rivalStrip(g) + propertyStrip(g);
 
   const parents = parentsOf(g, h);
   const grand = parents.flatMap((p) => parentsOf(g, p)).filter((p) => alive(p) || ui.zoom !== 'small');
@@ -661,7 +663,14 @@ function treeScreen(g: GameState): string {
     </div></div>
     ${!sp && !h.childIds.length ? `<p class="hint">아직 혼자다. 26세 무렵부터 소개팅이 들어온다.</p>` : ''}
   </div>
+  ${rivalStrip(g)}
   ${propertyStrip(g)}`;
+}
+
+/** 라이벌 가문 한 줄 */
+function rivalStrip(g: GameState): string {
+  if (!g.rival) return '';
+  return `<div class="rival-strip ${g.rival.allied ? 'ally' : g.rival.feud >= 50 ? 'hot' : ''}">⚔️ ${esc(rivalLine(g, familyTotal(g)))}</div>`;
 }
 
 /** 명부: 세대별로 한 줄씩. 큰 가문을 한눈에 */
@@ -1238,16 +1247,18 @@ function actionsScreen(g: GameState): string {
   const cat = ui.actCat && cats.includes(ui.actCat as ActionCat) ? (ui.actCat as ActionCat) : cats[0];
   const money = canSpend(g);
   const car = vehicleAP(g);
+  const fits = new Set<string>(fitCats(head(g), 3));
+  const isFit = (a: (typeof list)[number]) => !!a.fit && fits.has(a.fit);
   const row = (a: (typeof list)[number]) => {
     const targets = a.targets?.(g) ?? [];
     const blocked = a.blocked?.(g, targets[0]);
     const used = g.actUsed?.[a.id] ?? 0;
     const disabled = ap < a.ap || !!blocked || (a.cost ?? 0) > money;
     const why = blocked ?? ((a.cost ?? 0) > money ? '돈 부족' : ap < a.ap ? '행동력 부족' : used ? `올해 ${used}번 · 효과↓` : '');
-    return `<div class="act ${disabled ? 'off' : ''}">
+    return `<div class="act ${disabled ? 'off' : ''} ${isFit(a) ? 'fit' : ''}">
       <span class="act-i">${a.icon}</span>
       <div class="act-m">
-        <b>${a.name}</b>
+        <b>${a.name}${isFit(a) ? ' <em class="fit-b">💡 적성</em>' : ''}</b>
         <small>${esc(a.desc)}</small>
         <span class="badges">${a.ap ? `<b>⚡${a.ap}</b>` : '<b>무료</b>'}${a.cost ? `<b class="cost">💰${formatMoney(a.cost)}</b>` : ''}${why ? `<b class="why">${esc(why)}</b>` : ''}</span>
         ${targets.length > 1 ? `<select id="act-t-${a.id}">${targets.map((p) => `<option value="${p.id}">${esc(fullName(p))} (${esc(relationLabel(g, p))}·${age(g, p)})</option>`).join('')}</select>` : targets.length ? `<input type="hidden" id="act-t-${a.id}" value="${targets[0].id}"><small class="to">→ ${esc(fullName(targets[0]))}</small>` : ''}
@@ -1266,7 +1277,8 @@ function actionsScreen(g: GameState): string {
       return `<button data-action="act-cat" data-v="${c}" class="${c === cat ? 'on' : ''}">${c} <small>${n}</small></button>`;
     })
     .join('')}</div>
-  <section class="card acts">${list.filter((a) => a.cat === cat).map(row).join('')}</section>
+  <section class="card acts">${[...list.filter((a) => a.cat === cat && isFit(a)), ...list.filter((a) => a.cat === cat && !isFit(a))].map(row).join('')}</section>
+  ${list.some(isFit) ? `<p class="fine fit-note">💡 = ${esc(fullName(head(g)))}의 성향·적성(${[...fits].map((c) => JOB_CATS[c as keyof typeof JOB_CATS]?.split(' ')[1] ?? c).join('·')})에 잘 맞는 활동. 해 볼수록 그 분야로 진로가 열린다.</p>` : ''}
   <details class="card more-help"><summary>도움말 · 다른 할 일</summary>
     <p class="fine">행동력 ${apMax(g)} = 생활 수준 ${LIVING_NAMES[g.policy.living]} (검소 2 · 보통 3 · 호화 4)${car ? ` + 탈것 ${car}` : ' · 차를 사면 +1, 요트는 +1 더'}. 같은 일을 한 해에 여러 번 하면 효과가 줄고 지친다. 인생 단계가 바뀌면 할 수 있는 일도 바뀐다.</p>
     <p class="fine">부동산·주식·자동차 매매, 증여, 유언장 → <button class="mini" data-action="tab" data-v="assets">자산 탭</button> · 교육 방침·생활 방식 → <button class="mini" data-action="tab" data-v="policy">방침 탭</button> · 후계자·은퇴 → 가계도에서 인물을 눌러서</p>
@@ -1412,6 +1424,16 @@ function achvScreen(g: GameState): string {
   const got = g.achievements.length;
   const total = Object.keys(ACHIEVEMENTS).length;
   return `
+  ${
+    g.rival
+      ? `<section class="card">
+    <h2>⚔️ 라이벌 가문: ${esc(g.rival.name)}씨 가문 <small class="muted">${rivalMood(g.rival)}</small></h2>
+    <p>${esc(rivalLine(g, familyTotal(g)))}</p>
+    <div class="feud"><i style="width:${Math.round(g.rival.feud)}%"></i></div>
+    <p class="fine">대표 ${esc(g.rival.boss)} · 명성 ${Math.round(g.rival.fame)} (우리 ${Math.round(g.fame)}) · 원한 ${Math.round(g.rival.feud)}/100. 사사건건 부딪치다 보면 원수가 되고, 손을 내밀면 사돈이 될 수도 있다.</p>
+  </section>`
+      : ''
+  }
   <section class="card">
     <h2>🎯 ${g.generation}대 세대 미션</h2>
     ${cur
