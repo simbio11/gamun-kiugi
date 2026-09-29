@@ -5,6 +5,8 @@ import { chance, int, pick } from './rng';
 import { fmt, getFatigue, grow, jitter, rollTier, say, setFatigue, stat, TIER_MARK } from './practice';
 import { P, P2 } from './action-lines';
 import { TRACK_ACTIONS, trackOf } from './tracks';
+import { reverseMortgageRate } from './welfare';
+import { wageIndex } from './pay';
 import { appealBonus } from './marks';
 import { addBargains } from './realty';
 import { bindState, standing, standingChange } from './school';
@@ -469,7 +471,7 @@ export const ACTIONS: ActionDef[] = [
     cat: '진로·자기계발',
     icon: '🩺',
     name: '종합검진',
-    desc: '2년간 암을 조기에 발견할 수 있다',
+    desc: '8년간 암이 생겨도 초기에 발견된다 (생존율↑)',
     ap: 1,
     cost: 200,
     targets: (s) => Object.values(s.people).filter((p) => alive(p) && age(s, p) >= 35 && (p.id === s.headId || p.id === h(s).spouseId || isDescendantOf(s, p, h(s)) || parentsOf(s, h(s)).includes(p))),
@@ -1210,7 +1212,47 @@ const STAGE_ACTIONS: ActionDef[] = [
     },
   },
 ];
-ACTIONS.push(...STAGE_ACTIONS, ...TRACK_ACTIONS);
+ACTIONS.push(...STAGE_ACTIONS, ...TRACK_ACTIONS, {
+  id: 'youth_account',
+  cat: '재산',
+  icon: '🌱',
+  name: '청년도약계좌 가입',
+  desc: '5년간 매년 840만(월 70만) 납입 → 만기에 약 5,000만 (19~34세, 한 번만)',
+  ap: 0,
+  stages: ['univ', 'prep', 'adult'],
+  show: (s) => {
+    const p = h(s);
+    return age(s, p) >= 19 && age(s, p) <= 34 && !p.flags.some((f) => f.startsWith('youth_acc'));
+  },
+  run: (s) => {
+    const p = h(s);
+    p.flags.push('youth_acc:' + s.year);
+    mark(p, 'thrift', 2);
+    return '청년도약계좌를 열었다. 5년 동안 매달 70만 원씩. 만기엔 정부 기여금과 비과세 이자가 붙는다. (중간에 빼면 손해)';
+  },
+}, {
+  id: 'reverse_mortgage',
+  cat: '재산',
+  icon: '🏡',
+  name: '주택연금 가입',
+  desc: '살던 집에 계속 살면서 평생 매년 연금을 받는다 · 받은 돈은 집에 대출로 쌓인다 (55세 이상, 내 집)',
+  ap: 1,
+  stages: ['adult', 'senior'],
+  show: (s) => {
+    const p = h(s);
+    const home = p.home?.type === 'own' ? s.assets.find((a) => a.id === p.home!.assetId) : undefined;
+    return age(s, p) >= 55 && !!home && !p.flags.some((f) => f.startsWith('rm:'));
+  },
+  run: (s) => {
+    const p = h(s);
+    const home = s.assets.find((a) => a.id === p.home!.assetId)!;
+    const cap = Math.round(170000 * wageIndex(s.year)); // 공시가 12억(시가 약 17억) 한도
+    const annual = Math.round(Math.min(home.value, cap) * reverseMortgageRate(age(s, p)));
+    p.flags.push(`rm:${home.id}:${annual}`);
+    (home.tags ??= []).push('주택연금');
+    return `${home.name}(시세 ${formatMoney(home.value)})로 주택연금에 가입했다. 평생 연 ${formatMoney(annual)}(월 ${formatMoney(Math.round(annual / 12))})을 받는다.\n집은 그대로 살고, 받은 돈과 이자는 나중에 집값에서 정산된다.`;
+  },
+});
 
 /** 학점 표시 (흔적 'gpa'로 4.5 만점 환산) */
 export function gpaLabel(p: Person): string {

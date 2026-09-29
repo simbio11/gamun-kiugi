@@ -17,6 +17,8 @@ import { nestOf } from '../src/core/nest';
 import { forecast, payOf } from '../src/core/economy';
 import { PAY, incomeTax } from '../src/core/pay';
 import { pensionOf, settlePension, severance } from '../src/core/economy';
+import { divorce } from '../src/core/life';
+import { reverseMortgageRate } from '../src/core/welfare';
 import { acqTax, buyListing, gainsTax, isPrimary, rentable, rollListings } from '../src/core/realty';
 import { recommendSusi, standing } from '../src/core/school';
 import { hoodOf } from '../src/core/housing';
@@ -488,4 +490,33 @@ describe('인생 시스템', () => {
     expect(nps).toBeGreaterThan(1000);
     expect(nps).toBeLessThan(2600);
   });
+
+  it('이혼 재산분할: 오래 살수록 재산이 적은 쪽 몫이 커진다 (최대 50%)', () => {
+    const run = (years: number) => {
+      const s = newGame({ seed: 71, familyName: '최', sex: 'M' });
+      const h = head(s);
+      s.year = h.birthYear + 50;
+      const sp = createPersonLike(s, h);
+      h.spouseId = sp.id;
+      sp.spouseId = h.id;
+      h.flags.push('wed:' + (s.year - years));
+      h.cash = 100000;
+      sp.cash = 0;
+      divorce(s, h);
+      return sp.cash / 100000;
+    };
+    expect(run(3)).toBeCloseTo(0.3, 1);
+    expect(run(25)).toBeCloseTo(0.5, 1);
+  });
+
+  it('주택연금: 나이가 많을수록 받는 비율이 크다', () => {
+    expect(reverseMortgageRate(70)).toBeGreaterThan(reverseMortgageRate(60));
+    expect(Math.round(30000 * reverseMortgageRate(70) / 12)).toBeGreaterThan(80); // 3억 70세 ≈ 월 92만
+  });
 });
+
+function createPersonLike(s: any, h: any) {
+  const sp = { ...h, id: 'sp_test', name: '배우자', sex: 'F', flags: [], childIds: [], marks: {}, spouseId: undefined, home: undefined };
+  s.people[sp.id] = sp;
+  return sp;
+}

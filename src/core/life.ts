@@ -3,7 +3,7 @@
 
 import { chance, int, normal, pick } from './rng';
 import { JOBS, MALE_NAMES, FEMALE_NAMES } from './data';
-import { addHolding, formatMoney, jobTitle, settlePension } from './economy';
+import { addHolding, formatMoney, jobTitle, personWorth, settlePension } from './economy';
 import { birthSupport } from './welfare';
 import { applyDesire, gate, iga, queueNext, req, schedule, setJob, who, type Choice, type Ctx, type EventDef } from './ev-util';
 import {
@@ -209,6 +209,9 @@ export function cancerRate(s: GameState, p: Person): number {
   return base * (p.sex === 'M' ? 1.15 : 0.9) * (hasTrait(p, 'frail') ? 1.5 : hasTrait(p, 'tough') ? 0.7 : 1) * illMult(p);
 }
 
+/** 종합검진 한 번으로 조기 발견 효과가 이어지는 햇수 */
+export const CHECKUP_YEARS = 8;
+
 /** 병기별 5년 생존율 (%) */
 const SURVIVAL = [95, 88, 70, 25];
 
@@ -216,7 +219,7 @@ const cancer: LifeDef = {
   id: 'cancer',
   title: () => '암 진단',
   text: (c) => {
-    const checked = c.p.flags.some((f) => f.startsWith('checkup:') && c.s.year - Number(f.slice(8)) <= 2);
+    const checked = c.p.flags.some((f) => f.startsWith('checkup:') && c.s.year - Number(f.slice(8)) <= CHECKUP_YEARS);
     c.ev.data ??= { stage: pick(c.s, checked ? [1, 1, 1, 2] : [1, 1, 1, 1, 2, 2, 2, 3, 3, 4]), checked };
     const st = c.ev.data.stage;
     return `${who(c)}, ${c.ev.data.checked ? '정기 검진 덕에 일찍' : '건강검진에서'} 암이 발견됐다. ${st}기.\n의사가 5년 생존율은 ${SURVIVAL[st - 1]}% 정도라고 한다.\n치료 방법을 정해야 한다.`;
@@ -299,22 +302,30 @@ export function setBond(p: Person, sp: Person, v: number) {
   p.bond = sp.bond = clamp(Math.round(v), 0, 100);
 }
 
-/** 이혼: 재산분할(현금 절반씩) + 위자료. 배우자는 가문을 떠난다. */
+/**
+ * 이혼: 재산분할 + 위자료. 배우자는 가문을 떠난다.
+ * 재산분할은 부부가 함께 일군 순자산(현금·부동산·주식 등, 빚 제외)을 혼인 기간에 따라 나눈다:
+ * 5년 미만 재산이 적은 쪽 30% · 10년 미만 40% · 20년 미만 45% · 20년 이상 50% (최근 판례 경향).
+ * 유책 배우자는 위자료 1,000~3,000만 원.
+ */
 export function divorce(s: GameState, p: Person, fault?: Person): string {
   const sp = spouseOf(s, p)!;
   const wedYear = flagNum(p, 'wed');
-  const total = Math.max(0, p.cash) + Math.max(0, sp.cash);
-  const half = Math.round(total / 2);
-  const deltaP = half - Math.max(0, p.cash);
-  p.cash += deltaP;
-  sp.cash -= deltaP;
-  let extra = '';
+  const years = isNaN(wedYear) ? 5 : s.year - wedYear;
+  const netP = Math.max(0, personWorth(s, p));
+  const netS = Math.max(0, personWorth(s, sp));
+  const share = years < 5 ? 0.3 : years < 10 ? 0.4 : years < 20 ? 0.45 : 0.5;
+  const [rich, poor, richNet, poorNet] = netP >= netS ? [p, sp, netP, netS] : [sp, p, netS, netP];
+  const owed = Math.max(0, Math.round((richNet + poorNet) * share - poorNet));
+  rich.cash -= owed; // 현금이 모자라면 빚(생활비 대출)으로 마련해야 한다
+  poor.cash += owed;
+  let extra = owed ? ` 재산분할로 ${fullName(rich)}이(가) ${formatMoney(owed)}을 넘겼다 (혼인 ${years}년, 분할 ${Math.round(share * 100)}%).` : '';
   if (fault) {
     const other = fault === p ? sp : p;
-    const fee = 5000;
+    const fee = int(s, 10, 30) * 100;
     fault.cash -= fee;
     other.cash += fee;
-    extra = ` ${fullName(fault)}이(가) 위자료 ${formatMoney(fee)}를 물었다.`;
+    extra += ` ${fullName(fault)}이(가) 위자료 ${formatMoney(fee)}를 물었다.`;
   }
   p.spouseId = undefined;
   sp.spouseId = undefined;

@@ -3,6 +3,7 @@
 
 import { chance, int, next, normal, pick } from './rng';
 import { addAsset, formatMoney, pay, personWorth } from './economy';
+import { wageIndex } from './pay';
 import { agePenalty, appeal, desirability, jobless, makeDate, marry, suitorLine } from './events';
 import { eul, eun, gate, iga, queueNext, schedule, wa, who, type Choice, type Ctx, type EventDef } from './ev-util';
 import { nestOf } from './nest';
@@ -376,10 +377,17 @@ const wedding: EventDef = {
         x.ev.data.stage = 'house';
         return { text: text + (cost ? ` (${formatMoney(cost)})` : ''), keep: true as const };
       };
+      // 2024 듀오 결혼비용 보고서: 신혼집 제외 평균 5,449만 (예식홀 1,283·웨딩패키지 360·혼수 1,564·예단 758·신혼여행 725·예물 673)
+      const wi = wageIndex(c.s.year);
+      const W = (v: number) => Math.round(v * wi);
+      const gift = (x: Ctx, v: number) => {
+        x.p.cash += W(v);
+        return ` 축의금 ${formatMoney(W(v))}이 들어왔다.`;
+      };
       return gate(c.s, [
-        { label: '스몰 웨딩', cost: 500, run: done(500, '가까운 사람들만 모여 소박하게 올렸다.', 0, 6) },
-        { label: '평범한 예식장', cost: 2500, run: done(2500, '축의금 봉투가 수북하다.', 1, 3) },
-        { label: '호텔 웨딩', cost: 9000, run: done(9000, '샹들리에 아래 화려한 결혼식. 하객들이 입을 모아 부러워했다.', 4, 2) },
+        { label: '스몰 웨딩 (예식·반지·가까운 여행)', cost: W(1500), run: (x) => done(0, '가까운 사람들만 모여 소박하게 올렸다. 혼수는 쓰던 걸로.' + gift(x, 500), 0, 6)(x) },
+        { label: '평범한 결혼 (예식·혼수·예단·예물·신혼여행)', cost: W(5400), run: (x) => done(0, '남들 하는 만큼은 했다. 스드메, 예단, 발리 신혼여행까지.' + gift(x, 1800), 1, 3)(x) },
+        { label: '호텔 웨딩', cost: W(12000), run: (x) => done(0, '샹들리에 아래 화려한 결혼식. 하객들이 입을 모아 부러워했다.' + gift(x, 4000), 4, 2)(x) },
         { label: '식은 생략, 혼인신고만', run: done(0, '구청에서 도장 두 개로 끝냈다. 부모님은 서운해하신다.', 0, 0) },
       ]);
     }

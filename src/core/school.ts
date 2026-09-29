@@ -280,7 +280,10 @@ export function admitChance(p: Person, pr: Program, pct: number): number {
     return 1 / (1 + Math.exp(-(v - need) / 3));
   }
   const w = Math.max(0.35, (100 - pr.cut) * 0.3);
-  return 1 / (1 + Math.exp(-(pct - pr.cut) / w));
+  // 저출생으로 학령인구가 줄면 지방대·전문대부터 정원이 비어 문턱이 낮아진다 (2030년부터 해마다)
+  const year = lastState?.year ?? 2025;
+  const easing = ['C', 'D', 'E'].includes(pr.tier) ? Math.min(pr.tier === 'C' ? 6 : 15, Math.max(0, year - 2030) * (pr.tier === 'C' ? 0.2 : 0.5)) : 0;
+  return 1 / (1 + Math.exp(-(pct - (pr.cut - easing)) / w));
 }
 
 /** 경쟁률 (연도·학과별로 고정된 값) */

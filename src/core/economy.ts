@@ -8,7 +8,7 @@ import { BASE_YEAR, BASIC_PENSION, GRAD_STIPEND, incomeTax, NPS_A, PAY, PUBLIC_P
 import { isRealty, netOf, realtyForecast, realtyYear, sellRealty } from './realty';
 import { housingYear, JEONSE_LOAN_RATE } from './housing';
 import { debtRate } from './debt';
-import { allowanceForecast, careYear, childAllowanceYear } from './welfare';
+import { allowanceForecast, careYear, childAllowanceYear, reverseMortgageYear, youthAccountYear } from './welfare';
 
 export function formatMoney(man: number): string {
   const neg = man < 0;
@@ -401,6 +401,11 @@ export function forecast(s: GameState): Forecast {
   }, 0);
   add(expense, '소득세·4대보험', taxSum);
   add(income, '부모급여·아동수당', allowanceForecast(s, wallet));
+  for (const p of wallet) if (p.flags.some((x) => x.startsWith('youth_acc:'))) add(expense, '청년도약계좌 납입', 840);
+  for (const p of wallet) {
+    const f = p.flags.find((x) => x.startsWith('rm:'));
+    if (f) add(income, '주택연금', Number(f.split(':')[2]));
+  }
   const h0 = head(s);
   for (const par of parentsOf(s, h0)) {
     if (!alive(par) || hh.id !== h0.id) continue;
@@ -512,6 +517,8 @@ export function economyYear(s: GameState): string[] {
   msgs.push(...housingYear(s));
   // 부모급여·아동수당, 부모님 돌봄 비용
   childAllowanceYear(s);
+  reverseMortgageYear(s);
+  msgs.push(...youthAccountYear(s));
   msgs.push(...careYear(s));
 
   // 생활 수준이 아이들에게 남기는 것: 호화는 행복↑·씀씀이 흔적, 검소는 행복 조금↓·절약 흔적
@@ -574,6 +581,10 @@ export function marketYear(s: GameState): string[] {
     msgs.push(ev.text);
     for (const k of Object.keys(ev.delta) as MarketKey[]) r[k] += ev.delta[k]!;
   }
+  // 인구 구조: 2030년대부터 지방 인구 유출·고령화로 지방 집값이 조금씩 눌린다
+  if (s.year >= 2030) r.apt_local -= 0.006;
+  const era = ERA_NEWS[s.year];
+  if (era) msgs.push(era);
   for (const k of MARKET_KEYS) {
     r[k] = clamp(r[k], ...MARKET_CLAMP[k]);
     s.market[k] = Math.max(1, Math.round(s.market[k] * (1 + r[k])));
@@ -587,6 +598,16 @@ export function marketYear(s: GameState): string[] {
   }
   return msgs;
 }
+
+/** 시대 흐름 (통계청 장래인구추계의 방향을 따른 가상 뉴스) */
+const ERA_NEWS: Record<number, string> = {
+  2028: '📰 합계출산율 0.7명대 지속. 초등학교 입학생 30만 명 선 붕괴',
+  2031: '📰 학령인구 절벽: 지방대 입학 정원 미달 속출. 지방대·전문대 문턱이 낮아진다',
+  2035: '📰 65세 이상 인구 30% 돌파. 초고령사회 가속',
+  2040: '📰 지방 소멸 경고: 기초지자체 절반이 소멸 위험 지역',
+  2045: '📰 생산연령인구 급감. 외국인 근로자·정년 연장 논의 본격화',
+  2050: '📰 인구 4천만 명대 진입 전망. 빈집이 늘어난다',
+};
 
 const MARKET_EVENTS: { text: string; delta: Partial<Record<MarketKey, number>> }[] = [
   { text: '📈 강남 재건축 호재! 서울 아파트값 급등', delta: { apt_seoul: 0.22 } },

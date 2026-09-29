@@ -498,7 +498,7 @@ const redevelopDone: EventDef = {
 
 const checkup: LifeDef = {
   id: 'r_checkup',
-  weight: (s, p) => (age(s, p) >= 40 && !p.flags.some((f) => f.startsWith('checkup:') && s.year - Number(f.slice(8)) < 3) ? 0.015 : 0),
+  weight: (s, p) => (age(s, p) >= 40 && !p.flags.some((f) => f.startsWith('checkup:') && s.year - Number(f.slice(8)) < 8) ? 0.015 : 0),
   title: () => '건강검진',
   text: (c) => `${who(c)}에게 종합건강검진 안내문이 왔다. 내시경·CT까지 받으면 비싸다.`,
   choices: (c) =>

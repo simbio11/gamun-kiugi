@@ -308,6 +308,51 @@ const pensionTiming: EventDef = {
   },
 };
 
+// ───────────────────────── 주택연금 ─────────────────────────
+// 한국주택금융공사 종신 정액형 예시: 3억 주택 60세 월 약 63만, 70세 월 약 92만 → 집값의 연 2.5~3.7%
+// 받은 돈과 이자(연 약 3%)는 그 집에 대출로 쌓이고, 사망 후 집을 팔아 정산한다 (남으면 상속, 모자라도 청구 없음).
+
+export function reverseMortgageRate(a: number): number {
+  return a < 60 ? 0.02 : 0.025 + Math.min(25, a - 60) * 0.00125;
+}
+
+/** 해마다: 주택연금 지급과 대출 누적 */
+export function reverseMortgageYear(s: GameState) {
+  for (const p of Object.values(s.people)) {
+    const f = p.flags.find((x) => x.startsWith('rm:'));
+    if (!f || !alive(p)) continue;
+    const [, assetId, annual] = f.split(':');
+    const a = s.assets.find((x) => x.id === assetId);
+    if (!a) {
+      p.flags = p.flags.filter((x) => x !== f);
+      continue;
+    }
+    const v = Number(annual);
+    p.cash += v;
+    a.loan = Math.round((a.loan ?? 0) * 1.03 + v);
+  }
+}
+
+// ───────────────────────── 청년도약계좌 ─────────────────────────
+// 19~34세, 연 소득 7,500만 이하. 월 최대 70만 × 5년 = 4,200만 납입 → 정부기여금·비과세 이자 포함 약 5,000만.
+
+export function youthAccountYear(s: GameState): string[] {
+  const msgs: string[] = [];
+  for (const p of Object.values(s.people)) {
+    const f = p.flags.find((x) => x.startsWith('youth_acc:'));
+    if (!f || !alive(p)) continue;
+    const start = Number(f.slice(10));
+    if (s.year - start < 5) p.cash -= 840;
+    else {
+      p.cash += 5000;
+      p.flags = p.flags.filter((x) => x !== f);
+      addFlag(p, 'youth_acc_done');
+      if (p.id === s.headId) msgs.push(`💰 청년도약계좌 만기! 5년 동안 부은 4,200만 원이 5,000만 원이 되어 돌아왔다`);
+    }
+  }
+  return msgs;
+}
+
 export const WELFARE_EVENTS: EventDef[] = [parentalLeave, elderCare, secondLife, pensionTiming];
 // (int는 향후 확장용)
 void int;
