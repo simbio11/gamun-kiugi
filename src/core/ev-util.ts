@@ -4,6 +4,11 @@ import { unlock } from './achievements';
 import { addFlag, alive, clamp, fullName, hasFlag, householder, spouseOf } from './people';
 import type { Asset, CareerTag, GameState, JobId, PendingEvent, Person, StatKey } from './types';
 
+/** 후폭풍 예약: yearsLater 년 뒤 그 사람에게 이벤트가 터진다 */
+export function schedule(s: GameState, yearsLater: number, defId: string, personId: string, data?: any) {
+  (s.scheduled ??= []).push({ year: s.year + Math.max(1, Math.round(yearsLater)), defId, personId, data });
+}
+
 export interface Ctx {
   s: GameState;
   p: Person;

@@ -66,6 +66,13 @@ const FLAG_ACHV: [string, string][] = [
   ['draft_dodger', 'draft_dodger'],
   ['bankrupt', 'bankrupt'],
   ['pet', 'pet'],
+  ['guarantee_victim', 'guarantee_victim'],
+  ['angel_jackpot', 'angel_jackpot'],
+  ['sub_winner', 'sub_winner'],
+  ['married_first_love', 'first_love'],
+  ['dui', 'dui'],
+  ['emigrated', 'emigrated'],
+  ['ponzi_victim', 'ponzi_victim'],
 ];
 
 export function checkAchievements(s: GameState) {

@@ -2,14 +2,15 @@
 // 매년 어떻게 보낼지(학원·과외·인강·동아리·놀기…) 고르면 성적(study)과 사교육비(eduSpent)가 쌓이고,
 // 수능 백분위 = 성적·지능·사교육비·컨디션. 대학·학과마다 합격선과 경쟁률이 있고, 학과가 진로를 연다.
 
-import { chance, next, normal } from './rng';
-import { TALENTS } from './data';
+import { chance, int, next, normal, pick } from './rng';
+import { FEMALE_NAMES, MALE_NAMES, SURNAMES, TALENTS } from './data';
 import { formatMoney } from './economy';
 import {
   applyDesire,
   gate,
   iga,
   ok,
+  schedule,
   setJob,
   setStudy,
   tr,
@@ -303,7 +304,16 @@ const PLANS: Plan[] = [
     study: -4,
     happy: 10,
     minAge: 15,
-    extra: (x) => (chance(x.s, 0.3) ? ' 첫사랑과 헤어지고 한동안 방황했다.' : ' 설레는 한 해였다.'),
+    extra: (x) => {
+      // 첫사랑: 수십 년 뒤 다시 나타날 수도
+      if (!x.p.flags.includes('first_love') && chance(x.s, 0.35)) {
+        x.p.flags.push('first_love');
+        const name = pick(x.s, SURNAMES) + pick(x.s, x.p.sex === 'M' ? FEMALE_NAMES : MALE_NAMES);
+        schedule(x.s, int(x.s, 15, 30), 'first_love', x.p.id, { name });
+        return ` 첫사랑 ${name}. 졸업하며 헤어졌지만 평생 잊지 못할 것 같다.`;
+      }
+      return chance(x.s, 0.3) ? ' 첫사랑과 헤어지고 한동안 방황했다.' : ' 설레는 한 해였다.';
+    },
   },
   {
     label: '알바한다',

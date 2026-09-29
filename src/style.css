@@ -234,3 +234,4 @@ small.down { color: #2d6fb5; }
 .achv-cat summary { cursor: pointer; font-size: 13px; padding: 6px 0; border-top: 2px solid #cbb58c; list-style: none; }
 .achv-cat summary::-webkit-details-marker { display: none; }
 .achv-cat summary small { color: var(--muted); }
+.affairs { text-align: right; font-size: 12px; }

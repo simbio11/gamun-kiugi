@@ -10,7 +10,8 @@ function autoplay(seed: number, years: number): GameState {
   for (let y = 0; y < years && !s.gameOver; y++) {
     let guard = 0;
     while (s.events.length && guard++ < 300) {
-      const cur = currentEvent(s)!;
+      const cur = currentEvent(s);
+      if (!cur) break;
       const all = cur.choices.map((c, i) => [c, i] as const).filter(([c]) => !c.disabled);
       const fwd = all.filter(([c]) => !c.label.startsWith('←'));
       const enabled = fwd.length ? fwd : all;

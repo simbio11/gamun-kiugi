@@ -33,6 +33,7 @@ import {
   ok,
   queueNext,
   req,
+  schedule,
   setJob,
   setStudy,
   spendable,
@@ -1137,8 +1138,8 @@ const donation: RandomDef = {
   title: () => '기부 요청',
   text: () => '모교에서 장학기금 기부를 요청해 왔다.',
   choices: (c) => gate(c.s, [
-    { label: '1천만 기부', cost: 1000, run: (x) => ((x.s.fame += 3), '감사패를 받았다. (명성 +3)') },
-    { label: '1억 기부', cost: 10000, run: (x) => ((x.s.fame += 15), '도서관에 가문의 이름이 새겨졌다! (명성 +15)') },
+    { label: '1천만 기부', cost: 1000, run: (x) => ((x.s.fame += 3), chance(x.s, 0.15) && schedule(x.s, int(x.s, 15, 25), 'scholar_return', x.p.id, { years: 20 }), '감사패를 받았다. (명성 +3)') },
+    { label: '1억 기부', cost: 10000, run: (x) => ((x.s.fame += 15), chance(x.s, 0.45) && schedule(x.s, int(x.s, 15, 25), 'scholar_return', x.p.id, { years: 20 }), '도서관에 가문의 이름이 새겨졌다! (명성 +15)') },
     { label: '정중히 거절', run: () => '다음 기회에.' } as Choice,
   ]),
 };
@@ -1188,6 +1189,7 @@ const lotto: RandomDef = {
         if (chance(x.s, 0.01)) {
           x.p.cash += 100000;
           addFlag(x.p, 'lotto');
+          schedule(x.s, 1, 'lotto_relatives', x.p.id);
           return '🎰 1등 당첨!!! 10억!';
         }
         if (chance(x.s, 0.08)) {
@@ -1431,9 +1433,10 @@ const scandal: RandomDef = {
     ]),
 };
 
+// 보증·투자 권유는 후폭풍이 있는 fate.ts 버전으로 대체 (옛 세이브 호환을 위해 정의는 남겨둠)
+void guarantee;
+void scam;
 export const RANDOM_EVENTS: RandomDef[] = [
-  guarantee,
-  scam,
   illness,
   bargain,
   donation,

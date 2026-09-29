@@ -24,6 +24,7 @@ import { estateTax, previewAssetGiftTax, previewGiftTax } from '../core/estate';
 import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
 import { MISSIONS } from '../core/missions';
+import { pendingAffairs } from '../core/fate';
 import { writeWill } from '../core/family';
 import {
   BUY_TAX,
@@ -470,6 +471,9 @@ function lifeRows(g: GameState, p: Person): string {
   }
   const tries = Number(p.flags.find((f) => f.startsWith('tries:'))?.slice(6) ?? 0);
   if (tries >= 2) rows.push(`<div class="sh-row"><span>수험</span><span>${tries}번 낙방</span></div>`);
+  const affairs = alive(p) ? pendingAffairs(g, p) : [];
+  if (affairs.length) rows.push(`<div class="sh-row"><span>진행 중</span><span class="affairs">${affairs.map((a) => esc(a)).join('<br>')}</span></div>`);
+  if (p.flags.includes('dui')) rows.push(`<div class="sh-row warn"><span>⚠</span><span>음주운전 전과</span></div>`);
   return rows.join('');
 }
 

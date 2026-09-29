@@ -4,7 +4,7 @@ import { MAJOR_JOBS, PROGRAMS, admitChance, recommend, suneung } from '../src/co
 import { MISSIONS } from '../src/core/missions';
 import { deathChance } from '../src/core/growth';
 import { age, head, parentsOf } from '../src/core/people';
-import { newGame } from '../src/core/sim';
+import { currentEvent, newGame, resolveChoice, simulateYear } from '../src/core/sim';
 import { EVENTS } from '../src/core/registry';
 
 describe('콘텐츠 무결성', () => {
@@ -54,6 +54,32 @@ describe('인생 시스템', () => {
       .sort((a, b) => a.cut - b.cut);
     expect(admitChance(p, progs[0], 80)).toBeGreaterThan(admitChance(p, progs[progs.length - 1], 80));
     expect(recommend(p, 80, false).length).toBeGreaterThan(3);
+  });
+
+  it('후폭풍: 보증을 서면 몇 년 뒤 결과 이벤트가 도착한다', () => {
+    let arrived = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const s = newGame({ seed, familyName: '최', sex: 'M' });
+      s.events = [];
+      const h = head(s);
+      s.year = h.birthYear + 35;
+      h.cash = 50000;
+      s.events.push({ uid: 999, defId: 'r_guarantee', personId: h.id });
+      resolveChoice(s, 0);
+      const plan = s.scheduled?.find((x) => x.personId === h.id);
+      if (!plan) continue; // 55% 확률로 조용히 끝나는 경우도 있다
+      expect(plan.year).toBeGreaterThan(s.year);
+      for (let y = 0; y < 9 && !s.gameOver; y++) {
+        while (s.events.length) {
+          const cur = currentEvent(s);
+          if (!cur) break;
+          if (['guarantee_default', 'friend_after'].includes(cur.def.id)) arrived++;
+          resolveChoice(s, cur.choices.findIndex((c) => !c.disabled));
+        }
+        simulateYear(s);
+      }
+    }
+    expect(arrived).toBeGreaterThan(3);
   });
 
   it('유언장을 쓰면 수명이 줄어든다', () => {

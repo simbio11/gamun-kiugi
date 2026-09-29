@@ -4,7 +4,7 @@
 import { chance, int, normal, pick } from './rng';
 import { JOBS, MALE_NAMES, FEMALE_NAMES } from './data';
 import { addHolding, formatMoney, jobTitle, settlePension } from './economy';
-import { applyDesire, gate, iga, queueNext, req, setJob, who, type Choice, type Ctx, type EventDef } from './ev-util';
+import { applyDesire, gate, iga, queueNext, req, schedule, setJob, who, type Choice, type Ctx, type EventDef } from './ev-util';
 import {
   addFlag,
   age,
@@ -167,9 +167,10 @@ const cancer: LifeDef = {
   id: 'cancer',
   title: () => '암 진단',
   text: (c) => {
-    c.ev.data ??= { stage: pick(c.s, [1, 1, 1, 1, 2, 2, 2, 3, 3, 4]) };
+    const checked = c.p.flags.some((f) => f.startsWith('checkup:') && c.s.year - Number(f.slice(8)) <= 2);
+    c.ev.data ??= { stage: pick(c.s, checked ? [1, 1, 1, 2] : [1, 1, 1, 1, 2, 2, 2, 3, 3, 4]), checked };
     const st = c.ev.data.stage;
-    return `${who(c)}, 건강검진에서 암이 발견됐다. ${st}기.\n의사가 5년 생존율은 ${SURVIVAL[st - 1]}% 정도라고 한다.\n치료 방법을 정해야 한다.`;
+    return `${who(c)}, ${c.ev.data.checked ? '정기 검진 덕에 일찍' : '건강검진에서'} 암이 발견됐다. ${st}기.\n의사가 5년 생존율은 ${SURVIVAL[st - 1]}% 정도라고 한다.\n치료 방법을 정해야 한다.`;
   },
   choices: (c) => {
     const st: number = c.ev.data.stage;
@@ -744,6 +745,12 @@ const windfall: LifeDef = {
   ],
 };
 
+/** 학폭 가해: 커서 유명해지면 폭로될 수 있다 */
+function bullyLater(x: Ctx, p: number, denied: boolean) {
+  addFlag(x.p, 'bully');
+  if (chance(x.s, p)) schedule(x.s, int(x.s, 12, 25), 'bully_expose', x.p.id, { denied });
+}
+
 const bullying: LifeDef = {
   id: 'bullying',
   weight: (s, p) => (age(s, p) >= 10 && age(s, p) <= 17 ? 0.02 * (hasTrait(p, 'shy') || hasTrait(p, 'rebel') ? 2 : 1) : 0),
@@ -755,14 +762,14 @@ const bullying: LifeDef = {
   choices: (c) =>
     c.ev.data.bully
       ? gate(c.s, [
-          { label: '피해 학생에게 사과하고 합의', cost: 1000, run: (x) => ((x.p.actual.mor = clamp(x.p.actual.mor + 4, 0, 100)), (x.s.fame = Math.max(0, x.s.fame - 2)), '무릎 꿇고 사과했다. 아이가 달라지길 바란다.') },
-          { label: '우리 애는 그럴 애가 아니다', run: (x) => ((x.s.fame = Math.max(0, x.s.fame - 8)), (x.p.actual.mor = clamp(x.p.actual.mor - 4, 0, 100)), '변호사를 선임했다. 동네에 소문이 났다.') },
-          { label: '엄하게 벌한다', run: (x) => ((x.p.actual.mor = clamp(x.p.actual.mor + 6, 0, 100)), (x.p.affinity = clamp(x.p.affinity - 12, -100, 100)), '휴대폰을 뺏고 봉사활동을 보냈다.') },
+          { label: '피해 학생에게 사과하고 합의', cost: 1000, run: (x) => ((x.p.actual.mor = clamp(x.p.actual.mor + 4, 0, 100)), (x.s.fame = Math.max(0, x.s.fame - 2)), bullyLater(x, 0.15, false), '무릎 꿇고 사과했다. 아이가 달라지길 바란다.') },
+          { label: '우리 애는 그럴 애가 아니다', run: (x) => ((x.s.fame = Math.max(0, x.s.fame - 8)), (x.p.actual.mor = clamp(x.p.actual.mor - 4, 0, 100)), bullyLater(x, 0.6, true), '변호사를 선임했다. 동네에 소문이 났다.\n…언젠가 이 선택이 돌아올지도 모른다.') },
+          { label: '엄하게 벌한다', run: (x) => ((x.p.actual.mor = clamp(x.p.actual.mor + 6, 0, 100)), (x.p.affinity = clamp(x.p.affinity - 12, -100, 100)), bullyLater(x, 0.3, false), '휴대폰을 뺏고 봉사활동을 보냈다.') },
         ])
       : gate(c.s, [
           { label: '전학시킨다', cost: 500, run: (x) => ((x.p.happiness = clamp(x.p.happiness + 10, 0, 100)), '새 학교에서 친구를 사귀었다.') },
           { label: '학폭위에 신고한다', run: (x) => ((x.p.happiness = clamp(x.p.happiness + 4, 0, 100)), (x.p.affinity = clamp(x.p.affinity + 10, -100, 100)), '가해 학생들이 징계를 받았다. 부모가 지켜줬다.') },
-          { label: '참으라고 한다', run: (x) => ((x.p.happiness = clamp(x.p.happiness - 18, 0, 100)), addFlag(x.p, 'trauma'), '아이의 눈빛이 달라졌다…') },
+          { label: '참으라고 한다', run: (x) => ((x.p.happiness = clamp(x.p.happiness - 18, 0, 100)), addFlag(x.p, 'trauma'), chance(x.s, 0.4) && schedule(x.s, int(x.s, 15, 25), 'bully_apology', x.p.id), '아이의 눈빛이 달라졌다…') },
         ]),
 };
 
@@ -776,6 +783,7 @@ const pet: LifeDef = {
       label: '데려와 키운다',
       run: (x) => {
         addFlag(x.p, 'pet');
+        schedule(x.s, int(x.s, 12, 16), 'pet_farewell', x.p.id);
         for (const p of Object.values(x.s.people)) if (alive(p) && (p.id === x.p.id || p.id === x.p.spouseId || x.p.childIds.includes(p.id))) p.happiness = clamp(p.happiness + 6, 0, 100);
         return '이름은 "복실이". 가족 모두가 웃는다.';
       },

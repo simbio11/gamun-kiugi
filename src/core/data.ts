@@ -229,4 +229,11 @@ export const ACHIEVEMENTS: Record<string, { cat: AchvCat; name: string; desc: st
   draft_dodger: A('인생', '국적 포기', '병역을 피해 해외로 (불명예)'),
   bankrupt: A('인생', '바닥', '파산을 경험하다'),
   pet: A('인생', '반려견과 함께', '유기견을 입양하다'),
+  guarantee_victim: A('인생', '보증은 서지 마라', '친구 보증을 섰다가 빚을 떠안다'),
+  angel_jackpot: A('재산', '유니콘 엔젤', '투자한 스타트업이 대박 나다'),
+  sub_winner: A('재산', '청약 당첨', '청약으로 새 아파트를 분양받다'),
+  first_love: A('결혼·자녀', '돌고 돌아', '첫사랑과 결혼하다'),
+  dui: A('인생', '음주운전 전과', '술 마시고 운전대를 잡았다 (불명예)'),
+  emigrated: A('인생', '이민 간 자식', '자녀가 해외에 정착하다'),
+  ponzi_victim: A('인생', '달콤한 배당', '폰지 사기에 당하다'),
 };

@@ -170,5 +170,7 @@ export interface GameState {
   jobsSeen?: string[];
   /** 세대 미션 */
   missions?: Mission[];
+  /** 예약된 후폭풍: 지난 선택의 결과가 몇 년 뒤 터진다 */
+  scheduled?: { year: number; defId: string; personId: string; data?: any }[];
   gameOver?: { reason: string; score: number };
 }

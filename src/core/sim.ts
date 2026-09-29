@@ -5,6 +5,7 @@ import { addAsset, addHolding, assetsOf, economyYear, familyWorth, formatMoney, 
 import { checkMissions, initMissions } from './missions';
 import { LIFE_RANDOM, cancerRate, deliver, isElectionYear, setBond, type LifeDef } from './life';
 import { heirCandidates } from './family';
+import { FATE_RANDOM, fateYear, lifeInsurancePayout } from './fate';
 import { chooseSuccessor, giveAsset, giveGift, settleEstate, transferHeadship } from './estate';
 import { CREATORS } from './data';
 import { exposeFakes, makeDate, marry, examScore, spendable, type Ctx } from './events';
@@ -61,6 +62,7 @@ export function migrate(s: GameState): GameState {
   if ((s.version as number) < 3) {
     s.market = { ...DEFAULT_MARKET, ...s.market };
     s.jobsSeen ??= [];
+    s.scheduled ??= [];
     s.willWritten ??= false;
     for (const p of Object.values(s.people)) p.traits ??= randomTraits({ rng: p.birthYear * 7919 + p.id.length });
     for (const p of Object.values(s.people)) if (p.spouseId && p.bond === undefined) p.bond = 60;
@@ -320,9 +322,11 @@ function lifeYear(s: GameState) {
   const ha = age(s, h);
   if (!s.willWritten && ha >= 65 && ha % 5 === 0 && h.childIds.some((id) => alive(s.people[id]))) queue(s, 'will', h.id);
 
+  // 보험료·청약 추첨·예약된 후폭풍 도착
+  fateYear(s);
   // 무작위 인생사: 가족 전체에서 최대 2건
   const pool: [LifeDef, Person, number][] = [];
-  for (const p of members) for (const d of LIFE_RANDOM) {
+  for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM]) {
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) pool.push([d, p, w]);
   }
@@ -530,6 +534,7 @@ function deaths(s: GameState) {
     const cause = causeOf(s, p);
     p.deathYear = s.year;
     log(s, `🕯 ${fullName(p)} ${cause} 별세 (향년 ${age(s, p)}세)`, 'death');
+    lifeInsurancePayout(s, p);
 
     if (wasHead) {
       const next = chooseSuccessor(s, p);
@@ -747,7 +752,10 @@ function eventView(ctx: Ctx) {
   const { ev, p } = ctx;
   const def = EVENTS[ev.defId];
   const text = def.text(ctx);
-  return { ev, def, ctx, title: def.title(ctx), text, choices: def.choices(ctx), portraits: def.portraits?.(ctx) ?? [p] };
+  const choices = def.choices(ctx);
+  // 돈이 없어 고를 게 하나도 없으면 막히지 않게 탈출구를 준다
+  if (choices.every((c) => c.disabled)) choices.push({ label: '어쩔 수 없다 (그냥 넘긴다)', run: () => '할 수 있는 게 없었다.' });
+  return { ev, def, ctx, title: def.title(ctx), text, choices, portraits: def.portraits?.(ctx) ?? [p] };
 }
 
 export function resolveChoice(s: GameState, idx: number): string {
