@@ -654,3 +654,26 @@ describe('이직', () => {
     expect(hop.blocked!(s, h)).toContain('3년');
   });
 });
+
+describe('진짜일까 가짜일까', () => {
+  it('수상한 연락: 같은 선택도 진짜/가짜에 따라 결과가 다르다 · 지인 제안은 캐물은 뒤 다시 고른다', () => {
+    const s = newGame({ seed: 3, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year = h.birthYear + 40;
+    h.flags.push('indep');
+    h.cash = 50000;
+    for (const real of [true, false]) {
+      s.events = [{ uid: s.eventSeq++, defId: 'call_bank_fds', personId: h.id, data: { real, v: 0 } }];
+      const before = h.cash;
+      const t = resolveChoice(s, 0);
+      expect(t).toContain(real ? '진짜였다' : '사기였다');
+      if (real) expect(h.cash).toBe(before);
+      else expect(h.cash).toBeLessThan(before);
+    }
+    s.events = [{ uid: s.eventSeq++, defId: 'pitch_unlisted', personId: h.id, data: { legit: false, friend: '김철수', probed: false } }];
+    const probe = currentEvent(s)!.choices.findIndex((c) => c.label.startsWith('꼬치꼬치'));
+    resolveChoice(s, probe);
+    expect(s.events[0]?.data.probed).toBe(true); // 창은 그대로, 단서가 붙는다
+    expect(currentEvent(s)!.choices.some((c) => c.label.startsWith('꼬치꼬치'))).toBe(false);
+  });
+});

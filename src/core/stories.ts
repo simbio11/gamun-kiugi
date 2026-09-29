@@ -18,6 +18,7 @@ import { MINI_STORIES } from './stories-mini';
 import { EXTRA_STORIES } from './stories-extra';
 import { CAREER_STORIES } from './stories-career';
 import { LIFE2_STORIES } from './stories-life2';
+import { SUDDEN_STORIES } from './stories-sudden';
 
 export interface Eff {
   str?: number;
@@ -590,5 +591,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES].map(toLife);
-export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length;
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES].map(toLife);
+export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length + SUDDEN_STORIES.length;

@@ -13,6 +13,7 @@ import { afterHomeSold, homeOf, settleHome } from './housing';
 import { giveUsedCar } from './vehicle';
 import { debtYear } from './debt';
 import { queueFuneral } from './lifecost';
+import { DECEPTION_EVENTS } from './deception';
 import { buyPower, leverageYear, stockQuote } from './leverage';
 import { bindState } from './school';
 import { STORIES } from './stories';
@@ -408,7 +409,7 @@ function lifeYear(s: GameState) {
   const pool: [LifeDef, Person, number][] = [];
   romanceYear(s);
   nestYear(s);
-  for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM, ...ROMANCE_RANDOM, ...SEED_EVENTS]) {
+  for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM, ...ROMANCE_RANDOM, ...SEED_EVENTS, ...DECEPTION_EVENTS]) {
     if (onCooldown(s, p.id + ':' + d.id, 6)) continue;
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) pool.push([d, p, w]);
