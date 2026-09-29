@@ -14,7 +14,8 @@ import { ACTIONS, apLeft, apMax, doAction, forHead, stageOf } from '../src/core/
 import { SEED_EVENTS } from '../src/core/seeds';
 import { householder, mark, markOf } from '../src/core/people';
 import { nestOf } from '../src/core/nest';
-import { forecast } from '../src/core/economy';
+import { forecast, payOf } from '../src/core/economy';
+import { PAY } from '../src/core/pay';
 import { acqTax, buyListing, gainsTax, isPrimary, rentable, rollListings } from '../src/core/realty';
 import { standing } from '../src/core/school';
 import { homeOf, moveTo, settleHome } from '../src/core/housing';
@@ -30,6 +31,12 @@ describe('콘텐츠 무결성', () => {
       if (j.titles) expect(j.titles.length, id).toBeGreaterThanOrEqual(j.maxLevel + 1);
     }
     for (const [id, e] of Object.entries(EXAMS)) expect(JOBS[e.job], `exam ${id}`).toBeDefined();
+    // 연봉표는 직급 수와 같아야 하고, 월급 직업은 모두 연봉표가 있다
+    for (const [id, d] of Object.entries(PAY)) {
+      expect(JOBS[id], `pay ${id}`).toBeDefined();
+      expect(d.pay.length, `pay ${id}`).toBe(JOBS[id].maxLevel + 1);
+    }
+    for (const id of JOB_IDS) if (JOBS[id].kind === 'salary') expect(PAY[id], `연봉표 없음: ${id}`).toBeDefined();
     for (const [m, list] of Object.entries(MAJOR_JOBS)) for (const id of list) expect(JOBS[id], `${m} → ${id}`).toBeDefined();
   });
 
@@ -341,5 +348,35 @@ describe('인생 시스템', () => {
     s.events.push({ uid: 901, defId: 'military', personId: h.id });
     labels = currentEvent(s)!.choices.map((c) => c.label).join('|');
     expect(labels).toContain('공중보건의사');
+  });
+
+  it('연봉: 의사는 인턴→레지던트→전문의로 오르고, 같은 직급에서도 연차가 쌓이면 오른다', () => {
+    const s = newGame({ seed: 31, familyName: '최', sex: 'M' });
+    s.events = [];
+    const h = head(s);
+    s.year = h.birthYear + 26;
+    h.flags.push('indep');
+    h.job = 'doctor';
+    h.jobLevel = 0;
+    h.jobYears = 0;
+    const seen: string[] = [];
+    const pays: number[] = [];
+    for (let y = 0; y < 8; y++) {
+      s.events = [];
+      simulateYear(s);
+      seen.push(String(h.jobLevel));
+      pays.push(payOf(s, h, true)!);
+    }
+    expect(seen[0]).toBe('0'); // 인턴 1년
+    expect(seen).toContain('1'); // 레지던트
+    expect(seen[seen.length - 1]).toBe('2'); // 전문의
+    expect(pays[pays.length - 1]).toBeGreaterThan(pays[1] * 2);
+    // 공무원 호봉: 같은 9급이라도 해마다 오른다
+    h.job = 'civil';
+    h.jobLevel = 0;
+    h.flags = h.flags.filter((f) => !f.startsWith('lv:'));
+    const first = payOf(s, h)!;
+    s.year += 5;
+    expect(payOf(s, h, true)!).toBeGreaterThan(first * 1.1);
   });
 });

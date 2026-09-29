@@ -1,9 +1,10 @@
 import { chance, normal, pick } from './rng';
 import { ASSESS_RATIO, ASSET_NAMES, CREATORS, EDU_COST, JOBS, TALENTS } from './data';
 import { mark } from './people';
-import { addFlag, age, alive, check, clamp, discoverTalent, fullName, hasTalent, hasTrait, head, householder, isMainline, livingMainlineMinors } from './people';
+import { addFlag, age, alive, check, clamp, hasFlag, discoverTalent, fullName, hasTalent, hasTrait, head, householder, isMainline, livingMainlineMinors } from './people';
 import type { Asset, AssetKind, GameState, MarketKey, Person } from './types';
 import { promoteMult } from './marks';
+import { GRAD_STIPEND, PAY, wageIndex } from './pay';
 import { isRealty, netOf, realtyForecast, realtyYear, sellRealty } from './realty';
 import { housingYear, JEONSE_LOAN_RATE } from './housing';
 import { debtRate } from './debt';
@@ -73,6 +74,39 @@ export function advisorFee(s: GameState): number {
   return Math.max(600, Math.round(personWorth(s, head(s)) * 0.001));
 }
 
+/** 지금 직급에 머문 햇수 (호봉·연차). mutate=false면 읽기만 */
+function levelYears(s: GameState, p: Person, mutate = true): number {
+  const f = p.flags.find((x) => x.startsWith('lv:'));
+  const [, lv, y] = f?.split(':') ?? [];
+  if (!f || Number(lv) !== p.jobLevel) {
+    if (mutate) {
+      p.flags = p.flags.filter((x) => !x.startsWith('lv:'));
+      p.flags.push(`lv:${p.jobLevel}:${s.year}`);
+    }
+    return 0;
+  }
+  return Math.max(0, s.year - Number(y));
+}
+
+/**
+ * 연봉표(pay.ts) 기반 연봉: 직급 기본 × 호봉(연차) × 능력 × 임금 상승 × (성과급·개원 수입 출렁임)
+ * expected=true면 운 없이 평균값.
+ */
+export function payOf(s: GameState, p: Person, expected = false): number | undefined {
+  const d = PAY[p.job];
+  if (!d) return;
+  const j = JOBS[p.job];
+  const lv = Math.min(p.jobLevel, d.pay.length - 1);
+  let v = d.pay[lv] * Math.pow(1 + d.raise, Math.min(12, levelYears(s, p, !expected)));
+  v *= 0.93 + statScore(p, j.stats ?? { int: 1 }) / 700;
+  v *= wageIndex(s.year);
+  if (!expected) {
+    if (d.bonus) v *= clamp(normal(s, 1, d.bonus), 0.5, 2);
+    if (d.open !== undefined && p.jobLevel >= d.open) v *= clamp(normal(s, 1, 0.3), 0.3, 2.2);
+  }
+  return Math.round(v);
+}
+
 /** 연금: 퇴직할 때 정해진 금액 (없으면 기초연금 수준) */
 export function pensionOf(p: Person): number {
   return Number(p.flags.find((f) => f.startsWith('pens:'))?.slice(5) ?? JOBS.pension.base);
@@ -81,7 +115,7 @@ export function pensionOf(p: Person): number {
 /** 퇴직 시 연금액 확정: 마지막 연봉 × 연금 비율 */
 export function settlePension(p: Person) {
   const j = JOBS[p.job];
-  const last = j.kind === 'salary' ? j.base + j.perLevel * p.jobLevel : j.kind === 'fixed' ? j.base : 3000;
+  const last = PAY[p.job] ? Math.round(PAY[p.job].pay[Math.min(p.jobLevel, PAY[p.job].pay.length - 1)] * 1.2) : j.kind === 'salary' ? j.base + j.perLevel * p.jobLevel : j.kind === 'fixed' ? j.base : 3000;
   const rate = j.pension ?? (j.kind === 'salary' ? 0.3 : 0.15);
   const amount = Math.max(JOBS.pension.base, Math.round(last * rate));
   p.flags = p.flags.filter((f) => !f.startsWith('pens:'));
@@ -110,26 +144,51 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
 
   switch (j.kind) {
     case 'fixed': {
-      if (p.job === 'parttime') return { income: Math.round(j.base * clamp(normal(s, 1, 0.15), 0.6, 1.4)) };
+      if (p.job === 'parttime') return { income: Math.round(j.base * wageIndex(s.year) * clamp(normal(s, 1, 0.15), 0.6, 1.4)) };
       if (p.job === 'pension') return { income: pensionOf(p) };
-      return { income: j.base + j.perLevel * p.jobLevel };
+      return { income: Math.round((j.base + j.perLevel * p.jobLevel) * wageIndex(s.year)) };
     }
 
     case 'salary': {
       const sc = statScore(p, j.stats ?? { int: 1 });
+      const d = PAY[p.job];
       let msg: string | undefined;
       if (j.risk && chance(s, j.risk)) {
         p.actual.hp = clamp(p.actual.hp - 6, 0, 100);
         msg = `🤕 ${name} 업무 중 부상 (건강 -6)`;
       }
-      if (p.job === 'doctor' && p.jobYears <= 4) return { income: 4500, msg: p.jobYears === 4 ? `🩺 ${name} 전문의 취득` : msg };
+      // 수련 과정: 연차가 차면 자동으로 (의사: 인턴 1년 → 레지던트 4년 → 전문의)
+      if (d?.ladder)
+        for (const [yrs, lv] of d.ladder)
+          if (p.jobYears > yrs && p.jobLevel < lv) {
+            p.jobLevel = lv;
+            msg = `🩺 ${name} ${jobTitle(p)}${lv === 1 ? ' 수련 시작' : ' 자격 취득!'}`;
+          }
+      const ladderTop = d?.ladder ? Math.max(...d.ladder.map((x) => x[1])) : 0;
+      // 개원·개업: 선택(이야기)으로만 한다
+      if (d?.open !== undefined && hasFlag(p, 'open_clinic')) {
+        p.flags = p.flags.filter((f) => f !== 'open_clinic');
+        if (p.jobLevel < d.open) {
+          p.jobLevel = d.open;
+          msg = `🏥 ${name} ${jobTitle(p)}의 길로 — 내 가게를 열었다`;
+        }
+      }
       const diligent = (hasTrait(p, 'diligent') ? 1.3 : hasTrait(p, 'lazy') ? 0.6 : 1) * promoteMult(p);
-      if (p.jobLevel < j.maxLevel && chance(s, (j.promote ?? 0.1) * workBoost * diligent * (0.5 + sc / 100))) {
+      const intoOpen = d?.open !== undefined && p.jobLevel + 1 === d.open;
+      // 승진은 지금 직급에서 2년 이상 일한 뒤부터
+      if (p.jobLevel < j.maxLevel && p.jobLevel >= ladderTop && !intoOpen && levelYears(s, p, false) >= 2 && chance(s, (j.promote ?? 0.1) * workBoost * diligent * (0.5 + sc / 100))) {
         p.jobLevel++;
         msg = `${name} ${jobTitle(p)}(으)로 승진`;
         if (p.job === 'professor') s.fame += 2;
       }
-      return { income: Math.round((j.base + j.perLevel * p.jobLevel) * (0.75 + sc / 200)), msg };
+      // 개원한 곳도 망할 수 있다
+      if (d?.open !== undefined && p.jobLevel >= d.open && chance(s, 0.02)) {
+        p.jobLevel = d.open - 1;
+        p.happiness = clamp(p.happiness - 15, 0, 100);
+        msg = `📉 ${name}, 경영난으로 문을 닫고 다시 월급을 받는다`;
+      }
+      const income = payOf(s, p) ?? Math.round((j.base + j.perLevel * p.jobLevel) * (0.75 + sc / 200) * wageIndex(s.year));
+      return { income, msg };
     }
 
     case 'business': {
@@ -139,7 +198,7 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
         const b = j.biz;
         const skill = (a.cha + a.mor + a.int) / 3 + (merchant ? 18 : 0) + p.jobLevel * 5 + Math.min(10, p.jobYears) - 50;
         const roll = normal(s, skill, b.sd);
-        const income = Math.round(b.base + roll * 120 + p.jobLevel * b.step);
+        const income = Math.round((b.base + roll * 120 + p.jobLevel * b.step) * wageIndex(s.year));
         let msg: string | undefined;
         if (roll > 30 && p.jobLevel < j.maxLevel) {
           p.jobLevel++;
@@ -154,7 +213,7 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
       }
       const skill = (a.int + a.cha) / 2 + (merchant ? 22 : 0) + p.jobLevel * 4 - 48;
       const roll = normal(s, skill, 22);
-      const income = Math.round(roll * 400 * (1 + p.jobLevel * 0.6));
+      const income = Math.round(roll * 400 * (1 + p.jobLevel * 0.6) * wageIndex(s.year));
       let msg: string | undefined;
       if (roll > 28 && p.jobLevel < j.maxLevel) {
         p.jobLevel++;
@@ -196,7 +255,7 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
         s.fame += 4;
         msg = `🖼 ${name}이(가) 걸작을 완성했다! (평가 ${formatMoney(value)})`;
       }
-      return { income: Math.round(c.incomes[p.jobLevel] * Math.max(0.1, normal(s, 1, 0.4))), msg };
+      return { income: Math.round(c.incomes[p.jobLevel] * Math.max(0.1, normal(s, 1, 0.4)) * wageIndex(s.year)), msg };
     }
 
     case 'athlete': {
@@ -206,7 +265,7 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
         p.jobLevel++;
         msg = `${name} 주전 도약! (레벨 ${p.jobLevel})`;
       }
-      return { income: Math.round((j.base + j.perLevel * p.jobLevel) * (0.5 + a.str / 100)), msg };
+      return { income: Math.round((j.base + j.perLevel * p.jobLevel) * (0.5 + a.str / 100) * wageIndex(s.year)), msg };
     }
   }
 }
@@ -233,12 +292,13 @@ export function householdItems(s: GameState, incomes: Map<string, number>) {
   const add = (label: string, v: number) => v > 0 && items.push([label, Math.round(v)]);
   const houseIncome = Math.max(0, incomes.get(hh.id) ?? 0) + Math.max(0, (hsp && incomes.get(hsp.id)) || 0);
   // 기본 생활비는 형편 따라: 넉넉하면 1인 1,500만, 빠듯하면 900만까지 줄여 산다
-  const perAdult = clamp(700 + houseIncome * 0.12, 900, 1500);
+  const wi = wageIndex(s.year); // 임금이 오르는 만큼 생활비도 오른다
+  const perAdult = clamp(700 * wi + houseIncome * 0.12, 900 * wi, 1500 * wi);
   add('기본 생활비', perAdult * mult * (hsp ? 2 : 1));
   add(`아이 양육비 (${minors.length}명)`, minors.length * perAdult * 0.6 * mult);
   add(`얹혀 사는 성인 자녀 (${atHome.length}명)`, atHome.length * perAdult * 0.8 * mult);
   // 여윳돈이 생기면 씀씀이도 커진다 (연 4천만 넘는 부분의 35%)
-  add('소비 (수입에 비례)', Math.max(0, houseIncome - 4000) * 0.35 * mult * (hasTrait(hh, 'frugal') ? 0.8 : hasTrait(hh, 'spender') ? 1.3 : 1));
+  add('소비 (수입에 비례)', Math.max(0, houseIncome - 4000 * wi) * 0.35 * mult * (hasTrait(hh, 'frugal') ? 0.8 : hasTrait(hh, 'spender') ? 1.3 : 1));
   // 미취학 아동 교육비 (학령기는 해마다 학년 이벤트에서 직접 고른다)
   let pre = 0;
   for (const c of livingMainlineMinors(s)) if (age(s, c) < 8) pre += EDU_COST[s.policy.children[c.id]?.budget ?? 1];
@@ -259,30 +319,30 @@ export function householdItems(s: GameState, incomes: Map<string, number>) {
 /** 운에 기대지 않은 평균 연 수입 (내년 예상용) */
 export function expectedIncome(s: GameState, p: Person): number {
   if (!alive(p)) return 0;
-  if (p.flags.some((f) => f.startsWith('serving:'))) return 1200;
-  if ((age(s, p) < 20 && p.job === 'none') || p.flags.includes('student')) return 0;
+  if (p.flags.some((f) => f.startsWith('serving:'))) return Number(p.flags.find((f) => f.startsWith('serve_pay:'))?.slice(10) ?? 1200);
+  if (p.flags.includes('student')) return p.flags.includes('track:grad_school') ? Math.round(GRAD_STIPEND * wageIndex(s.year)) : 0;
+  if (age(s, p) < 20 && p.job === 'none') return 0;
   const j = JOBS[p.job];
   const a = p.actual;
   switch (j.kind) {
     case 'fixed':
       if (p.job === 'pension') return pensionOf(p);
-      return j.base + j.perLevel * p.jobLevel;
+      return Math.round((j.base + j.perLevel * p.jobLevel) * wageIndex(s.year));
     case 'salary':
-      if (p.job === 'doctor' && p.jobYears < 4) return 4500;
-      return Math.round((j.base + j.perLevel * p.jobLevel) * (0.75 + statScore(p, j.stats ?? { int: 1 }) / 200));
+      return payOf(s, p, true) ?? Math.round((j.base + j.perLevel * p.jobLevel) * (0.75 + statScore(p, j.stats ?? { int: 1 }) / 200) * wageIndex(s.year));
     case 'business': {
       const merchant = hasTalent(p, 'merchant');
       if (j.biz) {
         const skill = (a.cha + a.mor + a.int) / 3 + (merchant ? 18 : 0) + p.jobLevel * 5 + Math.min(10, p.jobYears + 1) - 50;
-        return Math.round(j.biz.base + skill * 120 + p.jobLevel * j.biz.step);
+        return Math.round((j.biz.base + skill * 120 + p.jobLevel * j.biz.step) * wageIndex(s.year));
       }
       const skill = (a.int + a.cha) / 2 + (merchant ? 22 : 0) + p.jobLevel * 4 - 48;
-      return Math.round(skill * 400 * (1 + p.jobLevel * 0.6));
+      return Math.round(skill * 400 * (1 + p.jobLevel * 0.6) * wageIndex(s.year));
     }
     case 'creator':
-      return CREATORS[p.job]!.incomes[p.jobLevel];
+      return Math.round(CREATORS[p.job]!.incomes[p.jobLevel] * wageIndex(s.year));
     case 'athlete':
-      return Math.round((j.base + j.perLevel * p.jobLevel) * (0.5 + a.str / 100));
+      return Math.round((j.base + j.perLevel * p.jobLevel) * (0.5 + a.str / 100) * wageIndex(s.year));
   }
 }
 
@@ -332,7 +392,15 @@ export function economyYear(s: GameState): string[] {
       continue;
     }
     if (age(s, p) < 20 && p.job === 'none') continue;
-    if (p.flags.includes('student')) continue;
+    if (p.flags.includes('student')) {
+      // 대학원생은 조교·연구과제 인건비를 받는다
+      if (p.flags.includes('track:grad_school')) {
+        const st = Math.round(GRAD_STIPEND * wageIndex(s.year));
+        p.cash += st;
+        incomes.set(p.id, st);
+      }
+      continue;
+    }
     const { income, msg } = workYear(s, p);
     p.cash += income;
     incomes.set(p.id, income);

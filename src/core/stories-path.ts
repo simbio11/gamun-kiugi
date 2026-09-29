@@ -2,6 +2,7 @@
 // 몇몇은 later 로 몇 년 뒤 이어진다 (w: 0 이야기는 예약으로만 도착).
 import type { Story } from './stories';
 import { hasFlag, spouseOf, alive } from './people';
+import { PAY } from './pay';
 
 export const PATH_STORIES: Story[] = [
   // ───────── 의대·치대·수의대·약대 ─────────
@@ -30,9 +31,12 @@ export const PATH_STORIES: Story[] = [
     { label: '끝까지 다툰다', cost: 1000, text: '', roll: ['int', 50, [{ hap: 3 }, '무혐의. 기록이 {n을} 지켜 줬다.'], [{ cash: -5000, fame: -3, hap: -10 }, '패소. 배상금을 물고 기사까지 났다.']] },
     { label: '합의한다', cost: 2000, text: '마음이 무겁지만 조용히 끝냈다.', eff: { hap: -5 } },
   ] },
-  { id: 'open_clinic', title: '개원', age: [34, 55], w: 0.04, once: true, cond: (_s, p) => ['doctor', 'dentist', 'kmd'].includes(p.job), text: '{n}, 월급 받는 의사로 남을까, 내 병원을 차릴까?', choices: [
-    { label: '대출 받아 개원한다', cost: 5000, mark: { risk: 1 }, text: '', roll: ['cha', 50, [{ cash: 15000, hap: 10, fame: 2 }, '입소문이 났다. 대기실이 늘 꽉 찬다.'], [{ cash: -8000, hap: -10 }, '상권 분석을 잘못했다. 매달 적자다.']] },
-    { label: '봉직의로 남는다', text: '안정이 최고다.', eff: { hap: 2 } },
+  { id: 'open_clinic', title: '개원·개업', age: [30, 60], w: 0.06, cond: (_s, p) => {
+    const d = PAY[p.job];
+    return !!d && d.open !== undefined && p.jobLevel === d.open - 1 && p.jobYears >= 3 && !p.flags.some((f) => f.startsWith('serving:'));
+  }, text: '{n}, 남 밑에서 월급을 받을까, 대출을 끼고 내 병원·약국·사무소를 차릴까?\n(개업하면 수입이 훨씬 커질 수 있지만 해마다 크게 출렁이고, 망할 수도 있다)', choices: [
+    { label: '대출 받아 개업한다', cost: 5000, mark: { risk: 1 }, text: '', roll: ['cha', 45, [{ hap: 10, fame: 2, flag: 'open_clinic' }, '개업식 화환이 줄을 섰다. 첫 달부터 손님이 꽉 찼다.'], [{ cash: -5000, hap: -6, flag: 'open_clinic' }, '문은 열었지만 자리를 잘못 잡았다. 인테리어 대출이 무겁다.']] },
+    { label: '월급이 안정적이다', text: '매달 같은 날 들어오는 월급이 최고다.', eff: { hap: 2 } },
   ] },
   { id: 'thank_letter', title: '감사 편지', age: [28, 75], w: 0.03, paths: ['med', 'kmd', 'nurse'], student: false, text: '{n}에게 손글씨 편지가 왔다. 몇 년 전 치료한 환자다.', choices: [
     { label: '읽는다', text: '"선생님 덕분에 딸 결혼식을 봤습니다." 한참을 읽고 또 읽었다.', eff: { hap: 10, mor: 2 } },

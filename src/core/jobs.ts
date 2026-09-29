@@ -161,7 +161,7 @@ job('judge', '판사', 'public', 'salary', 8000, 2000, 5, { fame: 4, color: '#11
 job('prosecutor', '검사', 'public', 'salary', 7500, 2000, 5, { fame: 3.5, color: '#151520', retireAge: 63, promote: 0.1, pension: 0.5, stats: { int: 0.6, cha: 0.2, mor: 0.2 }, titles: ['평검사', '부부장', '부장검사', '차장검사', '검사장', '검찰총장'], entry: exam('prosecutor', 'study', { needFlags: ['passed:bar'], needNote: '변호사시험 합격' }) });
 
 // ── 의료·보건 ──
-job('doctor', '의사', 'medical', 'salary', 9000, 3500, 6, { fame: 2, color: '#e8e8e8', retireAge: 72, promote: 0.12, stats: { int: 0.6, mor: 0.2, cha: 0.2 }, titles: ['봉직의', '전문의', '과장', '부원장', '원장', '병원장', '의료재단 이사장'], entry: school('의대 졸업', 'study') });
+job('doctor', '의사', 'medical', 'salary', 9000, 3500, 6, { fame: 2, color: '#e8e8e8', retireAge: 72, promote: 0.12, stats: { int: 0.6, mor: 0.2, cha: 0.2 }, titles: ['인턴', '레지던트', '전문의 (봉직의)', '봉직 과장', '개원의', '병원장', '의료재단 이사장'], entry: school('의대 졸업', 'study') });
 job('dentist', '치과의사', 'medical', 'salary', 9500, 2500, 4, { fame: 2, color: '#e8f0f8', retireAge: 72, promote: 0.12, stats: { int: 0.6, cha: 0.4 }, titles: ['페이닥터', '개원의', '치과 2호점', '네트워크 치과', '치과 그룹'], entry: school('치대 졸업', 'study') });
 job('kmd', '한의사', 'medical', 'salary', 7500, 2000, 4, { fame: 1.5, color: '#e8e0d0', retireAge: 75, promote: 0.1, stats: { int: 0.5, cha: 0.3, mor: 0.2 }, titles: ['부원장', '개원 한의사', '유명 한의원', '한방병원장', '한방 재벌'], entry: school('한의대 졸업', 'study') });
 job('vet', '수의사', 'medical', 'salary', 5500, 1500, 4, { fame: 1.5, color: '#dfeee0', retireAge: 72, promote: 0.1, stats: { int: 0.6, mor: 0.4 }, titles: ['수의사', '개원의', '24시 동물병원', '동물병원 체인', '수의대 교수'], entry: school('수의대 졸업', 'study') });
