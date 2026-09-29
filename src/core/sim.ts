@@ -777,7 +777,9 @@ function eventView(ctx: Ctx) {
   const { ev, p } = ctx;
   const def = EVENTS[ev.defId];
   const text = def.text(ctx);
-  const choices = def.choices(ctx);
+  // 비용이 가용 자금을 넘는 선택지는 이벤트 정의와 무관하게 잠근다
+  const money = spendable(ctx.s);
+  const choices = def.choices(ctx).map((c) => (c.cost && c.cost > money ? { ...c, disabled: true } : c));
   // 돈이 없어 고를 게 하나도 없으면 막히지 않게 탈출구를 준다
   if (choices.every((c) => c.disabled)) choices.push({ label: '어쩔 수 없다 (그냥 넘긴다)', run: () => '할 수 있는 게 없었다.' });
   return { ev, def, ctx, title: def.title(ctx), text, choices, portraits: def.portraits?.(ctx) ?? [p] };

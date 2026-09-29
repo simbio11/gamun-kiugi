@@ -206,8 +206,17 @@ function demoPerson(sex: Sex, i: number): Person {
   } as Person;
 }
 
+/** 지금 이벤트·행동 비용을 누가 내는지: 어릴 땐 부모님 지갑이다 */
+function wallet(g: GameState): { label: string; amount: number } {
+  const payer = householder(g);
+  const amount = spendable(g);
+  if (payer.id === head(g).id) return { label: '💵 쓸 수 있는 돈', amount };
+  return { label: `🏠 부모님 지갑`, amount };
+}
+
 function header(g: GameState): string {
   const h = head(g);
+  const w = wallet(g);
   return `
   <header class="top">
     <div class="top-l">
@@ -215,8 +224,8 @@ function header(g: GameState): string {
       <div class="fam">${esc(g.familyName)}씨 가문 · ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
     </div>
     <div class="top-r">
-      <div class="money">${formatMoney(familyTotal(g))}</div>
-      <div class="fame">명성 ${Math.round(g.fame)}</div>
+      <div class="money">${w.label} ${formatMoney(w.amount)}</div>
+      <div class="fame">총재산 ${formatMoney(familyTotal(g))} · 명성 ${Math.round(g.fame)}</div>
     </div>
   </header>`;
 }
@@ -582,12 +591,13 @@ function eventModal(g: GameState): string {
       <h3>${esc(cur.title)}</h3>
       <div class="ev-ports">${ports}</div>
       <p class="ev-text">${nl(cur.text)}</p>
+      ${cur.choices.some((c) => c.cost) ? `<div class="ev-wallet">${wallet(g).label} <b>${formatMoney(wallet(g).amount)}</b></div>` : ''}
       <div class="choices">
         ${cur.choices
           .map(
             (c, i) => `<button class="choice" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
               <span class="cl">${esc(c.label)}</span>
-              ${c.cost || c.req?.length ? `<span class="badges">${c.cost ? `<b class="cost">💰${formatMoney(c.cost)}</b>` : ''}${(c.req ?? []).map((r) => `<b>${esc(r)}</b>`).join('')}</span>` : ''}
+              ${c.cost || c.req?.length ? `<span class="badges">${c.cost ? `<b class="cost">💰${formatMoney(c.cost)}</b>` : ''}${c.disabled && c.cost && c.cost > wallet(g).amount ? '<b class="why">돈 부족</b>' : ''}${(c.req ?? []).map((r) => `<b>${esc(r)}</b>`).join('')}</span>` : ''}
             </button>`,
           )
           .join('')}
