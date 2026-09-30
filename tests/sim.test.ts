@@ -148,4 +148,18 @@ describe('시뮬레이션', () => {
     expect(phases).toContain('peace');
     expect(s.log.some((l) => l.text.includes('종전'))).toBe(true);
   }, 60000);
+
+  it('히든 직업: 드물지만 긴 플레이에선 실제로 열린다 (제안이 오고, 받으면 카드)', () => {
+    let offers = 0;
+    let got = 0;
+    for (const seed of [3, 7, 11, 19, 23, 31]) {
+      const s = autoplay(seed, 120, undefined, (g) => {
+        offers += g.events.filter((e) => e.defId === 'hid_offer').length;
+      });
+      got += (s.cards ?? []).filter((c) => c.id.startsWith('hj_')).length;
+    }
+    expect(offers).toBeGreaterThan(0);
+    expect(offers).toBeLessThan(6 * 30); // 흔하면 히든이 아니다
+    expect(got).toBeGreaterThan(0);
+  }, 120000);
 });

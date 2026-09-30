@@ -1,3 +1,4 @@
+import { HIDDEN } from './hidden-data';
 // 직업 데이터베이스.
 // 연봉은 워크넷·임금직업포털(워크피디아)의 직업별 평균임금을 참고해 게임용으로 단순화한 값 (만원/년).
 // 레벨이 오르면 perLevel 만큼 오르고, 능력치(stats 가중합)에 따라 ±25% 보정된다.
@@ -131,6 +132,7 @@ job('pension', '은퇴', 'etc', 'fixed', 1500, 0, 0, { color: '#6b5b4b', retireA
 job('social_worker', '사회복지사', 'etc', 'salary', 2900, 350, 4, { fame: 1, color: '#6a9a6a', promote: 0.1, stats: { mor: 0.7, int: 0.3 }, titles: ['사회복지사', '팀장', '과장', '부장', '관장'], entry: hire(35, 'public', { univ: true, text: '복지관에 첫 출근했다. 박봉이지만 보람은 크다.' }) });
 job('clergy', '종교인', 'etc', 'salary', 2200, 900, 3, { fame: 1, color: '#2a2a2a', retireAge: 70, promote: 0.08, stats: { mor: 0.6, cha: 0.4 }, titles: ['전도사', '부목사', '담임목사', '대형교회 담임'], entry: hire(40, 'public', { cost: 2000, needNote: '신학교 3년', text: '신학교를 마치고 사역을 시작했다.' }) });
 job('politician', '국회의원', 'etc', 'fixed', 15500, 3000, 4, { fame: 4, color: '#1c4f8f', retireAge: 0, titles: ['초선', '재선', '3선', '4선', '5선'], entry: special('선거 당선', 'public') });
+job('mayor', '시장', 'etc', 'fixed', 16000, 1500, 2, { fame: 5, color: '#1f6a5a', retireAge: 0, titles: ['시장', '재선 시장', '3선 시장'], entry: special('지방선거 당선', 'public') });
 job('minister', '장관', 'etc', 'fixed', 14000, 0, 0, { fame: 6, color: '#18365f', retireAge: 0, entry: special('대통령 임명', 'public') });
 job('president', '대통령', 'etc', 'fixed', 26000, 0, 0, { fame: 20, color: '#0d2a4f', retireAge: 0, entry: special('대선 승리', 'public') });
 
@@ -292,6 +294,8 @@ job('upload_engineer', '의식 업로드 엔지니어', 'medical', 'salary', 110
 job('xeno_biologist', '외계 생물학자', 'edu', 'salary', 8000, 3500, 5, { fame: 2, color: '#4ac8a0', retireAge: 95, promote: 0.1, stats: { int: 0.9, mor: 0.1 }, titles: ['연구원', '선임 연구원', '유로파 탐사대원', '책임 연구원', '외계 생명 연구소장', '태양계 과학원장'], entry: hire(76, 'study', { needFlags: ['grad_school', 'univ_top'], needNote: '대학원 유리', text: '얼음 바다 아래 미생물과 첫 눈을 맞췄다.' }) });
 job('star_navigator', '성간 항법사', 'transport', 'salary', 12000, 4500, 4, { fame: 2.5, color: '#e0d080', retireAge: 100, promote: 0.08, risk: 0.05, stats: { int: 0.7, hp: 0.2, mor: 0.1 }, titles: ['항법 훈련생', '항법사', '선임 항법사', '수석 항법사', '성간선 함장'], entry: hire(80, 'study', { univ: true, maxAge: 40, text: '별과 별 사이의 길을 읽는다. 한 번의 계산 실수가 수십 년을 잃게 한다.' }) });
 job('sea_farmer', '해양 도시 양식가', 'farm', 'business', 0, 0, 4, { color: '#2a7aa0', retireAge: 0, titles: ['창업 양식장', '부유식 양식장 1기', '5기', '수출 선단', '해양 식량 기업'], biz: { base: 3000, sd: 20, step: 4500, fail: -35 }, entry: start('business', { cost: 25000, text: '바다 위 도시 아래에 해조류·어류 양식장을 띄웠다.' }) });
+// 히든 직업: 숨겨진 루트로만 된다 (hidden.ts)
+for (const h of HIDDEN) job(h.id, h.name, 'etc', 'fixed', h.pay, 0, 0, { fame: 0, color: h.color, retireAge: 0, entry: special('히든 루트', 'free') });
 
 export const JOBS: Record<string, JobDef> = Object.fromEntries(LIST.map((j) => [j.id, j]));
 export const JOB_IDS = LIST.map((j) => j.id);

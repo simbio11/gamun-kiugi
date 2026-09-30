@@ -1,10 +1,12 @@
+import { selfBoss } from './boss';
+import { isStudent } from './path';
 // 주도적 행동: 턴을 넘기기 전에 대시보드에서 직접 하는 일. 해마다 행동력 3.
 // (갑작스러운 사건·선택형 이벤트는 턴을 넘길 때 일어난다)
 
 import { chance, int, next, pick } from './rng';
 import { fmt, getFatigue, grow, jitter, rollTier, say, setFatigue, stat, TIER_MARK } from './practice';
 import { P, P2 } from './action-lines';
-import { TRACK_ACTIONS, trackOf } from './tracks';
+import { SIDE_JOBS, sideJobOf, sideTrackOf, TRACK_ACTIONS, trackOf } from './tracks';
 import { reverseMortgageRate } from './welfare';
 import { vehicleAP } from './vehicle';
 import { oppActions } from './opportunities';
@@ -93,7 +95,8 @@ export interface ActionDef {
 const h = head;
 const adultsOfLine = (s: GameState) => Object.values(s.people).filter((p) => alive(p) && !p.inLaw && age(s, p) >= 20 && (p.id === s.headId || isDescendantOf(s, p, h(s))));
 const descendants = (s: GameState) => Object.values(s.people).filter((p) => alive(p) && isDescendantOf(s, p, h(s)));
-const minors = (s: GameState, lo = 0, hi = 19) => descendants(s).filter((p) => age(s, p) >= lo && age(s, p) <= hi);
+// 자녀 교육 대상: 대학생·직장인·기혼이 된 아이는 빠진다
+const minors = (s: GameState, lo = 0, hi = 19) => descendants(s).filter((p) => age(s, p) >= lo && age(s, p) <= hi && !isStudent(p) && !p.spouseId && (!p.job || p.job === 'none'));
 const mood = (p: Person, d: number) => (p.happiness = clamp(p.happiness + d, 0, 100));
 const bond = (s: GameState, p: Person, d: number) => {
   const q = spouseOf(s, p);
@@ -431,7 +434,7 @@ export const ACTIONS: ActionDef[] = [
     name: '이직 시도',
     desc: '경력 2년 이상 · 3년에 한 번 · 서류 → 면접 → 처우 협의. 대부분 떨어진다 (능력·인맥·자격증·경력·경기·나이)',
     ap: 1,
-    targets: (s) => adultsOfLine(s).filter((p) => JOBS[p.job].kind === 'salary' && p.jobLevel < JOBS[p.job].maxLevel),
+    targets: (s) => adultsOfLine(s).filter((p) => JOBS[p.job].kind === 'salary' && p.jobLevel < JOBS[p.job].maxLevel && !selfBoss(p)), // 개원·개업했으면 이직이 아니라 폐업
     blocked: (s, t) => {
       if (!t) return undefined;
       if (t.jobYears < 2) return '경력 2년은 채워야';
@@ -716,7 +719,7 @@ export const ACTIONS: ActionDef[] = [
 export function forHead(s: GameState, a: ActionDef): boolean {
   if (a.show && !a.show(s)) return false;
   if (a.targets && !a.targets(s).length) return false;
-  if (a.tracks && !a.tracks.includes(trackOf(s, h(s)) ?? '')) return false;
+  if (a.tracks && !a.tracks.includes(trackOf(s, h(s)) ?? '') && !a.tracks.includes(sideTrackOf(h(s)) ?? '-')) return false;
   const st = a.stages ?? STAGE_DEFAULT[a.id];
   if (st) return st.includes(stageOf(s, h(s)));
   const kid = age(s, h(s)) < 20;
@@ -1159,6 +1162,45 @@ const STAGE_ACTIONS: ActionDef[] = [
       return TIER_MARK[t] + say(s, p, P2.group, t) + fmt([stat('cha', dc), ['행복', joy]]);
     },
   },
+  // ───── 겸직: 본업을 두고 창작 활동을 함께 한다 ─────
+  {
+    id: 'side_start',
+    cat: '진로·자기계발',
+    icon: '🎨',
+    name: '겸직 시작 (작가·화가·음악가·유튜버·사진가)',
+    desc: '본업은 그대로 · 행동 탭에 겸직 탭이 생긴다 · 적성에 맞는 분야로',
+    ap: 1,
+    stages: ['adult', 'senior'],
+    show: (s) => {
+      const p = me(s);
+      return !['none', 'parttime', 'pension'].includes(p.job) && !sideJobOf(p) && !(SIDE_JOBS as readonly string[]).includes(p.job);
+    },
+    run: (s) => {
+      const p = me(s);
+      const a = p.actual;
+      // 성향에 가장 맞는 분야
+      const score: Record<string, number> = { writer: a.int + markOf(p, 'reading') * 5, painter: a.mor * 0.5 + a.int * 0.5 + markOf(p, 'i:media') * 4, musician: a.cha + markOf(p, 'i:media') * 3, youtuber: a.cha * 0.8 + a.int * 0.2, photographer: a.int * 0.5 + a.cha * 0.5 };
+      const j = [...SIDE_JOBS].sort((x, y) => score[y] + next(s) * 20 - (score[x] + next(s) * 20))[0];
+      p.flags.push('side:' + j);
+      const txt: Record<string, string> = { writer: '퇴근 후 원고를 쓰기 시작했다. 필명도 지었다.', painter: '작은 작업실을 얻어 붓을 들었다.', musician: '주말마다 작업실에서 곡을 쓴다.', youtuber: '채널을 열었다. 첫 영상 조회수는 37.', photographer: '카메라를 메고 주말마다 골목을 걷는다.' };
+      return `${txt[j]}\n🎨 겸직: ${JOBS[j].name} (행동 탭에 「겸직」 탭이 생겼다)`;
+    },
+  },
+  {
+    id: 'side_quit',
+    cat: '진로·자기계발',
+    icon: '🧹',
+    name: '겸직 정리',
+    desc: '창작 활동을 접고 본업에 집중한다',
+    ap: 0,
+    show: (s) => !!sideJobOf(me(s)),
+    run: (s) => {
+      const p = me(s);
+      const j = sideJobOf(p)!;
+      p.flags = p.flags.filter((f) => !f.startsWith('side:'));
+      return `${JOBS[j].name} 활동을 접었다. 작업실 열쇠를 반납했다.`;
+    },
+  },
   // ───── 사회인 ─────
   {
     id: 'overtime',
@@ -1168,7 +1210,7 @@ const STAGE_ACTIONS: ActionDef[] = [
     desc: '승진 기회↑ · 건강↓ 금슬↓ 행복↓',
     ap: 1,
     stages: ['adult'],
-    show: (s) => ['salary', 'fixed'].includes(JOBS[me(s).job].kind) && me(s).job !== 'pension',
+    show: (s) => ['salary', 'fixed'].includes(JOBS[me(s).job].kind) && me(s).job !== 'pension' && !selfBoss(me(s)),
     run: (s) => {
       const p = me(s);
       const t = rollTier(s, p, { stat: 'hp', bonus: hasTrait(p, 'diligent') ? 0.08 : 0 });
@@ -1355,7 +1397,7 @@ ACTIONS.push({
   desc: '아이 성향에 가장 잘 맞는 분야로 체험학습을 보낸다 · 그 분야 관심↑ 행복↑',
   ap: 1,
   cost: 50,
-  targets: (s) => Object.values(s.people).filter((p) => alive(p) && isDescendantOf(s, p, h(s)) && age(s, p) >= 7 && age(s, p) <= 18),
+  targets: (s) => Object.values(s.people).filter((p) => alive(p) && isDescendantOf(s, p, h(s)) && age(s, p) >= 7 && age(s, p) <= 18 && !isStudent(p)),
   run: (s, t) => {
     const p = t!;
     const f = fitCats(p, 3);

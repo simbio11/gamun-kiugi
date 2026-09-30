@@ -143,8 +143,8 @@ export const SAGA_STORIES: Story[] = [
 
   // ───────── 9. 숨겨진 가족 사가 ─────────
   { id: 'sg_hidden1', title: '📖 숨겨진 가족 ①: 낯선 방문자', age: [30, 70], w: 0.006, once: true, cond: (s, p) => s.year > p.birthYear + 30, text: '낯선 30대가 문 앞에 서 있다. 낡은 사진 한 장을 내민다. 젊은 시절의 우리 아버지(어머니)다. "저… 제가 이분 자식이라고 합니다."', choices: [
-    { label: '집으로 들인다', mark: { kind: 2, family: 1 }, text: '밤새 이야기를 들었다. 기막힌 사연이었다.', eff: { hap: -3, later: [1, 1, 1, 'st_sg_hidden2'] } },
-    { label: 'DNA 검사부터 하자고 한다', mark: { thrift: 1 }, text: '', roll: ['luck', 50, [{ later: [1, 1, 1, 'st_sg_hidden2'] }, '99.9% 일치. 진짜 이복형제였다.'], [{ hap: 3 }, '불일치. 사기꾼이었다. 연락이 끊겼다.']] },
+    { label: '집으로 들인다', mark: { kind: 2, family: 1 }, text: '밤새 이야기를 들었다. 기막힌 사연이었다.', eff: { hap: -3, flag: 'found_half_sib', later: [1, 1, 1, 'st_sg_hidden2'] } },
+    { label: 'DNA 검사부터 하자고 한다', mark: { thrift: 1 }, text: '', roll: ['luck', 50, [{ flag: 'found_half_sib', later: [1, 1, 1, 'st_sg_hidden2'] }, '99.9% 일치. 진짜 이복형제였다.'], [{ hap: 3 }, '불일치. 사기꾼이었다. 연락이 끊겼다.']] },
     { label: '문을 닫는다', text: '문 너머에서 한참 동안 발소리가 들리지 않았다.', eff: { mor: -3, hap: -5 } },
   ] },
   { id: 'sg_hidden2', title: '📖 숨겨진 가족 ②: 이복형제', age: [30, 80], w: 0, text: '이복형제가 생겼다. 그런데 형제가 조심스럽게 말한다. "사업이 망해서… 도움이 필요해요. 형(누나)밖에 없어요."', choices: [

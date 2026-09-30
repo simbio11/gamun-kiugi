@@ -6,10 +6,10 @@
 
 import { chance, pick } from './rng';
 import { gate, iga, type Choice, type Ctx, type EventDef } from './ev-util';
-import { addFlag, age, check, clamp, fullName, hasFlag, householder, mark, parentsOf } from './people';
+import { addFlag, age, alive, check, clamp, fullName, hasFlag, householder, mark, parentsOf } from './people';
 import { wageIndex } from './pay';
 import { homeOf } from './housing';
-import { formatWon, isNominal } from './economy';
+import { formatWon, isNominal, setMoneyYear } from './economy';
 import type { GameState, Person } from './types';
 import type { Story } from './stories';
 import type { ActionDef } from './actions';
@@ -145,18 +145,20 @@ function futurize(year: number, text: string): string {
   return t;
 }
 
-/** 2026년 이후: 글 속 "50만 원" 같은 금액은 2025년 돈으로 쓰였으니 그해 물가로 바꿔 보여 준다 */
-function inflate(text: string): string {
-  if (!isNominal()) return text;
+/** 글 속 "50만 원" 같은 금액은 2025년 돈으로 쓰였으니 그해 물가로 바꿔 보여 준다.
+ *  k: 그 사건 비용에 곱해지는 배율(근현대사 이야기는 그 시절 소득 수준) · 0이면 그 시절 돈으로 이미 쓴 글 */
+function inflate(text: string, k: number): string {
+  if (!isNominal() || k === 0) return text;
   return text.replace(/(\d[\d,]*(?:\.\d+)?)(천만|만|억) ?원/g, (_m, n: string, u: string) => {
     const v = parseFloat(n.replace(/,/g, '')) * (u === '억' ? 10000 : u === '천만' ? 1000 : 1);
-    return formatWon(v);
+    return formatWon(v * k);
   });
 }
 
-export function periodize(s: GameState, text: string): string {
+export function periodize(s: GameState, text: string, k = 1): string {
   if (!text) return text;
-  if (s.year > 2025) text = inflate(text);
+  setMoneyYear(s.year);
+  if (s.year > 2025) text = inflate(text, k === 0 ? 1 : k);
   if (s.year >= 2040) return futurize(s.year, text);
   if (!inHistory(s)) return text;
   let t = text;
@@ -165,6 +167,7 @@ export function periodize(s: GameState, text: string): string {
       t = t.split(a).join(b);
       t = josa(t, b.trim());
     }
+  if (s.year < 2025) t = inflate(t, k);
   // 개인 신용점수(CB)는 2002년 신용평가사가 생기고 나서야 매겨졌다
   if (s.year < 2002) t = t.replace(/신용점수 \d+ \([^)]*\) · /g, '').replace(/ ?\(신용점수 \d+\)/g, '').replace(/\n?신용점수 \d+[^\n]*/g, '');
   if (s.year < 1994 && t.includes('수능')) {
@@ -740,10 +743,9 @@ export const HIST_ACTIONS: ActionDef[] = [
     desc: '"더하기 빼기~" 주산·암산은 은행·회사 취직의 무기 (1960~1990, 지능·성적)',
     ap: 1,
     who: 'any',
-    show: (s) => inHistory(s) && s.year < 1991,
+    show: (s) => inHistory(s) && s.year < 1991 && !!kidIn(s, 7, 15),
     run: (s) => {
-      const h = s.people[s.headId];
-      const kid = age(s, h) < 20 ? h : Object.values(s.people).find((p) => p.birthYear && age(s, p) >= 7 && age(s, p) <= 15 && parentsOf(s, p).some((q) => q.id === h.id));
+      const kid = kidIn(s, 7, 15);
       if (!kid) return '주산 가르칠 아이가 없다.';
       householder(s).cash -= Math.round(15 * wi(s));
       up(kid, 'int', 1);
@@ -759,10 +761,9 @@ export const HIST_ACTIONS: ActionDef[] = [
     desc: '동네 태권도장. 국기(國技)이자 방과 후 돌봄 (1970~, 근력·성품)',
     ap: 1,
     who: 'any',
-    show: (s) => inHistory(s) && s.year >= 1970 && s.year < 2000,
+    show: (s) => inHistory(s) && s.year >= 1970 && s.year < 2000 && !!kidIn(s, 6, 14),
     run: (s) => {
-      const h = s.people[s.headId];
-      const kid = age(s, h) < 20 ? h : Object.values(s.people).find((p) => age(s, p) >= 6 && age(s, p) <= 14 && parentsOf(s, p).some((q) => q.id === h.id));
+      const kid = kidIn(s, 6, 14);
       if (!kid) return '도장에 보낼 아이가 없다.';
       householder(s).cash -= Math.round(12 * wi(s));
       up(kid, 'str', 1);
@@ -771,6 +772,14 @@ export const HIST_ACTIONS: ActionDef[] = [
     },
   },
 ];
+
+/** 학원 보낼 아이: 가주 본인이 그 나이면 본인, 아니면 그 나이의 자녀 */
+function kidIn(s: GameState, lo: number, hi: number): Person | undefined {
+  const h = s.people[s.headId];
+  const ok = (p: Person) => alive(p) && age(s, p) >= lo && age(s, p) <= hi;
+  if (ok(h)) return h;
+  return Object.values(s.people).find((p) => ok(p) && parentsOf(s, p).some((q) => q.id === h.id));
+}
 
 /** 인생 사건 카드에서 쓸 시대 판 교체 (없으면 현대판) */
 export function histOverride(s: GameState, defId: string): EventDef | undefined {

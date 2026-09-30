@@ -28,7 +28,7 @@ import { EVENTS, RANDOM_EVENTS } from './registry';
 import { eraYear } from './era';
 import { rivalYear } from './rival';
 import { careerYear, ministerLeaves, presidentLeaves } from './career';
-import { achvRarity, checkHonors, perkYear, retireHonor } from './rewards';
+import { achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
 import { cardYear } from './cards';
 import { scandalYear } from './scandal';
@@ -45,6 +45,8 @@ import { HIST_BASE, histPrice, histRel } from './histidx';
 import { autonomyYear } from './autonomy';
 import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
+import { BOSS_STORIES, selfBoss } from './boss';
+import { hiddenYear } from './hidden';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -338,7 +340,7 @@ export function newGame(o: NewGameOpts): GameState {
       (tycoon ? '\n💎 재벌가의 자손이다!' : '') +
       (dif ? `\n🎚 난이도: ${dif.name}` : '\n🎲 운명에 맡겼다') +
       (hist
-        ? `\n\n${pastLines}\n\n📜 지금 ${START_YEAR}년 봄. 3·15 부정선거로 온 나라가 들끓고 있다. ${eun(fullName(me))} 다섯 살.\n군사정변, 산업화, 유신, 광주, 올림픽, IMF, 월드컵, 촛불… 이 아이는 대한민국 현대사를 온몸으로 겪으며 자란다.\n해마다 그해의 신문이 오고, 역사의 큰 사건은 호외로 들이닥친다.\n\n💱 돈은 모두 "2025년 돈 가치"로 적는다. 그 시절의 가난은 버는 돈이 적은 것으로 느껴진다.`
+        ? `\n\n${pastLines}\n\n📜 지금 ${START_YEAR}년 봄. 3·15 부정선거로 온 나라가 들끓고 있다. ${eun(fullName(me))} 다섯 살.\n군사정변, 산업화, 유신, 광주, 올림픽, IMF, 월드컵, 촛불… 이 아이는 대한민국 현대사를 온몸으로 겪으며 자란다.\n해마다 그해의 신문이 오고, 역사의 큰 사건은 호외로 들이닥친다.\n\n💱 돈은 그해 물가로 보여 준다 (설정에서 "2025년 돈 가치"로 바꿔 볼 수 있다). 그 시절의 가난은 버는 돈이 적은 것으로 느껴진다.`
         : `\n\n지금 ${START_YEAR}년, ${eun(fullName(me))} 다섯 살.\n이제부터 당신이 이 아이의 인생을, 그리고 가문을 이끈다.\n학창 시절 → 수능 → 진로 → 결혼 → 자녀·손주 → 유언과 승계.`),
     portrait: me.id,
   });
@@ -394,8 +396,12 @@ export function simulateYear(s: GameState): void {
   for (const m of autoGiftYear(s, (to, amt) => giveGift(s, head(s), to, amt).ok)) log(s, m, 'money');
   for (const m of marketYear(s)) log(s, m, 'market');
   for (const m of leverageYear(s)) log(s, m, 'money');
-  for (const m of histYear(s)) log(s, m, 'market');
-  for (const m of timelineYear(s)) log(s, m, 'market');
+  // 우리 가족이 대통령이면, 실제 역사·미래 뉴스 속 "대통령" 기사는 빼고 우리 대통령 소식으로
+  const ourPres = Object.values(s.people).find((p) => alive(p) && p.job === 'president');
+  const presNews = (m: string) => !ourPres || !m.startsWith('📰') || !/대통령|대선|청와대|대통령실|탄핵|취임식|국정 지지율/.test(m);
+  for (const m of histYear(s)) if (presNews(m)) log(s, m, 'market');
+  for (const m of timelineYear(s)) if (presNews(m)) log(s, m, 'market');
+  if (ourPres) log(s, `📰 ${fullName(ourPres)} 대통령, 국정 지지율 ${ourPres.pol?.approval ?? 50}% · ${pick(s, ['민생 경제 점검 회의 주재', '정상회담 참석차 출국', '신년 기자회견', '재난 현장 방문', '국무회의에서 개혁안 발표', '청년 간담회 개최'])}`, 'market');
   chainYear(s);
   for (const m of warYear(s)) log(s, m, 'market');
   medicalYear(s);
@@ -403,6 +409,7 @@ export function simulateYear(s: GameState): void {
   for (const m of rivalYear(s, familyTotal(s))) log(s, m, 'life');
   for (const m of careerYear(s)) log(s, m, 'life');
   cardYear(s);
+  for (const m of hiddenYear(s)) log(s, m, 'life');
   trackPeak(s);
   scandalYear(s);
   woeYear(s);
@@ -411,6 +418,7 @@ export function simulateYear(s: GameState): void {
   for (const m of spouseYear(s)) log(s, m, 'life');
   autonomyYear(s);
   perkYear(s, wageIndex(s.year));
+  capStats(s);
 
   retirementAndGraduation(s);
   deaths(s);
@@ -474,6 +482,11 @@ function lifeYear(s: GameState) {
       const want = p.id === h.id ? s.policy.familyPlan : 2;
       if (!p.childIds.length && want > 0 && !hasFlag(p, 'childfree') && s.year - wed >= 2 && age(s, mom) >= 29 && age(s, mom) <= 44 && chance(s, 0.3) && !pending('infertility'))
         queue(s, 'infertility', p.id);
+      // 아이를 끝내 못 가진 부부: 몇 해에 한 번 입양 제안이 온다 (늙을 때까지 빈집이지 않게)
+      else if (!p.childIds.length && !hasFlag(p, 'childfree') && !hasFlag(sp, 'childfree') && s.year - wed >= 4 && age(s, mom) >= 36 && age(s, mom) <= 62 && !onCooldown(s, p.id + ':adopt_offer', 4) && chance(s, 0.3) && !pending('adopt_offer')) {
+        (s.storySeen ??= {})[p.id + ':adopt_offer'] = s.year;
+        queue(s, 'adopt_offer', p.id);
+      }
     }
     // 병역: 남자 20세 (연기했으면 졸업 후)
     if (p.sex === 'M' && !p.inLaw && a >= 20 && a <= 28 && !p.flags.some((f) => ['served', 'exempt', 'draft_dodger'].includes(f) || f.startsWith('serving:')) && !pending('military')) {
@@ -513,6 +526,7 @@ function lifeYear(s: GameState) {
   const histNow = inHistory(s);
   for (const p of members) for (const d of STORIES) {
     if (d.id.startsWith('st_wk_')) continue; // 직장 이야기는 따로 (workEvents)
+    if (BOSS_STORIES.has(d.id.slice(3)) && selfBoss(p)) continue; // 상사·회사가 없는 사람에게 회사원 이야기는 없다
     if (histNow && d.raw && anachronistic(s, d.raw)) continue; // 그 시절에 없던 이야기
     if (histNow && s.year < 2000 && !d.id.startsWith('st_h_') && !d.id.startsWith('st_dev_') && !TIMELESS.has(d.id.slice(3))) continue; // 2000년 전엔 그 시절 이야기와 어느 시대에나 있을 이야기만
     const w = d.weight?.(s, p) ?? 0;
@@ -885,7 +899,7 @@ function births(s: GameState) {
     const target = couple.some((x) => x.id === h.id) ? s.policy.familyPlan : 2;
     const kids = mom.childIds.filter((id) => alive(s.people[id])).length;
     if (kids >= target) continue;
-    const pr = 0.55 * fertility(age(s, mom)) * clamp(mom.actual.hp / 50, 0.5, 1.2);
+    const pr = 0.55 * fertility(age(s, mom)) * clamp(mom.actual.hp / 50, 0.5, 1.2) * clamp((dad.actual.hp + dad.potential.hp) / 110, 0.55, 1.15);
     if (!chance(s, pr)) continue;
     deliver(s, dad, mom, blood.surname, 0.015);
   }
@@ -1036,7 +1050,8 @@ function eventView(ctx: Ctx) {
   const { ev, p } = ctx;
   const def = defOf(ctx.s, ev.defId);
   const hist = inHistory(ctx.s);
-  const text = periodize(ctx.s, def.text(ctx));
+  const k = moneyK(ctx.s, def.id);
+  const text = periodize(ctx.s, def.text(ctx), k);
   // 비용이 가용 자금을 넘는 선택지는 이벤트 정의와 무관하게 잠근다
   const money = spendable(ctx.s);
   let raw = def.choices(ctx);
@@ -1044,12 +1059,19 @@ function eventView(ctx: Ctx) {
     // 그 시절에 없던 선택지는 빼고, 말은 시대말로. 이야기(st_)의 고정 금액은 그 시절 소득 수준으로
     const w = wageIndex(ctx.s.year);
     const kept = raw.filter((c) => !anachronistic(ctx.s, c.label));
-    raw = (kept.length ? kept : raw).map((c) => ({ ...c, label: periodize(ctx.s, c.label), cost: c.cost && def.id.startsWith('st_') ? Math.max(1, Math.round(c.cost * w)) : c.cost }));
+    raw = (kept.length ? kept : raw).map((c) => ({ ...c, label: periodize(ctx.s, c.label, k), cost: c.cost && def.id.startsWith('st_') ? Math.max(1, Math.round(c.cost * w)) : c.cost }));
   }
   const choices = raw.map((c) => (c.cost && c.cost > money ? { ...c, disabled: true } : c));
   // 돈이 없어 고를 게 하나도 없으면 막히지 않게 탈출구를 준다
   if (choices.every((c) => c.disabled)) choices.push({ label: '어쩔 수 없다 (그냥 넘긴다)', run: () => '할 수 있는 게 없었다.' });
-  return { ev, def, ctx, title: periodize(ctx.s, def.title(ctx)), text, choices, portraits: def.portraits?.(ctx) ?? [p] };
+  return { ev, def, ctx, title: periodize(ctx.s, def.title(ctx), k), text, choices, portraits: def.portraits?.(ctx) ?? [p] };
+}
+
+/** 글 속 금액 배율: 그 시절 돈으로 쓴 글(근현대사 전용 사건)은 0, 근현대사의 일반 이야기는 그 시절 소득 수준 */
+function moneyK(s: GameState, id: string): number {
+  if (!inHistory(s)) return 1;
+  if (id.startsWith('hist_') || id.startsWith('st_h_') || id.startsWith('st_dev_')) return 0;
+  return id.startsWith('st_') ? wageIndex(s.year) : 1;
 }
 
 export function resolveChoice(s: GameState, idx: number): string {
@@ -1059,7 +1081,7 @@ export function resolveChoice(s: GameState, idx: number): string {
   if (!ch || ch.disabled) return '';
   if (ch.cost) pay(s, householder(s), ch.cost);
   const res = ch.run(cur.ctx);
-  const text = periodize(s, typeof res === 'string' ? res : res.text);
+  const text = periodize(s, typeof res === 'string' ? res : res.text, moneyK(s, cur.def.id));
   if (typeof res === 'string' || !res.keep) s.events.shift();
   if (text && cur.def.id !== 'notice') log(s, `[${cur.title}] ${ch.label} → ${text.split('\n')[0]}`, 'life');
   checkAchievements(s);
@@ -1102,10 +1124,13 @@ export function retire(s: GameState): string {
   return `${fullName(heir)}이(가) ${s.generation}대 가주가 되었다. ${fullName(h)}은(는) 원로로 물러났다.\n(원로의 재산은 사망 시 법정상속된다. 미리 증여해두면 절세에 유리하다.)`;
 }
 
+/** 정밀 적성검사 값: 근현대사에선 그 시절 소득 수준으로 */
+export const testCost = (s: GameState) => (inHistory(s) ? Math.max(5, Math.round(300 * wageIndex(s.year))) : 300);
+
 export function aptitudeTest(s: GameState, id: string): string {
   const p = s.people[id];
   const h = head(s);
-  pay(s, h, 300);
+  pay(s, h, testCost(s));
   p.potentialKnown = true;
   for (const t of p.talents) t.discovered = true;
   addFlag(p, 'tested');

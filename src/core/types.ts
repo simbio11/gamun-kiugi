@@ -65,6 +65,8 @@ export interface Person {
   desire?: CareerTag;
   desireKnown: boolean;
   potentialKnown: boolean;
+  /** 한계 돌파 수련으로 넓힌 능력치 한도 (잠재력 위로) */
+  overcap?: number;
   /** 개인 현금 (만원) */
   cash: number;
   /** 결혼할 때 가문에 들어온 사람 */

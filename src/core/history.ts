@@ -5,7 +5,7 @@
 // 연대·수치는 널리 알려진 기록(정부 발표·주요 언론·국가기록원·통계청)을 따랐고, 게임에 맞게 줄였다.
 // 사건의 비극은 가볍게 다루지 않도록 선택지를 '가족이 겪은 일'로만 두었다.
 
-import { chance, pick } from './rng';
+import { chance, next, pick } from './rng';
 import { gate, type Choice, type Ctx, type EventDef } from './ev-util';
 import { addAsset, addHolding, expectedIncome, formatMoney } from './economy';
 import { wageIndex } from './pay';
@@ -722,6 +722,8 @@ export function histYear(s: GameState): string[] {
     if (seen['hist:' + m.id] !== undefined) continue;
     if (s.year < m.y || s.year > (m.to ?? m.y)) continue;
     if (m.cond && !m.cond(s)) continue;
+    // 우리 가족이 대통령이면 실제 대통령이 주인공인 사건(탄핵·암살 등)은 건너뛴다
+    if (/대통령|탄핵|10·26|청와대/.test(m.head + m.sub) && Object.values(s.people).some((p) => alive(p) && p.job === 'president')) continue;
     const who = m.who ? m.who(s) : head(s);
     if (!who) continue;
     seen['hist:' + m.id] = s.year;
@@ -761,8 +763,32 @@ export function histOrigins(s: GameState, father: Person, mother: Person): strin
   }
   if (s.origin === 'rich') lines.push(pick(s, ['할아버지가 해방 뒤 적산(일본인 재산)을 불하받아 일군 집안이다.', '대대로 땅을 가진 지주 집안. 1950년 농지개혁으로 땅 절반을 잃었다.']));
   if (s.origin === 'poor') lines.push(pick(s, ['보릿고개엔 풀죽으로 끼니를 때운다.', '미국 원조 밀가루로 수제비를 끓인다.', '판자촌 셋방 한 칸에 여섯 식구가 산다.']));
-  lines.push(`어머니는 ${mother.birthYear}년생, 일제강점기에 태어나 한글보다 일본어를 먼저 배웠다.`);
+  lines.push(momOrigin(s, mother));
   return lines.join('\n');
+}
+
+/** 어머니의 지난날: 집안·출생연도에 따라 여러 갈래. 플래그(mom_*)는 자식에게 두고두고 영향을 준다 */
+const MOM_PAST: { flag: string; w: (s: GameState, y: number) => number; text: (y: number) => string }[] = [
+  { flag: 'mom_japanese', w: (_s, y) => (y < 1938 ? 1 : 0), text: (y) => `어머니는 ${y}년생. 일제강점기 국민학교에서 한글보다 일본어를 먼저 배웠다. 해방되던 날 태극기를 처음 그려 봤다고 한다.` },
+  { flag: 'mom_refugee', w: () => 1, text: (y) => `어머니는 ${y}년생. 6·25 때 열 살 남짓한 나이로 동생을 업고 피난길을 걸었다. 지금도 사이렌 소리를 들으면 가슴이 뛴다.` },
+  { flag: 'mom_seamstress', w: (s) => (s.origin === 'rich' ? 0.2 : 1.2), text: (y) => `어머니는 ${y}년생. 국민학교만 마치고 삯바느질로 동생들 학비를 댔다. 재봉틀 한 대가 가장 큰 재산이다.` },
+  { flag: 'mom_merchant', w: (s) => (s.origin === 'rich' ? 0.3 : 1.2), text: (y) => `어머니는 ${y}년생. 시장 어귀에서 좌판을 벌인 지 십 년. 셈이 빠르고 흥정에 지는 법이 없다.` },
+  { flag: 'mom_farm', w: (s) => (s.origin === 'poor' ? 1.5 : 0.3), text: (y) => `어머니는 ${y}년생. 새벽 네 시에 일어나 논일·밭일을 하고 밤에는 길쌈을 한다. 한 번도 아프다고 누운 적이 없다.` },
+  { flag: 'mom_factory', w: (s, y) => (s.origin === 'poor' && y >= 1935 ? 1 : 0.2), text: (y) => `어머니는 ${y}년생. 열다섯에 방직공장 여공으로 들어가 월급을 고스란히 시골집에 부쳤다.` },
+  { flag: 'mom_teacher', w: (s) => (s.origin === 'poor' ? 0.1 : 1), text: (y) => `어머니는 ${y}년생. 사범학교를 나와 국민학교 선생님을 하다 결혼하며 그만뒀다. 동네 아이들 편지를 대신 써 준다.` },
+  { flag: 'mom_newwoman', w: (s) => (s.origin === 'rich' ? 1.5 : 0.05), text: (y) => `어머니는 ${y}년생. 여자가 대학에 가기 드물던 시절 이화여대를 나온 '신여성'이다. 집에 피아노와 문학전집이 있다.` },
+  { flag: 'mom_devout', w: () => 0.7, text: (y) => `어머니는 ${y}년생. 전쟁 통에 부모를 잃고 절(교회)에 의지해 살았다. 새벽마다 정화수를 떠 놓고 자식 잘되기를 빈다.` },
+  { flag: 'mom_singer', w: () => 0.3, text: (y) => `어머니는 ${y}년생. 처녀 시절 콩쿠르에서 상을 받을 만큼 노래를 잘했다. 부엌에서 흥얼거리는 노래가 끊이지 않는다.` },
+];
+
+function momOrigin(s: GameState, mother: Person): string {
+  const y = mother.birthYear;
+  const opts = MOM_PAST.map((m) => ({ m, w: m.w(s, y) })).filter((o) => o.w > 0);
+  const total = opts.reduce((a, o) => a + o.w, 0);
+  let x = next(s) * total;
+  const hit = opts.find((o) => (x -= o.w) < 0) ?? opts[0];
+  addFlag(mother, hit.m.flag);
+  return hit.m.text(y);
 }
 
 /** 과외 금지 시절(1980~2000): 사교육 효과가 줄어든다 */

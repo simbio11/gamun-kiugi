@@ -802,6 +802,8 @@ describe('부모님 유산', () => {
     awardHonor(s, h, 'hongjo', '중복');
     expect(s.honors?.length).toBe(1); // 같은 훈장은 한 번만
     grant(s, '🏆', '테스트', '', 'legend');
+    expect(buyPerk(s, 'ap').ok).toBe(false); // 행동력은 비싸다
+    for (let i = 0; i < 6; i++) grant(s, '🏆', '테스트' + i, '', 'legend');
     const ap = apMax(s);
     expect(buyPerk(s, 'ap').ok).toBe(true);
     expect(apMax(s)).toBe(ap + 1);
@@ -836,7 +838,8 @@ describe('부모님 유산', () => {
     s.year += 35;
     const thin: string[] = [];
     for (const id of JOB_IDS) {
-      if (['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'landlord', 'professor'].includes(id)) continue; // 정치·교수는 career.ts, 건물주는 부동산
+      if (['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'mayor', 'landlord', 'professor'].includes(id)) continue; // 정치·교수는 career.ts, 건물주는 부동산
+      if (id.startsWith('hj_')) continue; // 히든 직업 이야기는 hidden-work.ts (전용 행동과 함께)
       h.job = id;
       h.jobLevel = 2;
       h.jobYears = 20;
@@ -903,7 +906,7 @@ describe('부모님 유산', () => {
         }
         if (ok) {
           // 이벤트를 끝까지 실제로 치른다 (능력치 100이면 이긴다)
-          for (let stage = 1; stage <= (sm.stages ?? 1); stage++) {
+          for (let stage = 1; stage <= 3 && !(s.cards ?? []).some((c) => c.id === d.id && c.personId === h.id); stage++) {
             s.events = [{ uid: s.eventSeq++, defId: 'summit_' + d.id, personId: h.id, data: { stage } }];
             resolveChoice(s, 0);
           }
@@ -924,6 +927,9 @@ describe('부모님 유산', () => {
     const dad = parentsOf(s, h)[0];
     s.year += 30;
     awardCard(s, h, 'general');
+    awardCard(s, h, 'chaebol');
+    expect(activeSynergies(s).some((x) => x.id === 'military_industrial')).toBe(false); // 한 사람이 다 가지면 가문 시너지가 아니다
+    s.cards = s.cards!.filter((c) => c.id !== 'chaebol');
     awardCard(s, dad, 'chaebol');
     expect(activeSynergies(s).some((x) => x.id === 'military_industrial')).toBe(true);
     s.events = [];

@@ -872,13 +872,31 @@ function plate(m: Img, f: Frame, seed: number) {
 // ───────────────────────── 공개 함수 ─────────────────────────
 
 /** 카드 앞면 (잠김이면 어두운 실루엣) */
-export function cardFrontURL(id: string, icon: string, theme: Theme, rar: Rarity, locked = false, tier = 1): string {
-  const key = `f:${id}:${locked}:${tier}`;
+/** 손으로 그린 카드 그림 (움직이는 여러 장): 그림 칸(84×80)에 [x, y, '#rrggbb'] 점을 찍는다 */
+export type CustomArt = { frames: number; draw: (frame: number) => (string | null)[][] };
+const CUSTOM: Record<string, CustomArt> = {};
+export const setCustomArt = (id: string, a: CustomArt) => (CUSTOM[id] = a);
+export const customFrames = (id: string) => CUSTOM[id]?.frames ?? 1;
+
+export function cardFrontURL(id: string, icon: string, theme: Theme, rar: Rarity, locked = false, tier = 1, frame = 0): string {
+  const key = `f:${id}:${locked}:${tier}:${frame}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const m = img(CW, CH);
   const fr: Rarity = locked ? 'common' : rar;
   const f = FRAMES[fr];
+  const custom = !locked ? CUSTOM[id] : undefined;
+  if (custom) {
+    const g = custom.draw(frame);
+    for (let y = 0; y < g.length; y++) for (let x = 0; x < g[y].length; x++) if (g[y][x]) put(m, ART[0] + x, ART[1] + y, hex(g[y][x]!));
+    vignette(m, ART, 7, 0.4);
+    plate(m, f, hash(id));
+    frameBand(m, f, fr);
+    ornaments(m, f, fr, tier);
+    const u = toURL(m);
+    cache.set(key, u);
+    return u;
+  }
   scene(m, theme, hash(id), ART);
   const ecx = CW / 2;
   const ecy = 45;

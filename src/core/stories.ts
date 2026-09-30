@@ -6,10 +6,14 @@ import { DEVICE_STORIES, latest, PCS, PHONES } from './devices';
 import { ERA_STORIES } from './stories-era';
 import { AGE_STORIES } from './stories-ages';
 import { OWNED_STORIES } from './stories-owned';
+import { MOM_STORIES } from './stories-mom';
+import { PHONE_STORIES } from './stories-phone';
+import { HIDDEN_STORIES } from './stories-hidden';
+import { POLITICS_STORIES, homeCity, pledgeOf } from './stories-politics';
 import { wageIndex } from './pay';
 import { chance, int } from './rng';
 import { eul, eun, gate, iga, schedule, type Choice, type Ctx } from './ev-util';
-import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, householder, mark, markOf, parentsOf, spouseOf } from './people';
+import { addFlag, addHalfSibling, age, alive, check, clamp, fullName, hasFlag, hasTrait, householder, mark, markOf, parentsOf, spouseOf } from './people';
 import type { GameState, Person, StatKey } from './types';
 import type { LifeDef } from './life';
 import { MORE_STORIES } from './stories-more';
@@ -59,6 +63,10 @@ export interface Eff {
   mark?: Record<string, number>;
   /** 직급 변화 (승진 +1 / 좌천 -1) */
   promo?: number;
+  /** 정치인: 지지율 · 수사 위험 · 비자금(만원) */
+  approval?: number;
+  heat?: number;
+  slush?: number;
 }
 export interface SC {
   label: string;
@@ -125,7 +133,28 @@ function apply(x: Ctx, e: Eff | undefined) {
     const q = spouseOf(x.s, p) ?? (p.partnerId ? x.s.people[p.partnerId] : undefined);
     if (q && alive(q)) p.bond = q.bond = clamp((p.bond ?? 60) + e.bond, 0, 100);
   }
+  if (e.flag === 'av_start') {
+    p.job = 'hj_av';
+    p.jobLevel = 0;
+    p.jobYears = 0;
+  }
+  if (e.flag === 'av_quit') {
+    p.job = 'none';
+    p.jobLevel = 0;
+    p.jobYears = 0;
+    addFlag(p, 'av_retired');
+  }
+  if (e.flag === 'found_half_sib') {
+    const q = addHalfSibling(x.s, p);
+    if (q) x.s.log.push({ year: x.s.year, text: `👥 이복형제 ${fullName(q)}이(가) 가계도에 올랐다`, kind: 'life' });
+  }
   if (e.flag) addFlag(p, e.flag);
+  if (e.approval || e.heat || e.slush) {
+    const pl = (p.pol ??= { approval: 45, fund: 0, slush: 0, heat: 0 });
+    if (e.approval) pl.approval = clamp(pl.approval + e.approval, 5, 90);
+    if (e.heat) pl.heat = Math.max(0, pl.heat + e.heat);
+    if (e.slush) pl.slush += inHistory(x.s) ? Math.round(e.slush * wageIndex(x.s.year)) : e.slush;
+  }
   if (e.gear) (x.s.gear ??= {})[e.gear] = latest(e.gear === 'pc' ? PCS : PHONES, x.s.year).id;
   if (e.car) {
     const r = acquireCar(x.s, p, e.car.replace('+', ''), e.car.endsWith('+'));
@@ -177,7 +206,7 @@ function toLife(st: Story): LifeDef {
     id: 'st_' + st.id,
     raw: st.era || st.years ? undefined : [st.title, st.text, ...st.choices.map((c) => c.label + ' ' + c.text)].join(' '),
     title: () => st.title,
-    text: (c) => fill(st.text, c.p),
+    text: (c) => fill(st.text, c.p).replaceAll('{city}', homeCity(c.s, c.p)).replaceAll('{pledge}', `대표 공약은 "${pledgeOf(c.s, c.p, c.ev.uid)}".`),
     weight: (s, p) => {
       const a = age(s, p);
       if (a < st.age[0] || a > st.age[1] || p.inLaw) return 0;
@@ -620,5 +649,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES, ...HIST_STORIES, ...DEVICE_STORIES, ...ERA_STORIES, ...AGE_STORIES, ...OWNED_STORIES].map(toLife);
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES, ...HIST_STORIES, ...DEVICE_STORIES, ...ERA_STORIES, ...AGE_STORIES, ...OWNED_STORIES, ...MOM_STORIES, ...POLITICS_STORIES, ...PHONE_STORIES, ...HIDDEN_STORIES].map(toLife);
 export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length + SUDDEN_STORIES.length + INTEREST_STORIES.length + LIFE3_STORIES.length + TEMPER_STORIES.length + SPECIAL_STORIES.length + SAGA_STORIES.length + WORK_STORIES.length;

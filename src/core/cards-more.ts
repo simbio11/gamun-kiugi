@@ -1,3 +1,4 @@
+import { HIDDEN } from './hidden-data';
 // 현대판 가문 명성 직업군: 정·관계, 과학·의료, 경제, 문화, 숨은 영웅.
 // 모두 게임 안의 직업에서 출발해 "정점 이벤트"로 얻는다. 선행 카드가 필요한 것, 2단계 도전인 것도 있다.
 import type { CardDef, Summit } from './cards';
@@ -7,6 +8,7 @@ import { age, fullName } from './people';
 const ST = (p: Person, k: StatKey, v: number) => p.actual[k] >= v;
 const has = (s: GameState, p: Person, id: string) => (s.cards ?? []).some((c) => c.id === id && c.personId === p.id);
 const jobIn = (p: Person, jobs: string[], min = 0) => jobs.includes(p.job) && p.jobLevel >= min;
+import { homeCity, pledgeOf } from './stories-politics';
 const setJob = (job: string, lv: number) => (_s: GameState, p: Person) => {
   p.job = job;
   p.jobLevel = lv;
@@ -14,6 +16,8 @@ const setJob = (job: string, lv: number) => (_s: GameState, p: Person) => {
 };
 
 export const MORE_CARDS: CardDef[] = [
+  // 히든 직업 카드: 그 직업이 되면 얻는다
+  ...HIDDEN.map((h): CardDef => ({ id: h.id, name: `히든: ${h.name}`, icon: h.icon, rarity: 'epic', hidden: true, how: `??? ${h.hint}`, eff: h.eff, auto: (_s, p) => p.job === h.id })),
   // 정·관계·공공
   { id: 'chief_of_staff', name: '합참의장·참모총장', icon: '🎖', rarity: 'legend', how: '「별을 단 장군」 카드 → 참모총장 임명 (2단계)', eff: { fame: 4, kid: 'str' }, honor: 'taeguk' },
   { id: 'police_chief', name: '경찰청장', icon: '🚓', rarity: 'epic', how: '총경까지 오른 경찰관 → 청장 내정', eff: { fame: 2, heat: 3 }, honor: 'hongjo' },
@@ -21,7 +25,7 @@ export const MORE_CARDS: CardDef[] = [
   { id: 'constitutional', name: '헌법재판관', icon: '📜', rarity: 'legend', how: '고참 판사 → 헌법재판관 지명 (2단계)', eff: { fame: 3, heat: 4 } },
   { id: 'un_sg', name: 'UN 사무총장', icon: '🇺🇳', rarity: 'legend', tier: 3, how: '「특명전권대사」 카드 + 50세 이상 → 안보리 선출 (2단계)', eff: { fame: 8, kid: 'cha' }, honor: 'gwanghwa' },
   { id: 'bok_governor', name: '한국은행 총재', icon: '🏦', rarity: 'legend', how: '은행 지점장 이상·리서치센터장 이상·경제학 교수 → 총재 임명 (2단계)', eff: { fame: 3, cash: 3000 }, honor: 'cheongjo' },
-  { id: 'mayor', name: '서울특별시장', icon: '🏙', rarity: 'legend', how: '국회의원 경력 + 가문 명성 80 → 경선과 본선 (2단계)', eff: { fame: 5 } },
+  { id: 'mayor', name: '시장 (광역·기초단체장)', icon: '🏙', rarity: 'legend', how: '국회의원 경력 + 가문 명성 80 → 사는 도시의 시장 선거 (경선·본선·개표)', eff: { fame: 5 } },
   { id: 'spymaster', name: '국정원장·블랙 요원', icon: '🕶', rarity: 'epic', how: '고참 장교·경찰·외교관·보안 전문가 → 비밀 작전', eff: { heat: 5, kid: 'int' }, honor: 'gukseon' },
   { id: 'cyber_commander', name: '국방사이버사령관', icon: '🛡', rarity: 'epic', how: '리드급 보안 전문가·개발자·데이터 과학자 → 국가 해킹 방어', eff: { kid: 'int', fame: 1 }, honor: 'gukseon' },
   // 과학·의료
@@ -101,9 +105,9 @@ export const MORE_SUMMITS: S[] = [
     text: (c) => `물가와 환율이 요동친다. 대통령실이 ${n(c.p)}을(를) 한국은행 총재 후보로 검토한다.`,
     a: ['금리 인상으로 물가를 잡겠다', 'int', 70, '🏦 한국은행 총재 취임! 한마디에 시장이 움직인다.', '"시장을 모른다"는 평에 낙마.'],
     b: ['시장과의 소통을 약속한다', 'cha', 64, '🏦 총재 취임! 시장이 안도했다.', '청문회에서 부동산 문제가 불거졌다.'] },
-  { card: 'mayor', title: '🏙 서울시장 선거', stages: 2, ok: (s, p) => (p.job === 'politician' || p.flags.includes('was_politician')) && s.fame >= 80, setup: (s, p) => (setJob('politician', 2)(s, p), (s.fame = 120)),
-    text: (c) => `${n(c.p)}이(가) 서울시장 선거에 나선다. 당내 경선부터 본선까지.`,
-    a: ['부동산·교통 공약으로', 'int', 64, '🏙 서울시장 당선! 차기 대권 1순위로 떠올랐다.', '낙선. 그래도 정치적 체급이 올랐다.'],
+  { card: 'mayor', title: '🏙 시장 선거', stages: 2, ok: (s, p) => (p.job === 'politician' || p.flags.includes('was_politician')) && s.fame >= 80, setup: (s, p) => (setJob('politician', 2)(s, p), (s.fame = 120)),
+    text: (c) => `${n(c.p)}이(가) ${homeCity(c.s, c.p)}시장 선거에 나선다. 당내 경선부터 본선까지. 대표 공약은 "${pledgeOf(c.s, { ...c.p, job: 'mayor' }, c.ev.uid)}".`,
+    a: ['교통·주거 공약으로', 'int', 64, '🏙 시장 당선! 차기 대권 주자로 떠올랐다.', '낙선. 그래도 정치적 체급이 올랐다.'],
     b: ['골목 유세로 발로 뛴다', 'cha', 66, '🏙 당선! 시민들이 "우리 시장"이라 부른다.', '근소한 차이로 졌다.'] },
   { card: 'spymaster', title: '🕶 비밀 작전', ok: (_s, p) => jobIn(p, ['officer', 'police', 'diplomat', 'security'], 3), setup: setJob('officer', 4),
     text: (c) => `국정원에서 ${n(c.p)}에게 조용히 연락이 왔다. 해외 산업 스파이 조직을 무너뜨리는 작전. 가족에게도 비밀이다.`,

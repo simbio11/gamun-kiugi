@@ -360,7 +360,7 @@ export const WORK_STORIES: Story[] = [
     { label: '돈을 받는다', mark: { cheat: 2 }, text: '', roll: ['luck', 30, [{ cash: 5000, mor: -8 }, '아무도 모른다. 잠이 오지 않는다.'], [{ fame: -10, flag: 'laid_off', hap: -25 }, '영구 제명. 가문 이름에 먹칠을 했다.']] },
   ] },
   // ───────── 모든 직장인 ─────────
-  { id: 'wk_any_raise', title: '연봉 협상', age: [24, 60], w: 0.5, cond: (_s, p) => !['none', 'parttime', 'pension', 'politician', 'president', 'minister'].includes(p.job) && !p.flags.includes('student'), text: '연봉 협상 시즌. 회사는 동결을 통보했다. {n}은(는) 올해 성과가 꽤 좋았다.', choices: [
+  { id: 'wk_any_raise', title: '연봉 협상', age: [24, 60], w: 0.5, cond: (_s, p) => !['none', 'parttime', 'pension', 'politician', 'president', 'minister', 'mayor'].includes(p.job) && !p.flags.includes('student'), text: '연봉 협상 시즌. 회사는 동결을 통보했다. {n}은(는) 올해 성과가 꽤 좋았다.', choices: [
     { label: '당당히 인상을 요구한다', mark: { risk: 1 }, text: '', roll: ['cha', 50, [{ cash: 800, hap: 4 }, '10% 인상! 말하길 잘했다.'], [{ hap: -4 }, '"다른 데 알아보든가." 싸늘하다.']] },
     { label: '조용히 이직 준비', text: '이력서를 업데이트했다. (행동 탭의 이직 시도)', eff: {} },
     { label: '회사를 믿는다', text: '내년엔 올려 주겠지.', eff: { mor: 1 } },
@@ -522,5 +522,13 @@ export const WORK_STORIES: Story[] = [
   { id: 'wk_nav_letter', title: '20년 늦게 온 편지', age: W, w: 0.8, cond: J('star_navigator'), text: '지구에서 편지가 도착했다. 20년 전에 보낸 것이다. 어머니가 {n}의 생일 축하 노래를 부르신다.', choices: [
     { label: '답장을 녹음한다', text: '이 답장은 20년 뒤에 도착한다. 그래도 불렀다.', eff: { hap: 4, aff: 4 } },
     { label: '별을 보며 혼자 운다', text: '창밖 별빛이 흐려 보였다.', eff: { hap: -3, mor: 1 } },
+  ] },
+  { id: 'wk_av_shoot', title: '촬영장', age: W, w: 0.8, cond: J('hj_av'), text: '새벽 촬영장. 감독이 계약서에 없던 장면을 요구한다. 매니저는 "업계 관행"이라며 눈치를 준다.', choices: [
+    { label: '계약서대로만 한다', text: '', roll: ['cha', 55, [{ mor: 2, hap: 2 }, '감독이 한발 물러섰다. 선을 지킨 배우로 소문이 났다.'], [{ cash: -300, hap: -4 }, '위약금을 물고 촬영에서 빠졌다.']] },
+    { label: '노조·변호사에게 알린다', text: '업계 첫 "출연 동의 가이드라인"이 생겼다.', eff: { mor: 3, fame: 1 } },
+  ] },
+  { id: 'wk_av_fanmeet', title: '팬 사인회', age: W, w: 0.8, cond: J('hj_av'), text: '해외 팬 사인회에 수백 명이 줄을 섰다. 그런데 한 팬이 집 주소를 안다며 쪽지를 건넨다.', choices: [
+    { label: '경호를 늘리고 이사한다', text: '돈은 들었지만 마음은 놓였다.', eff: { cash: -500, hap: 2 } },
+    { label: '경찰에 스토킹 신고', text: '', roll: ['luck', 55, [{ hap: 3 }, '접근 금지 명령이 나왔다.'], [{ hap: -6 }, '처벌이 약했다. 불안한 밤이 이어진다.']] },
   ] },
 ];
