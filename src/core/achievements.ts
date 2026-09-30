@@ -2,11 +2,15 @@ import { ACHIEVEMENTS } from './data';
 import { personWorth, totalWorth } from './economy';
 import { addFlag, alive, hasFlag, head, isMainline, parentsOf } from './people';
 import type { GameState, Person } from './types';
+import { achvRarity, grant } from './rewards';
 
 export function unlock(s: GameState, id: string) {
   if (!s.achievements.includes(id)) {
     s.achievements.push(id);
-    s.log.push({ year: s.year, text: `🏆 업적 달성: ${ACHIEVEMENTS[id]?.name ?? id}`, kind: 'achv' });
+    const a = ACHIEVEMENTS[id];
+    const r = a ? achvRarity(id, a.cat) : undefined;
+    if (r) grant(s, '🏆', `업적 달성: ${a.name}`, a.desc, r);
+    else s.log.push({ year: s.year, text: `🏴 불명예 기록: ${a?.name ?? id}`, kind: 'achv' });
   }
 }
 
@@ -120,6 +124,7 @@ export function checkAchievements(s: GameState) {
     if (hasFlag(p, 'ivf') && p.childIds.length) unlock(s, 'ivf');
     const ageNow = (p.deathYear ?? s.year) - p.birthYear;
     if (ageNow >= 100) unlock(s, 'centenarian');
+    if (ageNow >= 120) unlock(s, 'centenarian_120');
     const kids = p.childIds.map((id) => s.people[id]);
     if (kids.length >= 5) unlock(s, 'big_family');
     if (kids.length >= 3 && kids.every((k) => k.sex === 'M')) unlock(s, 'sons3');

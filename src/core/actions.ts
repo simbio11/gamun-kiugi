@@ -8,7 +8,15 @@ import { TRACK_ACTIONS, trackOf } from './tracks';
 import { reverseMortgageRate } from './welfare';
 import { vehicleAP } from './vehicle';
 import { oppActions } from './opportunities';
+import { bonusAP } from './rewards';
+import { CAREER_ACTIONS } from './career';
+import { RIVAL_ACTIONS } from './rival';
+import { MONEY_ACTIONS } from './scandal';
+import { AUTONOMY_ACTIONS, obeys } from './autonomy';
 import { STUDENT_ACTIONS } from './student-actions';
+import { HIST_ACTIONS } from './histpack';
+import { DEVICE_ACTIONS } from './devices';
+import { SPACE_ACTIONS } from './timeline';
 import { fitCats } from './interests';
 import { JOB_CATS } from './jobs';
 import { wageIndex } from './pay';
@@ -52,7 +60,7 @@ export function stageOf(s: GameState, p: Person): Stage {
 
 /** 생활 수준에 따른 한 해 행동력: 검소 2 · 보통 3 · 호화 4 */
 export function apMax(s: GameState): number {
-  return AP_PER_YEAR + ({ frugal: -1, normal: 0, lux: 1 } as const)[s.policy.living] + vehicleAP(s);
+  return AP_PER_YEAR + ({ frugal: -1, normal: 0, lux: 1 } as const)[s.policy.living] + vehicleAP(s) + bonusAP(s) + (Object.values(s.people).some((p) => p.job === 'president' && p.deathYear === undefined) ? 1 : 0);
 }
 
 export interface ActionDef {
@@ -77,6 +85,8 @@ export interface ActionDef {
   blocked?: (s: GameState, t?: Person) => string | undefined;
   /** 이 행동이 키우는 관심 분야 (적성에 맞으면 💡 표시하고 위로) */
   fit?: string;
+  /** 해마다 바뀌는 이름·설명 (그해 나온 물건 등) */
+  label?: (s: GameState) => { name: string; desc: string };
   run: (s: GameState, t?: Person) => string;
 }
 
@@ -385,7 +395,7 @@ export const ACTIONS: ActionDef[] = [
     targets: (s) => adultsOfLine(s).filter((p) => p.id !== s.headId && p.partnerId),
     run: (s, t) => {
       const p = t!;
-      if (chance(s, 0.55 + (p.bond ?? 50) / 300)) {
+      if (chance(s, 0.3 + (p.bond ?? 50) / 300) && obeys(s, p)) {
         queueEv(s, 'kid_wedding', p.id);
         return `"그래요, 이참에 날 잡을게요." ${iga(fullName(p))} 결혼을 결심했다.`;
       }
@@ -594,9 +604,11 @@ export const ACTIONS: ActionDef[] = [
     run: (s) => {
       const me = h(s);
       const t = rollTier(s, me, { stat: 'int', talent: 'merchant' });
-      if (t === 'bad' || (t === 'meh' && chance(s, 0.5))) return pick(s, ['며칠을 돌아다녔지만 마땅한 매물이 없었다.', '중개사무소마다 "요즘 급매는 없어요"란다.', '괜찮아 보였던 집이 알고 보니 반지하였다.']);
-      const found = addBargains(s, t === 'great' ? 2 : 1);
-      return `${pick(s, ['동네 중개사 사장님이 조용히 귀띔해 줬다.', '새벽 임장에서 급하게 내놓은 집을 발견했다.', '경매 정보지를 뒤지다 눈에 띄는 물건을 찾았다.'])}\n→ 자산 탭 매물 목록에 추가: ${found.map((l) => `${l.name} ${formatMoney(l.price)}`).join(', ')}`;
+      // 허탕이어도 동네 시세는 익힌다: 알짜 매물 하나는 건진다. 잘 풀리면 급매까지
+      const [n, prime] = t === 'great' ? [2, 1] : t === 'good' ? [1, 1] : t === 'meh' ? [1, 0] : [0, 1];
+      const found = addBargains(s, n, prime);
+      const lead = t === 'bad' ? pick(s, ['며칠을 돌았지만 급매는 없었다. 대신 동네 사정은 훤해졌다.', '중개사무소마다 "요즘 급매는 없어요"란다. 그래도 좋은 단지 하나는 알아 뒀다.']) : pick(s, ['동네 중개사 사장님이 조용히 귀띔해 줬다.', '새벽 임장에서 급하게 내놓은 집을 발견했다.', '경매 정보지를 뒤지다 눈에 띄는 물건을 찾았다.', '주말마다 단지를 돌며 호가를 적어 둔 보람이 있었다.']);
+      return `${lead}\n→ 자산 탭 매물 맨 위에 🔎 표시로 추가:\n${found.map((l) => `· ${l.name} ${formatMoney(l.price)} [${l.tags.filter((x) => x === '급매' || x === '알짜' || x === '재건축 확정' || x === 'GTX 개통 예정').join('·')}]`).join('\n')}`;
     },
   },
   {
@@ -666,6 +678,7 @@ export const ACTIONS: ActionDef[] = [
     run: (s) => {
       const me = h(s);
       s.fame += 5;
+      me.donated = (me.donated ?? 0) + 2000;
       mark(me, 'kind', 1);
       if (chance(s, 0.3)) schedule(s, int(s, 15, 25), 'scholar_return', me.id, { years: 20 });
       return `${s.familyName}씨 가문 장학금을 만들었다. (명성 +5)`;
@@ -1259,7 +1272,7 @@ const STAGE_ACTIONS: ActionDef[] = [
 ];
 // 올해의 기회: 목록 맨 앞 (분류 칩도 맨 앞에 선다)
 ACTIONS.unshift(...oppActions((s) => stageOf(s, h(s))));
-ACTIONS.push(...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...TRACK_ACTIONS, {
+ACTIONS.push(...HIST_ACTIONS, ...DEVICE_ACTIONS, ...SPACE_ACTIONS, ...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, ...MONEY_ACTIONS, ...AUTONOMY_ACTIONS, {
   id: 'license',
   cat: '진로·자기계발',
   icon: '🚦',

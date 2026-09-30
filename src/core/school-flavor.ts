@@ -6,6 +6,7 @@ import { age, check, clamp, discoverTalent, hasFlag, mark } from './people';
 import { hoodOf } from './housing';
 import { addStudy, standing, standingChange } from './school';
 import { TALENTS } from './data';
+import { histMood } from './histpack';
 
 /** 화면을 다시 그려도 바뀌지 않게, 사람·해마다 고정된 무작위 */
 function hnum(key: string): number {
@@ -29,6 +30,8 @@ const BAND_LINES: [number, number, string[]][] = [
 
 /** 올해의 분위기 한 줄 (학년 + 처지) */
 export function yearMood(s: GameState, p: Person): string {
+  const hm = histMood(s, p);
+  if (hm) return hm;
   const a = age(s, p);
   const band = BAND_LINES.find(([lo, hi]) => a >= lo && a <= hi);
   const lines: string[] = band ? [...band[2]] : [];

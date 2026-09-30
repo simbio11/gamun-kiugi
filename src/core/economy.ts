@@ -10,18 +10,60 @@ import { housingYear, JEONSE_LOAN_RATE } from './housing';
 import { vehicleUpkeep, vehicleYear } from './vehicle';
 import { petUpkeep } from './lifecost';
 import { debtRate } from './debt';
+import { medicalCost, woeItems } from './woes';
+import { HIST_BASE, histPrice, SINCE } from './histidx';
+import { allowanceOf, allowanceYear } from './allowance';
 import { allowanceForecast, careYear, childAllowanceYear, reverseMortgageYear, youthAccountYear } from './welfare';
 
-export function formatMoney(man: number): string {
+// ───────── 물가: 게임 속 계산은 모두 "2025년 돈 가치"로 하고, 보여 줄 때만 그해 돈으로 바꾼다 ─────────
+// 그래서 밸런스는 그대로다. 1970년 짜장면은 몇백 원, 2080년 짜장면은 몇만 원으로 보일 뿐.
+/** 소비자물가지수 (2025 = 1, 통계청 CPI를 어림한 값) */
+const CPI: [number, number][] = [
+  [1955, 0.008], [1960, 0.014], [1965, 0.025], [1970, 0.043], [1975, 0.09], [1980, 0.2], [1985, 0.29], [1990, 0.375], [1995, 0.49],
+  [1998, 0.57], [2000, 0.58], [2005, 0.665], [2010, 0.75], [2015, 0.81], [2020, 0.86], [2022, 0.925], [2025, 1],
+];
+/** 그해 물가 (2025 = 1). 2026년부터는 해마다 2%씩 (한국은행 물가 목표) */
+export function priceLevel(y: number): number {
+  if (y >= 2025) return Math.pow(1.02, y - 2025);
+  if (y <= CPI[0][0]) return CPI[0][1];
+  for (let i = 1; i < CPI.length; i++)
+    if (y <= CPI[i][0]) {
+      const [y0, v0] = CPI[i - 1];
+      const [y1, v1] = CPI[i];
+      return v0 * Math.pow(v1 / v0, (y - y0) / (y1 - y0));
+    }
+  return 1;
+}
+let MONEY_YEAR = 2025;
+let NOMINAL = true;
+/** 지금 보여 줄 해 (게임이 한 해 넘어갈 때마다) */
+export const setMoneyYear = (y: number) => (MONEY_YEAR = y);
+/** 그해 돈으로 보여 줄까(true) 2025년 돈으로 보여 줄까(false) */
+export const setNominal = (on: boolean) => (NOMINAL = on);
+export const isNominal = () => NOMINAL;
+
+export function formatMoney(man0: number): string {
+  const man = NOMINAL ? man0 * priceLevel(MONEY_YEAR) : man0;
   const neg = man < 0;
+  // 1만 원이 안 되는 돈은 원 단위로 (1960년대 짜장면 값 같은)
+  if (Math.abs(man) < 1 && man !== 0) return (neg ? '-' : '') + (Math.max(10, Math.round((Math.abs(man) * 10000) / 10) * 10)).toLocaleString('ko-KR') + '원';
   const v = Math.abs(Math.round(man));
   let out: string;
-  if (v >= 10000) {
+  if (v >= 100000000) {
+    const jo = v / 100000000;
+    out = (jo >= 100 ? Math.round(jo).toLocaleString('ko-KR') : jo.toFixed(1).replace(/\.0$/, '')) + '조';
+  } else if (v >= 10000) {
     const eok = v / 10000;
     out = (eok >= 100 ? Math.round(eok).toLocaleString('ko-KR') : eok.toFixed(1).replace(/\.0$/, '')) + '억';
   } else out = v.toLocaleString('ko-KR') + '만';
   return (neg ? '-' : '') + out;
 }
+
+/** "3만 원"·"1.2억 원"·"500원" */
+export const formatWon = (man: number) => {
+  const t = formatMoney(man);
+  return t.endsWith('원') ? t : t + '\u00a0원'; // 보통 공백 대신 줄바꿈 없는 공백: 물가 환산(histpack inflate)이 두 번 걸리지 않게
+};
 
 export const assetsOf = (s: GameState, ownerId: string) => s.assets.filter((a) => a.ownerId === ownerId);
 
@@ -133,7 +175,7 @@ export function severance(s: GameState, p: Person): number {
  * 공무원·군인·교원 연금 = 마지막 연봉 × 1.7% × 재직 연수(최대 36년)
  * 국민연금 = (A값 + 본인 평균소득) / 2 × 40% × 가입 연수/40 (+ 기초연금은 소득 적은 사람만)
  */
-export function settlePension(p: Person) {
+export function settlePension(p: Person, s?: GameState) {
   const years = Math.max(0, markOf(p, 'npy'));
   const avg = years ? markOf(p, 'npsum') / years : 0;
   let amount: number;
@@ -143,7 +185,11 @@ export function settlePension(p: Person) {
   } else {
     amount = ((NPS_A + Math.min(avg, 7400)) / 2) * 0.4 * (Math.min(40, years) / 40);
   }
-  if (amount < 1200) amount += BASIC_PENSION;
+  // 기초연금(2014~, 그 전 2008 기초노령연금): 근현대사 모드에서 그 전에 은퇴하면 없다
+  const hist = s?.era === 'history' && s.year < 2008;
+  if (amount < 1200 && !hist) amount += BASIC_PENSION;
+  // 국민연금이 없던 시절(1988 전) 은퇴한 자영업·회사원은 연금이 0 (자식이 부양)
+  if (hist && !PUBLIC_PENSION.has(p.job) && years === 0) amount = 0;
   p.flags = p.flags.filter((f) => !f.startsWith('pens:'));
   p.flags.push('pens:' + Math.round(amount));
 }
@@ -204,8 +250,11 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
       }
       const diligent = (hasTrait(p, 'diligent') ? 1.3 : hasTrait(p, 'lazy') ? 0.6 : 1) * promoteMult(p);
       const intoOpen = d?.open !== undefined && p.jobLevel + 1 === d.open;
-      // 승진은 지금 직급에서 2년 이상 일한 뒤부터
-      if (p.jobLevel < j.maxLevel && p.jobLevel >= ladderTop && !intoOpen && levelYears(s, p, false) >= 2 && chance(s, (j.promote ?? 0.1) * workBoost * diligent * (0.5 + sc / 100))) {
+      // 승진은 지금 직급에서 2년 이상 일한 뒤부터. 맨 꼭대기(병원장→의료재단 이사장, 사장→회장 등)는
+      // 50세 넘어 그 아래 자리에서 5년 이상 버텨야 하고, 그마저도 자리 하나를 두고 다투니 확률이 절반
+      const toTop = p.jobLevel + 1 === j.maxLevel && j.maxLevel >= 4;
+      const topOk = !toTop || (age(s, p) >= 50 && levelYears(s, p, false) >= 5);
+      if (p.jobLevel < j.maxLevel && p.jobLevel >= ladderTop && !intoOpen && topOk && levelYears(s, p, false) >= 2 && chance(s, (j.promote ?? 0.1) * workBoost * diligent * (0.5 + sc / 100) * (toTop ? 0.45 : 1))) {
         p.jobLevel++;
         msg = `${name} ${jobTitle(p)}(으)로 승진`;
         if (p.job === 'professor') s.fame += 2;
@@ -325,17 +374,29 @@ export function householdItems(s: GameState, incomes: Map<string, number>) {
   const items: [string, number][] = [];
   const add = (label: string, v: number) => v > 0 && items.push([label, Math.round(v)]);
   const houseIncome = Math.max(0, incomes.get(hh.id) ?? 0) + Math.max(0, (hsp && incomes.get(hsp.id)) || 0);
-  // 기본 생활비는 형편 따라: 넉넉하면 1인 1,500만, 빠듯하면 900만까지 줄여 산다
+  // 기본 생활비 (식비·통신·교통·관리비·보험 …). 2023 가계금융복지조사: 가구 소비지출 월 280만 안팎, 1인 가구 월 160만 안팎.
+  // 아무리 아껴도 줄일 수 없는 바닥(1인 연 1,150만)이 있고, 검소·호화는 그 위의 몫만 줄이거나 늘린다
   const wi = wageIndex(s.year); // 임금이 오르는 만큼 생활비도 오른다
-  const perAdult = clamp(600 * wi + houseIncome * 0.1, 850 * wi, 1400 * wi);
-  add('기본 생활비', perAdult * mult * (hsp ? 2 : 1));
-  add(`아이 양육비 (${minors.length}명)`, minors.length * perAdult * 0.6 * mult);
-  add(`얹혀 사는 성인 자녀 (${atHome.length}명)`, atHome.length * perAdult * 0.8 * mult);
-  // 여윳돈이 생기면 씀씀이도 커진다 (연 4천만 넘는 부분의 35%)
-  add('소비 (수입에 비례)', Math.max(0, houseIncome - 4000 * wi) * 0.25 * mult * (hasTrait(hh, 'frugal') ? 0.8 : hasTrait(hh, 'spender') ? 1.3 : 1));
+  const floor = 950 * wi;
+  const perAdult = clamp(750 * wi + houseIncome * 0.1, floor, 2000 * wi);
+  const adj = (v: number, fl: number) => fl + Math.max(0, v - fl) * mult;
+  add('기본 생활비', adj(perAdult, floor) * (hsp ? 2 : 1));
+  add(`아이 양육비 (${minors.length}명)`, minors.length * adj(perAdult * 0.45, floor * 0.4));
+  add(`얹혀 사는 성인 자녀 (${atHome.length}명)`, atHome.length * adj(perAdult * 0.8, floor * 0.7));
+  // 여윳돈이 생기면 씀씀이도 커진다 (연 3,500만 넘는 부분의 32%: 외식·여행·경조사·쇼핑)
+  add('소비 (수입에 비례)', Math.max(0, houseIncome - 3500 * wi) * 0.32 * mult * (hasTrait(hh, 'frugal') ? 0.8 : hasTrait(hh, 'spender') ? 1.3 : 1));
+  // 의료비: 건강할수록 적고 노인·병약할수록 많다. 기초수급이면 의료급여로 거의 안 든다
+  let med = 0;
+  for (const id of inHouse) {
+    const q = s.people[id];
+    if (q && alive(q)) med += medicalCost(s, q);
+  }
+  if (hasFlag(hh, 'welfare')) med *= 0.15;
+  add('의료비 (건강 상태별)', med * wi);
+  for (const [l, v] of woeItems(s, inHouse, wi)) add(l, v);
   // 미취학 아동 교육비 (학령기는 해마다 학년 이벤트에서 직접 고른다)
   let pre = 0;
-  for (const c of livingMainlineMinors(s)) if (age(s, c) < 8) pre += EDU_COST[s.policy.children[c.id]?.budget ?? 1];
+  for (const c of livingMainlineMinors(s)) if (age(s, c) < 8) pre += EDU_COST[s.policy.children[c.id]?.budget ?? 1] * wi;
   add('미취학 교육비', pre);
   let tuition = 0;
   for (const p of Object.values(s.people)) {
@@ -354,7 +415,16 @@ export function householdItems(s: GameState, incomes: Map<string, number>) {
 }
 
 /** 운에 기대지 않은 평균 연 수입 (내년 예상용) */
+/** 시대 사건(전쟁 등)이 직업 수입에 거는 배수 — war.ts가 등록한다 (순환 참조를 피하려고 주입) */
+let INCOME_MUL: (s: GameState, p: Person) => number = () => 1;
+export const setIncomeMul = (f: (s: GameState, p: Person) => number) => (INCOME_MUL = f);
+
 export function expectedIncome(s: GameState, p: Person): number {
+  const v = baseIncome(s, p);
+  return v > 0 && !p.flags.some((f) => f.startsWith('serving:')) ? Math.round(v * INCOME_MUL(s, p)) : v;
+}
+
+function baseIncome(s: GameState, p: Person): number {
   if (!alive(p)) return 0;
   if (p.flags.some((f) => f.startsWith('serving:'))) return Number(p.flags.find((f) => f.startsWith('serve_pay:'))?.slice(10) ?? 1200);
   if (p.flags.includes('student')) return p.flags.includes('track:grad_school') ? Math.round(GRAD_STIPEND * wageIndex(s.year)) : 0;
@@ -388,8 +458,51 @@ export interface Forecast {
   income: [string, number][];
   expense: [string, number][];
   net: number;
-  /** 독립 전 가주가 따로 모으는 돈 (내 통장) */
-  mine?: number;
+  /** 독립 전 가주의 내 통장: 수입 − 세금 − 제 몫 지출 − 집에 보태는 돈 */
+  mine?: { income: number; allow: number; tax: number; own: number; contrib: number; net: number };
+}
+
+/** 얹혀 사는 성인 자녀의 한 해: 제 몫 지출과 집에 보태는 돈 */
+export function atHomeSpend(s: GameState, inc: number) {
+  const wi = wageIndex(s.year);
+  return { own: Math.round(1000 * wi + Math.max(0, inc - 2500 * wi) * 0.3), contrib: Math.round(Math.min(1200 * wi, inc * 0.1)) };
+}
+
+/** 2025 기준 중위소득 (월, 만원) · 생계급여 선정기준은 그 32% */
+const MEDIAN = [0, 239.2, 393.3, 502.5, 609.8, 710.8, 806.4];
+export function livelihoodAid(s: GameState, incomes: Map<string, number>, inHouse: Set<string>): number {
+  const hh = householder(s);
+  const ids = [...inHouse].filter((id) => s.people[id] && alive(s.people[id]));
+  const n = Math.max(1, ids.length);
+  const wi = wageIndex(s.year);
+  const line = (MEDIAN[Math.min(6, n)] + Math.max(0, n - 6) * 96) * 12 * 0.32 * wi;
+  const inc = ids.reduce((t, id) => t + Math.max(0, incomes.get(id) ?? 0), 0);
+  // 재산 기준 (단순화): 기본재산 공제 + 주거용 재산 공제를 합쳐 부부 순자산 2억 2천까지
+  const sp = hh.spouseId ? s.people[hh.spouseId] : undefined;
+  const worth = personWorth(s, hh) + (sp && alive(sp) ? personWorth(s, sp) : 0);
+  if (worth > 22000 * wi) return 0;
+  const median = (MEDIAN[Math.min(6, n)] + Math.max(0, n - 6) * 96) * 12 * wi;
+  // 근현대사 모드: 2000년 전엔 생활보호법 (일할 사람이 없는 집에 쌀·밀가루 정도), 근로장려금은 2009년부터
+  if (s.era === 'history' && s.year < SINCE.livelihood) return inc <= 0 ? Math.round(line * 0.3) : 0;
+  // 생계급여 (32%까지 채움)
+  let aid = Math.max(0, line - inc);
+  // 주거급여 (중위 48% 이하 세입자: 월세를 기준임대료 한도 안에서) · 교육급여 (초중고 학생 1인 연 50만 남짓)
+  if (inc < median * 0.48) {
+    const home = hh.home;
+    if (home && (home.type === 'wolse' || home.type === 'jeonse')) aid += Math.min(home.type === 'wolse' ? home.rent : 200 * wi, 420 * wi);
+    aid += ids.filter((id) => {
+      const a = age(s, s.people[id]);
+      return a >= 8 && a < 19;
+    }).length * 50 * wi;
+  }
+  // 근로장려금 (일해서 버는 저소득 가구): 홑벌이 최대 285만, 맞벌이 330만, 소득 3,800~4,400만에서 끊긴다
+  const earners = ids.filter((id) => (incomes.get(id) ?? 0) > 0).length;
+  if (earners && !(s.era === 'history' && s.year < SINCE.eitc)) {
+    const [mx, top] = earners >= 2 ? [330, 4400] : [285, 3800];
+    const t = inc / wi;
+    aid += (t < 2200 ? mx : t < top ? (mx * (top - t)) / (top - 2200) : 0) * wi;
+  }
+  return Math.max(0, Math.round(aid));
 }
 
 /** 내년 가계 예상: 지갑(살림 맡은 사람 + 배우자 + 가문 금고) 기준 */
@@ -412,6 +525,13 @@ export function forecast(s: GameState): Forecast {
   }, 0);
   add(expense, '소득세·4대보험', taxSum);
   add(income, '부모급여·아동수당', allowanceForecast(s, wallet));
+  const { inHouse } = householdItems(s, incomes);
+  add(income, '복지 급여 (기초생활보장·근로장려금)', livelihoodAid(s, incomes, inHouse));
+  for (const id of inHouse) {
+    const p = s.people[id];
+    if (!p || p.id === hh.id || p.id === hh.spouseId || age(s, p) < 20 || (incomes.get(id) ?? 0) <= 0) continue;
+    add(income, `${p.name}이(가) 보태는 생활비`, atHomeSpend(s, incomes.get(id)!).contrib);
+  }
   for (const p of wallet) if (p.flags.some((x) => x.startsWith('youth_acc:'))) add(expense, '청년도약계좌 납입', 840);
   for (const p of wallet) {
     const f = p.flags.find((x) => x.startsWith('rm:'));
@@ -432,7 +552,16 @@ export function forecast(s: GameState): Forecast {
   else add(expense, '대출 이자', -cash * 0.07);
   if (s.policy.taxAdvisor) add(expense, '세무사 수임료', advisorFee(s));
   const net = income.reduce((t, [, v]) => t + v, 0) - expense.reduce((t, [, v]) => t + v, 0);
-  return { income, expense, net, mine: hh.id !== h.id ? incomes.get(h.id) || undefined : undefined };
+  const hInc = hh.id !== h.id ? incomes.get(h.id) ?? 0 : 0;
+  const allow = hh.id !== h.id ? allowanceOf(s, h).amount : 0;
+  if (allow) add(expense, `${h.name} 용돈`, allow);
+  let mine: Forecast['mine'];
+  if ((hInc > 0 && inHouse.has(h.id)) || allow) {
+    const k = hInc > 0 ? atHomeSpend(s, hInc) : { own: 0, contrib: 0 };
+    const t = hInc > 0 ? incomeTax(hInc, s.year) : { tax: 0, social: 0 };
+    mine = { income: hInc, allow, tax: t.tax + t.social, own: k.own, contrib: k.contrib, net: hInc + allow - t.tax - t.social - k.own - k.contrib };
+  }
+  return { income, expense, net, mine };
 }
 
 export function economyYear(s: GameState): string[] {
@@ -470,7 +599,7 @@ export function economyYear(s: GameState): string[] {
     incomes.set(p.id, got);
     taxes.set(p.id, t.tax + t.social);
     // 국민연금 가입 기록 (연금 수령액 계산용, 2025년 원)
-    if (got > 0 && p.job !== 'pension') {
+    if (got > 0 && p.job !== 'pension' && !(s.era === 'history' && s.year < SINCE.nps)) {
       mark(p, 'npy', 1);
       mark(p, 'npsum', Math.round(Math.min(got / wageIndex(s.year), 7400)));
     }
@@ -481,6 +610,30 @@ export function economyYear(s: GameState): string[] {
   const { inHouse, items } = householdItems(s, incomes);
   const household = items.reduce((t, [, v]) => t + v, 0);
   pay(s, hh, Math.round(household));
+
+  // 부모 집에 얹혀 사는 성인 자녀: 제 용돈·교통·통신·여가는 스스로 쓰고, 생활비도 조금 보탠다
+  for (const id of inHouse) {
+    const p = s.people[id];
+    if (!p || !alive(p) || p.id === hh.id || p.id === hh.spouseId || age(s, p) < 20) continue;
+    const inc = incomes.get(p.id) ?? 0;
+    if (inc <= 0) continue;
+    const k = atHomeSpend(s, inc);
+    p.cash -= k.own + k.contrib;
+    hh.cash += k.contrib;
+  }
+
+  // 용돈: 부모 집에 사는 가주가 받는다 (형편 따라)
+  allowanceYear(s);
+
+  // 기초생활보장: 가구 소득이 기준 중위소득 32%에 못 미치고 재산이 적으면 모자란 만큼 생계급여 (의료급여도 함께)
+  const aid = livelihoodAid(s, incomes, inHouse);
+  if (aid > 0) {
+    hh.cash += aid;
+    const poor = aid > 700 * wageIndex(s.year);
+    if (poor) addFlag(hh, 'welfare');
+    else hh.flags = hh.flags.filter((f) => f !== 'welfare');
+    msgs.push(`🤝 ${poor ? '기초생활보장 (생계·주거·교육·의료급여)' : '근로장려금'} ${formatMoney(aid)}`);
+  } else hh.flags = hh.flags.filter((f) => f !== 'welfare');
 
   // 그 외 성인은 각자 생활비: 최소 1,500만, 수입의 60%
   for (const p of Object.values(s.people)) {
@@ -588,7 +741,15 @@ export function marketYear(s: GameState): string[] {
     coin: normal(s, 0.1, 0.55),
     art: normal(s, 0.035, 0.07),
   };
-  if (chance(s, 0.18)) {
+  // 근현대사 모드: 2025년까지는 실제 연표를 따라간다 (연표 값으로 끌어당기고 잡음만 조금)
+  const hist = s.era === 'history' && s.year <= 2025;
+  if (hist)
+    for (const k of MARKET_KEYS) {
+      const target = histPrice(HIST_BASE[k], k, s.year);
+      const sd = k === 'stock' ? 0.05 : k === 'coin' ? 0.12 : 0.015;
+      r[k] = target / Math.max(1, s.market[k]) - 1 + normal(s, 0, sd);
+    }
+  if (!hist && chance(s, 0.18)) {
     const ev = pick(s, MARKET_EVENTS);
     msgs.push(ev.text);
     for (const k of Object.keys(ev.delta) as MarketKey[]) r[k] += ev.delta[k]!;
@@ -598,7 +759,7 @@ export function marketYear(s: GameState): string[] {
   const era = ERA_NEWS[s.year];
   if (era) msgs.push(era);
   for (const k of MARKET_KEYS) {
-    r[k] = clamp(r[k], ...MARKET_CLAMP[k]);
+    r[k] = hist ? clamp(r[k], -0.6, 1.5) : clamp(r[k], ...MARKET_CLAMP[k]);
     s.market[k] = Math.max(1, Math.round(s.market[k] * (1 + r[k])));
     s.marketChange[k] = r[k];
   }
@@ -606,7 +767,10 @@ export function marketYear(s: GameState): string[] {
     if (a.kind === 'vehicle') continue; // 탈것은 vehicleYear에서 감가
     // 예술품은 작품마다 따로 논다
     // 부동산은 매물마다 성격이 다르다 (시장 민감도·입지 프리미엄·변동성)
-    const own = a.kind === 'art' ? normal(s, 0, 0.08) : a.vol ? normal(s, 0, a.vol) : 0;
+    // 부동산은 주식·코인보다 덜 출렁이지만 단지마다 조금씩 다르게 움직인다 (기본 ±2~3%)
+    const realty = a.kind === 'apt_seoul' || a.kind === 'apt_local' || a.kind === 'land' || a.kind === 'building';
+    const own = a.kind === 'art' ? normal(s, 0, 0.08) : normal(s, 0, a.vol ?? (realty ? 0.025 : 0));
+    a.prev = a.value;
     a.value = Math.max(0, Math.round(a.value * (1 + r[a.kind] * (a.beta ?? 1) + (a.drift ?? 0) + own)));
   }
   return msgs;

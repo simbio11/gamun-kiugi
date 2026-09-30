@@ -3,34 +3,20 @@
 
 import { queuePostnatal } from './lifecost';
 import { chance, int, normal, pick } from './rng';
-import { JOBS, MALE_NAMES, FEMALE_NAMES } from './data';
-import { addHolding, formatMoney, jobTitle, personWorth, settlePension } from './economy';
+import { armyMonths } from './histidx';
+import { JOBS } from './data';
+import { campaignMoney, polOf } from './career';
+import { grant } from './rewards';
+import { addHolding, formatMoney, jobTitle, pay, personWorth, settlePension } from './economy';
 import { birthSupport } from './welfare';
-import { applyDesire, gate, iga, queueNext, req, schedule, setJob, who, type Choice, type Ctx, type EventDef } from './ev-util';
-import {
-  isMedStudent,
-  addFlag,
-  age,
-  alive,
-  check,
-  clamp,
-  createPerson,
-  fullName,
-  hasFlag,
-  hasTalent,
-  hasTrait,
-  householder,
-  inherit,
-  mark,
-  randomGenes,
-  spouseOf,
-  freshName,
-  takenNames,
-} from './people';
+import { applyDesire, gate, iga, queueNext, req, schedule, setJob, spendable, who, type Choice, type Ctx, type EventDef } from './ev-util';
+import { addFlag, age, alive, check, clamp, createPerson, freshName, fullName, hasFlag, hasTalent, hasTrait, householder, inherit, isMedStudent, mark, randomGenes, randomName, spouseOf, takenNames } from './people';
 import type { GameState, Person } from './types';
 import { illMult } from './marks';
 
 export interface LifeDef extends EventDef {
+  /** 이야기 원문 (근현대사 모드에서 시대에 안 맞는 말이 있나 거를 때) */
+  raw?: string;
   /** 한 해에 이 사람에게 일어날 가중치 (0이면 안 일어남) */
   weight?: (s: GameState, p: Person) => number;
 }
@@ -50,6 +36,8 @@ const setFlagVal = (p: Person, key: string, v: string | number) => {
 /** 복무 시작: 학생이면 졸업이 2년 밀리고, 직장은 휴직 */
 function serve(x: Ctx, years: number, kind: string, text: string, pay?: number): string {
   const p = x.p;
+  // 근현대사: 1960~80년대엔 30~36개월 (3년)
+  if (x.s.era === 'history' && ['army', 'marine', 'airforce', 'katusa'].includes(kind) && armyMonths(x.s.year) >= 30) years = 3;
   setFlagVal(p, 'serving', x.s.year + years - 1);
   p.flags = p.flags.filter((f) => f !== 'mil_postponed' && !f.startsWith('serve_pay:'));
   if (pay) p.flags.push('serve_pay:' + pay);
@@ -133,7 +121,7 @@ const military: LifeDef = {
       ];
     const out: Choice[] = [
       {
-        label: '육군 현역 입대 (18개월)',
+        label: `육군 현역 입대 (${c.s.era === 'history' ? armyMonths(c.s.year) : 18}개월)`,
         run: (x) => {
           x.p.actual.str = clamp(x.p.actual.str + 4, 0, 100);
           x.p.actual.mor = clamp(x.p.actual.mor + 3, 0, 100);
@@ -421,11 +409,10 @@ export function deliver(s: GameState, dad: Person, mom: Person, surname: string,
     if (n === 2) addFlag(baby, 'twin');
     out.push(baby);
     if (name) {
-      const pool = baby.sex === 'M' ? MALE_NAMES : FEMALE_NAMES;
       const names = new Set<string>([baby.name]);
       const taken = takenNames(s, baby);
       for (let i = 0; names.size < 3 && i < 60; i++) {
-        const n = pick(s, pool);
+        const n = randomName(s, baby.sex, s.year);
         if (!taken.has(n)) names.add(n);
       }
       s.events.push({ uid: s.eventSeq++, defId: 'naming', personId: dad.id, data: { childId: baby.id, names: [...names] } });
@@ -507,15 +494,15 @@ const infertility: LifeDef = {
 const fraud: LifeDef = {
   id: 'fraud',
   weight: (s, p) => (age(s, p) >= 25 && p.cash > 1000 ? (age(s, p) >= 60 ? 0.03 : 0.015) : 0),
-  title: (c) => (age(c.s, c.p) >= 60 ? '보이스피싱' : age(c.s, c.p) < 40 ? '전세사기' : '투자 리딩방'),
+  title: (c) => (age(c.s, c.p) >= 60 ? '보이스피싱' : age(c.s, c.p) < 40 ? '중고거래 사기' : '투자 리딩방'),
   text: (c) => {
     const a = age(c.s, c.p);
-    c.ev.data ??= { caught: check(c.s, c.p.actual.int, 55, 8), loss: Math.min(Math.round(c.p.cash * 0.6), a < 40 ? 20000 : 8000) };
-    if (c.ev.data.caught) return `${who(c)}에게 수상한 ${a >= 60 ? '전화' : a < 40 ? '전세 매물' : '투자 권유'}가 왔지만, 낌새를 채고 피했다.`;
+    c.ev.data ??= { caught: check(c.s, c.p.actual.int, 55, 8), loss: Math.min(Math.round(c.p.cash * 0.6), a < 40 ? 1500 : 8000) };
+    if (c.ev.data.caught) return `${who(c)}에게 수상한 ${a >= 60 ? '전화' : a < 40 ? '중고거래 판매자' : '투자 권유'}가 왔지만, 낌새를 채고 피했다.`;
     return a >= 60
       ? `"아들이 사고를 쳤다"는 전화에 속아 ${who(c)}이(가) ${formatMoney(c.ev.data.loss)}을 송금했다.`
       : a < 40
-        ? `${who(c)}의 전셋집 집주인이 잠적했다. 보증금 ${formatMoney(c.ev.data.loss)}이 날아갔다.`
+        ? `${who(c)}이(가) 시세의 반값에 올라온 전자기기를 선입금으로 샀다. 판매자가 잠적했다. ${formatMoney(c.ev.data.loss)}이 날아갔다.`
         : `리딩방 "전문가"를 믿고 넣은 ${formatMoney(c.ev.data.loss)}이 사라졌다.`;
   },
   choices: (c) => {
@@ -549,7 +536,7 @@ const layoff: LifeDef = {
       label: `명퇴를 받아들인다 (위로금 ${formatMoney(salary(c.p) * 2)})`,
       run: (x) => {
         x.p.cash += salary(x.p) * 2;
-        settlePension(x.p);
+        settlePension(x.p, x.s);
         setJob(x.p, 'none');
         queueNext(x.s, 'first_job', x.p.id, { second: true });
         return '짐을 챙겨 나왔다. 인생 2막을 준비할 때다. (치킨집? 귀농? 재취업?)';
@@ -716,6 +703,7 @@ const minister: LifeDef = {
           setJob(p, 'minister');
           addFlag(p, 'was_minister');
           x.s.fame += 15;
+          grant(x.s, '🏛', `장관 임명: ${fullName(p)}`, '인사청문회를 통과했다. 2년 임기를 마치면 청조근정훈장이 기다린다.', 'epic');
           return '🏛 청문회를 통과했다! 장관으로 임명됐다. (2년 임기)';
         }
         x.s.fame = Math.max(0, x.s.fame - 8);
@@ -737,20 +725,30 @@ const presidential: LifeDef = {
     gate(c.s, [
       {
         label: '대선에 출마한다',
-        cost: 30000,
+        req: ['선거비용 30억', '지지율', '가문 명성 150'],
+        disabled: campaignMoney(c.p, 30000).short > spendable(c.s),
         tag: 'public',
         run: (x) => {
           const p = x.p;
+          const pl = polOf(p);
+          const m = campaignMoney(p, 30000);
+          pl.fund -= m.fromFund;
+          pl.slush -= m.fromSlush;
+          if (m.fromSlush) pl.heat += 20;
+          if (m.short) pay(x.s, householder(x.s), m.short);
           const score =
-            p.actual.cha * 0.4 + p.actual.mor * 0.3 + Math.min(40, x.s.fame / 5) + (hasTrait(p, 'leader') ? 8 : 0) + (hasTrait(p, 'social') ? 3 : 0) + p.jobLevel * 3 + normal(x.s, 0, 5);
-          if (check(x.s, score, 78, 6)) {
+            p.actual.cha * 0.4 + p.actual.mor * 0.3 + Math.min(40, x.s.fame / 5) + (pl.approval - 50) * 0.4 + (hasTrait(p, 'leader') ? 8 : 0) + (hasTrait(p, 'social') ? 3 : 0) + p.jobLevel * 2 + Math.min(6, m.fromSlush / 20000) - (x.s.fame < 150 ? 10 : 0) + normal(x.s, 0, 5);
+          if (check(x.s, score, 84, 6)) {
             setJob(p, 'president');
             addFlag(p, 'president');
+            p.pol = { approval: 65, fund: 0, slush: pl.slush, heat: pl.heat };
             x.s.fame += 150;
+            for (const q of Object.values(x.s.people)) if (q.deathYear === undefined) q.happiness = clamp(q.happiness + 20, 0, 100);
+            grant(x.s, '🇰🇷', `대통령 당선: ${fullName(p)}`, `${x.s.familyName}씨 가문에서 대통령이 나왔다!\n명성 +150 · 온 가족 행복 +20 · 재임 중 행동력 +1, 해마다 명성 +6\n퇴임 때 지지율이 50%를 넘으면 "성공한 대통령"으로 남는다. 비자금이 있다면… 퇴임 후가 두렵다.`, 'legend');
             x.s.log.push({ year: x.s.year, text: `🇰🇷 ${fullName(p)} 대통령 당선!`, kind: 'achv' });
             return `🇰🇷 당선! ${iga(who(x))} 대한민국 대통령이 되었다! 5년 단임.`;
           }
-          if (score > 60) {
+          if (score > 64) {
             householder(x.s).cash += 30000;
             return '낙선했지만 득표율 15%를 넘겨 선거비용은 보전받았다.';
           }

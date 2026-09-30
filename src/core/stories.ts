@@ -1,6 +1,12 @@
 // 일상 이야기: 데이터로 쓰는 작은 이벤트들. 나이대별로 가족 누구에게나 일어난다.
 // 효과(Eff)는 그 인물에게 적용. roll 이 있으면 능력치 판정으로 결과가 갈린다. later 로 후폭풍 예약 가능.
 
+import { HIST_STORIES, inHistory } from './histpack';
+import { DEVICE_STORIES, latest, PCS, PHONES } from './devices';
+import { ERA_STORIES } from './stories-era';
+import { AGE_STORIES } from './stories-ages';
+import { OWNED_STORIES } from './stories-owned';
+import { wageIndex } from './pay';
 import { chance, int } from './rng';
 import { eul, eun, gate, iga, schedule, type Choice, type Ctx } from './ev-util';
 import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, householder, mark, markOf, parentsOf, spouseOf } from './people';
@@ -8,6 +14,7 @@ import type { GameState, Person, StatKey } from './types';
 import type { LifeDef } from './life';
 import { MORE_STORIES } from './stories-more';
 import { severance } from './economy';
+import { JOBS } from './data';
 import { acquireCar, affordCar } from './vehicle';
 import { PATH_STORIES } from './stories-path';
 import { pathOf, type Path } from './path';
@@ -24,8 +31,11 @@ import { LIFE3_STORIES } from './stories-life3';
 import { TEMPER_STORIES } from './stories-temper';
 import { SPECIAL_STORIES } from './stories-special';
 import { SAGA_STORIES } from './stories-saga';
+import { WORK_STORIES } from './stories-work';
 
 export interface Eff {
+  /** 그해 나온 전화기·컴퓨터를 들인다 (devices.ts) */
+  gear?: 'phone' | 'pc';
   str?: number;
   int?: number;
   cha?: number;
@@ -47,6 +57,8 @@ export interface Eff {
   later?: [number, number, number, string];
   /** 보이지 않게 쌓이는 흔적 (seeds.ts) */
   mark?: Record<string, number>;
+  /** 직급 변화 (승진 +1 / 좌천 -1) */
+  promo?: number;
 }
 export interface SC {
   label: string;
@@ -85,6 +97,10 @@ export interface Story {
   student?: boolean;
   /** 이 트랙(tracks.ts: u:전공 · x:시험 · w:직업 그룹)일 때만 */
   tracks?: string[];
+  /** 근현대사 모드 전용: 이 해들에만 일어난다 */
+  era?: [number, number];
+  /** 어느 모드든 이 해들에만 일어난다 (기술·유행처럼 시대를 타는 이야기) */
+  years?: [number, number];
 }
 
 /** {n} 이름, {n이} {n은} {n을} 조사 */
@@ -101,7 +117,8 @@ function apply(x: Ctx, e: Eff | undefined) {
   for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as StatKey[]) if (e[k]) p.actual[k] = clamp(p.actual[k] + e[k]!, 0, Math.max(p.potential[k], p.actual[k]));
   if (e.hap) p.happiness = clamp(p.happiness + e.hap, 0, 100);
   if (e.aff) p.affinity = clamp(p.affinity + e.aff, -100, 100);
-  if (e.cash) (e.cash < 0 && age(x.s, p) < 20 ? householder(x.s) : p).cash += e.cash;
+  // 근현대사 모드: 이야기 속 금액은 2025년 기준이라 그 시절 소득 수준으로 줄인다
+  if (e.cash) (e.cash < 0 && age(x.s, p) < 20 ? householder(x.s) : p).cash += inHistory(x.s) ? Math.round(e.cash * wageIndex(x.s.year)) : e.cash;
   if (e.fame) x.s.fame = Math.max(0, x.s.fame + e.fame);
   if (e.study) p.study = clamp((p.study ?? 40) + e.study, 0, 100);
   if (e.bond) {
@@ -109,6 +126,7 @@ function apply(x: Ctx, e: Eff | undefined) {
     if (q && alive(q)) p.bond = q.bond = clamp((p.bond ?? 60) + e.bond, 0, 100);
   }
   if (e.flag) addFlag(p, e.flag);
+  if (e.gear) (x.s.gear ??= {})[e.gear] = latest(e.gear === 'pc' ? PCS : PHONES, x.s.year).id;
   if (e.car) {
     const r = acquireCar(x.s, p, e.car.replace('+', ''), e.car.endsWith('+'));
     if (r) x.s.log.push({ year: x.s.year, text: `🔑 ${fullName(p)} 새 차: ${r}`, kind: 'money' });
@@ -128,6 +146,7 @@ function apply(x: Ctx, e: Eff | undefined) {
     if (g) p.flags = [...p.flags.filter((f) => f !== g && f !== 'repeat_year'), 'grad:' + (Number(g.slice(5)) + 1)];
   }
   if (e.mark) for (const [k, n] of Object.entries(e.mark)) mark(p, k, n);
+  if (e.promo && JOBS[p.job]) p.jobLevel = clamp(p.jobLevel + e.promo, 0, JOBS[p.job].maxLevel);
   if (e.later && chance(x.s, e.later[0])) schedule(x.s, int(x.s, e.later[1], e.later[2]), e.later[3], p.id);
 }
 
@@ -139,6 +158,8 @@ function toChoice(sc: SC): Choice {
     run: (x) => {
       apply(x, sc.eff);
       if (sc.mark) for (const [k, n] of Object.entries(sc.mark)) mark(x.p, k, n);
+      // 부정한 선택은 가문의 스캔들 위험으로 남는다
+      if (sc.mark?.cheat && sc.mark.cheat > 0) x.s.scandal = Math.min(100, (x.s.scandal ?? 0) + sc.mark.cheat * 5);
       if (sc.roll) {
         const [k, need, win, lose] = sc.roll;
         const okk = k === 'luck' ? chance(x.s, need / 100) : check(x.s, x.p.actual[k], need, 8);
@@ -154,12 +175,15 @@ function toChoice(sc: SC): Choice {
 function toLife(st: Story): LifeDef {
   return {
     id: 'st_' + st.id,
+    raw: st.era || st.years ? undefined : [st.title, st.text, ...st.choices.map((c) => c.label + ' ' + c.text)].join(' '),
     title: () => st.title,
     text: (c) => fill(st.text, c.p),
     weight: (s, p) => {
       const a = age(s, p);
       if (a < st.age[0] || a > st.age[1] || p.inLaw) return 0;
       if (st.head && p.id !== s.headId) return 0;
+      if (st.era && !(inHistory(s) && s.year >= st.era[0] && s.year <= st.era[1])) return 0;
+      if (st.years && (s.year < st.years[0] || s.year > st.years[1])) return 0;
       if (st.once && hasFlag(p, 'st:' + st.id)) return 0;
       const last = s.storySeen?.[p.id + ':' + st.id];
       if (last !== undefined && s.year - last < (st.cooldown ?? 8)) return 0;
@@ -448,9 +472,9 @@ const S: Story[] = [
     { label: '진심을 담은 편지', mark: { family: 1 }, text: '', roll: ['cha', 40, [{ bond: 10 }, '배우자가 편지를 읽고 울었다.'], [{ bond: -3 }, '"편지로 때우려고?"']] },
     { label: '모른 척한다', mark: { hurt: 0 }, text: '냉전이 일주일 갔다.', eff: { bond: -10 } },
   ] },
-  { id: 'move', title: '이사', age: [28, 70], w: 0.03, head: true, text: '아이들 학교 때문에 이사를 고민한다. 학군지는 집값이 비싸다.', choices: [
-    { label: '학군지로 전세 이사', cost: 2000, text: '대치동 학원가 근처로 옮겼다.', eff: { hap: -2 } },
-    { label: '지금 동네가 좋다', text: '', eff: { hap: 2 } },
+  { id: 'move', title: '이사', age: [28, 70], w: 0.03, head: true, cond: hasKids, text: '아이들 학교 때문에 이사를 고민한다. 학군지는 집값이 비싸다.', choices: [
+    { label: '학군지 매물을 알아본다', text: '주말마다 학군지 매물을 보러 다녔다. 마음에 드는 곳이 있으면 자산 탭에서 옮길 수 있다.', eff: { int: 1 } },
+    { label: '지금 동네가 좋다', text: '아이들 친구가 다 여기 있다.', eff: { hap: 2 } },
   ] },
   { id: 'interior', title: '리모델링', age: [30, 75], w: 0.02, head: true, text: '집이 낡아 수리할 곳투성이다.', choices: [
     { label: '올수리', mark: { spend: 1 }, cost: 5000, text: '새집 같다. 매일 기분이 좋다.', eff: { hap: 10, bond: 4 } },
@@ -596,5 +620,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES].map(toLife);
-export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length + SUDDEN_STORIES.length + INTEREST_STORIES.length + LIFE3_STORIES.length + TEMPER_STORIES.length + SPECIAL_STORIES.length + SAGA_STORIES.length;
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES, ...HIST_STORIES, ...DEVICE_STORIES, ...ERA_STORIES, ...AGE_STORIES, ...OWNED_STORIES].map(toLife);
+export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length + SUDDEN_STORIES.length + INTEREST_STORIES.length + LIFE3_STORIES.length + TEMPER_STORIES.length + SPECIAL_STORIES.length + SAGA_STORIES.length + WORK_STORIES.length;

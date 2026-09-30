@@ -36,6 +36,16 @@ export interface Person {
   sex: Sex;
   birthYear: number;
   deathYear?: number;
+  /** 지금까지 오른 가장 높은 자리 (인생 점수용) */
+  peak?: number;
+  /** 세상을 떠날 때 매긴 인생 점수 */
+  lifeScore?: number;
+  /** 논문 편수 (대학원·교수·연구원) */
+  papers?: number;
+  /** 누적 기부액 (만원) */
+  donated?: number;
+  /** 정치인: 지지율·정치자금·비자금 */
+  pol?: { approval: number; fund: number; slush: number; heat: number };
   fatherId?: string;
   motherId?: string;
   spouseId?: string;
@@ -122,6 +132,10 @@ export interface Asset {
   tags?: string[];
   /** 유언장에 적은 받을 사람 (지정 상속) */
   heir?: string;
+  /** 작년 이맘때 시세 (올해 등락 표시) */
+  prev?: number;
+  /** 비거주 주택을 어떻게 굴리나 (전세는 deposit으로 판단) */
+  lease?: 'wolse' | 'jeonse' | 'empty';
 }
 
 /** 올해 나온 부동산 매물 */
@@ -139,6 +153,8 @@ export interface Listing {
   deposit?: number;
   /** 주택 수에 들어가는가 (아파트·오피스텔) */
   house: boolean;
+  /** 임장으로 찾은 매물 */
+  found?: boolean;
 }
 
 export interface Gift {
@@ -236,13 +252,36 @@ export interface GameState {
   missions?: Mission[];
   /** 예약된 후폭풍: 지난 선택의 결과가 몇 년 뒤 터진다 */
   scheduled?: { year: number; defId: string; personId: string; data?: any }[];
+  /** 근현대사 모드 (1960년 시작) */
+  era?: 'history';
+  /** 우리 집이 직접 들인 전화기·컴퓨터 (devices.ts 모델 id) */
+  gear?: { phone?: string; pc?: string };
+  /** 진행 중인 전쟁 (war.ts) */
+  war?: { name: string; start: number; phase: 'war' | 'truce'; truceAt?: number; dead: number };
+  /** 지난 전쟁이 끝난 해 */
+  lastWarEnd?: number;
   gameOver?: { reason: string; score: number };
   /** 올해 부동산 매물 */
   listings?: Listing[];
   /** 이야기를 마지막으로 겪은 해 (같은 이야기가 자꾸 반복되지 않게): '사람id:이야기id' → 해 */
   storySeen?: Record<string, number>;
   /** 시작 난이도 (없으면 운명에 맡김) */
-  difficulty?: 'easy' | 'normal' | 'hard';
+  difficulty?: 'easy' | 'normal' | 'hard' | 'hell';
+  /** 보상 팝업 대기열 */
+  rewards?: import('./rewards').Reward[];
+  /** 명예(✦): 쓸 수 있는 것 / 누적 (등급) */
+  glory?: number;
+  gloryTotal?: number;
+  /** 명예 상점에서 산 혜택 단계 */
+  perks?: Record<string, number>;
+  /** 명예의 전당 카드 */
+  cards?: { id: string; personId: string; year: number }[];
+  /** 가문이 받은 훈장 */
+  honors?: { id: string; personId: string; year: number }[];
+  /** 가문 스캔들 위험 (0~100): 돈 되는 지름길을 쓸수록 쌓인다 */
+  scandal?: number;
+  /** 스캔들 없이 지낸 햇수 */
+  cleanYears?: number;
   /** 라이벌 가문 */
   rival?: import('./rival').Rival;
 }

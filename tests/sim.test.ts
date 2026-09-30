@@ -5,8 +5,8 @@ import { inherit, createPerson } from '../src/core/people';
 import { next } from '../src/core/rng';
 import type { GameState } from '../src/core/types';
 
-function autoplay(seed: number, years: number): GameState {
-  const s = newGame({ seed, familyName: '김', sex: 'M', origin: 'middle' });
+function autoplay(seed: number, years: number, difficulty?: 'easy' | 'normal' | 'hard' | 'hell', each?: (s: GameState) => void): GameState {
+  const s = difficulty ? newGame({ seed, familyName: '김', sex: 'M', difficulty }) : newGame({ seed, familyName: '김', sex: 'M', origin: 'middle' });
   for (let y = 0; y < years && !s.gameOver; y++) {
     let guard = 0;
     while (s.events.length && guard++ < 300) {
@@ -22,6 +22,7 @@ function autoplay(seed: number, years: number): GameState {
     }
     expect(s.events.length).toBe(0);
     simulateYear(s);
+    each?.(s);
   }
   return s;
 }
@@ -83,4 +84,68 @@ describe('시뮬레이션', () => {
     expect(agePenalty(40)).toBeGreaterThan(agePenalty(35));
     expect(agePenalty(46)).toBeGreaterThan(agePenalty(40) + 10);
   });
+
+  it('난이도별 60년: 부모의 짐·종잣돈·배우자 활동·약속한 집 이벤트가 크래시 없이 돈다', () => {
+    const seen = new Set<string>();
+    for (const d of ['easy', 'normal', 'hard', 'hell'] as const)
+      for (const seed of [11, 12]) {
+        let woeEver = false; // 끝난 시점엔 짐이 다 풀렸을 수도 있으니 60년 동안 한 번이라도
+        const s = autoplay(seed, 60, d, (g) => (woeEver ||= Object.values(g.people).some((p) => p.flags.some((f) => f.startsWith('woe')))));
+        for (const e of s.log) for (const k of ['기초생활보장', '근로장려금', '스무 살']) if (e.text.includes(k)) seen.add(k);
+        for (const p of Object.values(s.people)) {
+          expect(Number.isFinite(p.cash)).toBe(true);
+          for (const f of p.flags) if (f.startsWith('woe')) seen.add('woe');
+        }
+        if (d === 'hell') expect(woeEver).toBe(true);
+      }
+    expect(seen.has('woe')).toBe(true);
+  }, 60000);
+
+  it('근현대사 모드: 1960년 시작, 역사 사건이 제때 오고 2030년까지 크래시 없음', () => {
+    const s = newGame({ seed: 22, familyName: '박', sex: 'M', era: 'history' });
+    expect(s.year).toBe(1960);
+    expect(s.people[s.headId].birthYear).toBe(1955);
+    const seen: string[] = [];
+    for (let y = 0; y < 70 && !s.gameOver; y++) {
+      let guard = 0;
+      while (s.events.length && guard++ < 300) {
+        const cur = currentEvent(s);
+        if (!cur) break;
+        if (cur.def.id.startsWith('hist_')) seen.push(`${s.year}:${cur.def.id}`);
+        const all = cur.choices.map((c, i) => [c, i] as const).filter(([c]) => !c.disabled);
+        const fwd = all.filter(([c]) => !c.label.startsWith('←'));
+        const pickFrom = fwd.length ? fwd : all;
+        resolveChoice(s, pickFrom[Math.floor(next(s) * pickFrom.length)][1]);
+      }
+      simulateYear(s);
+      for (const p of Object.values(s.people)) expect(Number.isFinite(p.cash)).toBe(true);
+    }
+    expect(seen).toContain('1961:hist_h516');
+    expect(seen).toContain('1979:hist_h1026');
+    expect(seen).toContain('1997:hist_himf');
+    expect(s.log.some((l) => l.text.includes('경부고속도로 개통'))).toBe(true);
+    // 2025년이 지나면 평범하게 미래로
+    expect(s.year).toBeGreaterThan(2026);
+  }, 60000);
+
+  it('전쟁: 터지면 휴전·종전까지 10여 년 흐름이 이어지고 크래시 없음', () => {
+    const s = autoplay(5, 20);
+    s.war = { name: '세계 대전', start: s.year, phase: 'war', dead: 0 };
+    s.events.push({ uid: s.eventSeq++, defId: 'war_start', personId: s.headId });
+    const phases: string[] = [];
+    for (let y = 0; y < 30 && !s.gameOver; y++) {
+      let guard = 0;
+      while (s.events.length && guard++ < 300) {
+        const cur = currentEvent(s);
+        if (!cur) break;
+        const all = cur.choices.map((c, i) => [c, i] as const).filter(([c]) => !c.disabled);
+        resolveChoice(s, all[Math.floor(next(s) * all.length)][1]);
+      }
+      simulateYear(s);
+      phases.push(s.war?.phase ?? 'peace');
+      for (const p of Object.values(s.people)) expect(Number.isFinite(p.cash)).toBe(true);
+    }
+    expect(phases).toContain('peace');
+    expect(s.log.some((l) => l.text.includes('종전'))).toBe(true);
+  }, 60000);
 });

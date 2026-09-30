@@ -5,6 +5,7 @@ import type { Asset, GameState, Listing, Person } from './types';
 import { addAsset, expectedIncome, formatMoney, pay } from './economy';
 import { alive, clamp, fullName, head, spouseOf } from './people';
 import { creditBlocked, homeOf, JEONSE_TERM, refundOf } from './housing';
+import { queueJeonseEnd, tenantYear } from './tenant';
 
 export const HOUSE_KINDS = ['apt_seoul', 'apt_local'] as const;
 export const REALTY_KINDS = ['apt_seoul', 'apt_local', 'land', 'building'] as const;
@@ -133,7 +134,7 @@ const vacancyOf = (a: Asset) => (a.tags?.includes('상가') ? 0.2 : VACANCY[a.ki
 
 /** 올해 받을 월세 (실거주·전세 낀 집·땅은 없다) */
 export function rentable(s: GameState, a: Asset): boolean {
-  return isRealty(a) && !a.deposit && !isPrimary(s, a) && yieldOf(a) > 0;
+  return isRealty(a) && !a.deposit && a.lease !== 'empty' && !isPrimary(s, a) && yieldOf(a) > 0;
 }
 
 // ───────────────────────── 한 해 정산 ─────────────────────────
@@ -175,8 +176,10 @@ export function realtyYear(s: GameState): string[] {
         if (me) sum.rent += r;
       }
     }
-    // 전세 만기: 재계약하거나 보증금을 돌려준다
-    if (a.deposit && s.year >= (a.depositEnd ?? s.year)) {
+    // 전세 만기: 우리 집이면 직접 고르고(이벤트), 남의 집은 재계약하거나 보증금을 돌려준다
+    if (a.deposit && s.year >= (a.depositEnd ?? s.year) && queueJeonseEnd(s, a)) {
+      /* 이벤트에서 처리 */
+    } else if (a.deposit && s.year >= (a.depositEnd ?? s.year)) {
       if (chance(s, 0.55)) {
         const nd = Math.round((a.value * (0.5 + next(s) * 0.15)) / 100) * 100;
         const diff = nd - a.deposit;
@@ -209,6 +212,7 @@ export function realtyYear(s: GameState): string[] {
       }
     }
   }
+  tenantYear(s, s.assets.filter((a) => isRealty(a) && (rentable(s, a) || !!a.deposit)));
   // 종합부동산세 (가구별 한 번)
   const done = new Set<string>();
   for (const p of Object.values(s.people)) {
@@ -253,6 +257,17 @@ export function realtyForecast(s: GameState, owners: Person[]): { income: [strin
 }
 
 // ───────────────────────── 매물 ─────────────────────────
+
+/** 근현대사 모드: 아파트 단지·지역이 생긴 해 (그 전엔 매물로 안 나온다) */
+const AREA_FROM: Record<string, number> = {
+  '강남구 대치동': 1979, '서초구 반포동': 1974, '송파구 잠실동': 1976, '용산구 한남동': 1970, '양천구 목동': 1986, '노원구 상계동': 1988,
+  '강서구 마곡동': 2014, '경기 분당 정자동': 1992, '경기 과천': 1982, '경기 화성 동탄2': 2015, '인천 송도': 2009, '경기 고양 일산': 1992,
+  '세종 새롬동': 2014, '천안 불당동': 2008, '대전 둔산동': 1992, '부산 해운대구': 1996, '광주 봉선동': 1990, '울산 남구': 1985, '창원 성산구': 1985,
+  '성수동 리모델링 빌딩': 2015, '역세권 오피스텔 1실': 1990, '신도시 예정지 인근 대지 100평': 1989, '신도시 근린상가 1층 점포': 1992, '홍대 꼬마빌딩 (5층)': 1990,
+};
+const eraOk = (s: GameState, t: { area: string }) => s.era !== 'history' || s.year >= (AREA_FROM[t.area] ?? 0);
+/** 1990년대까지의 아파트 이름 */
+const OLD_APT = ['주공', '시영', '현대', '한신', '삼익', '우성', '한양', '럭키', '선경', '미도', '대림', '쌍용', '삼성', '롯데'];
 
 const APT = ['래미안', '자이', '힐스테이트', '푸르지오', '아이파크', 'e편한세상', '롯데캐슬', '더샵', '센트레빌', '포레나', '스위첸', '하늘채', '주공', '현대', '한신'];
 
@@ -322,7 +337,7 @@ const TPL: Tpl[] = [
 const rng = (s: GameState, [a, b]: [number, number]) => a + next(s) * (b - a);
 const round = (v: number) => (v >= 100000 ? Math.round(v / 1000) * 1000 : Math.round(v / 100) * 100);
 
-function makeListing(s: GameState, t: Tpl, deal?: 'bargain'): Listing {
+function makeListing(s: GameState, t: Tpl, deal?: 'bargain' | 'prime'): Listing {
   const tags = (t.tags ?? []).filter(([, p]) => chance(s, p)).map(([x]) => x);
   let m = rng(s, t.m);
   let drift = t.drift ?? 0;
@@ -333,7 +348,14 @@ function makeListing(s: GameState, t: Tpl, deal?: 'bargain'): Listing {
   if (tags.includes('학군지')) drift += 0.004;
   if (tags.includes('재건축 기대')) y -= 0.004;
   const r = next(s);
-  if (deal === 'bargain' || r < 0.18) {
+  if (deal === 'prime') {
+    // 발품으로 찾은 알짜: 값은 시세 그대로지만 입지가 좋아 꾸준히 오른다
+    const extra = pick(s, [['역세권', 0.004], ['학군지', 0.004], ['재건축 확정', 0.008], ['GTX 개통 예정', 0.007], ['대단지 신축', 0.005]] as [string, number][]);
+    if (!tags.includes(extra[0])) tags.push(extra[0]);
+    drift += extra[1];
+    m *= 0.97 + next(s) * 0.06;
+    tags.push('알짜');
+  } else if (deal === 'bargain' || r < 0.18) {
     m *= deal === 'bargain' ? 0.76 + next(s) * 0.1 : 0.86 + next(s) * 0.07;
     tags.push('급매');
   } else if (r > 0.82) {
@@ -342,7 +364,7 @@ function makeListing(s: GameState, t: Tpl, deal?: 'bargain'): Listing {
   }
   const price = round(s.market[t.kind] * m);
   const house = t.house ?? (HOUSE_KINDS as readonly string[]).includes(t.kind);
-  const name = t.noApt ? t.area : `${t.area} ${pick(s, APT)} ${t.py}평`;
+  const name = t.noApt ? t.area : `${t.area} ${pick(s, s.era === 'history' && s.year < 1999 ? OLD_APT : APT)} ${t.py}평`;
   const l: Listing = { id: 'l' + s.idSeq++, kind: t.kind, name, price, tags, beta: t.beta ?? 1, drift, vol: t.vol ?? (t.kind === 'land' ? 0.04 : 0.02), yield: Math.max(0, y), house };
   if (house && !t.noApt && deal !== 'bargain' && chance(s, 0.3)) {
     l.deposit = round(price * (0.5 + next(s) * 0.22));
@@ -360,7 +382,7 @@ function pickTpl(s: GameState, pool: Tpl[]): Tpl {
 
 /** 올해 매물 새로 깔기: 서울·수도권 2~3, 지방 1~2, 건물·상가 1~2, 땅 1 */
 export function rollListings(s: GameState) {
-  const by = (k: string) => TPL.filter((t) => t.kind === k);
+  const by = (k: string) => TPL.filter((t) => t.kind === k && eraOk(s, t));
   const out: Listing[] = [];
   const n = { apt_seoul: int(s, 2, 3), apt_local: int(s, 1, 2), building: int(s, 1, 2), land: 1 };
   for (const [k, c] of Object.entries(n)) {
@@ -374,12 +396,14 @@ export function rollListings(s: GameState) {
   s.listings = out;
 }
 
-/** 발품(임장)으로 찾은 급매 */
-export function addBargains(s: GameState, n = 2): Listing[] {
+/** 발품(임장)으로 찾은 급매·알짜 매물 */
+export function addBargains(s: GameState, n = 2, prime = 0): Listing[] {
   const found: Listing[] = [];
-  for (let i = 0; i < n; i++) {
-    const t = pickTpl(s, TPL.filter((x) => x.kind !== 'land' || chance(s, 0.3)));
-    found.push(makeListing(s, t, 'bargain'));
+  const pool = TPL.filter((x) => (x.kind !== 'land' || chance(s, 0.3)) && eraOk(s, x));
+  for (let i = 0; i < n + prime; i++) {
+    const l = makeListing(s, pickTpl(s, pool), i < n ? 'bargain' : 'prime');
+    l.found = true;
+    found.push(l);
   }
   (s.listings ??= []).unshift(...found);
   return found;

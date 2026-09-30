@@ -1,10 +1,14 @@
 import { chance, int, normal, pick } from './rng';
 import { prepBonus as prepMark } from './tracks';
 import { ART_TIERS, DREAM_QUOTES, EXAMS, JOB_CATS, JOB_IDS, JOBS, PREP_TIERS, STAT_NAMES, SURNAMES, TAG_NAMES, TALENTS } from './data';
+import { jobOpen } from './histidx';
+import { anachronistic } from './histpack';
 import { MAJOR_JOBS } from './school';
 import { startDating } from './romance';
 import { appealBonus } from './marks';
 import { unlock } from './achievements';
+import { campaignMoney, fameNeed, polOf } from './career';
+import { grant } from './rewards';
 import { dreamQuote, fitCats, interestBonus, interestLevel, temperamentLine, topInterests } from './interests';
 import { buyPower } from './leverage';
 import { addAsset, formatMoney, jobLabel, jobTitle, pay, personWorth, statScore } from './economy';
@@ -52,6 +56,7 @@ import {
   type Ctx,
   type EventDef,
   type RandomDef,
+  spendable,
 } from './ev-util';
 export type { Choice, Ctx, EventDef, RandomDef } from './ev-util';
 export { spendable, setStudy, exposeFakes, queueNext } from './ev-util';
@@ -190,7 +195,7 @@ const dream: EventDef = {
   title: () => '장래희망',
   text: (c) => {
     c.p.desire = c.p.desire ?? computeDesire(c.p);
-    c.ev.data ??= { quote: dreamQuote(c.s, c.p) ?? pick(c.s, DREAM_QUOTES[c.p.desire]) };
+    c.ev.data ??= { quote: dreamQuote(c.s, c.p) ?? pick(c.s, DREAM_QUOTES[c.p.desire].filter((q) => !anachronistic(c.s, q)).concat(DREAM_QUOTES[c.p.desire].every((q) => anachronistic(c.s, q)) ? ['훌륭한 사람이 될래요!'] : [])) };
     return `${iga(who(c))} 진지하게 말한다.\n"${c.ev.data.quote}"`;
   },
   choices: (c) => gate(c.s, [
@@ -502,6 +507,7 @@ function jobChoice(c: Ctx, id: string): Choice | undefined {
   const j = JOBS[id];
   const e = j?.entry;
   if (!e || id === 'none') return;
+  if (!jobOpen(c.s.era, c.s.year, id)) return; // 아직 없는 직업 · 이미 사라진 직업
   const p = c.p;
   const a = age(c.s, p);
   const lacks = (e.needFlags && !e.needFlags.some((f) => hasFlag(p, f))) || (e.univ && !hasUniv(p)) || (e.maxAge !== undefined && a > e.maxAge);
@@ -580,7 +586,7 @@ function specialChoices(c: Ctx, cat: string): Choice[] {
   if (cat === 'edu' || cat === 'tech' || cat === 'rec')
     out.push({
       label: '대학원 진학 (→ 교수·연구원)',
-      cost: 3000,
+      cost: 4500,
       req: [req('int', 70), '대학 졸업', '수재 유리'],
       tag: 'study',
       disabled: !univ,
@@ -1079,33 +1085,54 @@ const grievance: EventDef = {
 const election: EventDef = {
   id: 'election',
   title: (c) => (c.p.job === 'politician' ? '재선 도전' : '출마 제안'),
-  text: (c) =>
-    c.p.job === 'politician'
-      ? `${who(c)} 의원의 임기가 끝나간다. 다음 총선에 나갈까? (당선 ${c.p.jobLevel + 1}회)`
-      : `정당에서 ${who(c)}에게 국회의원 출마를 제안해 왔다. 선거에는 돈이 든다.`,
+  text: (c) => {
+    const inc = c.p.job === 'politician';
+    const pl = polOf(c.p);
+    const cost = inc ? 10000 : 20000;
+    const m = campaignMoney(c.p, cost);
+    return (
+      (inc
+        ? `${who(c)} 의원의 임기가 끝나간다. 다음 총선에 나갈까? (당선 ${c.p.jobLevel + 1}회)\n지지율 ${pl.approval}% · 정치자금 ${formatMoney(pl.fund)}${pl.slush ? ` · 비자금 ${formatMoney(pl.slush)}` : ''}`
+        : `정당에서 ${who(c)}에게 국회의원 출마를 제안해 왔다. 공천 경쟁부터 치열하다.`) +
+      `\n선거비용 ${formatMoney(cost)} (정치자금 → 비자금 → 집안 돈 순서로 쓴다${m.short ? ` · 집에서 ${formatMoney(m.short)} 더 필요` : ''})` +
+      `\n가문 명성 ${Math.round(c.s.fame)} / 필요 ${fameNeed({ ...c.p, job: 'politician', jobLevel: inc ? c.p.jobLevel + 1 : 0 } as Person)}`
+    );
+  },
   choices: (c) => {
     const inc = c.p.job === 'politician';
     const cost = inc ? 10000 : 20000;
+    const m = campaignMoney(c.p, cost);
+    const needFame = 25 + (inc ? c.p.jobLevel + 1 : 0) * 12;
     return gate(c.s, [
       {
         label: inc ? '재선에 도전한다' : '출마한다',
-        cost,
-        req: [req('cha', 60), req('mor', 50), '가문 명성'],
+        req: [req('cha', 60), req('mor', 50), `명성 ${needFame}`, ...(m.fromSlush ? ['비자금 사용'] : [])],
         tag: 'public',
+        disabled: m.short > spendable(c.s) || c.s.fame < needFame * 0.7,
         run: (x) => {
-          const score = x.p.actual.cha * 0.5 + x.p.actual.mor * 0.3 + Math.min(30, x.s.fame / 3) + (inc ? 8 + x.p.jobLevel * 2 : 0);
-          if (check(x.s, score, 58, 8)) {
+          const pl = polOf(x.p);
+          pl.fund -= m.fromFund;
+          pl.slush -= m.fromSlush;
+          if (m.fromSlush) pl.heat += 10;
+          if (m.short) pay(x.s, householder(x.s), m.short);
+          const score =
+            x.p.actual.cha * 0.45 + x.p.actual.mor * 0.25 + Math.min(25, x.s.fame / 4) + (inc ? (pl.approval - 45) * 0.45 + x.p.jobLevel * 1.5 : 0) + Math.min(8, m.fromSlush / 6000) - (x.s.fame < needFame ? 8 : 0) + (hasTrait(x.p, 'leader') ? 4 : 0);
+          if (check(x.s, score, 62, 7)) {
             if (inc) {
               x.p.jobLevel = Math.min(JOBS.politician.maxLevel, x.p.jobLevel + 1);
               x.p.jobYears = 0;
-            } else setJob(x.p, 'politician', 0);
+            } else {
+              setJob(x.p, 'politician', 0);
+              x.p.pol = { approval: 50, fund: 0, slush: pl.slush, heat: pl.heat };
+            }
             addFlag(x.p, 'was_politician');
             x.s.fame += 10;
+            grant(x.s, '🗳', inc ? `${x.p.jobLevel + 1}선 고지: ${who(x)}` : `국회의원 당선: ${who(x)}`, inc ? '지역구를 또 지켜냈다. 당내 위상이 올라간다.' : '금배지를 달았다! 이제 지지율·정치자금·명성을 관리해야 살아남는다.', inc && x.p.jobLevel >= 3 ? 'legend' : 'epic');
             return `🗳 당선! ${who(x)} 의원${inc ? `, ${x.p.jobLevel + 1}선 고지에 올랐다` : '이 탄생했다'}. (명성 +10)` + applyDesire(x, 'public');
           }
           if (inc) setJob(x.p, age(x.s, x.p) >= 65 ? 'pension' : 'office', 3);
           x.s.fame += 2;
-          return inc ? '낙선했다. 정계를 떠나 기업 고문으로 자리를 옮겼다.' : '아깝게 낙선했다. 그래도 이름은 알렸다.';
+          return inc ? `낙선했다. (지지율 ${pl.approval}%) 정계를 떠나 기업 고문으로 자리를 옮겼다.` : '공천은 받았지만 아깝게 낙선했다. 그래도 이름은 알렸다.';
         },
       },
       {

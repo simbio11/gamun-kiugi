@@ -32,12 +32,27 @@ import {
   TALENTS,
   WILL_NAMES,
 } from '../core/data';
-import { advisorFee, assessedValue, assetsOf, forecast, formatMoney, jobTitle, personWorth } from '../core/economy';
+import { advisorFee, assessedValue, assetsOf, forecast, formatMoney, jobTitle, personWorth, setMoneyYear, setNominal } from '../core/economy';
 import { estateTax, previewAssetGiftTax, previewGiftTax } from '../core/estate';
 import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
 import { MISSIONS } from '../core/missions';
 import { rivalLine, rivalMood } from '../core/rival';
+import { FOCUS_LABEL, focusOf } from '../core/spouse';
+import { govOf } from '../core/history';
+import { epochOf, newsMedium, newsStyle, type AlertMedia } from '../core/timeline';
+import { warChip } from '../core/war';
+import { anachronistic, inHistory, periodize, setHistCur } from '../core/histpack';
+import { jeonseRatio, LEASE_NAME, leaseOf, setLease, type Lease } from '../core/tenant';
+import { WOES, woesOf } from '../core/woes';
+import { chooseSuccessor } from '../core/estate';
+import { HONOR_JOBS, scandalLabel } from '../core/scandal';
+import { willLine, willOf } from '../core/autonomy';
+import { buyPerk, HONORS, PERKS, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
+import { fameNeed } from '../core/career';
+import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
+import { cardBackURL, cardFrontURL, crestURL, medalURL, type Theme } from '../render/cardart';
+import { familyScore, lifeGrade, lifeParts } from '../core/score';
 import { pendingAffairs } from '../core/fate';
 import { ACTIONS, STAGE_NAMES, apLeft, apMax, doAction, forHead, stageOf, type ActionCat } from '../core/actions';
 import { spendable as canSpend } from '../core/ev-util';
@@ -64,7 +79,10 @@ import {
 } from '../core/sim';
 import type { Difficulty } from '../core/sim';
 import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, MarketKey, Person, Sex, WillMode } from '../core/types';
-import { portraitURL } from '../render/portrait';
+import { portraitURL, looksOf } from '../render/portrait';
+import { sceneFor, sceneURL } from '../render/scene';
+import { bustURL } from '../render/bust';
+import { commEvent, pcOf, phoneOf, type CommKind } from '../core/devices';
 
 type Tab = 'tree' | 'act' | 'policy' | 'assets' | 'log' | 'achv';
 type Zoom = 'big' | 'mid' | 'small';
@@ -81,10 +99,18 @@ interface UIState {
   toast?: string;
   giftTo?: string;
   settings?: boolean;
+  /** 저장 슬롯·코드 안내 한 줄 */
+  saveMsg?: string;
   actCat?: string;
   assetSub?: string;
+  /** 크게 보고 있는 명예의 전당 카드 */
+  cardView?: string;
+  /** 훈장 보기: g.honors 인덱스 */
+  honorView?: number;
+  /** 업적 탭에서 펼친 목록 (카드 도감·시너지) */
+  open?: Record<string, boolean>;
   confirmReset?: boolean;
-  setup: { surname: string; sex: Sex; origin: Difficulty | 'random' };
+  setup: { surname: string; sex: Sex; origin: Difficulty | 'random'; era?: 'modern' | 'history' };
 }
 
 const SAVE_KEY = 'gamun-kiugi-save-v1';
@@ -98,8 +124,10 @@ interface Prefs {
   vibe?: boolean;
   calm?: boolean;
   text?: TextSize;
+  money?: 'nominal' | 'real';
 }
 const prefs: Prefs = loadPrefs();
+setNominal(prefs.money !== 'real');
 setSound(prefs.sound ?? true);
 setVibe(prefs.vibe ?? true);
 const ui: UIState = {
@@ -140,6 +168,84 @@ function save() {
     /* 저장 불가 환경 */
   }
 }
+// ───────── 저장 슬롯 (자동 저장과 별개로 3칸) · 저장 코드 (다른 기기로 옮기기) ─────────
+const SLOT_KEY = (i: number) => `gamun-kiugi-slot-${i}`;
+interface SlotInfo {
+  label: string;
+  at: number;
+}
+function slotInfo(i: number): SlotInfo | null {
+  try {
+    const raw = localStorage.getItem(SLOT_KEY(i) + '-info');
+    return raw ? (JSON.parse(raw) as SlotInfo) : null;
+  } catch {
+    return null;
+  }
+}
+const slotLabel = (g: GameState) => `${g.familyName}씨 ${g.generation}대 · ${g.year}년 · ${fullName(head(g))} ${age(g, head(g))}세`;
+function saveSlot(i: number): boolean {
+  try {
+    if (!ui.game) return false;
+    localStorage.setItem(SLOT_KEY(i), JSON.stringify(ui.game));
+    localStorage.setItem(SLOT_KEY(i) + '-info', JSON.stringify({ label: slotLabel(ui.game), at: Date.now() }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+function loadSlot(i: number): GameState | null {
+  try {
+    const raw = localStorage.getItem(SLOT_KEY(i));
+    return raw ? migrate(JSON.parse(raw) as GameState) : null;
+  } catch {
+    return null;
+  }
+}
+function deleteSlot(i: number) {
+  try {
+    localStorage.removeItem(SLOT_KEY(i));
+    localStorage.removeItem(SLOT_KEY(i) + '-info');
+  } catch {
+    /* noop */
+  }
+}
+/** 저장 코드: 게임 상태 JSON을 base64로 (유니코드 안전) */
+const CODE_HEAD = 'GAMUN1:';
+function exportCode(g: GameState): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(g));
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return CODE_HEAD + btoa(bin);
+}
+function importCode(code: string): GameState | null {
+  try {
+    const t = code.trim();
+    if (!t.startsWith(CODE_HEAD)) return null;
+    const bin = atob(t.slice(CODE_HEAD.length));
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const g = JSON.parse(new TextDecoder().decode(bytes)) as GameState;
+    return g && g.people && g.headId ? migrate(g) : null;
+  } catch {
+    return null;
+  }
+}
+const whenLabel = (at: number) => {
+  const d = new Date(at);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+/** 슬롯 목록 (설정: 저장·불러오기·삭제 / 첫 화면: 불러오기만) */
+function slotRows(inGame: boolean): string {
+  return [1, 2, 3]
+    .map((i) => {
+      const inf = slotInfo(i);
+      return `<div class="slot ${inf ? '' : 'empty'}">
+        <div class="slot-i"><b>슬롯 ${i}</b><small>${inf ? `${esc(inf.label)}<br>${whenLabel(inf.at)} 저장` : '비어 있음'}</small></div>
+        <div class="slot-b">${inGame ? `<button class="mini" data-action="slot-save" data-v="${i}">${inf ? '덮어쓰기' : '저장'}</button>` : ''}${inf ? `<button class="mini" data-action="slot-load" data-v="${i}">불러오기</button>` : ''}${inf && inGame ? `<button class="mini ghost" data-action="slot-del" data-v="${i}">🗑</button>` : ''}</div>
+      </div>`;
+    })
+    .join('');
+}
+
 function clearSave() {
   try {
     localStorage.removeItem(SAVE_KEY);
@@ -162,7 +268,9 @@ function back(): boolean {
   const g = ui.game;
   if (!g) return false;
   if (ui.settings || ui.sheet) return (ui.settings = ui.confirmReset = false), (ui.sheet = undefined), render(), true;
+  if (ui.cardView || ui.honorView !== undefined) return (ui.cardView = ui.honorView = undefined), (fx.modalKey = ''), render(), true;
   if (ui.outcome) return (ui.outcome = undefined), (fx.modalKey = ''), render(), true;
+  if (ui.game?.rewards?.length) return ui.game.rewards.shift(), (fx.modalKey = ''), render(), true;
   if (ui.report) return (ui.report = undefined), (fx.modalKey = ''), render(), true;
   if (g.events.length || g.gameOver) return true;
   if (ui.tab !== 'tree') return (ui.tab = 'tree'), render(), true;
@@ -181,6 +289,12 @@ export function mount(el: HTMLElement) {
   root.addEventListener('click', onClick);
   root.addEventListener('touchstart', () => {}, { passive: true }); // iOS에서 :active 눌림 효과 켜기
   root.addEventListener('input', onInput);
+  root.addEventListener('pointermove', tilt);
+  root.addEventListener('pointerdown', spinStart);
+  root.addEventListener('pointermove', spinMove);
+  root.addEventListener('pointerup', spinEnd);
+  root.addEventListener('pointercancel', spinEnd);
+  root.addEventListener('pointerleave', tilt, true);
   render();
 }
 
@@ -188,18 +302,48 @@ export function mount(el: HTMLElement) {
 
 function render() {
   const g = ui.game;
+  if (g) setMoneyYear(g.year), setHistCur(g); // 성향(MBTI) 표시 같은 시대 판단을 화면에도
   root.classList.toggle('calm', !!prefs.calm);
+  // 근현대사 모드: 시대 분위기 (1960~70년대 신문지·1980년대·1990~2000년대)
+  const hy = ui.game?.era === 'history' && ui.game.year <= 2025 ? ui.game.year : 0;
+  root.classList.toggle('hist', !!hy);
+  root.dataset.decade = hy ? (hy < 1980 ? '60' : hy < 1990 ? '80' : '90') : '';
+  // 먼 미래: 시대마다 화면 빛깔이 달라진다 (2040년대 로봇 → 2050년대 녹색 → 2060~70년대 우주 → 2080년대 신인류 → 22세기)
+  const fy = ui.game && ui.game.year >= 2040 ? ui.game.year : 0;
+  root.classList.toggle('fut', !!fy);
+  root.dataset.epoch = fy ? epochOf(fy).theme : '';
+  root.classList.toggle('wartime', ui.game?.war?.phase === 'war');
   root.classList.toggle('text-s', prefs.text === 's');
   root.classList.toggle('text-l', prefs.text === 'l');
   if (!g) {
     root.innerHTML = titleScreen();
     return;
   }
+  // 일반 보상은 화면을 막지 않고 위에 반짝 떴다 사라진다
+  const commons = (g.rewards ?? []).filter((r) => r.rarity === 'common');
+  if (commons.length) {
+    g.rewards = g.rewards!.filter((r) => r.rarity !== 'common');
+    for (const r of commons) fx.chips.push({ id: r.id, text: `${r.icon} ${r.title}`, pts: r.pts });
+    sfx('coin');
+    for (const r of commons) setTimeout(() => ((fx.chips = fx.chips.filter((c) => c.id !== r.id)), root.querySelector(`.rw-chip[data-id="${r.id}"]`)?.remove()), 3600);
+  }
   let modal = '';
   let modalKey = '';
   if (g.gameOver) (modal = gameOverModal(g)), (modalKey = 'over');
   else if (ui.report) (modal = reportModal(ui.report)), (modalKey = 'rep' + ui.report.title);
   else if (ui.outcome) (modal = outcomeModal(ui.outcome)), (modalKey = 'out' + ui.outcome.title + ui.outcome.text);
+  else if (g.rewards?.length) {
+    const rw = g.rewards[0];
+    modal = rewardModal(rw);
+    modalKey = 'rw' + rw.id;
+    if (fx.rewardShown !== rw.id) {
+      fx.rewardShown = rw.id;
+      sfx(rw.rarity === 'legend' ? 'legend' : rw.rarity === 'epic' ? 'fanfare' : 'great');
+      buzz(rw.rarity === 'legend' ? 180 : rw.rarity === 'epic' ? 90 : 40);
+    }
+  }
+  else if (ui.cardView && CARD[ui.cardView]) (modal = cardViewer(g, ui.cardView)), (modalKey = 'card' + ui.cardView);
+  else if (ui.honorView !== undefined && g.honors?.[ui.honorView]) (modal = honorViewer(g, ui.honorView)), (modalKey = 'honor' + ui.honorView);
   else if (g.events.length) {
     modal = eventModal(g);
     const ev = g.events[0];
@@ -215,6 +359,7 @@ function render() {
     ${nav()}
     ${modal}
     ${ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ''}
+    ${fx.chips.length ? `<div class="rw-chips">${fx.chips.map((c) => `<div class="rw-chip" data-id="${c.id}">${esc(c.text)}${c.pts ? ` <b>+${c.pts}✦</b>` : ''}</div>`).join('')}</div>` : ''}
   `;
   // 새로 뜬 것만 움직인다: 같은 창이 다시 그려질 땐 가만히
   const m = root.querySelector('.modal');
@@ -291,7 +436,7 @@ function track(name: string, title = name) {
 }
 
 /** 직전 화면 상태 (애니메이션을 새로 생긴 것에만 주려고) */
-const fx: { modalKey: string; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number; assetSub?: string } = { modalKey: '' };
+const fx: { modalKey: string; likelyHeir?: string; chips: { id: number; text: string; pts: number }[]; rewardShown?: number; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number; assetSub?: string } = { modalKey: '', chips: [] };
 const TAB_ORDER: Tab[] = ['tree', 'act', 'policy', 'assets', 'log', 'achv'];
 
 function titleScreen(): string {
@@ -309,15 +454,23 @@ function titleScreen(): string {
       </div>
     </div>
     ${hasSave ? `<button class="btn big" data-action="continue">이어하기</button>` : ''}
+    ${[1, 2, 3].some((i) => slotInfo(i)) ? `<section class="card"><h2>💾 저장한 가문</h2>${slotRows(false)}</section>` : ''}
+    <details class="card code-box"><summary>📋 저장 코드로 불러오기</summary>
+      <p class="fine">다른 기기에서 복사한 저장 코드(GAMUN1:로 시작)를 붙여넣는다.</p>
+      <textarea id="save-code" rows="3" placeholder="GAMUN1:..."></textarea>
+      <button class="btn wide" data-action="code-load">불러오기</button>
+      ${ui.saveMsg ? `<p class="fine">${esc(ui.saveMsg)}</p>` : ''}
+    </details>
     <section class="card">
       <h2>새 가문 세우기</h2>
       <label class="field">가문의 성씨
         <input id="surname" maxlength="2" value="${esc(o.surname)}" autocomplete="off">
       </label>
       <div class="field">나의 성별 ${seg('setup-sex', o.sex, [['M', '남'], ['F', '여']])}</div>
-      <div class="field">난이도 (태어날 집안과 유전자) ${seg('setup-origin', o.origin, [['random', '🎲 운명에 맡긴다'], ['easy', '쉬움'], ['normal', '보통'], ['hard', '어려움']])}</div>
+      <div class="field">난이도 (태어날 집안과 유전자) ${seg('setup-origin', o.origin, [['random', '🎲 운명'], ['easy', '쉬움'], ['normal', '보통'], ['hard', '어려움'], ['hell', '🔥지옥']])}</div>
       <p class="fine">${o.origin === 'random' ? '집안 형편(서민 30%·중산층 52%·부유층 18%), 부모 직업·재산, 타고난 능력치와 재능 모두 운에 맡긴다.' : `<b>${DIFFICULTY[o.origin].name}</b> — ${DIFFICULTY[o.origin].desc}`}<br>다섯 살부터 시작한다. 형제자매는 태어나 봐야 안다.</p>
-      <div class="field">시대 <div class="seg"><button class="on">현대 한국</button><button disabled>근현대사 (준비 중)</button></div></div>
+      <div class="field">시대 ${seg('setup-era', o.era ?? 'modern', [['modern', '현대 한국 (2025~)'], ['history', '📜 근현대사 (1960~)']])}</div>
+      ${o.era === 'history' ? `<p class="fine hist-note">1960년 봄, 4·19 혁명의 해에 다섯 살 아이로 태어난다 (1955년생). 5·16, 산업화, 유신, 광주, 6월 항쟁, 올림픽, IMF, 월드컵, 촛불까지 — 해마다 실제 신문 기사가 오고, 큰 사건은 호외·TV 속보로 들이닥친다. 그 시절엔 없던 직업·입시 전형·복지는 열리지 않고, 집값·땅값·주가는 실제 역사대로 오르내린다. 2026년부터는 미래로 이어진다.</p>` : ''}
       <button class="btn big primary" data-action="start">가문 시작</button>
     </section>
     <p class="fine">v0.3 · 다섯 살부터 · 직업 119종 · 수능과 입시 · 인생사 · 업적 70+</p>
@@ -326,8 +479,11 @@ function titleScreen(): string {
 
 function demoPerson(sex: Sex, i: number): Person {
   return {
-    genes: { hairStyle: i + 1, hairColor: i % 3, skin: i % 4, eyes: i % 3 },
+    id: `demo-${sex}-${i}`,
+    name: '데모',
     sex,
+    birthYear: 1985,
+    genes: { hairStyle: i + 1, hairColor: i % 3, skin: i % 4, eyes: i % 3, face: i % 5, brows: i % 5, mouth: i % 5, mark: 0 },
     job: i === 0 ? 'office' : i === 1 ? 'doctor' : 'none',
   } as Person;
 }
@@ -473,12 +629,14 @@ function header(g: GameState): string {
     <div class="top-l">
       <div class="year">${g.year}년 <button class="gear" data-action="settings" title="설정" aria-label="설정">⚙</button></div>
       <div class="fam">${esc(g.familyName)}씨 ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
-      <div class="fam">명성 ${Math.round(g.fame)}</div>
+      ${g.era === 'history' && g.year <= 2025 ? `<div class="fam gov">🏛 ${esc(govOf(g.year))}</div>` : `<div class="fam gov">${epochOf(g.year).icon} ${esc(epochOf(g.year).name)}</div>`}
+      ${g.war ? `<div class="fam war-chip ${g.war.phase}">${esc(warChip(g))}</div>` : ''}
+      <div class="fam">명성 ${Math.round(g.fame)}${(g.scandal ?? 0) >= 10 ? ` · <span class="scandal-chip" title="가문 스캔들 위험 ${Math.round(g.scandal ?? 0)}">${scandalLabel(g.scandal ?? 0)}</span>` : ''} · <button class="rank-chip" data-action="tab" data-v="achv">${RANKS[rankOf(g)].icon} ${RANKS[rankOf(g)].name} <b>${g.glory ?? 0}✦</b></button></div>
     </div>
     <button class="top-r" data-action="tab" data-v="assets" data-sub="sum" title="자산 탭에서 내년 가계부 보기">
       <div class="money">${w.label} <span class="amt">${formatMoney(fx.wallet !== undefined && fx.walletLabel === w.label ? fx.wallet : w.amount)}</span></div>
       <div class="flow">내년 <b class="${f.net < 0 ? 'neg' : 'pos'}">${f.net < 0 ? '' : '+'}${formatMoney(f.net)}</b> <small>(수입 ${formatMoney(inc)} · 지출 ${formatMoney(exp)})</small></div>
-      ${w.label.includes('부모님') && (h.cash || f.mine) ? `<div class="fame">내 통장 ${formatMoney(h.cash)}${f.mine ? ` (+${formatMoney(f.mine)}/년)` : ''}</div>` : ''}
+      ${w.label.includes('부모님') && (h.cash || f.mine) ? `<div class="fame">내 통장 ${formatMoney(h.cash)}${f.mine ? ` (${f.mine.net < 0 ? "" : "+"}${formatMoney(f.mine.net)}/년)` : ''}</div>` : ''}
     </button>
   </header>`;
 }
@@ -502,10 +660,11 @@ function realtyCard(g: GameState): string {
         ...(a.tags ?? []).filter((t) => t !== '주택').map((t) => `<b class="tag">${esc(t)}</b>`),
       ].join('');
       return `<div class="re">
-        <div class="re-h"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}</span><b>${formatMoney(a.value)}</b></div>
+        <div class="re-h"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}</span><b>${formatMoney(a.value)}${chg(a)}</b></div>
         <div class="re-t">${role}${extra}</div>
         <div class="re-f"><small>${a.cost ? `산 값 ${formatMoney(a.cost)} (${gain >= 0 ? '+' : ''}${formatMoney(gain)}) · ` : ''}팔면 양도세 ${formatMoney(gt.tax)}${gt.note ? ` (${esc(gt.note)})` : ''}</small>
           <span>${a.loan ? `<button class="mini" data-action="repay" data-id="${a.id}" ${h.cash > 0 ? '' : 'disabled'}>대출 갚기</button>` : ''}${a.ownerId === h.id ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>
+        ${!prim && isHouse(a) ? leaseRow(g, a) : ''}
       </div>`;
     })
     .join('');
@@ -514,9 +673,10 @@ function realtyCard(g: GameState): string {
       const q = buyQuote(g, h, l);
       const ok = adult && q.cash >= q.need;
       const tx = acqTax(g, h, l);
-      return `<div class="re listing">
+      return `<div class="re listing ${l.found ? 'found' : ''}">
+        ${l.found ? '<i class="re-found">🔎 임장으로 찾은 매물</i>' : ''}
         <div class="re-h"><span>${ASSET_ICONS[l.kind]} ${esc(l.name)}</span><b>${formatMoney(l.price)}</b></div>
-        <div class="re-t">${l.tags.filter((t) => t !== '주택').map((t) => `<b class="tag ${t === '급매' ? 'hot' : t === '호가 높음' ? 'warn' : ''}">${esc(t)}</b>`).join('')}${l.yield > 0 && !l.deposit ? `<b class="tag">월세 ${(l.yield * 100).toFixed(1)}%</b>` : ''}${l.house ? (l.kind === 'building' ? '<b class="tag">주택 수 포함</b>' : '') : '<b class="tag">주택 수 제외</b>'}</div>
+        <div class="re-t">${l.tags.filter((t) => t !== '주택').map((t) => `<b class="tag ${t === '급매' ? 'hot' : t === '호가 높음' ? 'warn' : t === '알짜' || t === '재건축 확정' || t === 'GTX 개통 예정' ? 'good' : ''}">${esc(t)}</b>`).join('')}${l.yield > 0 && !l.deposit ? `<b class="tag">월세 ${(l.yield * 100).toFixed(1)}%</b>` : ''}${l.house ? (l.kind === 'building' ? '<b class="tag">주택 수 포함</b>' : '') : '<b class="tag">주택 수 제외</b>'}</div>
         <div class="re-f"><small>${l.deposit ? `보증금 ${formatMoney(l.deposit)} 끼고 · ` : ''}취득세 ${formatMoney(q.tax)} (${tx.note}) · 대출 최대 ${formatMoney(q.limit)}${q.ltv ? ` (LTV ${Math.round(q.ltv * 100)}%)` : ''}<br>필요 현금 <b>${formatMoney(Math.max(0, q.need))}</b></small>
           <button class="mini" data-action="buy-l" data-id="${l.id}" ${ok ? '' : 'disabled'}>매수</button></div>
       </div>`;
@@ -530,6 +690,33 @@ function realtyCard(g: GameState): string {
     ${listings || '<p class="hint">올해는 매물이 다 나갔다.</p>'}
     <details class="moves"><summary>부동산 세금·규칙 보기</summary><p class="fine">첫 집(실거주)은 월세가 없는 대신 재산세가 싸고, 2년 넘게 살면 12억까지 양도세 비과세.<br>두 번째 집부터는 투자: 취득세 8%(3채 이상 12%), 대출 LTV 30%(3채부터 0%), 공시가 9억 넘으면 종부세, 팔 때 양도세 중과. 월세는 공실이면 0원.<br>전세 낀 매물은 적은 돈으로 살 수 있지만(갭투자), 만기에 세입자가 나가면 보증금을 돌려줘야 한다.</p></details>
   </section>`;
+}
+
+/** 비거주 주택: 월세·전세·비워 두기 */
+function leaseRow(g: GameState, a: Asset): string {
+  const cur = leaseOf(a);
+  const o = g.people[a.ownerId];
+  const dep = Math.round(a.value * jeonseRatio(a));
+  const btn = (to: Lease, label: string, sub: string, dis = false) =>
+    `<button class="lease-b ${cur === to ? 'on' : ''}" data-action="lease" data-id="${a.id}" data-v="${to}" ${cur === to || dis ? 'disabled' : ''}><b>${label}</b><small>${sub}</small></button>`;
+  const needBack = cur === 'jeonse' && (o?.cash ?? 0) < (a.deposit ?? 0);
+  return `<div class="lease">
+    <span class="lease-now">🔑 ${LEASE_NAME[cur]}</span>
+    <div class="lease-row">
+      ${btn('wolse', '월세', `연 ${formatMoney(Math.round(a.value * yieldOf(a)))} (${(yieldOf(a) * 100).toFixed(1)}%)`, needBack)}
+      ${btn('jeonse', '전세', `보증금 ~${formatMoney(dep)} 받음`)}
+      ${btn('empty', '비워 두기', '월세 0 · 언제든 입주·매도', needBack)}
+    </div>
+    ${needBack ? `<small class="fine">전세를 빼려면 보증금 ${formatMoney(a.deposit ?? 0)}을 돌려줄 현금이 필요하다</small>` : ''}
+  </div>`;
+}
+
+/** 작년 대비 시세 등락 */
+function chg(a: { value: number; prev?: number }): string {
+  if (!a.prev) return '';
+  const r = a.value / a.prev - 1;
+  if (Math.abs(r) < 0.001) return ' <small class="chg">―</small>';
+  return ` <small class="chg ${r > 0 ? 'up' : 'down'}">${r > 0 ? '▲' : '▼'}${Math.abs(r * 100).toFixed(1)}%</small>`;
 }
 
 /** 가문 자산을 누구 몫인지 나눠 보여준다 */
@@ -551,7 +738,7 @@ function budgetCard(g: GameState): string {
     ${f.income.map(([l, v]) => row(l, v, '+')).join('') || '<div class="arow"><span>수입 없음</span><span></span></div>'}
     ${f.expense.map(([l, v]) => row(l, v, '−')).join('')}
     <div class="arow total"><span>한 해 남는 돈</span><b class="${f.net < 0 ? 'neg' : 'pos'}">${f.net < 0 ? '' : '+'}${formatMoney(f.net)}</b></div>
-    ${f.mine ? `<p class="fine">독립 전이라 내 수입(${formatMoney(f.mine)})은 살림에 안 보태고 내 통장에 모인다.</p>` : ''}
+    ${f.mine ? `<p class="fine">독립 전 내 통장: ${[f.mine.allow ? `용돈 ${formatMoney(f.mine.allow)} (월 ${formatMoney(Math.round(f.mine.allow / 12))})` : '', f.mine.income ? `수입 ${formatMoney(f.mine.income)} − 세금 ${formatMoney(f.mine.tax)} − 교통·통신·여가 ${formatMoney(f.mine.own)} − 집에 보태는 생활비 ${formatMoney(f.mine.contrib)}` : ''].filter(Boolean).join(' + ')} = <b>${f.mine.net < 0 ? '' : '+'}${formatMoney(f.mine.net)}</b>/년</p>` : ''}
     <p class="fine">월급은 세전 금액, 소득세·4대보험은 따로 빠진다 (연봉 3천 약 12%, 5천 16%, 1억 21%). 사업·크리에이터 수입과 시세는 해마다 출렁인다. 학년·진학 이벤트에서 고르는 사교육비는 따로 나간다.</p>
   </section>`;
 }
@@ -575,7 +762,18 @@ function card(g: GameState, p: Person, extra = ''): string {
   const heir = p.id === g.heirId;
   const pending = g.events.some((e) => e.personId === p.id);
   const small = ui.zoom === 'small';
-  return `<button class="pc ${dead ? 'dead' : ''} ${isHead ? 'head' : ''} ${p.inLaw ? 'inlaw' : ''} ${extra}" data-action="person" data-id="${p.id}">
+  const likely = !isHead && !g.heirId && !dead && fx.likelyHeir === p.id;
+  const jb = jobBadge(g, p);
+  const myCards = (g.cards ?? []).filter((c) => c.personId === p.id).map((c) => CARD[c.id]).filter(Boolean);
+  const RANK_R = { common: 0, rare: 1, epic: 2, legend: 3 } as const;
+  const best = myCards.sort((a, b) => RANK_R[b.rarity] - RANK_R[a.rarity])[0];
+  const nHonors = (g.honors ?? []).filter((h) => h.personId === p.id).length;
+  const badges = [jb ? `<i title="${jb[1]}">${jb[0]}</i>` : '', likely ? '<i title="후계자 유력">⚡</i>' : '', best ? `<i class="bd-card ${best.rarity}" title="명예의 전당 ${myCards.map((c) => c.name).join(', ')}">${best.icon}${myCards.length > 1 ? `<sup>${myCards.length}</sup>` : ''}</i>` : ''].join('');
+  const aura = best ? `aura-${best.rarity}` : '';
+  return `<button class="pc ${dead ? 'dead' : ''} ${isHead ? 'head' : ''} ${p.inLaw ? 'inlaw' : ''} ${aura} ${nHonors ? 'honored' : ''} ${extra}" data-action="person" data-id="${p.id}">
+    ${best ? `<span class="aura"></span>${best.rarity === 'legend' ? '<span class="sparkle"><i></i><i></i><i></i><i></i></span>' : ''}` : ''}
+    ${nHonors ? `<span class="medal" title="훈장 ${nHonors}개">🎖${nHonors > 1 ? `<sup>${nHonors}</sup>` : ''}</span>` : ''}
+    ${badges ? `<span class="pc-badges">${badges}</span>` : ''}
     ${isHead ? '<span class="crown">👑</span>' : heir ? '<span class="crown">★</span>' : ''}
     ${pending ? '<span class="bang">!</span>' : ''}
     <img class="px" src="${portraitURL(p, a)}" alt="">
@@ -585,8 +783,30 @@ function card(g: GameState, p: Person, extra = ''): string {
   </button>`;
 }
 
+/** 직업 분야 뱃지: 클릭하지 않아도 가문의 직업 분포가 보이게 */
+const CAT_BADGE: Record<string, [string, string]> = {
+  medical: ['🩺', '의료'], legal: ['📑', '전문직'], public: ['🏛', '공직'], office: ['💼', '회사'], tech: ['💻', 'IT·공학'], edu: ['📚', '교육'],
+  service: ['🍳', '서비스'], trade: ['🔧', '기술'], transport: ['🚚', '운송'], media: ['🎬', '미디어'], sport: ['⚽', '스포츠'], biz: ['💰', '사업'], farm: ['🌾', '농어업'],
+};
+const JOB_BADGE: Record<string, [string, string]> = {
+  judge: ['⚖️', '법조'], prosecutor: ['⚖️', '법조'], lawyer: ['⚖️', '법조'], police: ['🚓', '경찰'], coast_guard: ['🚓', '경찰'], firefighter: ['🚒', '소방'], officer: ['🎖', '군'],
+  professor: ['🎓', '학계'], researcher: ['🔬', '연구'], politician: ['🗳', '정치'], minister: ['🏛', '장관'], president: ['🇰🇷', '대통령'], clergy: ['⛪', '종교'], social_worker: ['🤝', '복지'],
+  landlord: ['🏢', '건물주'], founder: ['🚀', '사업가'],
+};
+function jobBadge(g: GameState, p: Person): [string, string] | undefined {
+  if (!alive(p)) return;
+  const a = age(g, p);
+  if (p.flags.includes('student')) return ['🎓', '대학생'];
+  if (p.flags.some((f) => f.startsWith('prep:'))) return ['📖', '수험생'];
+  if (a < 20 || ['none', 'parttime'].includes(p.job)) return;
+  if (p.job === 'pension') return ['🌿', '은퇴'];
+  return JOB_BADGE[p.job] ?? CAT_BADGE[JOBS[p.job]?.cat ?? ''];
+}
+
 /** 카드 아래 한 줄: 학생/수험생/직업 */
-function jobShort(g: GameState, p: Person): string {
+/** 가계도 카드의 직업·신분 (그 시대 말로: 1970년대 "국민학생", 2060년대 "홀로 크리에이터") */
+const jobShort = (g: GameState, p: Person) => (alive(p) ? periodize(g, jobShort0(g, p)) : jobShort0(g, p));
+function jobShort0(g: GameState, p: Person): string {
   if (!alive(p)) return relationLabel(g, p);
   const a = age(g, p);
   if (p.flags.some((f) => f.startsWith('serving:'))) return '군 복무';
@@ -629,8 +849,23 @@ function familyStats(g: GameState) {
   };
 }
 
+/** 가문 직업 분포 한 줄 */
+function jobMix(g: GameState): string {
+  const count = new Map<string, [string, number]>();
+  for (const p of Object.values(g.people)) {
+    if (!alive(p) || p.inLaw || !(isMainline(g, p) || isDescendantOf(g, head(g), p))) continue;
+    const b = jobBadge(g, p);
+    if (!b || ['🎓', '📖', '🌿'].includes(b[0])) continue;
+    const c = count.get(b[1]);
+    count.set(b[1], [b[0], (c?.[1] ?? 0) + 1]);
+  }
+  if (!count.size) return '';
+  return `<div class="job-mix">${[...count.entries()].sort((a, b) => b[1][1] - a[1][1]).map(([name, [ic, n]]) => `<span title="${name}">${ic} ${name} ${n}</span>`).join('')}</div>`;
+}
+
 function treeScreen(g: GameState): string {
   const h = head(g);
+  fx.likelyHeir = g.heirId ? undefined : chooseSuccessor(g, h)?.id;
   const st = familyStats(g);
   const heir = g.heirId && alive(g.people[g.heirId]) ? g.people[g.heirId] : undefined;
   const toolbar = `
@@ -641,8 +876,9 @@ function treeScreen(g: GameState): string {
     <div class="fam-stats">
       <span>👥 ${st.living}명</span><span>직계 ${st.main}</span><span>자손 ${st.desc}</span>
       ${st.minors ? `<span>🧒 ${st.minors}</span>` : ''}${st.single ? `<span>💌 미혼 ${st.single}</span>` : ''}${st.exam ? `<span>📖 수험생 ${st.exam}</span>` : ''}
-      <span>★ ${heir ? esc(heir.name) : '후계자 미정'}</span>
-    </div>`;
+      <span>★ ${heir ? esc(heir.name) : fx.likelyHeir && g.people[fx.likelyHeir] ? `⚡ ${esc(g.people[fx.likelyHeir].name)} 유력` : '후계자 미정'}</span>
+    </div>
+    ${jobMix(g)}`;
   if (ui.view === 'list') return toolbar + rosterScreen(g) + rivalStrip(g) + propertyStrip(g);
 
   const parents = parentsOf(g, h);
@@ -723,7 +959,7 @@ function rosterRow(g: GameState, p: Person): string {
     <img class="px" src="${portraitURL(p, a)}" alt="">
     <span class="r-nm">${esc(fullName(p))}<small>${esc(relationLabel(g, p))}</small></span>
     <span class="r-ag">${dead ? '†' : ''}${a}</span>
-    <span class="r-job">${esc(dead ? '' : jobShort(g, p) === JOBS[p.job].name ? jobTitle(p) : jobShort(g, p))}</span>
+    <span class="r-job">${esc(dead ? '' : jobShort(g, p) === periodize(g, JOBS[p.job].name) ? periodize(g, jobTitle(p)) : jobShort(g, p))}</span>
     <span class="r-w">${dead ? '' : formatMoney(personWorth(g, p))}</span>
     <span class="r-b">${badges}</span>
   </button>`;
@@ -746,6 +982,7 @@ function statBars(p: Person): string {
 
 const EDU_LABELS: Record<string, string> = {
   kinder_eng: '영어유치원',
+  kinder_church: '교회 유치원',
   elem_private: '사립초',
   elem_intl: '국제학교',
   elem_alt: '대안학교',
@@ -827,6 +1064,33 @@ function lifeRows(g: GameState, p: Person): string {
   const affairs = alive(p) ? pendingAffairs(g, p) : [];
   if (affairs.length) rows.push(`<div class="sh-row"><span>진행 중</span><span class="affairs">${affairs.map((a) => esc(a)).join('<br>')}</span></div>`);
   if (p.flags.includes('dui')) rows.push(`<div class="sh-row warn"><span>⚠</span><span>음주운전 전과</span></div>`);
+  const honors = (g.honors ?? []).filter((x) => x.personId === p.id);
+  if (honors.length) rows.push(`<div class="sh-row"><span>훈장</span><span class="sh-medals">${honors.map((x) => `<button class="sh-medal" data-action="honor-view" data-id="${(g.honors ?? []).indexOf(x)}"><img src="${medalURL(x.id, HONORS[x.id].icon, HONORS[x.id].rarity)}" alt="">${HONORS[x.id].name} (${x.year})</button>`).join('')}</span></div>`);
+  if (p.papers) rows.push(`<div class="sh-row"><span>논문</span><span>📝 ${p.papers}편${p.flags.includes('phd') ? ' · 박사' : ''}${p.job === 'professor' && p.jobLevel === 0 ? ` · 정년 심사까지 ${Math.max(0, 6 - p.jobYears)}년 (기준 약 12편)` : ''}</span></div>`);
+  if (p.pol && ['politician', 'president'].includes(p.job)) {
+    const pl = p.pol;
+    const need = fameNeed(p);
+    rows.push(`<div class="sh-row ${pl.approval < 25 || pl.fund < 0 ? 'warn' : ''}"><span>정치</span><span>지지율 ${pl.approval}% · 정치자금 ${formatMoney(pl.fund)}${pl.slush ? ` · 🕶 비자금 ${formatMoney(pl.slush)}` : ''}${pl.heat >= 30 ? ' · ⚠ 수사 위험' : ''}<br>가문 명성 ${Math.round(g.fame)} / 체면 유지 ${need}${g.fame < need ? ' ⚠ 부족' : ''}</span></div>`);
+  }
+  if (!p.inLaw && (age(g, p) >= 15 || p.lifeScore !== undefined)) {
+    const parts = lifeParts(g, p);
+    const v = p.lifeScore ?? parts.reduce((t, x) => t + x.v, 0);
+    rows.push(`<div class="sh-row"><span>인생 점수</span><span><b class="lg-${lifeGrade(v).g.toLowerCase()}">${lifeGrade(v).g}</b> ${v}점${p.lifeScore === undefined ? ' (지금까지)' : ''}<br><small>${parts.map((x) => `${x.label} ${x.v > 0 ? '+' : ''}${x.v}`).join(' · ')}</small></span></div>`);
+  }
+  const myCards = (g.cards ?? []).filter((c) => c.personId === p.id);
+  if (myCards.length) rows.push(`<div class="sh-row"><span>카드</span><span>${myCards.map((c) => `${CARD[c.id].icon} ${cardTitle(c.id, c.year)}`).join('<br>')}</span></div>`);
+  if (alive(p) && !p.inLaw && p.id !== g.headId && age(g, p) >= 13 && isDescendantOf(g, p, head(g))) {
+    const w = willOf(p);
+    rows.push(`<div class="sh-row"><span>성향</span><span>${willLine(p)}<br><small>독립심 ${w.indep} · 야망 ${w.ambition} · 충성도 ${w.loyalty} — 충성도가 낮고 독립심이 높으면 가주의 뜻을 거스르고, 야망이 크면 일을 벌인다</small></span></div>`);
+  }
+  if (alive(p) && p.id === head(g).spouseId && focusOf(p)) rows.push(`<div class="sh-row"><span>요즘</span><span>${FOCUS_LABEL[focusOf(p)!]}<br><small>배우자도 제 뜻대로 움직인다. 관심사에 따라 해마다 가족에 보탬이 되고, 가끔 스스로 일을 벌인다</small></span></div>`);
+  const woes = woesOf(p);
+  if (alive(p) && woes.length) rows.push(`<div class="sh-row warn"><span>짐</span><span>${woes.map((w) => `${WOES[w].icon} ${WOES[w].name}`).join('<br>')}</span></div>`);
+  if (p.flags.includes('disowned')) rows.push(`<div class="sh-row warn"><span>💔</span><span>의절한 자식</span></div>`);
+  if (p.flags.includes('noble_inlaw') || p.flags.includes('rich_inlaw')) rows.push(`<div class="sh-row"><span>혼인</span><span>${p.flags.includes('noble_inlaw') ? '🏯 명문가와 정략결혼' : '💎 신흥 부유층과 정략결혼'}</span></div>`);
+  if (alive(p) && p.id === g.headId) rows.push(`<div class="sh-row"><span>살림</span><span>${esc(phoneOf(g).label)}${g.year >= 1983 ? `<br>${pcOf(g).model.id === 'none' ? '🖥 컴퓨터 없음' : esc(pcOf(g).label)}` : ''}</span></div>`);
+  if (alive(p) && !['none', 'parttime', 'pension'].includes(p.job) && age(g, p) >= 18) rows.push(`<div class="sh-row"><span>직업 성격</span><span>${HONOR_JOBS.has(p.job) ? '🎖 명예형 — 해마다 가문 명성 +0.6, 대신 품위 유지비로 수입의 6%가 나가고 스캔들에 약하다' : JOBS[p.job].fame >= 1 ? '⭐ 인기형 — 이름을 알리는 일' : '💰 실리형 — 돈을 버는 일'}</span></div>`);
+  if (p.flags.includes('convicted_politician')) rows.push(`<div class="sh-row warn"><span>⚖</span><span>정치자금법 위반 전과</span></div>`);
   return rows.join('');
 }
 
@@ -834,7 +1098,7 @@ function personSheet(g: GameState, p: Person): string {
   const dead = !alive(p);
   const a = dead ? p.deathYear! - p.birthYear : age(g, p);
   const h = head(g);
-  const edu = p.flags.filter((f) => EDU_LABELS[f]).map((f) => EDU_LABELS[f]);
+  const edu = p.flags.filter((f) => EDU_LABELS[f]).map((f) => periodize(g, EDU_LABELS[f]));
   const talents = p.talents.filter((t) => t.discovered);
   const job = JOBS[p.job];
   const prep = p.flags.find((f) => f.startsWith('prep:'))?.slice(5);
@@ -885,7 +1149,7 @@ function personSheet(g: GameState, p: Person): string {
   <div class="modal" data-action="close-sheet">
     <div class="sheet" data-stop>
       <div class="sheet-head">
-        <img class="px big ${dead ? 'dead' : ''}" src="${portraitURL(p, a)}">
+        <img class="px big bust ${dead ? 'dead' : ''}" src="${bustURL(p, a, g.year)}">
         <div>
           <div class="sh-name">${esc(fullName(p))} ${p.id === g.headId ? '👑' : ''}</div>
           <div class="sh-sub">${esc(relationLabel(g, p))} · ${dead ? `${p.birthYear}–${p.deathYear} (향년 ${a}세)` : `${a}세 (${p.birthYear}년생)`}</div>
@@ -920,6 +1184,11 @@ function personSheet(g: GameState, p: Person): string {
 
 function eventModal(g: GameState): string {
   const cur = currentEvent(g)!;
+  const media = newsStyle(cur.def.id, g.year);
+  if (media) return newsModal(g, cur, media);
+  const how = commEvent(cur.def.id, cur.title);
+  if (how) return commModal(g, cur, how);
+  const lead = cur.portraits.find(Boolean);
   const ports = cur.portraits
     .filter(Boolean)
     .slice(0, 3)
@@ -930,7 +1199,7 @@ function eventModal(g: GameState): string {
     <div class="event">
       <div class="ev-count">${g.year}년 · 남은 이벤트 ${g.events.length}</div>
       <h3>${esc(cur.title)}</h3>
-      <div class="ev-ports">${ports}</div>
+      <div class="ev-scene"><img class="scene-img" src="${sceneURL(sceneFor(cur.title, cur.text), g.year, cur.ev.uid, lead ? looksOf(lead, g.year - lead.birthYear) : undefined)}" alt=""><div class="ev-ports on-scene">${ports}</div></div>
       <p class="ev-text">${nl(cur.text)}</p>
       ${cur.choices.some((c) => c.cost) ? `<div class="ev-wallet">${wallet(g).label} <b>${formatMoney(wallet(g).amount)}</b></div>` : ''}
       <div class="choices">
@@ -946,6 +1215,88 @@ function eventModal(g: GameState): string {
     </div>
   </div>`;
 }
+
+/** 전화·문자로 오는 사건: 그 집이 쓰는 연락 수단 모양으로 뜬다 (전보 → 다이얼 전화 → 삐삐 → 폴더폰 → 스마트폰 → AR 글래스 → 뉴럴 링크 → 홀로그램) */
+function commModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>>, how: 'call' | 'msg'): string {
+  const gear = phoneOf(g);
+  let kind: CommKind = gear.model.kind;
+  const paper = /^(✉)/.test(cur.title) || cur.def.id === 'st_h_telegram' || cur.def.id === 'st_h_lucky_letter';
+  if (paper) kind = 'letter';
+  else if (how === 'msg' && ['shared', 'landline', 'carphone'].includes(kind)) kind = 'letter';
+  else if (how === 'call' && kind === 'letter') kind = 'shared';
+  const title = cur.title.replace(/^(📞|☎|📱|💌|📟|✉|📧|💬|💠)\s*/u, '');
+  const clock = `${String(7 + ((g.year * 7) % 15)).padStart(2, '0')}:${String((g.year * 13) % 60).padStart(2, '0')}`;
+  const top =
+    kind === 'letter'
+      ? `<div class="cm-top"><span class="cm-stamp">${cur.def.id === 'st_h_telegram' ? '電報' : '郵便'}</span><span>${g.year < 2000 ? '체신부' : '우정사업본부'} · ${g.year}년</span></div>`
+      : kind === 'shared' || kind === 'landline' || kind === 'carphone'
+        ? `<div class="cm-top"><span class="cm-ringer">☎</span><span>따르릉… 따르릉…</span></div>`
+        : kind === 'pager' || kind === 'citi'
+          ? `<div class="cm-lcd"><span>${how === 'call' ? '8282' : '1004'}</span><small>${clock} · 음성 1</small></div>`
+          : kind === 'cell' || kind === 'feature'
+            ? `<div class="cm-top"><span>📶▮▮▮</span><span>${how === 'call' ? '전화 왔어요' : '✉ 새 문자 1'}</span><span>${clock}</span></div>`
+            : kind === 'smart'
+              ? `<div class="cm-top"><span>${how === 'call' ? '📞 전화 수신 중' : '💬 메시지'}</span><span>지금</span></div>`
+              : `<div class="cm-top"><span>${kind === 'neural' ? '🧠 뉴럴 수신' : kind === 'holo' ? '💠 홀로그램 연결' : '👓 시야 알림'}</span><span>${clock}</span></div>`;
+  const choices = cur.choices
+    .map(
+      (c, i) => `<button class="choice" style="animation-delay:${500 + i * 70}ms" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
+        <span class="cl">${esc(c.label)}</span>
+        ${c.cost || c.req?.length ? `<span class="badges">${c.cost ? `<b class="cost">💰${formatMoney(c.cost)}</b>` : ''}${c.disabled && c.cost && c.cost > wallet(g).amount ? '<b class="why">돈 부족</b>' : ''}${(c.req ?? []).map((r) => `<b>${esc(r)}</b>`).join('')}</span>` : ''}
+      </button>`,
+    )
+    .join('');
+  return `
+  <div class="modal cm-modal cm-${kind}">
+    <div class="event cm-dev" data-stop>
+      <div class="ev-count">${g.year}년 · ${esc(gear.label)}</div>
+      <div class="cm-screen">
+        ${top}
+        <h3>${esc(title)}</h3>
+        <p class="ev-text">${nl(cur.text)}</p>
+      </div>
+      ${cur.choices.some((c) => c.cost) ? `<div class="ev-wallet">${wallet(g).label} <b>${formatMoney(wallet(g).amount)}</b></div>` : ''}
+      <div class="choices">${choices}</div>
+    </div>
+  </div>`;
+}
+
+/** 역사의 큰 사건: 1960~80년대 호외, 1990~2000년대 TV 속보, 2010년대~ 휴대폰 알림 */
+function newsModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>>, media: AlertMedia): string {
+  const [sub, ...rest] = cur.text.split('\n\n');
+  const body = rest.join('\n\n');
+  const paper = pick2(g.year, ['동아일보', '조선일보', '경향신문', '한국일보', '서울신문']);
+  const choices = cur.choices
+    .map(
+      (c, i) => `<button class="choice" style="animation-delay:${900 + i * 80}ms" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
+        <span class="cl">${esc(c.label)}</span>
+        ${c.cost ? `<span class="badges"><b class="cost">💰${formatMoney(c.cost)}</b></span>` : ''}
+      </button>`,
+    )
+    .join('');
+  const head =
+    media === 'extra'
+      ? `<div class="nw-mast"><span class="nw-hoei">號外</span><span class="nw-paper">${paper}</span><span class="nw-date">${g.year}년 · ${esc(govOf(g.year))}</span></div>
+         <h2 class="nw-h">${esc(cur.title)}</h2><div class="nw-sub">${esc(sub)}</div>`
+      : media === 'tv'
+        ? `<div class="nw-tv"><div class="nw-tvbar"><b>속보</b><span>${esc(cur.title)}</span></div><div class="nw-tvsub">${esc(sub)} · ${pick2(g.year, ['KBS 9시 뉴스', 'MBC 뉴스데스크', 'SBS 8뉴스'])}</div></div>`
+        : media === 'push'
+          ? `<div class="nw-pushcard"><div class="nw-pushapp">🔔 뉴스 속보 · 지금</div><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
+          : media === 'holo'
+            ? `<div class="nw-holohead"><span class="nw-holo-tag">◉ LIVE 속보</span><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
+            : media === 'neural'
+              ? `<div class="nw-nrlhead"><span>🧠 뉴럴 속보가 머릿속에 떠오른다</span><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
+              : `<div class="nw-aihead"><div class="nw-ai-av">🤖</div><div class="nw-ai-b"><small>AI 비서 · 지금</small><p>"잠깐만요, 가문에 중요한 소식이에요."</p><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div></div>`;
+  return `
+  <div class="modal nw-modal nw-${media}">
+    <div class="event nw-card" data-stop>
+      ${head}
+      <p class="ev-text nw-body">${nl(body)}</p>
+      <div class="choices">${choices}</div>
+    </div>
+  </div>`;
+}
+const pick2 = <T,>(seed: number, arr: T[]) => arr[Math.abs(seed * 7 + 3) % arr.length];
 
 /** 결과 문장 끝의 "(매력 +2 · 행복 +6)"를 색깔 칩으로 */
 function richText(text: string): string {
@@ -975,12 +1326,150 @@ function outcomeModal(o: { title: string; text: string }): string {
   </div>`;
 }
 
+/** 🎁 보상 팝업: 희귀도마다 빛깔과 효과가 다르다 */
+function rewardModal(r: Reward): string {
+  const sparks = r.rarity === 'common' ? 0 : r.rarity === 'rare' ? 8 : r.rarity === 'epic' ? 14 : 22;
+  return `
+  <div class="modal reward-bg ${r.rarity}" data-action="ok-reward">
+    <div class="event reward ${r.rarity}" data-stop>
+      <div class="rw-burst">${Array.from({ length: sparks }, (_, i) => `<i style="--a:${Math.round((360 / sparks) * i)}deg;--d:${(i % 5) * 60}ms"></i>`).join('')}</div>
+      <div class="rw-rarity">${RARITY_NAME[r.rarity]}</div>
+      ${
+        r.card && CARD[r.card]
+          ? `<div class="hcard ${r.rarity}"><img class="hc-art" src="${cardArt(CARD[r.card])}" alt=""><div class="hc-title">${CARD[r.card].name}</div><div class="hc-name">${r.personId && g0()?.people[r.personId] ? esc(fullName(g0()!.people[r.personId])) : ''}</div><i class="hc-shine"></i></div><div class="hc-eff">${esc(effText(CARD[r.card].eff))}</div>`
+          : r.grade
+            ? `<div class="grade-stamp g-${r.grade.toLowerCase()}">${r.grade}</div>`
+            : `<div class="rw-icon">${r.icon}</div>`
+      }
+      <h3>${esc(r.title)}</h3>
+      <p class="ev-text">${nl(r.text)}</p>
+      ${r.pts ? `<div class="rw-pts">+${r.pts} <b>✦</b> 명예</div>` : ''}
+      <button class="btn primary rw-take" data-action="ok-reward">${r.rarity === 'legend' ? '영광을 받든다!' : '받기!'}</button>
+      ${g0()?.rewards && g0()!.rewards!.length > 1 ? `<button class="btn ghost rw-all" data-action="ok-reward-all">모두 받기 (${g0()!.rewards!.length - 1}개 더)</button>` : ''}
+    </div>
+  </div>`;
+}
+const g0 = () => ui.game;
+const cardArt = (d: CardDef, locked = false) => cardFrontURL(d.id, d.icon, (CARD_THEME[d.id] ?? 'power') as Theme, d.rarity, locked, cardTier(d));
+
+/** 🃏 카드 뷰어: 실물 카드처럼 크게. 기울이면 홀로그램, 누르면 뒤집힌다 */
+function cardViewer(g: GameState, id: string): string {
+  const d = CARD[id];
+  const hs = (g.cards ?? []).filter((c) => c.id === id);
+  const got = hs.length > 0;
+  const hp = got ? g.people[hs[0].personId] : undefined;
+  return `
+  <div class="modal cv-modal" data-action="close-card">
+    <div class="cv-wrap">
+      <div class="cv-card ${d.rarity} ${got ? '' : 'locked'}" data-stop>
+        <div class="cv-face cv-front">
+          <img class="cv-img" src="${cardArt(d, !got)}" alt="">
+          <div class="cv-no">No.${String(cardNo(id)).padStart(3, '0')} · ${RARITY_NAME[d.rarity]}</div>
+          ${hp ? `<img class="cv-portrait" src="${portraitURL(hp, alive(hp) ? age(g, hp) : hp.deathYear! - hp.birthYear)}" alt="">` : ''}
+          <div class="cv-bottom">
+            <b class="cv-title">${got ? d.name : '???'}</b>
+            ${got ? `<b>${hs.map((c) => esc(fullName(g.people[c.personId]))).join(', ')}</b><small>${hs[0].year}년 획득</small>` : `<b>미획득</b><small>${esc(d.how)}</small>`}
+            <em>${esc(effText(d.eff))}</em>
+          </div>
+          <i class="cv-holo"></i>
+        </div>
+        <div class="cv-face cv-back">
+          <img class="cv-img" src="${cardBackURL(d.rarity)}" alt="">
+          <div class="cv-back-top">명예의 전당 · ${RARITY_NAME[d.rarity]}</div>
+          <div class="cv-crest">${esc(g.familyName)}</div>
+          <div class="cv-back-bottom"><b>${d.name}</b><small>${esc(d.how)}</small>${d.honor && HONORS[d.honor] ? `<small>🎖 ${HONORS[d.honor].name}</small>` : ''}</div>
+        </div>
+      </div>
+      <div class="cv-hint">↔ 카드를 옆으로 밀어 돌려 보세요 · 바깥을 누르면 닫혀요</div>
+    </div>
+  </div>`;
+}
+/** 🎖 훈장 보기: 벨벳 상자에 담긴 실물 훈장. 끌어 돌리면 뒷면 새김 */
+function honorViewer(g: GameState, idx: number): string {
+  const x = g.honors![idx];
+  const d = HONORS[x.id];
+  const who = g.people[x.personId];
+  const nth = (g.honors ?? []).filter((h) => h.id === x.id).indexOf(x) + 1;
+  return `
+  <div class="modal cv-modal hv-modal" data-action="close-card">
+    <div class="cv-wrap">
+      <div class="hv-case ${d.rarity}">
+        <div class="cv-card hv-medal ${d.rarity}" data-stop>
+          <div class="cv-face cv-front"><img class="cv-img" src="${medalURL(x.id, d.icon, d.rarity)}" alt=""><i class="hv-shine"></i></div>
+          <div class="cv-face cv-back"><img class="cv-img" src="${medalURL(x.id, d.icon, d.rarity, true)}" alt="">
+            <div class="hv-engrave"><b>대한민국</b><span>${esc(fullName(who))}</span><small>${x.year}</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="hv-cap">
+        <b>${d.name}</b>
+        <small>${esc(d.desc)}</small>
+        <div class="hv-cert">수여 <b>${esc(fullName(who))}</b> · ${x.year}년${nth > 1 ? ` · 가문 ${nth}번째` : ''} · 가문 명성 +${d.fame} · ${RARITY_NAME[d.rarity]}</div>
+      </div>
+      <div class="cv-hint">↔ 훈장을 옆으로 밀어 뒷면 새김을 보세요 · 바깥을 누르면 닫혀요</div>
+    </div>
+  </div>`;
+}
+
+/** 가문별 최고 총점 (이 기기에만) */
+function bestScore(g: GameState, now: number): number {
+  const key = `gamun-best-${g.seed}`;
+  try {
+    const b = Number(localStorage.getItem(key) ?? 0);
+    if (now > b) localStorage.setItem(key, String(now));
+    return Math.max(b, now);
+  } catch {
+    return now;
+  }
+}
+
+/** 연말 뉴스: 종이 신문 → 포털 → AR 피드 → AI 브리핑 */
+function newsBlock(year: number, news: string[], trends: string[]): string {
+  if (!news.length) return '';
+  const items = news.map((l) => l.slice(3));
+  const m = newsMedium(year);
+  if (m === 'paper')
+    return `<div class="paper"><div class="paper-mast">📰 올해의 신문 <small>${year}년</small></div>${items.map((l, i) => `<div class="paper-item ${i === 0 ? 'lead' : ''}">${esc(l)}</div>`).join('')}</div>`;
+  if (m === 'portal') {
+    const press = ['연합통신', '한빛일보', '누리경제', '새날뉴스', '미래신문', '한결방송'];
+    const trend = trends[0] ? trends[0].slice(3).split(' · ') : [];
+    return `<div class="portal">
+      <div class="pt-bar"><b class="pt-logo">누리</b><div class="pt-search"><span>${year}년 올해의 뉴스</span><i>🔍</i></div></div>
+      <div class="pt-tabs"><span class="on">뉴스</span><span>경제</span><span>사회</span><span>IT·과학</span></div>
+      ${trend.length ? `<div class="pt-trend"><b>실시간 검색어</b>${trend.map((t, i) => `<span><em>${i + 1}</em>${esc(t)}</span>`).join('')}</div>` : ''}
+      ${items.map((l, i) => `<div class="pt-item"><i class="pt-thumb" style="--h:${(year * 37 + i * 71) % 360}"></i><div><b>${esc(l)}</b><small>${press[(year + i) % press.length]} · ${1 + ((year * 7 + i * 5) % 11)}시간 전</small></div></div>`).join('')}
+    </div>`;
+  }
+  if (m === 'shorts') {
+    // 세로 숏폼 영상 뉴스: 넘겨 보는 카드, 조회수·좋아요, 자동 자막
+    const ch = ['뉴스한입', '1분뉴스', '오늘의이슈', '팩트체크K', '세상요약'];
+    return `<div class="shorts"><div class="sh-top">▶ 숏폼 뉴스 <small>${year} · 위로 넘겨 보기</small></div><div class="sh-reel">${items
+      .map(
+        (l, i) =>
+          `<div class="sh-clip" style="--h:${(year * 53 + i * 97) % 360};animation-delay:${i * 120}ms"><div class="sh-cap">${esc(l)}</div><div class="sh-meta"><b>@${ch[(year + i) % ch.length]}</b><span>▶ ${(((year * 7 + i * 13) % 90) + 10) / 10}만 · ♥ ${((year + i * 31) % 50) + 3}천</span></div></div>`,
+      )
+      .join('')}</div></div>`;
+  }
+  if (m === 'feed')
+    return `<div class="feed"><div class="fd-top">👓 오늘의 피드 <small>${year}</small></div>${items.map((l, i) => `<div class="fd-item" style="animation-delay:${i * 90}ms"><span class="fd-dot"></span>${esc(l)}</div>`).join('')}</div>`;
+  if (m === 'neural')
+    return `<div class="nrl"><div class="nrl-h">🧠 뉴럴 뉴스 <small>${year} · 생각으로 도착한 소식</small></div>${items.map((l, i) => `<div class="nrl-item" style="animation-delay:${i * 220}ms">${esc(l)}</div>`).join('')}</div>`;
+  return `<div class="aib"><div class="aib-h"><span class="aib-av">🤖</span><b>AI 비서</b><small>${year}년 한 해 브리핑</small></div>
+    <div class="aib-msg">올해 알아 두실 소식 ${items.length}가지를 정리했어요.</div>
+    ${items.map((l, i) => `<div class="aib-msg" style="animation-delay:${200 + i * 160}ms"><em>${i + 1}</em> ${esc(l)}</div>`).join('')}</div>`;
+}
+
 function reportModal(r: { title: string; lines: string[] }): string {
+  const news = r.lines.filter((l) => l.startsWith('📰 '));
+  const trends = r.lines.filter((l) => l.startsWith('🔎 '));
+  const rest = r.lines.filter((l) => !l.startsWith('📰 ') && !l.startsWith('🔎 '));
+  const year = Number(r.title.match(/\d{4}/)?.[0] ?? 2025);
   return `
   <div class="modal" data-action="ok-report">
     <div class="event report" data-stop>
       <h3>${esc(r.title)}</h3>
-      <ul>${r.lines.map((l, i) => `<li style="animation-delay:${120 + Math.min(i, 12) * 45}ms">${esc(l)}</li>`).join('') || '<li class="muted">조용한 한 해였다.</li>'}</ul>
+      ${newsBlock(year, news, trends)}
+      <ul>${rest.map((l, i) => `<li style="animation-delay:${120 + Math.min(i, 12) * 45}ms">${esc(l)}</li>`).join('') || '<li class="muted">조용한 한 해였다.</li>'}</ul>
       <button class="btn primary" data-action="ok-report">확인</button>
     </div>
   </div>`;
@@ -1136,6 +1625,7 @@ function assetsScreen(g: GameState): string {
     })()}
     <div class="mkt">${(REAL_ESTATE as AssetKind[]).map((k) => `<span>${ASSET_ICONS[k]} ${ASSET_NAMES[k].replace('강남 ', '서울 ')} ${pct(g.marketChange[k as MarketKey])}</span>`).join('')}</div>
     ${(['stock', 'coin'] as const)
+      .filter((k) => k !== 'coin' || g.era !== 'history' || g.year >= 2014)
       .map(
         (k) => `<h4 class="sub">${ASSET_ICONS[k]} ${k === 'stock' ? '주식 (지수 ' + g.market.stock + ')' : '코인 (지수 ' + g.market.coin + ')'} ${pct(g.marketChange[k])}</h4>
         <div class="buy-row">${units
@@ -1242,7 +1732,8 @@ const AUTO_GIFT_STEPS = [0, 300, 500, 1000, 2500, 5000];
 /** 행동 탭: 턴을 넘기기 전에 직접 하는 일. 분류 칩으로 한 묶음씩 보여 줘서 스크롤을 줄인다 */
 function actionsScreen(g: GameState): string {
   const ap = apLeft(g);
-  const list = ACTIONS.filter((a) => forHead(g, a));
+  // 근현대사: 그 시절에 없던 행동은 숨기고 (코딩 학원·코인 …), 이름은 시대말로
+  const list = ACTIONS.filter((a) => forHead(g, a) && !anachronistic(g, a.name + ' ' + a.desc)).map((a) => (a.label ? { ...a, ...a.label(g) } : a)).map((a) => (inHistory(g) || g.year >= 2040 ? { ...a, name: periodize(g, a.name), desc: periodize(g, a.desc) } : a));
   const cats = [...new Set(list.map((a) => a.cat))] as ActionCat[];
   const cat = ui.actCat && cats.includes(ui.actCat as ActionCat) ? (ui.actCat as ActionCat) : cats[0];
   const money = canSpend(g);
@@ -1295,13 +1786,22 @@ function settingsModal(g: GameState): string {
       <div class="set-row"><span>효과음</span>${seg('sound', soundOn() ? 1 : 0, [[1, '🔊 켜기'], [0, '🔇 끄기']])}</div>
       <div class="set-row"><span>진동</span>${seg('pref-vibe', vibeOn() ? 1 : 0, [[1, '📳 켜기'], [0, '끄기']])}</div>
       <div class="set-row"><span>움직임</span>${seg('pref-calm', prefs.calm ? 1 : 0, [[0, '보통'], [1, '줄이기']])}</div>
+      <div class="set-row"><span>돈 표시</span>${seg('pref-money', prefs.money ?? 'nominal', [['nominal', '그해 물가'], ['real', '2025년 돈']])}</div>
       <div class="set-row"><span>글자 크기</span>${seg('pref-text', prefs.text ?? 'm', [['s', '작게'], ['m', '보통'], ['l', '크게']])}</div>
       <div class="set-row"><span>가계도 보기</span>${seg('zoom', ui.zoom, [['big', '크게'], ['mid', '보통'], ['small', '작게']])}</div>
       <div class="set-info">
         <div class="sh-row"><span>가문</span><span>${esc(g.familyName)}씨 ${g.generation}대 · ${g.year}년</span></div>
         <div class="sh-row"><span>가주</span><span>${esc(fullName(h))} ${age(g, h)}세</span></div>
-        <div class="sh-row"><span>저장</span><span>해마다 이 기기(브라우저)에 자동 저장</span></div>
+        <div class="sh-row"><span>자동 저장</span><span>해마다 이 기기(브라우저)에</span></div>
       </div>
+      <h3 class="set-h">💾 저장 슬롯</h3>
+      ${slotRows(true)}
+      <details class="code-box"><summary>📋 저장 코드 (다른 기기로 옮기기)</summary>
+        <p class="fine">아래 코드를 복사해 두면 다른 기기나 브라우저에서 이어 할 수 있다. 붙여넣고 불러오기를 누르면 그 가문으로 바뀐다.</p>
+        <textarea id="save-code" rows="3" placeholder="GAMUN1:..."></textarea>
+        <div class="row2"><button class="btn" data-action="code-copy">지금 가문 코드 복사</button><button class="btn" data-action="code-load">붙여넣은 코드 불러오기</button></div>
+      </details>
+      ${ui.saveMsg ? `<p class="save-msg">${esc(ui.saveMsg)}</p>` : ''}
       ${
         ui.confirmReset
           ? `<div class="danger"><p>지금 가문을 지우고 처음부터 시작할까? 되돌릴 수 없다.</p>
@@ -1339,7 +1839,7 @@ function propertyStrip(g: GameState): string {
       tag: r.withParents ? '🏠 부모님 댁' : `🏠 ${HOME_TYPE[home.type]}`,
       cls: 'live',
       name: home.name,
-      val: own ? `시세 ${formatMoney(own.value)}` : home.type === 'jeonse' ? `보증금 ${formatMoney(home.deposit)}` : home.type === 'wolse' ? `월세 연 ${formatMoney(home.rent)}` : '',
+      val: own ? `시세 ${formatMoney(own.value)}${chg(own)}` : home.type === 'jeonse' ? `보증금 ${formatMoney(home.deposit)}` : home.type === 'wolse' ? `월세 연 ${formatMoney(home.rent)}` : '',
     });
   }
   const liveId = home?.type === 'own' ? home.assetId : undefined;
@@ -1353,7 +1853,7 @@ function propertyStrip(g: GameState): string {
       tag: car ? (mine ? `${modelOf(a)?.icon ?? '🚗'} ${modelOf(a)?.yacht ? '요트' : '내 차'}` : '🚗 부모님 차') : mine ? (isHouse(a) ? '💼 임대' : '💼 투자') : '👪 부모님',
       cls: car ? 'car' : mine ? 'inv' : 'par',
       name: a.name,
-      val: formatMoney(a.value),
+      val: formatMoney(a.value) + (car ? '' : chg(a)),
     });
   };
   for (const a of g.assets) if (ownerIds.includes(a.ownerId) && (isRealty(a) || a.kind === 'vehicle')) push(a, true);
@@ -1423,14 +1923,69 @@ function achvScreen(g: GameState): string {
   const cats = [...new Set(Object.values(ACHIEVEMENTS).map((a) => a.cat))];
   const got = g.achievements.length;
   const total = Object.keys(ACHIEVEMENTS).length;
+  const rk = rankOf(g);
+  const cur0 = RANKS[rk];
+  const nxt = RANKS[rk + 1];
+  const tot = g.gloryTotal ?? 0;
+  const pctR = nxt ? Math.round(((tot - cur0.at) / (nxt.at - cur0.at)) * 100) : 100;
+  const honors = g.honors ?? [];
+  const fsc = familyScore(g);
+  const best = Math.max(fsc.total, bestScore(g, fsc.total));
+  const dexGot = new Map<string, string[]>();
+  for (const c of g.cards ?? []) dexGot.set(c.id, [...(dexGot.get(c.id) ?? []), fullName(g.people[c.personId])]);
   return `
+  <section class="card score-card">
+    <div class="sc-l">가문 총점</div>
+    <div class="sc-v">${fsc.total.toLocaleString()}<small>점</small></div>
+    <div class="sc-best">🏅 최고 기록 ${best.toLocaleString()}점</div>
+    <div class="sc-parts">${fsc.parts.map((x) => `<span>${x.label} <b>${x.v.toLocaleString()}</b></span>`).join('')}</div>
+    <p class="fine">가족이 세상을 떠날 때 「인생 성적표」를 받고, 그 점수가 가문 총점에 영원히 쌓인다. 가계도에서 사람을 누르면 지금까지의 인생 점수를 볼 수 있다.</p>
+  </section>
+  <section class="card">
+    <h2>🃏 명예의 전당 카드 <small class="muted">${dexGot.size}/${CARDS.length}종</small></h2>
+    <div class="cdex">${[...CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.dex ? 999 : 6).map((d) => {
+      const who = dexGot.get(d.id);
+      return `<button class="dx ${who ? d.rarity : 'locked'}" data-action="card-view" data-id="${d.id}"><span class="dx-c"><img class="dx-art" src="${cardArt(d, !who)}" alt=""><i class="dx-nm">${who ? d.name : '???'}</i></span><small>${who ? esc(who.join(', ')) : '미획득'}</small></button>`;
+    }).join('')}</div>
+    <button class="more-btn" data-action="more" data-v="dex">${ui.open?.dex ? '▲ 접기' : `▼ 더보기 (${CARDS.length - 6}종 더)`}</button>
+    <p class="fine">★ 난이도 (★★★는 2단계 도전·선행 카드). 카드 주인이 살아 있는 동안 효과가 계속된다. 3·6·10·16·24종을 모으면 세트 보상.</p>
+  </section>
+  <section class="card">
+    <h2>✨ 가문 시너지 <small class="muted">발동 ${activeSynergies(g).length}/${SYNERGIES.length}</small></h2>
+    <div class="syn">${[...SYNERGIES].sort((a, b) => Number(activeSynergies(g).includes(b)) - Number(activeSynergies(g).includes(a))).slice(0, ui.open?.syn ? 99 : 3).map((sy) => {
+      const on = activeSynergies(g).includes(sy);
+      return `<div class="sy ${on ? 'on' : ''}"><img class="sy-crest" src="${crestURL(sy.id, [CARD[sy.groups[0][0]].icon, CARD[sy.groups[1][0]].icon], (SYN_THEME[sy.id] ?? 'power') as Theme, on)}" alt=""><div><b>${sy.name}</b> <small>${esc(sy.desc)}</small><em>${sy.groups.map((gr) => '[' + gr.map((id) => (dexGot.has(id) ? `✅${CARD[id].name}` : CARD[id].name)).join(' / ') + ']').join(' + ')}</em><em class="sy-eff">→ ${esc(effText(sy.eff))}</em></div></div>`;
+    }).join('')}</div>
+    <button class="more-btn" data-action="more" data-v="syn">${ui.open?.syn ? '▲ 접기' : `▼ 더보기 (${SYNERGIES.length - 3}개 더)`}</button>
+    <p class="fine">서로 다른 분야의 카드 주인이 같은 시대에 함께 살아 있으면 발동한다.</p>
+  </section>
+  <section class="card rank-card">
+    <div class="rank-top"><span class="rank-ic">${cur0.icon}</span><div><b>${esc(g.familyName)}씨 가문 · ${cur0.name}</b><small>누적 명예 ${tot}✦${nxt ? ` · 다음 "${nxt.name}"까지 ${nxt.at - tot}✦` : ' · 최고 등급'}</small></div></div>
+    <div class="rank-bar"><i style="width:${pctR}%"></i></div>
+    <p class="fine">업적·훈장·출세·세대 미션을 이룰 때마다 명예(✦)가 쌓인다. 등급이 오르면 혜택이 붙고, 모은 명예는 아래 상점에서 쓸 수 있다.${RANKS.slice(1, rk + 1).filter((r) => r.perk).length ? `<br>받는 등급 혜택: ${RANKS.slice(1, rk + 1).filter((r) => r.perk).map((r) => r.perk).join(' · ')}` : ''}</p>
+  </section>
+  <section class="card">
+    <h2>✦ 명예 상점 <small class="muted">보유 ${g.glory ?? 0}✦</small></h2>
+    <div class="perks">${PERKS.map((pk) => {
+      const lv = perkLv(g, pk.id);
+      const cost = pk.cost[lv];
+      const max = cost === undefined;
+      return `<div class="perk ${max ? 'max' : ''}"><span class="pk-i">${pk.icon}</span><div class="pk-m"><b>${pk.name} <small>${'★'.repeat(lv)}${'☆'.repeat(pk.cost.length - lv)}</small></b><small>${pk.desc}</small></div><button class="mini do" data-action="buy-perk" data-id="${pk.id}" ${max || (g.glory ?? 0) < cost ? 'disabled' : ''}>${max ? '완료' : `${cost}✦`}</button></div>`;
+    }).join('')}</div>
+  </section>
+  <section class="card">
+    <h2>🎖 가문의 훈장 <small class="muted">${honors.length}개</small></h2>
+    ${honors.length ? `<div class="honors">${honors.map((x) => `<button class="honor ${HONORS[x.id].rarity}" data-action="honor-view" data-id="${(g.honors ?? []).indexOf(x)}"><img class="hn-art" src="${medalURL(x.id, HONORS[x.id].icon, HONORS[x.id].rarity)}" alt=""><b>${HONORS[x.id].name}</b><small>${esc(fullName(g.people[x.personId]))} · ${x.year}</small></button>`).join('')}</div>` : `<p class="fine">아직 없다. 공무원·교원으로 25년 넘게 봉직하고 퇴직하거나, 올림픽 금메달·노벨상·대통령·장관·기업 상장·거액 기부 등으로 받을 수 있다.</p>`}
+  </section>
   ${
     g.rival
       ? `<section class="card">
     <h2>⚔️ 라이벌 가문: ${esc(g.rival.name)}씨 가문 <small class="muted">${rivalMood(g.rival)}</small></h2>
     <p>${esc(rivalLine(g, familyTotal(g)))}</p>
     <div class="feud"><i style="width:${Math.round(g.rival.feud)}%"></i></div>
-    <p class="fine">대표 ${esc(g.rival.boss)} · 명성 ${Math.round(g.rival.fame)} (우리 ${Math.round(g.fame)}) · 원한 ${Math.round(g.rival.feud)}/100. 사사건건 부딪치다 보면 원수가 되고, 손을 내밀면 사돈이 될 수도 있다.</p>
+    ${g.rival.move ? `<p class="rv-move">올해 저쪽의 한 수: ${esc(g.rival.move)}</p>` : ''}
+    ${(g.rival.lead ?? 0) >= 2 ? `<p class="fine">🔥 ${g.rival.lead}년 연속 우리가 앞서는 중. 저쪽이 독기를 품었다 (성장 가속).</p>` : ''}
+    <p class="fine">대표 ${esc(g.rival.boss)} · 명성 ${Math.round(g.rival.fame)} (우리 ${Math.round(g.fame)}) · 원한 ${Math.round(g.rival.feud)}/100. 해마다 저쪽도 한 수를 둔다. 행동 탭 '사회'에서 견제·화해, '재산'에서 지분 매입으로 맞설 수 있다.</p>
   </section>`
       : ''
   }
@@ -1489,6 +2044,59 @@ function onInput(e: Event) {
 const SFX: Record<string, Sfx> = { choose: 'choose', next: 'next', buy: 'coin', 'buy-l': 'coin', repay: 'coin', sell: 'coin', gift: 'coin', 'gift-asset': 'coin', 'ok-outcome': 'close', 'ok-report': 'close', 'close-sheet': 'close', start: 'great', 'buy-car': 'coin' };
 let leaving = false;
 
+/** 카드 돌리기: 옆으로 끌면 실제 카드처럼 따라 돌고, 놓으면 앞/뒷면 중 가까운 쪽(빠르게 튕기면 다음 면)으로 붙는다. 톡 누르면 뒤집기 */
+let spin: { c: HTMLElement; x0: number; base: number; last: number; t: number; v: number; moved: boolean } | null = null;
+const spinOf = (c: HTMLElement) => parseFloat(c.style.getPropertyValue('--spin')) || 0;
+function spinStart(e: PointerEvent) {
+  const c = (e.target as HTMLElement)?.closest?.<HTMLElement>('.cv-card');
+  if (!c) return;
+  spin = { c, x0: e.clientX, base: spinOf(c), last: e.clientX, t: e.timeStamp, v: 0, moved: false };
+  c.classList.add('drag');
+  c.setPointerCapture?.(e.pointerId);
+}
+function spinMove(e: PointerEvent) {
+  if (!spin) return;
+  const dx = e.clientX - spin.x0;
+  if (Math.abs(dx) > 6) spin.moved = true;
+  const dt = Math.max(1, e.timeStamp - spin.t);
+  spin.v = spin.v * 0.6 + ((e.clientX - spin.last) / dt) * 0.4;
+  spin.last = e.clientX;
+  spin.t = e.timeStamp;
+  spin.c.style.setProperty('--spin', `${(spin.base + dx * 0.75).toFixed(1)}deg`);
+  spin.c.style.setProperty('--ry', '0deg');
+}
+function spinEnd() {
+  if (!spin) return;
+  const { c, base, moved, v } = spin;
+  spin = null;
+  c.classList.remove('drag');
+  const cur = spinOf(c);
+  let k = Math.round(cur / 180);
+  if (!moved) k = Math.round(base / 180) + 1;
+  else if (Math.abs(v) > 0.5 && k === Math.round(base / 180)) k += Math.sign(v);
+  if (k * 180 !== Math.round(base / 180) * 180) sfx('choose');
+  c.style.setProperty('--spin', `${k * 180}deg`);
+}
+
+/** 카드 기울이기: 손가락·마우스 위치에 따라 3D로 기울고 홀로그램이 흐른다 */
+function tilt(e: PointerEvent) {
+  if (spin) return;
+  const c = (e.target as HTMLElement)?.closest?.<HTMLElement>('.cv-card');
+  if (!c) return;
+  if (e.type === 'pointerleave') {
+    c.style.setProperty('--rx', '0deg');
+    c.style.setProperty('--ry', '0deg');
+    return;
+  }
+  const r = c.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width;
+  const y = (e.clientY - r.top) / r.height;
+  c.style.setProperty('--ry', `${((x - 0.5) * 26).toFixed(1)}deg`);
+  c.style.setProperty('--rx', `${((0.5 - y) * 22).toFixed(1)}deg`);
+  c.style.setProperty('--mx', `${(x * 100).toFixed(0)}%`);
+  c.style.setProperty('--my', `${(y * 100).toFixed(0)}%`);
+}
+
 function onClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
   const el = target.closest<HTMLElement>('[data-action]');
@@ -1526,6 +2134,9 @@ function handle(el: HTMLElement) {
     case 'setup-sex':
       ui.setup.sex = v as Sex;
       break;
+    case 'setup-era':
+      ui.setup.era = v as 'modern' | 'history';
+      break;
     case 'setup-origin':
       ui.setup.origin = v as Difficulty | 'random';
       break;
@@ -1533,9 +2144,59 @@ function handle(el: HTMLElement) {
       ui.game = load();
       track('continue', '이어하기');
       break;
+    case 'slot-save':
+      ui.saveMsg = saveSlot(Number(v)) ? `슬롯 ${v}에 저장했다.` : '저장하지 못했다 (저장 공간 부족 또는 비공개 창).';
+      break;
+    case 'slot-load': {
+      const g = loadSlot(Number(v));
+      if (!g) {
+        ui.saveMsg = '불러오지 못했다.';
+        break;
+      }
+      ui.game = g;
+      ui.tab = 'tree';
+      ui.report = ui.outcome = ui.sheet = undefined;
+      ui.settings = ui.confirmReset = false;
+      ui.saveMsg = undefined;
+      save();
+      hasSave = true;
+      break;
+    }
+    case 'slot-del':
+      deleteSlot(Number(v));
+      ui.saveMsg = `슬롯 ${v}을 비웠다.`;
+      break;
+    case 'code-copy': {
+      if (!ui.game) break;
+      const code = exportCode(ui.game);
+      const ta = root.querySelector<HTMLTextAreaElement>('#save-code');
+      if (ta) ta.value = code;
+      navigator.clipboard?.writeText(code).then(
+        () => ((ui.saveMsg = '저장 코드를 복사했다. 메모장 등에 붙여 두자.'), render()),
+        () => ((ui.saveMsg = '자동 복사가 안 된다. 칸의 코드를 길게 눌러 직접 복사하자.'), render()),
+      );
+      ta?.select();
+      return;
+    }
+    case 'code-load': {
+      const ta = root.querySelector<HTMLTextAreaElement>('#save-code');
+      const g = importCode(ta?.value ?? '');
+      if (!g) {
+        ui.saveMsg = '코드가 올바르지 않다. GAMUN1:로 시작하는 전체 코드를 붙여넣자.';
+        break;
+      }
+      ui.game = g;
+      ui.tab = 'tree';
+      ui.report = ui.outcome = ui.sheet = undefined;
+      ui.settings = ui.confirmReset = false;
+      ui.saveMsg = undefined;
+      save();
+      hasSave = true;
+      break;
+    }
     case 'start': {
       const sn = (ui.setup.surname || '김').slice(0, 2);
-      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin });
+      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin, era: ui.setup.era === 'history' ? 'history' : undefined });
       ui.tab = 'tree';
       track(`start-${ui.setup.origin}`, `새 가문 (${ui.setup.origin})`);
       break;
@@ -1585,6 +2246,7 @@ function handle(el: HTMLElement) {
       break;
     case 'settings':
       ui.settings = true;
+      ui.saveMsg = undefined;
       ui.confirmReset = false;
       break;
     case 'reset-ask':
@@ -1602,9 +2264,31 @@ function handle(el: HTMLElement) {
       prefs.calm = v === '1';
       savePrefs();
       break;
+    case 'pref-money':
+      prefs.money = v as 'nominal' | 'real';
+      setNominal(v !== 'real');
+      savePrefs();
+      break;
     case 'pref-text':
       prefs.text = v as TextSize;
       savePrefs();
+      break;
+    case 'card-view':
+      ui.cardView = id;
+      break;
+    case 'close-card':
+      ui.cardView = ui.honorView = undefined;
+      break;
+    case 'lease': {
+      const a = g!.assets.find((x) => x.id === id);
+      if (a) ui.toast = setLease(g!, a, v as Lease) || undefined;
+      break;
+    }
+    case 'honor-view':
+      ui.honorView = Number(id);
+      break;
+    case 'more':
+      (ui.open ??= {})[v] = !ui.open[v];
       break;
     case 'act-cat':
       ui.actCat = v;
@@ -1638,6 +2322,20 @@ function handle(el: HTMLElement) {
     case 'ok-report':
       ui.report = undefined;
       break;
+    case 'ok-reward':
+      g?.rewards?.shift();
+      sfx('coin');
+      break;
+    case 'ok-reward-all':
+      if (g) g.rewards = [];
+      sfx('coin');
+      break;
+    case 'buy-perk': {
+      const r = buyPerk(g!, id);
+      if (r.ok) (ui.toast = r.text), sfx('fanfare');
+      else (ui.toast = r.text), sfx('error');
+      break;
+    }
     case 'choose': {
       if (!g) break;
       const cur = currentEvent(g);
@@ -1726,7 +2424,7 @@ function handle(el: HTMLElement) {
       const r = doAction(g!, id, target);
       sfx(!r.ok ? 'error' : r.text.startsWith('🌟') ? 'great' : r.text.startsWith('💦') ? 'bad' : 'choose');
       if (!r.ok) ui.toast = r.text;
-      else ui.outcome = { title: ACTIONS.find((a) => a.id === id)!.name, text: r.text };
+      else ui.outcome = { title: periodize(g!, ACTIONS.find((a) => a.id === id)!.name), text: periodize(g!, r.text) };
       break;
     }
     case 'gift-asset': {

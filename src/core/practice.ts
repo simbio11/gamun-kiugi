@@ -4,6 +4,7 @@ import { STAT_NAMES } from './data';
 import { int, next, pick } from './rng';
 import { age, clamp, hasTalent, hasTrait } from './people';
 import type { GameState, Person, StatKey } from './types';
+import { bonusLuck } from './rewards';
 import { ADULT_OPEN, KID_OPEN, SEASON, TEEN_OPEN, TIER_TAIL, TRAIT_TAIL } from './action-lines';
 
 export type Tier = 'great' | 'good' | 'meh' | 'bad';
@@ -24,6 +25,7 @@ export function rollTier(s: GameState, p: Person, o: RollOpts = {}): Tier {
   luck += (p.happiness - 50) / 600; // 기분이 좋으면 잘 된다
   if (o.stat) luck += (p.actual[o.stat] - 50) / 800;
   luck += o.bonus ?? 0;
+  luck += bonusLuck(s);
   if (luck > 0.88) return 'great';
   if (luck > 0.35) return 'good';
   if (luck > 0.08) return 'meh';

@@ -1,7 +1,7 @@
 import { chance, int, next, normal, pick } from './rng';
-import { ACHIEVEMENTS, ART_TIERS, EXAMS, FEMALE_NAMES, JOBS, MALE_NAMES, REAL_ESTATE } from './data';
+import { ACHIEVEMENTS, ART_TIERS, EXAMS, JOBS, REAL_ESTATE, SURNAMES } from './data';
 import { checkAchievements } from './achievements';
-import { addAsset, addHolding, assetsOf, economyYear, familyWorth, foldFamilyPot, formatMoney, jobLabel, marketYear, pay, personWorth, settlePension, severance, totalWorth } from './economy';
+import { setMoneyYear, addAsset, addHolding, assetsOf, economyYear, familyWorth, foldFamilyPot, formatMoney, jobLabel, marketYear, pay, personWorth, settlePension, severance, totalWorth } from './economy';
 import { checkMissions, initMissions } from './missions';
 import { LIFE_RANDOM, cancerRate, deliver, isElectionYear, setBond, type LifeDef } from './life';
 import { heirCandidates } from './family';
@@ -27,6 +27,24 @@ import { exposeFakes, makeDate, marry, examScore, spendable, type Ctx } from './
 import { EVENTS, RANDOM_EVENTS } from './registry';
 import { eraYear } from './era';
 import { rivalYear } from './rival';
+import { careerYear, ministerLeaves, presidentLeaves } from './career';
+import { achvRarity, checkHonors, perkYear, retireHonor } from './rewards';
+import { scanMilestones } from './milestones';
+import { cardYear } from './cards';
+import { scandalYear } from './scandal';
+import { assignWoes, woeYear, woesOf, WOES } from './woes';
+import { eggForKids, eggYear, scheduleEggs } from './nestegg';
+import { spouseYear } from './spouse';
+import { anachronistic, histOverride, inHistory, periodize, TIMELESS } from './histpack';
+import { HIST_PARENT_JOBS, HIST_START, histOrigins, histYear } from './history';
+import { timelineYear } from './timeline';
+import { chainYear } from './chains';
+import { warYear } from './war';
+import { medicalYear } from './medical-events';
+import { HIST_BASE, histPrice, histRel } from './histidx';
+import { autonomyYear } from './autonomy';
+import { lifeReport, trackPeak } from './score';
+import { wageIndex } from './pay';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -51,6 +69,7 @@ import {
   spouseOf,
   parentsOf,
   freshName,
+  randomName,
 } from './people';
 import type { AssetKind, GameState, MarketKey, Person, Sex, WillMode } from './types';
 
@@ -62,22 +81,42 @@ export interface NewGameOpts {
   origin?: GameState['origin'];
   /** 난이도: 집안 형편·부모 직업·재산·아이의 유전(잠재력·재능·성격)까지 정한다. 없으면 운명 */
   difficulty?: Difficulty;
+  /** 근현대사 모드 (1960년 시작) */
+  era?: 'history';
 }
 
-export type Difficulty = 'easy' | 'normal' | 'hard';
+export type Difficulty = 'easy' | 'normal' | 'hard' | 'hell';
 /** 난이도별: 형편, 재벌가 확률, 부모 잠재력 보정, 아이 잠재력 보정, 부모 직급 보정 */
 export const DIFFICULTY: Record<Difficulty, { name: string; desc: string; origin: GameState['origin']; tycoon: number; parentQ: number; childQ: number; level: number }> = {
-  easy: { name: '쉬움 · 금수저', desc: '부유한 집(재벌가일 수도), 전문직 부모와 높은 직급, 뛰어난 유전자 — 잠재력↑, 재능 하나는 타고난다, 좋은 성격', origin: 'rich', tycoon: 0.4, parentQ: 6, childQ: 10, level: 1 },
+  easy: { name: '쉬움 · 금수저', desc: '부유한 집(재벌가일 수도), 전문직 부모와 높은 직급, 뛰어난 유전자 — 잠재력↑, 재능 하나는 타고난다, 좋은 성격. 정점 도전이 쉽지만 명예는 0.8배', origin: 'rich', tycoon: 0.4, parentQ: 6, childQ: 10, level: 1 },
   normal: { name: '보통 · 중산층', desc: '평범한 직장인 부모, 수도권·지방 아파트, 보통의 유전자', origin: 'middle', tycoon: 0, parentQ: 0, childQ: 0, level: 0 },
-  hard: { name: '어려움 · 흙수저', desc: '가난한 집, 빚과 반지하, 생계형 직업 부모, 불리한 유전자 — 잠재력↓, 재능 없음, 약점 하나', origin: 'poor', tycoon: 0, parentQ: -4, childQ: -8, level: -1 },
+  hard: { name: '어려움 · 흙수저', desc: '가난한 집, 빚과 반지하, 생계형 직업 부모, 불리한 유전자 — 잠재력↓, 재능 없음, 약점 하나. 정점 도전이 어렵고 라이벌이 강하지만 명예를 1.25배 받는다', origin: 'poor', tycoon: 0, parentQ: -4, childQ: -8, level: -1 },
+  hell: { name: '지옥 · 무일푼', desc: '가장 가난한 집, 약한 유전자, 부자 라이벌. 정점 도전 판정이 훨씬 어렵다. 대신 명예를 1.5배 받는다 — 여기서 대통령을 내면 전설이다', origin: 'poor', tycoon: 0, parentQ: -8, childQ: -14, level: -1 },
 };
 
-const START_YEAR = 2025;
+const BASE_START = 2025;
 const DEFAULT_MARKET: Record<MarketKey, number> = { apt_seoul: 250000, apt_local: 30000, land: 20000, building: 350000, stock: 100, coin: 100, art: 100 };
 
 /** 예전 버전 세이브를 현재 형식으로 */
 export function migrate(s: GameState): GameState {
   bindState(s);
+  s.achievements ??= [];
+  // 보상 시스템 이전 저장: 이미 이룬 업적만큼 명예를 채워 준다 (팝업 없이)
+  if (s.gloryTotal === undefined) {
+    const pts = { common: 5, rare: 12, epic: 30, legend: 80 } as const;
+    const t = s.achievements.reduce((sum, id) => {
+      const r = ACHIEVEMENTS[id] ? achvRarity(id, ACHIEVEMENTS[id].cat) : undefined;
+      return sum + (r ? pts[r] : 0);
+    }, 0);
+    s.glory = s.gloryTotal = t;
+  }
+  s.cards ??= [];
+  s.honors ??= [];
+  s.perks ??= {};
+  s.rewards ??= [];
+  s.scandal ??= 0;
+  s.cleanYears ??= 0;
+  s.storySeen ??= {};
   const v = s.version as number;
   if (v < 2) {
     s.market = { ...DEFAULT_MARKET, ...s.market };
@@ -120,6 +159,9 @@ const PARENT_JOBS: Record<GameState['origin'], string[]> = {
 
 export function newGame(o: NewGameOpts): GameState {
   const seed = o.seed ?? Math.floor(Math.random() * 2 ** 31);
+  // 근현대사 모드: 1960년, 다섯 살(1955년생)로 시작
+  const hist = o.era === 'history';
+  const START_YEAR = hist ? HIST_START : BASE_START;
   const s: GameState = {
     version: 3,
     rng: seed,
@@ -136,7 +178,7 @@ export function newGame(o: NewGameOpts): GameState {
     gifts: [],
     familyCash: 0,
     fame: 0,
-    market: { ...DEFAULT_MARKET },
+    market: hist ? (Object.fromEntries(Object.keys(DEFAULT_MARKET).map((k) => [k, Math.round(histPrice(HIST_BASE[k as MarketKey], k as MarketKey, HIST_START))])) as Record<MarketKey, number>) : { ...DEFAULT_MARKET },
     marketChange: {},
     policy: { lifestyle: 'balance', living: 'normal', familyPlan: 2, children: {}, taxAdvisor: false },
     will: 'legal',
@@ -155,6 +197,7 @@ export function newGame(o: NewGameOpts): GameState {
   const origin = o.origin ?? dif?.origin ?? (roll < 0.3 ? 'poor' : roll < 0.82 ? 'middle' : 'rich');
   const tycoon = origin === 'rich' && chance(s, dif ? dif.tycoon : 0.25);
   if (o.difficulty) s.difficulty = o.difficulty;
+  if (hist) s.era = 'history';
   s.origin = origin;
   s.fame = { poor: 0, middle: 8, rich: 25 }[origin] + (tycoon ? 25 : 0);
   const q = { poor: 46, middle: 51, rich: 56 }[origin] + (dif?.parentQ ?? 0);
@@ -162,7 +205,7 @@ export function newGame(o: NewGameOpts): GameState {
   const fAge = int(s, 31, 43);
   const mAge = clamp(fAge + int(s, -5, 2), 28, 42);
   const father = createPerson(s, { sex: 'M', surname: o.familyName, birthYear: START_YEAR - fAge, quality: q, grown: 0.72 });
-  const mother = createPerson(s, { sex: 'F', surname: pick(s, ['이', '박', '최', '정', '강', '윤', '한', '조', '장', '임', '오', '서']), birthYear: START_YEAR - mAge, quality: q, grown: 0.72 });
+  const mother = createPerson(s, { sex: 'F', surname: pick(s, SURNAMES.filter((n) => n !== o.familyName)), birthYear: START_YEAR - mAge, quality: q, grown: 0.72 });
   mother.inLaw = true;
   father.spouseId = mother.id;
   mother.spouseId = father.id;
@@ -175,9 +218,12 @@ export function newGame(o: NewGameOpts): GameState {
     p.jobYears = Math.max(0, age(s, p) - 27);
     p.jobLevel = tycoon && p === father ? 4 : clamp(int(s, 0, Math.floor(p.jobYears / 4)) + (dif?.level ?? 0), 0, j.maxLevel);
   };
-  giveJob(father, PARENT_JOBS[origin]);
-  if (chance(s, origin === 'poor' ? 0.2 : 0.35)) mother.job = 'none';
-  else giveJob(mother, PARENT_JOBS[origin]);
+  const jobPool = hist ? HIST_PARENT_JOBS : PARENT_JOBS;
+  giveJob(father, jobPool[origin]);
+  // 1960년대 어머니는 대개 살림을 했다 (여성 경제활동참가율 30%대)
+  if (chance(s, hist ? (origin === 'poor' ? 0.45 : 0.75) : origin === 'poor' ? 0.2 : 0.35)) mother.job = 'none';
+  else giveJob(mother, hist ? (origin === 'poor' ? ['farmer', 'parttime', 'factory'] : origin === 'middle' ? ['teacher', 'shopkeeper', 'nurse'] : ['landlord', 'doctor']) : PARENT_JOBS[origin]);
+  const pastLines = hist ? histOrigins(s, father, mother) : '';
 
   // 재산: 같은 형편이라도 집집마다 다르다
   if (origin === 'poor') {
@@ -206,9 +252,29 @@ export function newGame(o: NewGameOpts): GameState {
       s.familyCash += 200000;
     }
   }
+  // 가난한 집 부모의 짐 (중독·빚·병·실업 …)
+  assignWoes(s, father, mother, o.difficulty);
+  // 난이도에 맞춘 시작 방침: 부잣집은 씀씀이가 크고, 가난한 집 부모는 일에 매달린다
+  if (origin === 'rich') s.policy.living = 'lux';
+  if (o.difficulty === 'hard' || o.difficulty === 'hell') s.policy.lifestyle = 'work';
   // 차: 가난하면 없거나 낡은 경차, 중산층은 중형·SUV, 부자는 수입차
   const carPick = origin === 'poor' ? (chance(s, 0.5) ? 'kei' : undefined) : origin === 'middle' ? pick(s, ['compact', 'mid', 'suv', 'suv', 'large']) : tycoon ? 'super' : pick(s, ['genesis', 'import', 'import']);
-  if (carPick) giveUsedCar(s, father, carPick, int(s, 1, origin === 'poor' ? 10 : 6));
+  if (carPick && (!hist || tycoon)) giveUsedCar(s, father, carPick, int(s, 1, origin === 'poor' ? 10 : 6));
+  // 1960년: 모은 돈과 땅도 그 시절 소득 수준으로 (땅은 소득 대비로도 쌌다)
+  if (hist) {
+    const w = wageIndex(START_YEAR);
+    for (const p of [father, mother]) p.cash = Math.round(p.cash * w);
+    // 1960년의 집: 아파트는 거의 없었다 (마포아파트가 1962년)
+    const OLD_HOME: Record<string, string> = { '지방 아파트': '기와집 (한옥)', '수도권 아파트': '서울 양옥집', '낡은 빌라': '변두리 판잣집' };
+    for (const a of s.assets) {
+      if (OLD_HOME[a.name]) a.name = OLD_HOME[a.name];
+      else if (a.kind === 'apt_seoul' && !a.name.includes('빌딩')) a.name = '서울 성북동 양옥 저택';
+    }
+    // 1960년엔 주택담보대출이 사실상 없었다: 가난한 집의 빚(사채·외상)만 남긴다
+    if (origin !== 'poor') father.cash = Math.max(father.cash, Math.round(int(s, 300, 1500) * w));
+    s.familyCash = Math.round(s.familyCash * w);
+    for (const a of s.assets) if (a.kind === 'land' || a.kind === 'stock') a.value = Math.round(a.value * w * (a.kind === 'land' ? histRel('land', START_YEAR) : 1));
+  }
 
   // 형제자매: 0~3명, 위아래 무작위. 동생은 앞으로 태어난다
   const sibs = pick(s, [0, 0, 1, 1, 1, 1, 2, 2, 3]);
@@ -229,7 +295,7 @@ export function newGame(o: NewGameOpts): GameState {
   for (const a of olderAges) if (mAge - a >= 22) born(a);
   const me = born(5);
   me.sex = o.sex;
-  me.name = pick(s, o.sex === 'M' ? MALE_NAMES : FEMALE_NAMES);
+  me.name = randomName(s, o.sex, me.birthYear);
   for (const p of Object.values(s.people)) p.name = freshName(s, p);
   // 다섯 살까지 쌓인 능력치는 운
   for (const k of Object.keys(me.actual) as (keyof typeof me.actual)[]) me.actual[k] = Math.round(me.potential[k] * (0.12 + next(s) * 0.2));
@@ -268,12 +334,16 @@ export function newGame(o: NewGameOpts): GameState {
       `👩 어머니 ${fullName(mother)} (${age(s, mother)}세) · ${mother.job === 'none' ? '전업주부' : jobLabel(mother)}\n` +
       `🏠 ${home.length ? home.map((a) => a.name).join(', ') : '월세살이'} · 집안 재산 ${formatMoney(worth)}` +
       (father.cash < 0 ? ` (빚 ${formatMoney(-father.cash)})` : '') +
+      [father, mother].flatMap((q) => woesOf(q).map((w) => `\n⚠ ${q === father ? '아버지' : '어머니'}의 짐: ${WOES[w].icon} ${WOES[w].name} — ${WOES[w].desc}`)).join('') +
       (tycoon ? '\n💎 재벌가의 자손이다!' : '') +
       (dif ? `\n🎚 난이도: ${dif.name}` : '\n🎲 운명에 맡겼다') +
-      `\n\n지금 ${START_YEAR}년, ${eun(fullName(me))} 다섯 살.\n이제부터 당신이 이 아이의 인생을, 그리고 가문을 이끈다.\n학창 시절 → 수능 → 진로 → 결혼 → 자녀·손주 → 유언과 승계.`,
+      (hist
+        ? `\n\n${pastLines}\n\n📜 지금 ${START_YEAR}년 봄. 3·15 부정선거로 온 나라가 들끓고 있다. ${eun(fullName(me))} 다섯 살.\n군사정변, 산업화, 유신, 광주, 올림픽, IMF, 월드컵, 촛불… 이 아이는 대한민국 현대사를 온몸으로 겪으며 자란다.\n해마다 그해의 신문이 오고, 역사의 큰 사건은 호외로 들이닥친다.\n\n💱 돈은 모두 "2025년 돈 가치"로 적는다. 그 시절의 가난은 버는 돈이 적은 것으로 느껴진다.`
+        : `\n\n지금 ${START_YEAR}년, ${eun(fullName(me))} 다섯 살.\n이제부터 당신이 이 아이의 인생을, 그리고 가문을 이끈다.\n학창 시절 → 수능 → 진로 → 결혼 → 자녀·손주 → 유언과 승계.`),
     portrait: me.id,
   });
   queue(s, 'kinder', me.id);
+  scheduleEggs(s, me);
   initMissions(s);
   foldFamilyPot(s);
   for (const p of Object.values(s.people)) mortgageFromCash(s, p);
@@ -287,7 +357,7 @@ export function queue(s: GameState, defId: string, personId: string, data?: any)
   s.events.push({ uid: s.eventSeq++, defId, personId, data });
 }
 
-const log = (s: GameState, text: string, kind?: GameState['log'][number]['kind']) => s.log.push({ year: s.year, text, kind });
+const log = (s: GameState, text: string, kind?: GameState['log'][number]['kind']) => s.log.push({ year: s.year, text: text.startsWith('📰') ? text : periodize(s, text), kind }); // 뉴스는 그 시대 말로 이미 쓰였다
 
 export function mainlineMembers(s: GameState): Person[] {
   return Object.values(s.people).filter((p) => alive(p) && isMainline(s, p));
@@ -311,6 +381,7 @@ export function simulateYear(s: GameState): void {
   if (s.events.length || s.gameOver) return;
   bindState(s);
   s.year++;
+  setMoneyYear(s.year);
   s.ap = apMax(s);
   s.actUsed = {};
   const h0 = head(s);
@@ -323,8 +394,23 @@ export function simulateYear(s: GameState): void {
   for (const m of autoGiftYear(s, (to, amt) => giveGift(s, head(s), to, amt).ok)) log(s, m, 'money');
   for (const m of marketYear(s)) log(s, m, 'market');
   for (const m of leverageYear(s)) log(s, m, 'money');
+  for (const m of histYear(s)) log(s, m, 'market');
+  for (const m of timelineYear(s)) log(s, m, 'market');
+  chainYear(s);
+  for (const m of warYear(s)) log(s, m, 'market');
+  medicalYear(s);
   for (const m of eraYear(s)) log(s, m, 'market');
   for (const m of rivalYear(s, familyTotal(s))) log(s, m, 'life');
+  for (const m of careerYear(s)) log(s, m, 'life');
+  cardYear(s);
+  trackPeak(s);
+  scandalYear(s);
+  woeYear(s);
+  for (const m of eggYear(s)) log(s, m, 'money');
+  eggForKids(s);
+  for (const m of spouseYear(s)) log(s, m, 'life');
+  autonomyYear(s);
+  perkYear(s, wageIndex(s.year));
 
   retirementAndGraduation(s);
   deaths(s);
@@ -334,6 +420,7 @@ export function simulateYear(s: GameState): void {
   milestones(s);
   adultEvents(s);
   lifeYear(s);
+  workEvents(s);
   randomEvents(s);
 
   for (const p of mainlineMembers(s)) {
@@ -345,6 +432,8 @@ export function simulateYear(s: GameState): void {
   const after = homeTotal(s);
   log(s, `💰 ${after.label} ${formatMoney(after.value)} (${after.value >= before.value ? '+' : ''}${formatMoney(after.value - before.value)})`, 'money');
   checkAchievements(s);
+  checkHonors(s);
+  scanMilestones(s, familyTotal(s));
   checkMissions(s);
   foldFamilyPot(s);
   if (!homeOf(s, householder(s))) {
@@ -400,7 +489,7 @@ function lifeYear(s: GameState) {
     if (p.job === 'founder' && p.jobLevel >= 4 && !p.flags.some((f) => f === 'ipo' || f === 'ipo_declined')) queue(s, 'ipo', p.id);
     // 대선
     if (isElectionYear(s.year) && a >= 45 && a <= 72 && !hasFlag(p, 'draft_dodger') && p.job !== 'president' && !hasFlag(p, 'president')) {
-      if ((p.job === 'politician' && p.jobLevel >= 2) || (hasFlag(p, 'was_minister') && s.fame >= 120) || (p.job === 'politician' && s.fame >= 150)) queue(s, 'presidential', p.id);
+      if ((p.job === 'politician' && p.jobLevel >= 2 && s.fame >= 100 && (p.pol?.approval ?? 0) >= 45) || (hasFlag(p, 'was_minister') && s.fame >= 140)) queue(s, 'presidential', p.id);
     }
   }
   // 유언장: 가주 65세부터 5년마다
@@ -421,7 +510,11 @@ function lifeYear(s: GameState) {
   }
   // 일상 이야기: 해마다 한두 개
   const stories: [LifeDef, Person, number][] = [];
+  const histNow = inHistory(s);
   for (const p of members) for (const d of STORIES) {
+    if (d.id.startsWith('st_wk_')) continue; // 직장 이야기는 따로 (workEvents)
+    if (histNow && d.raw && anachronistic(s, d.raw)) continue; // 그 시절에 없던 이야기
+    if (histNow && s.year < 2000 && !d.id.startsWith('st_h_') && !d.id.startsWith('st_dev_') && !TIMELESS.has(d.id.slice(3))) continue; // 2000년 전엔 그 시절 이야기와 어느 시대에나 있을 이야기만
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) stories.push([d, p, w]);
   }
@@ -475,12 +568,14 @@ function retirementAndGraduation(s: GameState) {
       p.jobLevel = Number(pl);
       p.jobYears = 5;
       log(s, `${fullName(p)} 장관 퇴임`, 'life');
+      ministerLeaves(s, p);
     }
     if (p.job === 'president' && p.jobYears >= 5) {
       p.job = 'pension';
       p.flags = p.flags.filter((f) => !f.startsWith('pens:'));
       p.flags.push('pens:15000', 'ex_president');
       log(s, `🇰🇷 ${fullName(p)} 대통령 퇴임`, 'life');
+      presidentLeaves(s, p);
     }
     // 건물주
     const building = s.assets.some((x) => x.kind === 'building' && x.ownerId === p.id);
@@ -508,12 +603,13 @@ function retirementAndGraduation(s: GameState) {
     if (ra && a >= ra) {
       const sev = severance(s, p);
       if (p.job !== 'none' && p.job !== 'parttime') log(s, `${fullName(p)} ${JOBS[p.job].kind === 'salary' ? '정년퇴직' : '은퇴'}${sev ? ` (퇴직금 ${formatMoney(sev)})` : ''}`, 'life');
-      settlePension(p);
+      retireHonor(s, p);
+      settlePension(p, s);
       if (p.id === s.headId) queue(s, 'pension_timing', p.id), queue(s, 'second_life', p.id);
       p.job = 'pension';
       p.flags = p.flags.filter((f) => !f.startsWith('prep:') && !f.startsWith('tries:'));
     } else if ((JOBS[p.job].kind === 'creator' || JOBS[p.job].kind === 'business' || p.job === 'politician') && a >= 78) {
-      settlePension(p);
+      settlePension(p, s);
       p.job = 'pension';
     }
   }
@@ -567,8 +663,12 @@ function graduate(s: GameState, p: Person, track?: string) {
       addFlag(p, 'flight_school');
       return prep('pilot');
     case 'grad_school':
-      log(s, `🎓 ${fullName(p)} 박사 학위 취득`, 'life');
-      return prep('professor');
+      log(s, `🎓 ${fullName(p)} 박사 학위 취득 (논문 ${p.papers ?? 0}편)`, 'life');
+      addFlag(p, 'phd');
+      p.flags.push('phd_y:' + s.year);
+      setJob('researcher', 0); // 박사후연구원·시간강사로 버티며 임용을 노린다
+      if (main) queue(s, 'prof_hire', p.id);
+      return;
     case 'pharm_school':
       return prep('pharmacist');
     case 'nurse_school':
@@ -655,6 +755,7 @@ function autoExam(s: GameState, p: Person, id: string) {
 }
 
 function causeOf(s: GameState, p: Person): string {
+  if (p.flags.includes('kia_pending')) return '전장에서';
   if (p.flags.some((f) => f.startsWith('cancer:'))) return '암 투병 끝에';
   const a = age(s, p);
   return a > 75 ? '노환으로' : p.actual.hp < 30 ? '지병으로' : a < 50 && chance(s, 0.5) ? '불의의 사고로' : '갑작스러운 병으로';
@@ -669,6 +770,7 @@ function deaths(s: GameState) {
     const cause = causeOf(s, p);
     p.deathYear = s.year;
     log(s, `🕯 ${fullName(p)} ${cause} 별세 (향년 ${age(s, p)}세)`, 'death');
+    if (!p.inLaw && (wasHead || isMainline(s, p) || isDescendantOf(s, head(s), p)) && age(s, p) >= 15) lifeReport(s, p);
     lifeInsurancePayout(s, p);
 
     if (wasHead) {
@@ -847,6 +949,24 @@ function adultEvents(s: GameState) {
   }
 }
 
+/** 직장 생활 이야기: 일하는 가족에게 그 직업다운 일이 해마다 생긴다 (가주는 자주, 다른 가족은 가끔, 한 해 최대 2건) */
+const WORK_DEFS = STORIES.filter((d) => d.id.startsWith('st_wk_'));
+function workEvents(s: GameState) {
+  const workers = mainlineMembers(s).filter((p) => age(s, p) >= 20 && !['none', 'parttime', 'pension'].includes(p.job) && !p.flags.includes('student'));
+  workers.sort((a, b) => Number(b.id === s.headId) - Number(a.id === s.headId));
+  let n = 0;
+  for (const p of workers) {
+    if (n >= 2 || !chance(s, p.id === s.headId ? 0.6 : 0.25)) continue;
+    const pool = WORK_DEFS.filter((d) => !(inHistory(s) && d.raw && anachronistic(s, d.raw))).map((d) => [d, d.weight?.(s, p) ?? 0] as const).filter(([, w]) => w > 0);
+    const total = pool.reduce((t, [, w]) => t + w, 0);
+    if (!total) continue;
+    let r = next(s) * total;
+    const hit = pool.find(([, w]) => (r -= w) <= 0) ?? pool[pool.length - 1];
+    queue(s, hit[0].id, p.id);
+    n++;
+  }
+}
+
 /** 같은 무작위 사건이 연달아 나오지 않게: 마지막으로 일어난 뒤 몇 년은 쉰다 */
 const RAND_COOLDOWN: Record<string, number> = { r_illness: 7, holiday: 5, r_parent_care: 7 };
 function onCooldown(s: GameState, key: string, years: number): boolean {
@@ -889,15 +1009,24 @@ function endGame(s: GameState, reason: string) {
 /** 죽은 사람 앞으로 온 이벤트도 보여주는 것들 */
 const FOR_THE_DEAD = new Set(['notice', 'choose_heir', 'parent_estate', 'naming']);
 
+/** 근현대사 모드: 뼈대 사건은 그 시절 판으로 */
+const defOf = (s: GameState, id: string) => histOverride(s, id) ?? EVENTS[id];
+/** 근현대사에서 그 시절에 없던 말이 들어가도 건너뛰지 않는 뼈대 사건 (선택지만 거른다) */
+const CORE_IDS = new Set(['notice', 'kinder', 'elementary', 'middle', 'high', 'exam', 'school_year', 'first_job', 'military', 'wedding', 'kid_wedding', 'naming', 'will', 'parent_estate', 'choose_heir', 'leave_home', 'kid_leave', 'house_promise', 'funeral', 'path', 'aptitude', 'dream', 'meet', 'dating_year', 'woe', 'allowance_talk', 'univ']);
+
 export function currentEvent(s: GameState): ReturnType<typeof eventView> | undefined {
   bindState(s);
   // 그사이 상황이 바뀐 이벤트(사망·이혼 등)는 건너뛴다
   while (s.events.length) {
     const ev = s.events[0];
-    const def = EVENTS[ev.defId];
+    const def = defOf(s, ev.defId);
     const p = s.people[ev.personId];
     const ctx: Ctx = { s, p, ev };
-    if (def && p && (alive(p) || FOR_THE_DEAD.has(def.id)) && (def.valid?.(ctx) ?? true)) return eventView(ctx);
+    if (def && p && (alive(p) || FOR_THE_DEAD.has(def.id)) && (def.valid?.(ctx) ?? true)) {
+      const v = eventView(ctx);
+      // 근현대사: 그 시절에 없던 물건·제도가 나오는 이야기는 건너뛴다
+      if (!inHistory(s) || v.def.id.startsWith('hist_') || CORE_IDS.has(v.def.id) || !anachronistic(s, v.title + ' ' + v.text)) return v;
+    }
     s.events.shift();
   }
   return undefined;
@@ -905,14 +1034,22 @@ export function currentEvent(s: GameState): ReturnType<typeof eventView> | undef
 
 function eventView(ctx: Ctx) {
   const { ev, p } = ctx;
-  const def = EVENTS[ev.defId];
-  const text = def.text(ctx);
+  const def = defOf(ctx.s, ev.defId);
+  const hist = inHistory(ctx.s);
+  const text = periodize(ctx.s, def.text(ctx));
   // 비용이 가용 자금을 넘는 선택지는 이벤트 정의와 무관하게 잠근다
   const money = spendable(ctx.s);
-  const choices = def.choices(ctx).map((c) => (c.cost && c.cost > money ? { ...c, disabled: true } : c));
+  let raw = def.choices(ctx);
+  if (hist) {
+    // 그 시절에 없던 선택지는 빼고, 말은 시대말로. 이야기(st_)의 고정 금액은 그 시절 소득 수준으로
+    const w = wageIndex(ctx.s.year);
+    const kept = raw.filter((c) => !anachronistic(ctx.s, c.label));
+    raw = (kept.length ? kept : raw).map((c) => ({ ...c, label: periodize(ctx.s, c.label), cost: c.cost && def.id.startsWith('st_') ? Math.max(1, Math.round(c.cost * w)) : c.cost }));
+  }
+  const choices = raw.map((c) => (c.cost && c.cost > money ? { ...c, disabled: true } : c));
   // 돈이 없어 고를 게 하나도 없으면 막히지 않게 탈출구를 준다
   if (choices.every((c) => c.disabled)) choices.push({ label: '어쩔 수 없다 (그냥 넘긴다)', run: () => '할 수 있는 게 없었다.' });
-  return { ev, def, ctx, title: def.title(ctx), text, choices, portraits: def.portraits?.(ctx) ?? [p] };
+  return { ev, def, ctx, title: periodize(ctx.s, def.title(ctx)), text, choices, portraits: def.portraits?.(ctx) ?? [p] };
 }
 
 export function resolveChoice(s: GameState, idx: number): string {
@@ -922,10 +1059,11 @@ export function resolveChoice(s: GameState, idx: number): string {
   if (!ch || ch.disabled) return '';
   if (ch.cost) pay(s, householder(s), ch.cost);
   const res = ch.run(cur.ctx);
-  const text = typeof res === 'string' ? res : res.text;
+  const text = periodize(s, typeof res === 'string' ? res : res.text);
   if (typeof res === 'string' || !res.keep) s.events.shift();
   if (text && cur.def.id !== 'notice') log(s, `[${cur.title}] ${ch.label} → ${text.split('\n')[0]}`, 'life');
   checkAchievements(s);
+  scanMilestones(s, familyTotal(s));
   foldFamilyPot(s);
   return text;
 }

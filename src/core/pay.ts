@@ -8,6 +8,7 @@
 // bonus = 해마다 성과급·실적으로 출렁이는 정도. open = 이 직급부터는 개원·개업(자영업): 수입이 크게 출렁이고 폐업도 있다.
 // 전문직 최고 수준도 연 4~5억 선: 수십억은 대박 난 연예인·유튜버·사업가의 몫이다.
 // ladder = 연차가 차면 자동으로 오르는 수련 과정 [근무 연수, 직급] (의사: 인턴 1년 → 레지던트 4년 → 전문의).
+import { histWage } from './histidx';
 
 export interface PayDef {
   pay: number[];
@@ -71,6 +72,24 @@ export const PAY: Record<string, PayDef> = {
   customs_broker: P([5000, 8000, 11000, 15000], 0.02, { open: 1 }),
   // ── IT·과학·공학 ──
   developer: P([4200, 6000, 8500, 11000, 14000, 20000], 0.04, { bonus: 0.15 }),
+  ai_trainer: P([3800, 5500, 7500, 10000, 14000], 0.04, { bonus: 0.1 }),
+  robot_tech: P([3600, 4800, 6200, 7800, 9500], 0.03),
+  drone_control: P([4000, 5200, 6800, 8500, 10500], 0.03),
+  climate_eng: P([5000, 6500, 8500, 11000, 14000, 18000], 0.03),
+  vr_architect: P([4200, 6000, 8500, 12000, 18000], 0.04, { bonus: 0.1 }),
+  care_robot_mgr: P([3600, 4800, 6000], 0.02),
+  longevity_doc: P([12000, 18000, 26000, 34000, 45000, 60000], 0.03),
+  ai_auditor: P([5500, 7500, 10000, 13000, 17000], 0.03),
+  space_tech: P([8000, 11000, 15000, 20000, 28000], 0.03),
+  bci_surgeon: P([14000, 20000, 28000, 38000, 50000, 65000], 0.03),
+  memory_designer: P([6000, 8500, 12000, 16000, 22000], 0.03),
+  mars_pioneer: P([9000, 12000, 16000, 22000, 30000], 0.03),
+  terraformer: P([9000, 12000, 16000, 21000, 28000, 36000], 0.03),
+  asteroid_miner: P([7000, 9500, 12500, 16000, 20000], 0.03),
+  orbital_architect: P([8500, 11500, 15500, 20000, 27000, 35000], 0.03),
+  upload_engineer: P([11000, 15000, 20000, 26000, 33000], 0.03),
+  xeno_biologist: P([8000, 11000, 15000, 20000, 26000, 34000], 0.03),
+  star_navigator: P([12000, 17000, 23000, 30000, 40000], 0.03),
   data_scientist: P([5000, 7000, 9500, 12000, 16000, 25000], 0.04, { bonus: 0.15 }),
   security: P([4800, 6500, 9000, 11500, 15000, 22000], 0.04),
   game_dev: P([4000, 5500, 7500, 10000, 14000, 20000], 0.04, { bonus: 0.3 }),
@@ -128,7 +147,8 @@ export const GRAD_STIPEND = 1500;
 /** 명목 임금 상승률: 물가·집값이 오르듯 임금도 오른다 (연 2.5%) */
 export const WAGE_GROWTH = 0.025;
 export const BASE_YEAR = 2025;
-export const wageIndex = (year: number) => Math.pow(1 + WAGE_GROWTH, Math.max(0, year - BASE_YEAR));
+/** 임금 지수: 2025년 이후는 연 상승률, 그 전(근현대사 모드)은 실질 소득 연표 (histidx.ts) */
+export const wageIndex = (year: number) => (year < BASE_YEAR ? histWage(year) : Math.pow(1 + WAGE_GROWTH, year - BASE_YEAR));
 
 // ───────────────────────── 세금·4대보험·연금 ─────────────────────────
 
@@ -165,7 +185,8 @@ export function incomeTax(income: number, year: number): { tax: number; social: 
   if (income <= 0) return { tax: 0, social: 0 };
   const wi = wageIndex(year);
   const x = income / wi;
-  const social = SOCIAL_RATE * Math.min(x, SOCIAL_CAP);
+  // 4대보험이 없던 시절 (근현대사): 산재 1964·의료 1977·국민연금 1988·고용 1995
+  const social = SOCIAL_RATE * Math.min(x, SOCIAL_CAP) * (year < 1977 ? 0 : year < 1988 ? 0.3 : year < 1995 ? 0.7 : 1);
   let base = Math.max(0, x - earnedDeduction(x) - 150 - 0.045 * Math.min(x, SOCIAL_CAP));
   let tax = 0;
   let prev = 0;

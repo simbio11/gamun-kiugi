@@ -20,10 +20,16 @@ import { pensionOf, settlePension, severance } from '../src/core/economy';
 import { divorce } from '../src/core/life';
 import { reverseMortgageRate } from '../src/core/welfare';
 import { acqTax, buyListing, gainsTax, isPrimary, rentable, rollListings } from '../src/core/realty';
-import { recommendSusi, standing } from '../src/core/school';
+import { recommendSusiType, standing } from '../src/core/school';
 import { hoodOf } from '../src/core/housing';
 import { homeOf, moveTo, settleHome } from '../src/core/housing';
 import { debtRate, goBankrupt, walletNet } from '../src/core/debt';
+import { awardHonor, buyPerk, grant, retireHonor } from '../src/core/rewards';
+import { profScore } from '../src/core/career';
+import { awardCard, cardYear, CARDS, SUMMITS, SYNERGIES, activeSynergies } from '../src/core/cards';
+import { familyScore, lifeReport } from '../src/core/score';
+import { WORK_STORIES } from '../src/core/stories-work';
+import { obeys, willOf } from '../src/core/autonomy';
 
 describe('콘텐츠 무결성', () => {
   it('직업 100개 이상, 모든 참조가 유효', () => {
@@ -86,6 +92,7 @@ describe('인생 시스템', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const s = newGame({ seed, familyName: '최', sex: 'M' });
       s.events = [];
+      s.scheduled = [];
       const h = head(s);
       s.year = h.birthYear + 35;
       h.cash = 50000;
@@ -461,8 +468,23 @@ describe('인생 시스템', () => {
     const h = head(s);
     mark(h, 'kind', 6);
     mark(h, 'warmth', 4);
-    const keys = new Set(recommendSusi(s, h, 70).map((p) => p.key));
+    const keys = new Set(recommendSusiType(s, h, 'hak', 70).map((p) => p.key));
     expect([...keys].some((k) => ['edu', 'edu_elem', 'welfare', 'nurse', 'kinder', 'pt'].includes(k))).toBe(true);
+  });
+
+  it('수시: 과외 없이 내신만 좋은 저소득층 학생도 기회균형·교과로 인서울에 갈 길이 있다', () => {
+    const s = newGame({ seed: 53, familyName: '최', sex: 'F', origin: 'poor' });
+    const h = head(s);
+    h.study = 80;
+    h.eduSpent = 0;
+    s.year += 14;
+    const opp = recommendSusiType(s, h, 'opp', 45);
+    const gyo = recommendSusiType(s, h, 'gyo', 45);
+    expect(opp.some((p) => ['S', 'A', 'B'].includes(p.tier))).toBe(true);
+    expect(gyo.length).toBeGreaterThan(0);
+    // 부유한 집 아이는 기회균형 자격이 없다
+    const r = newGame({ seed: 54, familyName: '최', sex: 'F', origin: 'rich' });
+    expect(recommendSusiType(r, head(r), 'opp', 45).length).toBe(0);
   });
 
   it('세금·퇴직금·연금: 누진세, 근속만큼 퇴직금, 공무원연금 > 국민연금', () => {
@@ -750,5 +772,233 @@ describe('부모님 유산', () => {
       expect(got).toBeGreaterThan(momGot / 1.5 * 0.5); // 자녀 몫이 0에 가깝지 않다
     }
     expect(momGot).toBeLessThan((290000 * 1.5) / total * 1.6);
+  });
+
+  it('교수의 길: 박사 학위 → 연구원으로 버티며 임용 공고가 온다, 논문이 많을수록 유리', () => {
+    const s = newGame({ seed: 71, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year += 30;
+    h.flags.push('student', 'track:grad_school', 'grad:' + s.year);
+    h.papers = 8;
+    s.events = [];
+    simulateYear(s);
+    expect(h.flags).toContain('phd');
+    expect(h.job).toBe('researcher');
+    expect(s.events.some((e) => e.defId === 'prof_hire')).toBe(true);
+    const low = profScore(h);
+    h.papers = 20;
+    expect(profScore(h)).toBeGreaterThan(low + 20);
+  });
+
+  it('훈장·명예: 25년 넘게 봉직한 교사는 근정훈장, 명예로 상점에서 행동력을 산다', () => {
+    const s = newGame({ seed: 72, familyName: '최', sex: 'F' });
+    const h = head(s);
+    h.job = 'teacher';
+    h.jobYears = 31;
+    const fame = s.fame;
+    retireHonor(s, h);
+    expect(s.honors?.[0]?.id).toBe('hongjo');
+    expect(s.fame).toBeGreaterThan(fame);
+    awardHonor(s, h, 'hongjo', '중복');
+    expect(s.honors?.length).toBe(1); // 같은 훈장은 한 번만
+    grant(s, '🏆', '테스트', '', 'legend');
+    const ap = apMax(s);
+    expect(buyPerk(s, 'ap').ok).toBe(true);
+    expect(apMax(s)).toBe(ap + 1);
+    expect((s.rewards ?? []).length).toBeGreaterThan(0);
+  });
+
+  it('명예의 전당 카드: 얻으면 팝업·효과, 인생 성적표가 가문 총점에 쌓인다', () => {
+    const s = newGame({ seed: 73, familyName: '최', sex: 'F' });
+    const h = head(s);
+    s.year += 30;
+    h.job = 'entertainer';
+    h.jobLevel = 5;
+    const fame = s.fame;
+    s.events = [];
+    cardYear(s); // 월드 스타 자동 카드
+    expect(s.cards?.some((c) => c.id === 'world_star')).toBe(true);
+    expect(s.rewards?.some((r) => r.card === 'world_star')).toBe(true);
+    expect(s.fame).toBeGreaterThan(fame);
+    awardCard(s, h, 'world_star');
+    expect(s.cards?.filter((c) => c.id === 'world_star').length).toBe(1); // 같은 사람 같은 카드는 한 번
+    const before = familyScore(s).total;
+    const dad = parentsOf(s, h)[0];
+    dad.deathYear = s.year;
+    lifeReport(s, dad);
+    expect(dad.lifeScore).toBeGreaterThan(0);
+    expect(familyScore(s).total).toBeGreaterThan(before);
+  });
+
+  it('직장 생활: 모든 직업마다 그 직업다운 직장 이야기가 2개 이상 있다', () => {
+    const s = newGame({ seed: 74, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year += 35;
+    const thin: string[] = [];
+    for (const id of JOB_IDS) {
+      if (['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'landlord', 'professor'].includes(id)) continue; // 정치·교수는 career.ts, 건물주는 부동산
+      h.job = id;
+      h.jobLevel = 2;
+      h.jobYears = 20;
+      const n = WORK_STORIES.filter((st) => !st.id.startsWith('wk_any') && (!st.cond || st.cond(s, h))).length;
+      if (n < 2) thin.push(`${id}:${n}`);
+    }
+    expect(thin).toEqual([]);
+  });
+
+  it('모든 명예의 전당 카드는 실제 플레이로 얻을 수 있다 (자동 조건 또는 정점 이벤트, 2단계까지 끝까지)', () => {
+    const fail: string[] = [];
+    for (const d of CARDS) {
+      const sm = SUMMITS.find((x) => x.card === d.id);
+      if (!d.auto && !sm) { fail.push(d.id + ': 얻는 길 없음'); continue; }
+      const s = newGame({ seed: 90, familyName: '최', sex: 'M' });
+      const h = head(s);
+      s.year += 45;
+      s.events = [];
+      for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) h.potential[k] = h.actual[k] = 100;
+      let ok = false;
+      if (d.auto) {
+        // 자동 카드: 직업·직급으로 되는지, 아니면 플래그가 게임 어딘가에서 실제로 붙는지
+        // 시대의 카드는 그 시대에만: 1975·1990·2000·2035·2070년에도 해 본다 (나이는 40세로)
+        const base = s.year;
+        for (const y of [base, 1975, 1990, 2000, 2035, 2070]) {
+          s.year = y;
+          const by = h.birthYear;
+          h.birthYear = y - 40;
+          for (const id of JOB_IDS) for (let lv = JOBS[id].maxLevel; lv >= 0 && !ok; lv--) {
+            h.job = id; h.jobLevel = lv; h.jobYears = 30;
+            if (d.auto(s, h)) ok = true;
+          }
+          h.birthYear = by;
+          if (ok) break;
+        }
+        s.year = base;
+        if (!ok) {
+          // 근현대사·미래 사건이 붙이는 플래그 (history.ts 파독·중동·월남·5·18, histpack 금 모으기, timeline.ts 뉴럴·달·화성)
+          const flags = ['president', 'was_minister', 'was_politician', 'nobel', 'olympic_gold', 'mideast', 'germany', 'vietnam', 'arrested80', 'gold_ring', 'neural', 'moon_worker', 'mars_settler', 'asteroid_rich', 'starship_crew', 'signal_answer', 'space_trip', 'war_hero', 'war_medic', 'war_veteran', 'rebuilder', 'uploaded', 'orbital_home', 'jf_victim', 'witness']; // 모두 이벤트에서 실제로 붙는 플래그 (대선·청문회·총선·노벨상·올림픽)
+          for (const f of flags) {
+            h.flags.push(f);
+            if (d.auto(s, h)) ok = true;
+            h.flags.pop();
+          }
+          h.donated = 50000;
+          if (d.auto(s, h)) ok = true;
+          // 나이·자녀가 조건인 가족 카드 (장한 어버이·백세 어르신)
+          h.birthYear = s.year - 96;
+          h.childIds = [...h.childIds, 'x1', 'x2', 'x3'];
+          if (d.auto(s, h)) ok = true;
+        }
+      }
+      if (!ok && sm) {
+        if (sm.pre) awardCard(s, h, sm.pre);
+        if (sm.setup) {
+          sm.setup(s, h);
+          ok = sm.ok(s, h) && !!JOBS[h.job];
+        } else {
+          h.papers = 50; s.fame = 200; h.flags.push('was_politician');
+          for (const id of JOB_IDS) for (let lv = JOBS[id].maxLevel; lv >= 0 && !ok; lv--) {
+            h.job = id; h.jobLevel = lv; h.jobYears = 30;
+            if (sm.ok(s, h)) ok = true;
+          }
+        }
+        if (ok) {
+          // 이벤트를 끝까지 실제로 치른다 (능력치 100이면 이긴다)
+          for (let stage = 1; stage <= (sm.stages ?? 1); stage++) {
+            s.events = [{ uid: s.eventSeq++, defId: 'summit_' + d.id, personId: h.id, data: { stage } }];
+            resolveChoice(s, 0);
+          }
+          if (!(s.cards ?? []).some((c) => c.id === d.id && c.personId === h.id)) { ok = false; fail.push(d.id + ': 이벤트를 이겼는데 카드가 없다'); continue; }
+        }
+      }
+      if (!ok) fail.push(d.id + ': 조건을 만족하는 상태가 없다');
+    }
+    expect(fail).toEqual([]);
+    // 시너지는 실제 카드 id로만 이루어진다
+    const ids = new Set(CARDS.map((c) => c.id));
+    for (const sy of SYNERGIES) for (const g of sy.groups) for (const id of g) expect(ids.has(id)).toBe(true);
+  });
+
+  it('가문 시너지: 장군과 재계 거물이 함께 살아 있으면 "군수 재벌"이 발동한다', () => {
+    const s = newGame({ seed: 91, familyName: '최', sex: 'M' });
+    const h = head(s);
+    const dad = parentsOf(s, h)[0];
+    s.year += 30;
+    awardCard(s, h, 'general');
+    awardCard(s, dad, 'chaebol');
+    expect(activeSynergies(s).some((x) => x.id === 'military_industrial')).toBe(true);
+    s.events = [];
+    cardYear(s);
+    expect(s.rewards?.some((r) => r.title.includes('군수 재벌'))).toBe(true);
+  });
+
+  it('어떤 직업이든 그 직업으로 딸 수 있는 명예의 전당 카드가 하나 이상 있다', () => {
+    const s = newGame({ seed: 92, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year += 40;
+    for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) h.actual[k] = 80;
+    const none: string[] = [];
+    for (const id of JOB_IDS) {
+      if (['none', 'parttime', 'pension', 'landlord'].includes(id)) continue;
+      let ok = false;
+      for (let lv = 0; lv <= JOBS[id].maxLevel && !ok; lv++) {
+        h.job = id; h.jobLevel = lv; h.jobYears = 20;
+        ok = CARDS.some((d) => d.auto?.(s, h)) || SUMMITS.some((sm) => !sm.pre && sm.ok(s, h));
+      }
+      if (!ok) none.push(id);
+    }
+    expect(none).toEqual([]);
+  });
+
+  it('자율성: 충성도 높은 자식은 대체로 따르고, 반항적인 자식은 자주 거역한다', () => {
+    const s = newGame({ seed: 93, familyName: '최', sex: 'M' });
+    const k = head(s);
+    k.traits = ['filial'];
+    k.affinity = 80;
+    let yes = 0;
+    for (let i = 0; i < 200; i++) if (obeys(s, k)) yes++;
+    k.traits = ['rebel'];
+    k.affinity = -60;
+    let yes2 = 0;
+    for (let i = 0; i < 200; i++) if (obeys(s, k)) yes2++;
+    expect(yes).toBeGreaterThan(130);
+    expect(yes2).toBeLessThan(70);
+    expect(willOf(k).loyalty).toBeLessThan(40);
+  });
+
+  it('정략결혼: 따르는 자식은 혼례로, 명문가는 명성·신흥 부자는 돈', () => {
+    const s = newGame({ seed: 94, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year += 30;
+    h.traits = ['filial'];
+    h.affinity = 100;
+    s.events = [{ uid: s.eventSeq++, defId: 'arranged_offer', personId: h.id }];
+    const fame = s.fame;
+    let tries = 0;
+    while (!h.partnerId && tries++ < 20) {
+      s.events = [{ uid: s.eventSeq++, defId: 'arranged_offer', personId: h.id }];
+      resolveChoice(s, 0);
+    }
+    expect(h.partnerId).toBeTruthy();
+    expect(s.fame).toBeGreaterThan(fame);
+    expect(s.events.some((e) => e.defId === 'kid_wedding')).toBe(true);
+  });
+
+  it('명예 vs 실리: 사채·투기는 스캔들 위험을 쌓고, 폭로되면 명예 직업 가족이 다친다', () => {
+    const s = newGame({ seed: 95, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year += 35;
+    s.events = [];
+    h.cash = 100000;
+    h.job = 'judge';
+    h.jobLevel = 3;
+    s.ap = 5;
+    const r = doAction(s, 'm_loanshark');
+    expect(r).toBeTruthy();
+    expect(s.scandal ?? 0).toBeGreaterThanOrEqual(12);
+    s.scandal = 80;
+    s.fame = 50;
+    s.events = [{ uid: s.eventSeq++, defId: 'scandal_break', personId: h.id }];
+    resolveChoice(s, 2); // 모르쇠
+    expect(s.fame).toBeLessThan(50);
   });
 });

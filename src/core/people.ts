@@ -1,5 +1,6 @@
 import { chance, int, next, normal, pick, type RngHolder } from './rng';
-import { FEMALE_NAMES, MALE_NAMES, STAT_KEYS, TALENTS, TALENT_IDS, TRAITS, TRAIT_IDS } from './data';
+import { bonusGene } from './rewards';
+import { ERA_NAMES, NATIVE_NAMES, STAT_KEYS, TALENTS, TALENT_IDS, TRAITS, TRAIT_IDS } from './data';
 import type { CareerTag, GameState, Genes, Person, Sex, Stats, Talent } from './types';
 
 export const HAIR_STYLES = 7;
@@ -28,8 +29,13 @@ export function head(s: GameState): Person {
   return s.people[s.headId];
 }
 
-export function randomName(r: RngHolder, sex: Sex): string {
-  return pick(r, sex === 'M' ? MALE_NAMES : FEMALE_NAMES);
+/** 태어난 해의 유행 이름 (가끔 앞뒤 시대 이름, 드물게 순우리말) */
+export function randomName(r: RngHolder, sex: Sex, birthYear = 2025): string {
+  const i = Math.max(0, ERA_NAMES.findIndex((e) => birthYear <= e.until));
+  const roll = next(r);
+  if (roll < 0.05) return pick(r, NATIVE_NAMES[sex]);
+  const era = roll < 0.85 ? ERA_NAMES[i] : ERA_NAMES[clamp(i + (roll < 0.93 ? -1 : 1), 0, ERA_NAMES.length - 1)];
+  return pick(r, era[sex]);
 }
 
 /** 집안에서 이미 쓰는 이름: 부모·조부모·형제 (항렬 문화에서도 같은 이름은 피한다) */
@@ -44,7 +50,7 @@ export function takenNames(s: GameState, p: Person): Set<string> {
 export function freshName(s: GameState, p: Person): string {
   const taken = takenNames(s, p);
   let n = p.name;
-  for (let i = 0; i < 30 && (!n || taken.has(n)); i++) n = randomName(s, p.sex);
+  for (let i = 0; i < 30 && (!n || taken.has(n)); i++) n = randomName(s, p.sex, p.birthYear);
   return n;
 }
 
@@ -108,7 +114,7 @@ export function createPerson(s: GameState, o: CreateOpts): Person {
   return {
     id: newId(s),
     surname: o.surname,
-    name: randomName(s, sex),
+    name: randomName(s, sex, o.birthYear),
     sex,
     birthYear: o.birthYear,
     childIds: [],
@@ -141,7 +147,7 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
   for (const k of STAT_KEYS) {
     // 부모 평균 + 큰 변이. 가끔은 한쪽 부모를 쏙 빼닮는다
     const mid = chance(s, 0.25) ? (chance(s, 0.5) ? father.potential[k] : mother.potential[k]) : (father.potential[k] + mother.potential[k]) / 2;
-    potential[k] = Math.round(clamp(mid + normal(s, 0, 10), 15, 100));
+    potential[k] = Math.round(clamp(mid + normal(s, 0, 10) + bonusGene(s), 15, 100));
   }
   const mutations: string[] = [];
   if (chance(s, 0.005)) {
@@ -178,7 +184,7 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
   return {
     id: newId(s),
     surname,
-    name: randomName(s, sex),
+    name: randomName(s, sex, s.year),
     sex,
     birthYear: s.year,
     fatherId: father.id,
