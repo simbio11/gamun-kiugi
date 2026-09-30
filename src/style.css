@@ -1377,3 +1377,10 @@ body:has(.cv-modal) .cdex * { animation-play-state: paused !important; }
 .hid-card .hid-slides .hid-img { object-position: 50% 30%; }
 .cv-card:has(.cv-hidden) { aspect-ratio: 13 / 25; width: min(72vw, 288px, calc((100dvh - 300px) * .52)); }
 .cdex .dx:has(.hid-card) { contain-intrinsic-size: auto 230px; }
+
+/* 장면 점: 카드 위쪽 가운데, 지금 장면의 점이 밝아진다 (장면과 같은 박자) */
+.hid-dots { position: absolute; top: 2.5%; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; gap: 6px; padding: 3px 7px; border-radius: 99px; background: rgba(0, 0, 0, .35); pointer-events: none; }
+.hid-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .3); position: relative; }
+.hid-dots i::after { content: ''; position: absolute; inset: -1px; border-radius: 50%; background: #fff; box-shadow: 0 0 5px rgba(255, 230, 160, .9); opacity: 0;
+  animation: hid-slide calc(var(--n) * 5.5s) linear infinite; animation-delay: calc(var(--i) * 5.5s - 1.5s); }
+.hid-card.vid-on .hid-dots { opacity: 0; }

@@ -94,13 +94,15 @@ export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; 
   const big = !(o.cls ?? '').includes('dx-art');
   // 크게 보기에서만: 카드 그림 → 추가 장면 넷이 천천히 번갈아 (한 장면 4초 머물고 1.5초에 걸쳐 스르르)
   const slides = a?.alts?.length && o.cls?.includes('cv-img') ? `<div class="hid-slides" style="--n:${a.alts.length + 1}">${a.alts.map((u, i) => `<img class="hid-img" src="${u}" alt="" style="--i:${i + 1}">`).join('')}</div>` : '';
+  // 지금 몇 번째 장면인지: 카드 위 점들이 장면과 같은 박자로 밝아진다
+  const dots = slides ? `<div class="hid-dots" style="--n:${a!.alts!.length + 1}">${Array.from({ length: a!.alts!.length + 1 }, (_, i) => `<i style="--i:${i}"></i>`).join('')}</div>` : '';
   // 영상은 <video>를 화면에 두지 않고 캔버스에 그린다: 모바일 브라우저가 영상 위에 띄우는 확대·팝업 버튼이 안 생긴다
   const vid = big && a?.vid ? `<canvas class="hid-img hid-vid" width="496" height="864"${a.vid.mp4 ? ` data-mp4="${a.vid.mp4}"` : ''}${a.vid.webm ? ` data-webm="${a.vid.webm}"` : ''}></canvas>` : '';
   const art = a
     ? `<img class="hid-back" src="${a.src}" alt=""><div class="hid-pan"><img class="hid-img hid-bg" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-fig" src="${a.fig}" alt="">` : ''}${slides}${vid}</div>`
     : `<div class="hid-q">${h.icon}<small>그림 준비 중</small></div>`;
   return `<div class="hid-card fx-${h.fx} ${superJob ? 'is-super' : ''} ${o.cls ?? ''}" style="--hc:${h.color}">
-    <div class="hid-stage">${art}${big ? `<div class="hid-fx">${particles(h.fx)}</div>` : ''}<i class="hid-shine"></i></div>
+    <div class="hid-stage">${art}${big ? `<div class="hid-fx">${particles(h.fx)}</div>` : ''}<i class="hid-shine"></i>${dots}</div>
     <div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in"><b>${superJob ? '👑 SUPER HIDDEN 👑' : '✦ HIDDEN JOB ✦'}</b><span>${h.name}</span></div><i class="hid-orn r"></i><em class="hid-medal">${h.icon}</em></div>
     ${big ? '<i class="hid-glint g1"></i><i class="hid-glint g2"></i><i class="hid-glint g3"></i>' : ''}
     ${vid ? '<span class="hid-replay" role="button" data-hid-replay title="영상 다시 보기">▶</span>' : ''}
