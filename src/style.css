@@ -1367,3 +1367,13 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 /* 화면 밖 도감 카드는 그리지 않는다 · 카드를 크게 보는 동안 뒤의 도감은 멈춘다 */
 .cdex .dx { content-visibility: auto; contain-intrinsic-size: auto 190px; }
 body:has(.cv-modal) .cdex * { animation-play-state: paused !important; }
+
+/* ── 히든 카드 v3: 카드 비율을 그림(약 9:16)에 맞춰 양옆 빈 곳 없이 그림이 꽉 차게 ──
+   이름판(하단 17%)이 그림 맨 아래를 살짝 덮고, 그림은 카드 폭을 가득 채운다 */
+.hid-card { aspect-ratio: 13 / 25; }
+.hid-card .hid-pan { inset: 0 0 9% 0; }
+.hid-card .hid-img { object-fit: cover; object-position: 50% 15%; }
+.hid-card .hid-img.hid-blur, .hid-card .hid-img.hid-sil { inset: 0 0 9% 0; height: 91%; }
+.hid-card .hid-slides .hid-img { object-position: 50% 30%; }
+.cv-card:has(.cv-hidden) { aspect-ratio: 13 / 25; width: min(72vw, 288px, calc((100dvh - 300px) * .52)); }
+.cdex .dx:has(.hid-card) { contain-intrinsic-size: auto 230px; }
