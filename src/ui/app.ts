@@ -42,7 +42,7 @@ import { FOCUS_LABEL, focusOf } from '../core/spouse';
 import { govOf } from '../core/history';
 import { epochOf, newsMedium, newsStyle, type AlertMedia } from '../core/timeline';
 import { warChip } from '../core/war';
-import { anachronistic, inHistory, periodize, setHistCur } from '../core/histpack';
+import { anachronistic, periodize, setHistCur } from '../core/histpack';
 import { jeonseRatio, LEASE_NAME, leaseOf, setLease, type Lease } from '../core/tenant';
 import { WOES, woesOf } from '../core/woes';
 import { chooseSuccessor } from '../core/estate';
@@ -59,6 +59,7 @@ import { spendable as canSpend } from '../core/ev-util';
 import { writeWill } from '../core/family';
 import {
   aptitudeTest,
+  testCost,
   artPrice,
   buyAsset,
   canBuy,
@@ -541,7 +542,7 @@ function moveInRows(g: GameState, me: Person, dependent: boolean): string {
         <span><button class="mini" data-action="move-in" data-id="${a.id}" ${q.ok ? '' : 'disabled'}>${dependent ? '입주·독립' : '입주'}</button></span></div>`;
       })
       .join('')}
-    <p class="fine">들어가면 실거주 1주택이 되어 세금이 가벼워진다 (2년 넘게 살면 12억까지 양도세 비과세). 원래 살던 자가는 세를 놓는다.</p>`;
+    <p class="fine">들어가면 실거주 1주택이 되어 세금이 가벼워진다 (2년 넘게 살면 ${formatMoney(120000)}까지 양도세 비과세). 원래 살던 자가는 세를 놓는다.</p>`;
 }
 
 /** 🏡 우리 집: 지금 사는 곳 + 이사·매수 */
@@ -581,7 +582,7 @@ function homeCard(g: GameState): string {
     ${buy ? `<div class="arow"><span>이 집을 산다 <small>(보증금 돌려받아 보태고, 대출 ${formatMoney(buy.loan)})</small></span><span>${formatMoney(buy.price)} <button class="mini" data-action="buy-home" ${cash >= buy.need ? '' : 'disabled'}>매수</button></span></div>` : ''}
     <details class="moves"><summary>이사 가기 (전세·월세)</summary>
       ${rows}
-      <p class="fine">전세: 5년마다 재계약(그사이 오른 시세만큼 보증금 조정). 보증금의 최대 80%(2억·연 소득 4배 한도)까지 전세대출(연 4%). 월세: 보증금 조금 + 해마다 월세.<br>집을 사려면 부동산 매물에서 산다. 첫 집을 사면 그 집으로 이사하고, 지금 보증금은 돌려받는다.<br>자가에서 전세·월세로 옮기면 살던 집은 세를 놓는다. 집을 팔면 한 단계 작은 집 월세로 옮긴다.</p>
+      <p class="fine">전세: 5년마다 재계약(그사이 오른 시세만큼 보증금 조정). 보증금의 최대 80%(${formatMoney(20000)}·연 소득 4배 한도)까지 전세대출(연 4%). 월세: 보증금 조금 + 해마다 월세.<br>집을 사려면 부동산 매물에서 산다. 첫 집을 사면 그 집으로 이사하고, 지금 보증금은 돌려받는다.<br>자가에서 전세·월세로 옮기면 살던 집은 세를 놓는다. 집을 팔면 한 단계 작은 집 월세로 옮긴다.</p>
     </details>
   </section>`;
 }
@@ -688,7 +689,7 @@ function realtyCard(g: GameState): string {
     <h4 class="sub">📋 ${g.year}년 매물 <small class="muted">해마다 바뀐다 · 행동 탭 '임장'으로 급매를 더 찾을 수 있다</small></h4>
     ${adult ? '' : '<p class="fine">스무 살이 되면 살 수 있다.</p>'}
     ${listings || '<p class="hint">올해는 매물이 다 나갔다.</p>'}
-    <details class="moves"><summary>부동산 세금·규칙 보기</summary><p class="fine">첫 집(실거주)은 월세가 없는 대신 재산세가 싸고, 2년 넘게 살면 12억까지 양도세 비과세.<br>두 번째 집부터는 투자: 취득세 8%(3채 이상 12%), 대출 LTV 30%(3채부터 0%), 공시가 9억 넘으면 종부세, 팔 때 양도세 중과. 월세는 공실이면 0원.<br>전세 낀 매물은 적은 돈으로 살 수 있지만(갭투자), 만기에 세입자가 나가면 보증금을 돌려줘야 한다.</p></details>
+    <details class="moves"><summary>부동산 세금·규칙 보기</summary><p class="fine">첫 집(실거주)은 월세가 없는 대신 재산세가 싸고, 2년 넘게 살면 ${formatMoney(120000)}까지 양도세 비과세.<br>두 번째 집부터는 투자: 취득세 8%(3채 이상 12%), 대출 LTV 30%(3채부터 0%), 공시가 ${formatMoney(90000)} 넘으면 종부세, 팔 때 양도세 중과. 월세는 공실이면 0원.<br>전세 낀 매물은 적은 돈으로 살 수 있지만(갭투자), 만기에 세입자가 나가면 보증금을 돌려줘야 한다.</p></details>
   </section>`;
 }
 
@@ -739,7 +740,7 @@ function budgetCard(g: GameState): string {
     ${f.expense.map(([l, v]) => row(l, v, '−')).join('')}
     <div class="arow total"><span>한 해 남는 돈</span><b class="${f.net < 0 ? 'neg' : 'pos'}">${f.net < 0 ? '' : '+'}${formatMoney(f.net)}</b></div>
     ${f.mine ? `<p class="fine">독립 전 내 통장: ${[f.mine.allow ? `용돈 ${formatMoney(f.mine.allow)} (월 ${formatMoney(Math.round(f.mine.allow / 12))})` : '', f.mine.income ? `수입 ${formatMoney(f.mine.income)} − 세금 ${formatMoney(f.mine.tax)} − 교통·통신·여가 ${formatMoney(f.mine.own)} − 집에 보태는 생활비 ${formatMoney(f.mine.contrib)}` : ''].filter(Boolean).join(' + ')} = <b>${f.mine.net < 0 ? '' : '+'}${formatMoney(f.mine.net)}</b>/년</p>` : ''}
-    <p class="fine">월급은 세전 금액, 소득세·4대보험은 따로 빠진다 (연봉 3천 약 12%, 5천 16%, 1억 21%). 사업·크리에이터 수입과 시세는 해마다 출렁인다. 학년·진학 이벤트에서 고르는 사교육비는 따로 나간다.</p>
+    <p class="fine">월급은 세전 금액, 소득세·4대보험은 따로 빠진다 (연봉 ${formatMoney(3000)} 약 12%, ${formatMoney(5000)} 16%, ${formatMoney(10000)} 21%). 사업·크리에이터 수입과 시세는 해마다 출렁인다. 학년·진학 이벤트에서 고르는 사교육비는 따로 나간다.</p>
   </section>`;
 }
 
@@ -1138,7 +1139,7 @@ function personSheet(g: GameState, p: Person): string {
     actions.push(`<button class="btn" data-action="gift-to" data-id="${p.id}">🎁 증여하기 (돈·집·차…)</button>`);
   }
   if (!dead && isMainline(g, p) && !p.potentialKnown && a < 20) {
-    actions.push(`<button class="btn" data-action="test" data-id="${p.id}" ${spendable(g) < 300 ? 'disabled' : ''}>정밀 적성검사 (300만)</button>`);
+    actions.push(`<button class="btn" data-action="test" data-id="${p.id}" ${spendable(g) < testCost(g) ? 'disabled' : ''}>정밀 적성검사 (${formatMoney(testCost(g))})</button>`);
   }
   if (p.id === h.id) {
     actions.push(`<button class="btn" data-action="retire" ${retireOk !== true ? 'disabled' : ''}>은퇴 · 생전 승계</button>`);
@@ -1540,7 +1541,7 @@ function policyScreen(g: GameState): string {
             .join('')
         : '<p class="hint">키울 아이가 없다.</p>'
     }
-    <p class="fine">미취학: 기본 300만 · 사교육 1,200만 · 올인 3,000만 /년. 학령기부터는 해마다 학년 이벤트로 고른다.<br>사교육비가 쌓일수록 수능에 유리하지만, 아이의 행복은 줄어든다.</p>
+    <p class="fine">미취학: 기본 ${formatMoney(300)} · 사교육 ${formatMoney(1200)} · 올인 ${formatMoney(3000)} /년. 학령기부터는 해마다 학년 이벤트로 고른다.<br>사교육비가 쌓일수록 수능에 유리하지만, 아이의 행복은 줄어든다.</p>
   </section>
   <p class="fine" style="text-align:center">효과음·진동·글자 크기는 위쪽 ⚙ 설정에서.</p>`;
 }
@@ -1687,7 +1688,7 @@ function assetsScreen(g: GameState): string {
           }
           <h4 class="sub">적립식 자동 증여 (해마다)</h4>
           ${seg('autogift', g.policy.autoGifts?.[to.id] ?? 0, AUTO_GIFT_STEPS.map((v) => [v, v ? formatMoney(v) : '안 함']), to.id)}
-          <p class="fine">${esc(fullName(to))}에게 해마다 자동으로 보낸다. 10년 공제 한도(성인 5천만)를 나눠 쓰면 세금이 거의 없다.</p>
+          <p class="fine">${esc(fullName(to))}에게 해마다 자동으로 보낸다. 10년 공제 한도(성인 ${formatMoney(5000)})를 나눠 쓰면 세금이 거의 없다.</p>
           ${
             Object.entries(g.policy.autoGifts ?? {}).filter(([, v]) => v).length
               ? `<div class="auto-list">${Object.entries(g.policy.autoGifts ?? {})
@@ -1696,7 +1697,7 @@ function assetsScreen(g: GameState): string {
                   .join('')}</div>`
               : ''
           }
-          <p class="fine">10년 합산 공제: 배우자 6억 · 성인 자녀 5천만 · 미성년 2천만. 손주에게 바로 주면 세금 30% 할증(세대생략). 사망 전 10년 내 증여는 상속재산에 다시 합산되니 일찍 줄수록 유리.</p>`
+          <p class="fine">10년 합산 공제: 배우자 ${formatMoney(60000)} · 성인 자녀 ${formatMoney(5000)} · 미성년 ${formatMoney(2000)}. 손주에게 바로 주면 세금 30% 할증(세대생략). 사망 전 10년 내 증여는 상속재산에 다시 합산되니 일찍 줄수록 유리.</p>`
         : '<p class="hint">증여할 가족이 없다.</p>'
     }
   </section>
@@ -1733,7 +1734,7 @@ const AUTO_GIFT_STEPS = [0, 300, 500, 1000, 2500, 5000];
 function actionsScreen(g: GameState): string {
   const ap = apLeft(g);
   // 근현대사: 그 시절에 없던 행동은 숨기고 (코딩 학원·코인 …), 이름은 시대말로
-  const list = ACTIONS.filter((a) => forHead(g, a) && !anachronistic(g, a.name + ' ' + a.desc)).map((a) => (a.label ? { ...a, ...a.label(g) } : a)).map((a) => (inHistory(g) || g.year >= 2040 ? { ...a, name: periodize(g, a.name), desc: periodize(g, a.desc) } : a));
+  const list = ACTIONS.filter((a) => forHead(g, a) && !anachronistic(g, a.name + ' ' + a.desc)).map((a) => (a.label ? { ...a, ...a.label(g) } : a)).map((a) => ({ ...a, name: periodize(g, a.name), desc: periodize(g, a.desc) }));
   const cats = [...new Set(list.map((a) => a.cat))] as ActionCat[];
   const cat = ui.actCat && cats.includes(ui.actCat as ActionCat) ? (ui.actCat as ActionCat) : cats[0];
   const money = canSpend(g);
@@ -1897,7 +1898,7 @@ function vehicleCard(g: GameState): string {
             .join('')
         : '<p class="fine">차가 없다. 대중교통으로 다닌다.</p>'
     }
-    ${me.flags.includes('license') ? '' : `<p class="fine">🚦 운전면허가 없다. <button class="mini" data-action="tab" data-v="act">행동 탭</button>에서 먼저 면허를 따야 차를 살 수 있다 (학원비 약 77만).</p>`}
+    ${me.flags.includes('license') ? '' : `<p class="fine">🚦 운전면허가 없다. <button class="mini" data-action="tab" data-v="act">행동 탭</button>에서 먼저 면허를 따야 차를 살 수 있다 (학원비 약 ${formatMoney(77)}).</p>`}
     <details class="moves"><summary>매장 둘러보기</summary>
       ${VEHICLES.map((m) => {
         const price = vehiclePrice(g, m);
@@ -1905,7 +1906,7 @@ function vehicleCard(g: GameState): string {
         return `<div class="arow veh"><span><img class="vpx" src="${buildingURL(m.sprite, seedOf(m.id))}" alt=""> ${m.icon} ${esc(m.name)}<br><small class="muted">${esc(m.note)}<br>취득세 ${formatMoney(tax)} · 유지비 연 ${formatMoney(Math.round(m.upkeep * wageIndex(g.year)))} · 감가 연 ${Math.round(m.dep * 100)}%</small></span>
         <span class="buy-c"><b>${formatMoney(price)}</b><button class="mini" data-action="buy-car" data-id="${m.id}" ${money >= price + tax && me.flags.includes('license') ? '' : 'disabled'}>구입</button></span></div>`;
       }).join('')}
-      <p class="fine">가격은 2025년 국내 신차가 대략치(트림에 따라 폭이 크다)에 물가를 반영. 취득세: 승용차 7% · 경차 4%(75만 감면) · 선박 3%, 고급선박 중과. 유지비엔 보험·자동차세·연료·정비(요트는 계류비·관리)가 들어 있고, 해마다 가계부에서 빠진다. 차는 15년쯤 타면 폐차.</p>
+      <p class="fine">가격은 2025년 국내 신차가 대략치(트림에 따라 폭이 크다)에 물가를 반영. 취득세: 승용차 7% · 경차 4%(${formatMoney(75)} 감면) · 선박 3%, 고급선박 중과. 유지비엔 보험·자동차세·연료·정비(요트는 계류비·관리)가 들어 있고, 해마다 가계부에서 빠진다. 차는 15년쯤 타면 폐차.</p>
     </details>
   </section>`;
 }
