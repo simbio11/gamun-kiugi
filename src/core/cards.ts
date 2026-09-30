@@ -173,7 +173,10 @@ export const SYNERGIES: Synergy[] = [
   { id: 'hid_nightbloom', name: '영원의 밤', icon: '🌙', desc: '핏빛 후작부인 + 시간 정지의 여제', groups: [['hj_vampire'], ['hj_timetraveler']], eff: { hp: 6, fame: 5, hap: 4 } },
   { id: 'hid_steel', name: '질주의 혈통', icon: '🏁', desc: '드리프트 퀸 + 스포츠 챔피언', groups: [['hj_drifter'], ['olympic', 'gamer_champ']], eff: { hp: 5, kid: 'str', fame: 3 } },
   { id: 'hid_free', name: '떠도는 자들', icon: '🎒', desc: '방랑자·자연인 + 은둔자·모험가', groups: [['hj_nomad', 'hj_natural'], ['hj_hermit', 'hj_adventurer']], eff: { hap: 6 } },
-  { id: 'hid_legacy', name: '비밀의 명문', icon: '🌑', desc: '슈퍼 히든 + 명예의 전당 최고봉', groups: [['hj_vtuber', 'hj_drifter', 'hj_vampire', 'hj_timetraveler'], ['president', 'chaebol', 'nobel', 'world_star', 'chief_justice']], eff: { fame: 6, cash: 20000 } },
+  { id: 'hid_legacy', name: '비밀의 명문', icon: '🌑', desc: '슈퍼 히든 + 명예의 전당 최고봉', groups: [['hj_vtuber', 'hj_drifter', 'hj_mafia', 'hj_vampire', 'hj_timetraveler', 'hj_private_jet', 'hj_underground_dealer'], ['president', 'chaebol', 'nobel', 'world_star', 'chief_justice']], eff: { fame: 6, cash: 20000 } },
+  { id: 'hid_night_empire', name: '밤의 제국', icon: '🌃', desc: '밤의 대부 + 밀매상·타짜·위조범', groups: [['hj_mafia'], ['hj_smuggler', 'hj_gambler', 'hj_forger']], eff: { cash: 25000, heat: 6, fame: 2 } },
+  { id: 'hid_sky_vip', name: '하늘의 의전', icon: '✈️', desc: '프라이빗 제트 + 재계 거물·대통령', groups: [['hj_private_jet'], ['president', 'chaebol', 'ceo', 'un_sg']], eff: { fame: 5, cash: 25000 } },
+  { id: 'hid_underground_rule', name: '약속의 제국', icon: '🂡', desc: '비밀 카지노의 딜러 + 밤의 대부·타짜', groups: [['hj_underground_dealer'], ['hj_mafia', 'hj_gambler']], eff: { cash: 35000, heat: -4 } },
 ];
 /** 지금 발동 중인 시너지 */
 /** 가문 시너지: 조건 묶음마다 서로 다른 가족이 채워야 한다 (한 사람이 카드를 다 모아도 "가문"은 아니다) */

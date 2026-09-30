@@ -76,9 +76,7 @@ const ROUTES: Route[] = [
   { id: 'hj_mercenary', when: (s, p) => A(s, p) >= 22 && A(s, p) <= 50 && st(p).str >= 64 && (p.flags.includes('war_vet') || p.flags.includes('war_veteran') || p.job === 'officer' || p.job === 'nco' || p.flags.some((f) => f.startsWith('served'))), kin: job('officer'), p: 0.03, title: '🪖 민간 군사 기업',
     offer: '해외 민간 군사 기업(PMC)에서 연락이 왔다. 연봉 2억, 분쟁 지역 6개월. "당신 같은 사람이 필요합니다."',
     yes: '계약서에 서명한다', yesText: '불타는 도시, 모래바람. 동료들과 등을 맞댄다.', noText: '가족 얼굴을 보고 거절했다.', risk: 0.09, riskText: '교전 중 부상을 입었다.' },
-  { id: 'hj_mafia', when: (s, p) => A(s, p) >= 28 && st(p).cha >= 56 && (markOf(p, 'cheat') >= 1 || markOf(p, 'risk') >= 3 || ['hj_gambler', 'hj_smuggler'].includes(p.job)), kin: job('hj_gambler', 'hj_smuggler', 'hj_mafia'), p: 0.03, title: '🥃 대부의 부름',
-    offer: '시가 연기 자욱한 방. 늙은 보스가 {n}을 부른다. "내 자리를 물려줄 사람은 너뿐이다. 조직은 가족이야."',
-    yes: '보스의 자리에 앉는다', yesText: '반지에 입을 맞추는 사람들. 도시의 밤이 {n}의 것이 됐다.', noText: '"저는 이만 빠지겠습니다." 뒤통수가 서늘했다.', risk: 0.08, riskText: '검찰의 조직 소탕 작전이 시작됐다.' },
+  // hj_mafia(밤의 대부)는 슈퍼 히든으로 승격 — 단발 제안 대신 super-hidden.ts의 3단계 사연(대부의 부름 → 가문 전쟁 → 도시의 왕)으로 열린다.
   { id: 'hj_trader', years: [1985, 2200], when: (s, p) => A(s, p) >= 26 && st(p).int >= 62 && ['banker', 'analyst', 'trader', 'corp', 'fund_manager', 'consultant', 'actuary'].includes(p.job), p: 0.05, title: '📈 뉴욕에서 온 전화',
     offer: '{n}의 공매도 리포트가 월가에 퍼졌다. 헤지펀드 매니징 디렉터가 직접 전화했다. "뉴욕으로 오시죠. 연봉은 원하시는 대로."',
     yes: '월스트리트로 간다', yesText: '맨해튼의 유리창 너머로 모니터 여섯 대. 하루에 수백억이 움직인다.', noText: '"가족이 여기 있어서요."', risk: 0.05, riskText: '큰 손실을 내고 책임을 졌다.' },

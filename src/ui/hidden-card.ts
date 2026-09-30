@@ -84,7 +84,7 @@ export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; 
     : `<div class="hid-q">${h.icon}<small>그림 준비 중</small></div>`;
   return `<div class="hid-card fx-${h.fx} ${tierCls} ${o.cls ?? ''}" style="--hc:${h.color}">
     <div class="hid-stage">${art}<div class="hid-fx">${particles(h.fx)}</div><i class="hid-shine"></i></div>
-    <div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in"><b>${superJob ? '👑 SUPER HIDDEN 👑' : '✦ HIDDEN JOB ✦'}</b><span>${h.name}</span></div><i class="hid-orn r"></i><em class="hid-medal">${h.icon}</em></div>
+    <div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in"><b>${h.label ? `👑 ${h.label} 👑` : (superJob ? '👑 SUPER HIDDEN 👑' : '✦ HIDDEN JOB ✦')}</b><span>${h.name}</span></div><i class="hid-orn r"></i><em class="hid-medal">${h.icon}</em></div>
     <i class="hid-glint g1"></i><i class="hid-glint g2"></i><i class="hid-glint g3"></i>
   </div>`;
 }

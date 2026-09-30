@@ -3,7 +3,7 @@
 // 번듯한 직업이 없는 사람(백수·알바·신참·영세 자영업)에게 훨씬 잘 온다. 번듯한 고위직은 드물다.
 import type { ActionDef } from './actions';
 import { JOBS, STAT_NAMES } from './data';
-import { HIDDEN_BY_ID } from './hidden-data';
+import { HIDDEN_BY_ID, isSuperHidden } from './hidden-data';
 import { addFlag, age, alive, clamp, fullName, head, isMainline } from './people';
 import { fmt, rollTier, TIER_MARK, type Tier } from './practice';
 import { chance, pick } from './rng';
@@ -119,11 +119,15 @@ export function questYear(s: GameState): void {
   }
 }
 
-/** 한 단계 나아간다. 마지막 단계를 넘으면 제안이 온다 */
+/** 한 단계 나아간다. 마지막 단계를 넘으면 제안이 온다 (슈퍼 히든은 3단계 사연의 1단계로 이어진다) */
 function advance(s: GameState, p: Person, id: string): string {
   const n = stepOf(p) + 1;
   if (n >= STEPS.length) {
     endQuest(p);
+    if (isSuperHidden(id)) {
+      s.events.push({ uid: s.eventSeq++, defId: 'sh_step1', personId: p.id, data: { id } });
+      return '🚪 마지막 문이 열렸다. 곧 대부의 부름이 올 것이다…';
+    }
     s.events.push({ uid: s.eventSeq++, defId: 'hid_offer', personId: p.id, data: { id } });
     return '🚪 마지막 문이 열렸다. 곧 누군가 찾아올 것이다…';
   }

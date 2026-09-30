@@ -4,7 +4,7 @@
 
 import { HIDDEN_BY_ID, isHoH, isSuperHidden } from './hidden-data';
 import { gate, type EventDef } from './ev-util';
-import { addFlag, age, alive, clamp, fullName, isMainline } from './people';
+import { addFlag, age, alive, clamp, fullName, isMainline, markOf } from './people';
 import { chance } from './rng';
 import { myVehicles } from './vehicle';
 import { formatMoney } from './economy';
@@ -129,6 +129,114 @@ export const SUPER_ROUTES: SuperRoute[] = [
       succText: '빗속에서 그린 완벽한 라인! 관중석이 일어섰다. 전설의 드리프트 퀸 등극.',
       succMoney: 20000,
       failText: '마지막 코너에서 아깝게 밀려 준우승했다.',
+    },
+  },
+
+  // 밤의 대부: 대부의 부름 → 가문 전쟁 → 도시의 왕 (어두운 판에서 이름을 날린 자에게 열린다)
+  {
+    id: 'hj_mafia',
+    name: '밤의 대부',
+    icon: '🥃',
+    ready: (s, p) =>
+      A(s, p) >= 28 && A(s, p) <= 70 && ST(p).cha >= 56 &&
+      (markOf(p, 'cheat') >= 1 || markOf(p, 'risk') >= 3 ||
+        p.flags.includes('hidden:hj_gambler') || p.flags.includes('hidden:hj_smuggler')),
+    step1: {
+      title: '🥃 대부의 부름',
+      text: '시가 연기 자욱한 방. 늙은 대부가 {n}을 부른다. "내 자리를 물려줄 사람은 너뿐이다. 조직은 가족이야." 식탁 위에 반지 하나가 놓여 있다.',
+      check: (p) => ST(p).cha >= 56,
+      rate: 0.92,
+      succText: '반지에 입을 맞췄다. 이제 밤의 거리에서 {n}의 말이 통한다.',
+      succMoney: 6000,
+      failText: '대부는 반지를 거둬 갔다. "아직 때가 아니다."',
+    },
+    step2: {
+      title: '⚔ 가문 전쟁',
+      text: '경쟁 조직이 항구 창고와 구역 셋을 동시에 쳤다. 다섯 가문이 긴 탁자에 모였고, 판을 정리할 사람은 {n}뿐이다.',
+      check: (p) => ST(p).cha >= 60 && ST(p).int >= 55,
+      rate: 0.9,
+      succText: '한 사람도 다치지 않고 판을 정리했다. 다섯 가문이 {n}의 이름을 새겼다.',
+      succMoney: 16000,
+      failText: '판이 깨졌다. 조직이 흔들리고 옛 원한만 남았다.',
+    },
+    step3: {
+      title: '👑 도시의 왕',
+      text: '늙은 대부가 눈을 감았다. 장례 미사에 도시의 절반이 모였다. 관 앞에서 회중시계와 반지를 함께 내미는 손. "이제 밤은 당신 것이오."',
+      check: (p) => ST(p).cha >= 64,
+      rate: 0.95,
+      succText: '도시의 밤이 새 주인을 얻었다. 사람들은 {n}을 대부라 부른다.',
+      succMoney: 30000,
+      failText: '관 앞에서 발이 떨어지지 않았다. 자리는 다른 손에 갔다.',
+    },
+  },
+
+  // ✈️ 프라이빗 제트 전속 승무원: VVIP 면접 → 대양 횡단 비행 → 전속 비밀 계약
+  {
+    id: 'hj_private_jet',
+    name: '프라이빗 제트 전속 승무원',
+    icon: '✈️',
+    ready: (s, p) => p.sex === 'F' && A(s, p) >= 20 && A(s, p) <= 32 && ST(p).cha >= 68 && ST(p).int >= 60,
+    step1: {
+      title: '🍸 VVIP 전담 면접',
+      text: '전 세계 0.001% 부호만을 태우는 프라이빗 제트 선발 면접. 단 한 번의 눈빛과 매너로 고객의 취향을 읽어야 한다.',
+      check: (p) => ST(p).cha >= 68,
+      rate: 0.88,
+      succText: '{n}의 완벽한 샴페인 서빙과 침묵의 미소에 면접관이 고개를 끄덕였다. 전용기 탑승 자격을 얻었다.',
+      succMoney: 4000,
+      failText: '기내 돌발 상황 대처에서 아쉬운 평가를 받았다.',
+    },
+    step2: {
+      title: '✈️ 대양 횡단 야간 비행',
+      text: '태평양 1만 미터 상공의 난기류 속, 까다롭기로 악명 높은 중동 재벌이 긴급 회의를 소집했다. 흔들림 없는 완벽한 의전이 필요하다.',
+      check: (p) => ST(p).int >= 62 && ST(p).cha >= 70,
+      rate: 0.85,
+      succText: '폭풍우 속에서도 잔 하나 흔들리지 않았다. "내 비행기엔 오직 이 사람만 태우겠소." 감탄이 터져 나왔다.',
+      succMoney: 12000,
+      failText: '기내 서비스가 지연되어 승객의 불만을 샀다.',
+    },
+    step3: {
+      title: '🥂 단 한 명을 위한 전속 계약',
+      text: '글로벌 금융 가문의 수장이 백지수표와 전속 계약서를 내밀었다. "목적지도, 일정도 모두 당신에게 맡기겠소."',
+      check: (p) => ST(p).cha >= 72,
+      rate: 0.92,
+      succText: '전 세계 하늘을 누비는 프라이빗 제트 전속 승무원 등극. 그 누구도 그녀의 진짜 이름을 모른다.',
+      succMoney: 25000,
+      failText: '계약 조건이 맞지 않아 아쉽게 돌아섰다.',
+    },
+  },
+
+  // 🂡 비밀 카지노의 딜러: 심야 하우스 초대 → 100억의 팟 → 약속의 대결 (도박의 왕)
+  {
+    id: 'hj_underground_dealer',
+    name: '비밀 카지노의 딜러',
+    icon: '🂡',
+    ready: (s, p) => p.sex === 'M' && A(s, p) >= 21 && ST(p).int >= 68 && ST(p).cha >= 62,
+    step1: {
+      title: '🂡 심야 하우스의 초대',
+      text: '도심 깊은 지하, 간판 없는 카지노에서 호출이 왔다. "새로운 딜러가 필요해. 손놀림과 배짱을 보여봐."',
+      check: (p) => ST(p).cha >= 62 && ST(p).int >= 68,
+      rate: 0.88,
+      succText: '{n}의 날렵한 셔플과 상대를 꿰뚫는 눈빛에 베테랑 꾼들이 숨을 삼켰다. 테이블의 지배자로 인정받았다.',
+      succMoney: 5000,
+      failText: '첫 셔플에서 카드가 튀었다. 다음 기회를 노린다.',
+    },
+    step2: {
+      title: '🃏 100억의 팟',
+      text: '거물 정재계 인사들이 모인 하이롤러 룸. 판돈 100억 앞에서 치명적인 속임수를 쓰려는 자를 카드 한 장으로 제압해야 한다.',
+      check: (p) => ST(p).int >= 72 && ST(p).cha >= 66,
+      rate: 0.85,
+      succText: '소매 속의 트릭을 완벽하게 간파하고 판을 장악했다! 하우스의 명성이 {n}의 손에 올랐다.',
+      succMoney: 15000,
+      failText: '판의 흐름을 놓쳐 거액의 판돈이 엉뚱한 곳으로 흘러갔다.',
+    },
+    step3: {
+      title: '👑 약속의 대결 (도박의 왕)',
+      text: '전설의 도박왕이 찾아왔다. "돈은 필요 없다. 진 자는 평생 지킬 약속 하나를 건다." 운명의 마지막 딜링.',
+      check: (p) => ST(p).int >= 74 && ST(p).cha >= 70,
+      rate: 0.95,
+      succText: '"베팅은 자유입니다. 다만 지면, 제게 하나만 약속하십시오." 전설을 무릎 꿇리고 비밀 카지노의 지배자로 군림했다.',
+      succMoney: 30000,
+      failText: '마지막 카드 한 장 차이로 패배했다.',
     },
   },
 

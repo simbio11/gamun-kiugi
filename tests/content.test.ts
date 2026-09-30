@@ -36,7 +36,7 @@ import { WORK4_STORIES } from '../src/core/stories-work4';
 import { WORK5_STORIES } from '../src/core/stories-work5';
 import { HIDDEN_WORK_STORIES } from '../src/core/stories-work-hidden';
 import { HX } from '../src/core/job-acts-hidden';
-import { HIDDEN } from '../src/core/hidden-data';
+import { HIDDEN, SUPER_HIDDEN_IDS, isSuperHidden } from '../src/core/hidden-data';
 import { JOB_ACTS } from '../src/core/job-acts';
 import { _quest, eligible, lowly, QUEST_IDS } from '../src/core/hidden-quest';
 import { obeys, willOf } from '../src/core/autonomy';
@@ -869,7 +869,7 @@ describe('부모님 유산', () => {
       const n = HIDDEN_WORK_STORIES.filter((st) => st.id.startsWith(`wk_h_${h.id}_`)).length;
       if (n < 3) thin.push(`story:${h.id}:${n}`);
     }
-    expect(HIDDEN.length).toBe(27);
+    expect(HIDDEN.length).toBe(29);
     expect(thin).toEqual([]);
     // 직장 이야기는 실제로 그 직업인 사람에게 나온다
     const s = newGame({ seed: 8, familyName: '서', sex: 'F' });
@@ -1090,7 +1090,8 @@ describe('부모님 유산', () => {
       _quest.startQuest(s, h, id);
       let tries = 0;
       const y0 = s.year;
-      while (!s.events.some((e) => e.defId === 'hid_offer' && e.data.id === id) && tries++ < 80) {
+      const door = isSuperHidden(id) ? 'sh_step1' : 'hid_offer'; // 슈퍼 히든은 단발 제안 대신 3단계 사연의 1단계로 이어진다
+      while (!s.events.some((e) => e.defId === door && e.data.id === id) && tries++ < 80) {
         if (!_quest.questOf(h)) _quest.startQuest(s, h, id);
         s.ap = 3;
         s.actUsed = {};
@@ -1223,7 +1224,7 @@ describe('부모님 유산', () => {
   });
 
   it('슈퍼 히든 직업: 3단계 퀘스트 체인과 카드·도감 등록 검증', () => {
-    const superJobIds = ['hj_vtuber', 'hj_drifter'];
+    const superJobIds = ['hj_vtuber', 'hj_drifter', 'hj_mafia'];
 
     // 1. 직업 및 카드 등록 확인
     for (const id of superJobIds) {
@@ -1289,5 +1290,69 @@ describe('부모님 유산', () => {
       }
     }
     expect(p.job).toBe('hj_timetraveler');
+  });
+
+  it('슈퍼 히든 승격(밤의 대부): 효과·보상·문이 실제로 열리고, 옛 단발 제안에는 없다', async () => {
+    const { SUPER_ROUTES, superHiddenYear } = await import('../src/core/super-hidden');
+    const { hiddenYear } = await import('../src/core/hidden');
+    const id = 'hj_mafia';
+    // 1. 등록 · 등급 · 효과 · 연봉
+    expect(isSuperHidden(id)).toBe(true);
+    expect(SUPER_HIDDEN_IDS.has(id)).toBe(true);
+    const card = CARDS.find((c) => c.id === id)!;
+    expect(card.rarity).toBe('legend');
+    expect(card.eff).toEqual({ cash: 6000, fame: 6, heat: 4, kid: 'str' });
+    expect(JOBS[id].base).toBe(60000);
+    // 2. 3단계 사연의 보상 (단계 성공금 합계)
+    const r = SUPER_ROUTES.find((x) => x.id === id)!;
+    expect(r.step1.succMoney + r.step2.succMoney + r.step3.succMoney).toBe(52000);
+    expect([r.step1.rate, r.step2.rate, r.step3.rate].every((x) => x > 0.5 && x <= 1)).toBe(true);
+    // 3. 자격을 갖춘 사람에게 1단계가 열리고, 옛 히든 단발 제안에는 없다
+    const s = newGame({ seed: 515, familyName: '문', sex: 'M' });
+    const p = head(s);
+    s.year += 34;
+    p.birthYear = s.year - 35;
+    p.job = 'none';
+    p.jobLevel = 0;
+    p.flags = p.flags.filter((f) => f !== 'student');
+    for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) p.actual[k] = p.potential[k] = 80;
+    mark(p, 'cheat', 2);
+    let opened = false;
+    let instant = false;
+    for (let i = 0; i < 60; i++) {
+      s.events = [];
+      superHiddenYear(s);
+      if (s.events.some((e) => e.defId === 'sh_step1' && e.personId === p.id && e.data?.id === id)) opened = true;
+      s.events = [];
+      hiddenYear(s);
+      if (s.events.some((e) => e.defId === 'hid_offer' && e.data?.id === id)) instant = true;
+      s.year++;
+      p.birthYear++;
+    }
+    expect(opened).toBe(true);
+    expect(instant).toBe(false);
+    // 4. 사연을 끝까지 치르면 직업·카드·보상이 함께 온다
+    const s2 = newGame({ seed: 77, familyName: '배', sex: 'M' });
+    const q = head(s2);
+    s2.year += 40;
+    q.birthYear = s2.year - 42;
+    q.job = 'none';
+    q.flags = q.flags.filter((f) => f !== 'student');
+    for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) q.actual[k] = q.potential[k] = 85;
+    q.cash = 0;
+    for (const [def, flag] of [['sh_step1', `sh:${id}:1`], ['sh_step2', `sh:${id}:2`], ['sh_step3', '']] as const) {
+      let tries = 0;
+      while ((flag ? !q.flags.includes(flag) : q.job !== id) && tries++ < 25) {
+        s2.events = [{ uid: s2.eventSeq++, defId: def, personId: q.id, data: { id } }];
+        resolveChoice(s2, 0);
+      }
+      if (flag) expect(q.flags).toContain(flag);
+    }
+    expect(q.job).toBe(id);
+    expect(q.flags).toContain(`hidden:${id}`);
+    expect(q.cash).toBeGreaterThan(0);
+    s2.year++;
+    cardYear(s2);
+    expect((s2.cards ?? []).some((c) => c.id === id)).toBe(true); // 도감·카드 획득
   });
 });
