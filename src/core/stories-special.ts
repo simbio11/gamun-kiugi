@@ -62,8 +62,8 @@ export const SPECIAL_STORIES: Story[] = [
 
   // ───────── 인연·운명 ─────────
   { id: 'sp_hidden_sibling', title: '숨겨진 형제', age: [30, 80], w: 0.003, once: true, cond: (s, p) => parentsOf(s, p).some((q) => !alive(q)), text: '낯선 사람이 {n}을 찾아왔다. DNA 검사 결과를 내밀며 "우리 아버지(어머니)가 같다"고 한다.', choices: [
-    { label: '받아들이고 만난다', mark: { family: 1, kind: 1 }, text: '어색한 첫 만남. 웃는 모습이 똑 닮았다. 형제가 한 명 늘었다.', eff: { hap: 6 } },
-    { label: '유산을 노리는 게 아닐까', text: '', roll: ['luck', 60, [{ hap: -2 }, '진심이었다. 나중에야 미안해졌다.'], [{ cash: -1000, hap: -6 }, '결국 상속 회복 청구 소송이 들어왔다.']] },
+    { label: '받아들이고 만난다', mark: { family: 1, kind: 1 }, text: '어색한 첫 만남. 웃는 모습이 똑 닮았다. 형제가 한 명 늘었다.', eff: { hap: 6, flag: 'found_half_sib' } },
+    { label: '유산을 노리는 게 아닐까', text: '', roll: ['luck', 60, [{ hap: -2, flag: 'found_half_sib' }, '진심이었다. 나중에야 미안해졌다.'], [{ cash: -1000, hap: -6 }, '결국 상속 회복 청구 소송이 들어왔다.']] },
     { label: '모른 척한다', mark: { hurt: 1 }, text: '돌아서는 뒷모습이 오래 남았다.', eff: { hap: -4 } },
   ] },
   { id: 'sp_twin_reunion', title: '입양된 쌍둥이', age: [25, 70], w: 0.002, once: true, text: '해외 입양인 뿌리 찾기 프로그램에서 연락이 왔다. {n}에게 해외로 입양된 쌍둥이 형제가 있었다는 것이다.', choices: [

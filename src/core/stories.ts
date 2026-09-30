@@ -11,7 +11,7 @@ import { POLITICS_STORIES, homeCity, pledgeOf } from './stories-politics';
 import { wageIndex } from './pay';
 import { chance, int } from './rng';
 import { eul, eun, gate, iga, schedule, type Choice, type Ctx } from './ev-util';
-import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, householder, mark, markOf, parentsOf, spouseOf } from './people';
+import { addFlag, addHalfSibling, age, alive, check, clamp, fullName, hasFlag, hasTrait, householder, mark, markOf, parentsOf, spouseOf } from './people';
 import type { GameState, Person, StatKey } from './types';
 import type { LifeDef } from './life';
 import { MORE_STORIES } from './stories-more';
@@ -130,6 +130,10 @@ function apply(x: Ctx, e: Eff | undefined) {
   if (e.bond) {
     const q = spouseOf(x.s, p) ?? (p.partnerId ? x.s.people[p.partnerId] : undefined);
     if (q && alive(q)) p.bond = q.bond = clamp((p.bond ?? 60) + e.bond, 0, 100);
+  }
+  if (e.flag === 'found_half_sib') {
+    const q = addHalfSibling(x.s, p);
+    if (q) x.s.log.push({ year: x.s.year, text: `👥 이복형제 ${fullName(q)}이(가) 가계도에 올랐다`, kind: 'life' });
   }
   if (e.flag) addFlag(p, e.flag);
   if (e.approval || e.heat || e.slush) {

@@ -468,6 +468,11 @@ function lifeYear(s: GameState) {
       const want = p.id === h.id ? s.policy.familyPlan : 2;
       if (!p.childIds.length && want > 0 && !hasFlag(p, 'childfree') && s.year - wed >= 2 && age(s, mom) >= 29 && age(s, mom) <= 44 && chance(s, 0.3) && !pending('infertility'))
         queue(s, 'infertility', p.id);
+      // 아이를 끝내 못 가진 부부: 몇 해에 한 번 입양 제안이 온다 (늙을 때까지 빈집이지 않게)
+      else if (!p.childIds.length && !hasFlag(p, 'childfree') && !hasFlag(sp, 'childfree') && s.year - wed >= 4 && age(s, mom) >= 36 && age(s, mom) <= 62 && !onCooldown(s, p.id + ':adopt_offer', 4) && chance(s, 0.3) && !pending('adopt_offer')) {
+        (s.storySeen ??= {})[p.id + ':adopt_offer'] = s.year;
+        queue(s, 'adopt_offer', p.id);
+      }
     }
     // 병역: 남자 20세 (연기했으면 졸업 후)
     if (p.sex === 'M' && !p.inLaw && a >= 20 && a <= 28 && !p.flags.some((f) => ['served', 'exempt', 'draft_dodger'].includes(f) || f.startsWith('serving:')) && !pending('military')) {
@@ -880,7 +885,7 @@ function births(s: GameState) {
     const target = couple.some((x) => x.id === h.id) ? s.policy.familyPlan : 2;
     const kids = mom.childIds.filter((id) => alive(s.people[id])).length;
     if (kids >= target) continue;
-    const pr = 0.55 * fertility(age(s, mom)) * clamp(mom.actual.hp / 50, 0.5, 1.2);
+    const pr = 0.55 * fertility(age(s, mom)) * clamp(mom.actual.hp / 50, 0.5, 1.2) * clamp((dad.actual.hp + dad.potential.hp) / 110, 0.55, 1.15);
     if (!chance(s, pr)) continue;
     deliver(s, dad, mom, blood.surname, 0.015);
   }

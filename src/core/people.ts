@@ -282,8 +282,10 @@ export function relationLabel(s: GameState, p: Person): string {
   }
   if (siblingsOf(s, h).some((x) => x.id === p.id)) {
     const older = p.birthYear < h.birthYear;
-    if (p.sex === 'M') return older ? (h.sex === 'M' ? '형' : '오빠') : '남동생';
-    return older ? (h.sex === 'M' ? '누나' : '언니') : '여동생';
+    // 부모 중 한 분만 같으면 이복(배다른)·이부(씨다른) 형제
+    const half = !(p.fatherId && p.fatherId === h.fatherId && p.motherId && p.motherId === h.motherId) ? '이복 ' : '';
+    if (p.sex === 'M') return half + (older ? (h.sex === 'M' ? '형' : '오빠') : '남동생');
+    return half + (older ? (h.sex === 'M' ? '누나' : '언니') : '여동생');
   }
   if (h.childIds.includes(p.id)) return p.sex === 'M' ? '아들' : '딸';
   const hSibs = siblingsOf(s, h);
@@ -364,3 +366,20 @@ export function check(r: RngHolder, stat: number, threshold: number, width = 8, 
 const MED_TRACKS = ['track:med_school', 'track:dent_school', 'track:kmd_school', 'track:vet_school', 'track:pharm_school'];
 /** 의약계열(의·치·한·수·약대) 재학 중 */
 export const isMedStudent = (p: Person) => p.flags.includes('student') && p.flags.some((f) => MED_TRACKS.includes(f));
+
+/** 숨겨진 이복형제가 나타났다: 실제 가족으로 가계도에 올린다 */
+export function addHalfSibling(s: GameState, p: Person): Person | undefined {
+  const par = parentsOf(s, p).find((q) => q.sex === 'M') ?? parentsOf(s, p)[0];
+  if (!par) return undefined;
+  const q = createPerson(s, { surname: par.sex === 'M' ? par.surname : p.surname, birthYear: p.birthYear + Math.round(normal(s, 2, 5)), quality: 50, grown: 0.85 });
+  if (par.sex === 'M') q.fatherId = par.id;
+  else q.motherId = par.id;
+  q.inLaw = false;
+  q.affinity = 10;
+  q.flags.push('half_sib');
+  q.job = pick(s, ['office', 'shopkeeper', 'sales', 'factory', 'civil', 'restaurant']);
+  q.jobYears = 8;
+  s.people[q.id] = q;
+  par.childIds.push(q.id);
+  return q;
+}

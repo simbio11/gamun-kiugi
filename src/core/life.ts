@@ -429,6 +429,49 @@ export function deliver(s: GameState, dad: Person, mom: Person, surname: string,
   return out;
 }
 
+/** 입양: 아기(0~3세) 또는 큰 아이(5~10세) */
+export function adoptChild(s: GameState, dad: Person, mom: Person, surname: string, ageYears: number): Person {
+  const kid = createPerson(s, { surname, birthYear: s.year - ageYears, quality: 50, grown: ageYears > 4 ? 0.3 : 0.12 });
+  kid.genes = randomGenes(s);
+  kid.fatherId = dad.id;
+  kid.motherId = mom.id;
+  kid.affinity = ageYears > 4 ? 35 : 60;
+  kid.happiness = ageYears > 4 ? 55 : 70;
+  addFlag(kid, 'adopted');
+  s.people[kid.id] = kid;
+  dad.childIds.push(kid.id);
+  mom.childIds.push(kid.id);
+  s.policy.children[kid.id] = { budget: 1, focus: 'free' };
+  return kid;
+}
+
+/** 아이 없이 나이 든 부부에게: 입양 기관·보육원에서 연락이 온다 */
+const adoptOffer: LifeDef = {
+  id: 'adopt_offer',
+  valid: (c) => hasSpouse(c) && !c.p.childIds.length,
+  title: () => '보육원에서 온 편지',
+  portraits: (c) => [c.p, spouseOf(c.s, c.p)!],
+  text: (c) =>
+    `${who(c)} 부부는 오래 아이를 기다렸다. 봉사 다니던 보육원 원장님이 조심스럽게 말한다.\n"아기도 있고, 입양이 안 돼 여러 해를 기다린 큰 아이들도 있어요. 두 분이라면…"`,
+  choices: (c) => {
+    const sp = spouseOf(c.s, c.p)!;
+    const mom = c.p.sex === 'F' ? c.p : sp;
+    const dad = c.p.sex === 'M' ? c.p : sp;
+    const sur = c.p.inLaw ? sp.surname : c.p.surname;
+    return gate(c.s, [
+      { label: '아기를 입양한다', cost: 300, run: (x) => `${fullName(adoptChild(x.s, dad, mom, sur, int(x.s, 0, 2)))}을(를) 품에 안았다. 집에 처음으로 아기 울음소리가 울렸다.` },
+      { label: '큰 아이(5~10세)를 입양한다', cost: 200, run: (x) => `${fullName(adoptChild(x.s, dad, mom, sur, int(x.s, 5, 10)))}이(가) 쭈뼛거리며 현관에 들어섰다. "…안녕하세요." 서로 가족이 되는 데 시간이 걸릴 것이다.` },
+      { label: '형제 둘을 함께 입양한다', cost: 500, run: (x) => {
+          const a = adoptChild(x.s, dad, mom, sur, int(x.s, 3, 6));
+          const b = adoptChild(x.s, dad, mom, sur, int(x.s, 6, 9));
+          return `떨어지지 않으려는 남매(형제) ${fullName(b)}·${fullName(a)}를 함께 맞았다. 두 아이가 손을 꼭 잡고 있었다.`;
+        } },
+      { label: '후원자로만 돕는다', run: (x) => ((x.s.fame += 1), '매달 보육원에 후원금을 보내기로 했다. 아이들이 편지를 보내온다.') },
+      { label: '둘이서 살기로 한다', run: (x) => (addFlag(x.p, 'childfree'), '"우리 둘이면 충분해." 서로의 손을 잡았다.') },
+    ]);
+  },
+};
+
 const infertility: LifeDef = {
   id: 'infertility',
   valid: (c) => hasSpouse(c) && !c.p.childIds.length,
@@ -461,17 +504,7 @@ const infertility: LifeDef = {
         label: '입양한다',
         cost: 300,
         run: (x) => {
-          const kid = createPerson(x.s, { surname: x.p.inLaw ? sp.surname : x.p.surname, birthYear: x.s.year - int(x.s, 0, 3), quality: 50, grown: 0.12 });
-          kid.genes = randomGenes(x.s);
-          kid.fatherId = dad.id;
-          kid.motherId = mom.id;
-          kid.affinity = 60;
-          kid.happiness = 70;
-          addFlag(kid, 'adopted');
-          x.s.people[kid.id] = kid;
-          dad.childIds.push(kid.id);
-          mom.childIds.push(kid.id);
-          x.s.policy.children[kid.id] = { budget: 1, focus: 'free' };
+          const kid = adoptChild(x.s, dad, mom, x.p.inLaw ? sp.surname : x.p.surname, int(x.s, 0, 3));
           return `${fullName(kid)}을(를) 가족으로 맞았다. 피보다 진한 인연이다.`;
         },
       },
@@ -879,5 +912,5 @@ const officerStay: LifeDef = {
 /** 무작위로 일어나는 인생사 (가중치 있는 것) */
 export const LIFE_RANDOM: LifeDef[] = [accident, depression, affair, fraud, layoff, scout, olympiad, nobel, minister, gamble, holidayNag, windfall, bullying, pet];
 /** 조건이 되면 일어나는 것 (sim.ts 에서 직접 큐) */
-export const LIFE_EVENTS: EventDef[] = [military, cancer, maritalCrisis, infertility, olympic, ipo, presidential, officerStay, ...LIFE_RANDOM];
+export const LIFE_EVENTS: EventDef[] = [military, cancer, maritalCrisis, infertility, adoptOffer, olympic, ipo, presidential, officerStay, ...LIFE_RANDOM];
 
