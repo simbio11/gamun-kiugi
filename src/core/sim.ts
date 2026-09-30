@@ -53,6 +53,9 @@ import { gateYear } from './super-gates';
 import { commEvent } from './devices';
 import { pathYear } from './hidden-paths';
 import { photoYear } from './photos';
+import { HIDDEN, isHoH, isSuperHidden } from './hidden-data';
+const STARTER_SUPER = HIDDEN.filter((h) => isSuperHidden(h.id) && !isHoH(h.id)).map((h) => h.id);
+const STARTER_HIDDEN = HIDDEN.filter((h) => !isSuperHidden(h.id) && h.id !== 'hj_hermit').map((h) => h.id);
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -231,6 +234,17 @@ export function newGame(o: NewGameOpts): GameState {
   // 1960년대 어머니는 대개 살림을 했다 (여성 경제활동참가율 30%대)
   if (chance(s, hist ? (origin === 'poor' ? 0.45 : 0.75) : origin === 'poor' ? 0.2 : 0.35)) mother.job = 'none';
   else giveJob(mother, hist ? (origin === 'poor' ? ['farmer', 'parttime', 'factory'] : origin === 'middle' ? ['teacher', 'shopkeeper', 'nurse'] : ['landlord', 'doctor']) : PARENT_JOBS[origin]);
+  // 아주 드물게 부모가 이미 히든 직업: 각자 0.7% 히든, 어머니는 0.5% 슈퍼 히든
+  for (const par of [father, mother]) {
+    const sup = par.sex === 'F' && chance(s, 0.005);
+    if (!sup && !chance(s, 0.007)) continue;
+    const pool = sup ? STARTER_SUPER : STARTER_HIDDEN.filter((id) => id !== 'hj_av' || par.sex === 'F');
+    const id = pick(s, pool);
+    par.job = id;
+    par.jobLevel = 0;
+    par.jobYears = Math.max(1, age(s, par) - 28);
+    addFlag(par, 'hidden:' + id);
+  }
   const pastLines = hist ? histOrigins(s, father, mother) : '';
 
   // 재산: 같은 형편이라도 집집마다 다르다

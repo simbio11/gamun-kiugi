@@ -123,6 +123,7 @@ const fill = (t: string, p: Person) => t.replaceAll('{n}', fullName(p));
 export function hiddenYear(s: GameState): string[] {
   const msgs: string[] = [];
   questYear(s);
+  parentsHidden(s);
   const seen = (s.storySeen ??= {});
   const people = Object.values(s.people).filter((p) => alive(p) && isMainline(s, p) && !p.job.startsWith('hj_'));
   const cands: [Route, Person][] = [];
@@ -147,6 +148,27 @@ export function hiddenYear(s: GameState): string[] {
     if (r?.risk && chance(s, r.risk)) s.events.push({ uid: s.eventSeq++, defId: 'hid_risk', personId: p.id, data: { id: p.job } });
   }
   return msgs;
+}
+
+/** 아이가 자라는 동안 부모에게도 숨은 문이 열린다 (한 세대 최대 두 번) */
+function parentsHidden(s: GameState) {
+  const hd = s.people[s.headId];
+  if (!hd || age(s, hd) >= 20) return;
+  const seen = (s.storySeen ??= {});
+  const k = `phid:${s.generation}`;
+  if ((seen[k] ?? 0) >= 2) return;
+  for (const par of [s.people[hd.fatherId ?? ''], s.people[hd.motherId ?? '']]) {
+    if (!par || !alive(par) || par.job.startsWith('hj_') || age(s, par) > 60) continue;
+    if (par.sex === 'F' && chance(s, 0.002)) {
+      const ids = ['hj_madam', 'hj_onlyfans', 'hj_widow', 'hj_bunny', 'hj_honeytrap', 'hj_vtuber'];
+      s.events.push({ uid: s.eventSeq++, defId: 'sh_step1', personId: par.id, data: { id: pick(s, ids) } });
+      seen[k] = (seen[k] ?? 0) + 1;
+    } else if (chance(s, 0.004)) {
+      const ids = ROUTES.filter((r) => r.id !== 'hj_hermit' && (r.id !== 'hj_av' || par.sex === 'F') && (!r.years || (s.year >= r.years[0] && s.year <= r.years[1]))).map((r) => r.id);
+      s.events.push({ uid: s.eventSeq++, defId: 'hid_offer', personId: par.id, data: { id: pick(s, ids) } });
+      seen[k] = (seen[k] ?? 0) + 1;
+    }
+  }
 }
 
 const offer: EventDef = {
