@@ -2,7 +2,7 @@
 
   python3 scripts/slice-portrait-parts.py <시트 폴더>
   시트 폴더: heads.webp, hair-f.webp, eyes.webp, eyes-makeup.webp
-  결과:     public/portrait/<종류>/NNN.png  + public/portrait/parts.json
+  결과:     assets/portrait-parts/<종류>/NNN.png  + parts.json
 
 격자선(옅은 갈색 줄)을 자동으로 찾아 칸을 나누고,
 칸 가장자리에서 배경(크림색)과 비슷한 색을 flood fill 해서 지운다.
@@ -13,7 +13,7 @@ import numpy as np
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, 'public', 'portrait')
+OUT = os.path.join(ROOT, 'assets', 'portrait-parts')  # 잘라낸 부품 원본 — 게임은 build-portrait-atlas.py 가 묶은 아틀라스를 쓴다
 GUTTER = np.array([238, 229, 194])
 
 
@@ -116,7 +116,8 @@ def drop_face(rgba, tol=26, rg=75, retry=False):
     soft = grow & ~seen & (np.sqrt(((c - col) ** 2).sum(2)) < tol * 2.2)
     out = rgba.copy()
     out[seen | soft, 3] = 0
-    return out, [int(v) for v in col]
+    ys, xs = np.nonzero(seen | soft)
+    return out, [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1]  # 지운 얼굴 자리 = 두상을 맞출 기준
 
 
 def ear_score(a, x0, y0, x1, y1):
@@ -274,7 +275,7 @@ def main(src):
             else:
                 rgba, bbox = cut(a, *box, tol=bgtol, top_bg=kind in HAS_HEAD)
             if kind.startswith('hair'):
-                rgba, _ = drop_face(rgba, retry=kind == 'hair-m')
+                rgba, face = drop_face(rgba, retry=kind == 'hair-m')
             if kind.startswith('outfit'):
                 if kind not in HAS_HEAD and kind not in WHITE_SHEETS: rgba = drop_gray_head(rgba)
                 # 칸 가장자리 6픽셀 안의 검은 격자선 줄 지우기
@@ -286,16 +287,17 @@ def main(src):
                     if dark[:, x].mean() > 0.4: rgba[:, x, 3] = 0
             ys, xs = np.nonzero(rgba[..., 3])
             bbox = [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1] if len(xs) else None
-            groups.setdefault(k, []).append((r, c, rgba, bbox))
+            groups.setdefault(k, []).append((r, c, rgba, bbox, face if kind.startswith('hair') else None))
         for k, items in groups.items():
             d = os.path.join(OUT, k)
             os.makedirs(d, exist_ok=True)
             for f in os.listdir(d): os.remove(os.path.join(d, f))
             meta = []
-            for i, (r, c, rgba, bbox) in enumerate(items):
+            for i, (r, c, rgba, bbox, face) in enumerate(items):
                 name = f'{i:03d}.png'
                 Image.fromarray(rgba, 'RGBA').save(os.path.join(d, name), optimize=True)
                 m = {'file': f'{k}/{name}', 'row': r, 'col': c, 'w': rgba.shape[1], 'h': rgba.shape[0], 'bbox': bbox}
+                if face: m['face'] = face
                 if k in OUTFIT_ROWS or k == 'outfit-f-alt':
                     m['job'] = OUTFIT_COLS[c]
                     m['age'] = OUTFIT_ROWS.get(k, OUTFIT_ROWS['outfit-f'])[r]

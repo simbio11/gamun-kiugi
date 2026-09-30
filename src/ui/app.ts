@@ -85,6 +85,7 @@ import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, Marke
 import { portraitURL } from '../render/portrait';
 import { sceneArtURL, sceneFor } from '../render/scene';
 import { bustURL } from '../render/bust';
+import { kitPortraitURL, onKitReady } from '../render/kit';
 import { commEvent, pcOf, phoneOf, type CommKind } from '../core/devices';
 
 type Tab = 'tree' | 'act' | 'policy' | 'assets' | 'log' | 'achv';
@@ -1165,6 +1166,28 @@ function lifeRows(g: GameState, p: Person): string {
   return rows.join('');
 }
 
+/** 인물 창 큰 초상화: 그려 온 부품을 조립한 초상화 (부품을 받는 동안은 도트 초상화) */
+function bustHTML(p: Person, a: number, year: number, dead: boolean): string {
+  const kit = kitPortraitURL(p, a, year);
+  const kitBlink = kit && !dead ? kitPortraitURL(p, a, year, true) : null;
+  const src = kit ?? bustURL(p, a, year);
+  const blink = dead ? null : kit ? kitBlink : bustURL(p, a, year, 'normal', true);
+  const data = kit ? '' : ` data-kit="${p.id}" data-age="${a}" data-year="${year}"`;
+  return `<span class="bust-wrap anim2 ${dead ? 'dead' : ''}${kit ? ' kit' : ''}"${data}><img class="px big bust" src="${src}">${blink ? `<img class="px big bust blink" src="${blink}">` : ''}</span>`;
+}
+
+// 부품이 도착하면 열린 인물 창의 도트 초상화를 조립 초상화로 바꿔 끼운다
+onKitReady(() => {
+  const g = ui.game;
+  if (!g) return;
+  root.querySelectorAll<HTMLElement>('.bust-wrap[data-kit]').forEach((el) => {
+    const p = g.people[el.dataset.kit!];
+    if (!p) return;
+    const html = bustHTML(p, Number(el.dataset.age), Number(el.dataset.year), el.classList.contains('dead'));
+    el.outerHTML = html;
+  });
+});
+
 function personSheet(g: GameState, p: Person): string {
   const dead = !alive(p);
   const a = dead ? p.deathYear! - p.birthYear : age(g, p);
@@ -1220,7 +1243,7 @@ function personSheet(g: GameState, p: Person): string {
   <div class="modal" data-action="close-sheet">
     <div class="sheet" data-stop>
       <div class="sheet-head">
-        <span class="bust-wrap anim2 ${dead ? 'dead' : ''}"><img class="px big bust" src="${bustURL(p, a, g.year)}">${dead ? '' : `<img class="px big bust blink" src="${bustURL(p, a, g.year, 'normal', true)}">`}</span>
+        ${bustHTML(p, a, g.year, dead)}
         <div>
           <div class="sh-name">${esc(fullName(p))} ${p.id === g.headId ? '👑' : ''}</div>
           <div class="sh-sub">${esc(relationLabel(g, p))} · ${dead ? `${p.birthYear}–${p.deathYear} (향년 ${a}세)` : `${a}세 (${p.birthYear}년생)`}</div>
