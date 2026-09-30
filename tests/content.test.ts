@@ -26,6 +26,8 @@ import { homeOf, moveTo, settleHome } from '../src/core/housing';
 import { debtRate, goBankrupt, walletNet } from '../src/core/debt';
 import { awardHonor, buyPerk, grant, retireHonor } from '../src/core/rewards';
 import { profScore } from '../src/core/career';
+import { awardCard, cardYear } from '../src/core/cards';
+import { familyScore, lifeReport } from '../src/core/score';
 
 describe('콘텐츠 무결성', () => {
   it('직업 100개 이상, 모든 참조가 유효', () => {
@@ -801,5 +803,27 @@ describe('부모님 유산', () => {
     expect(buyPerk(s, 'ap').ok).toBe(true);
     expect(apMax(s)).toBe(ap + 1);
     expect((s.rewards ?? []).length).toBeGreaterThan(0);
+  });
+
+  it('명예의 전당 카드: 얻으면 팝업·효과, 인생 성적표가 가문 총점에 쌓인다', () => {
+    const s = newGame({ seed: 73, familyName: '최', sex: 'F' });
+    const h = head(s);
+    s.year += 30;
+    h.job = 'entertainer';
+    h.jobLevel = 5;
+    const fame = s.fame;
+    s.events = [];
+    cardYear(s); // 월드 스타 자동 카드
+    expect(s.cards?.some((c) => c.id === 'world_star')).toBe(true);
+    expect(s.rewards?.some((r) => r.card === 'world_star')).toBe(true);
+    expect(s.fame).toBeGreaterThan(fame);
+    awardCard(s, h, 'world_star');
+    expect(s.cards?.filter((c) => c.id === 'world_star').length).toBe(1); // 같은 사람 같은 카드는 한 번
+    const before = familyScore(s).total;
+    const dad = parentsOf(s, h)[0];
+    dad.deathYear = s.year;
+    lifeReport(s, dad);
+    expect(dad.lifeScore).toBeGreaterThan(0);
+    expect(familyScore(s).total).toBeGreaterThan(before);
   });
 });

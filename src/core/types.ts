@@ -36,6 +36,10 @@ export interface Person {
   sex: Sex;
   birthYear: number;
   deathYear?: number;
+  /** 지금까지 오른 가장 높은 자리 (인생 점수용) */
+  peak?: number;
+  /** 세상을 떠날 때 매긴 인생 점수 */
+  lifeScore?: number;
   /** 논문 편수 (대학원·교수·연구원) */
   papers?: number;
   /** 누적 기부액 (만원) */
@@ -256,6 +260,8 @@ export interface GameState {
   gloryTotal?: number;
   /** 명예 상점에서 산 혜택 단계 */
   perks?: Record<string, number>;
+  /** 명예의 전당 카드 */
+  cards?: { id: string; personId: string; year: number }[];
   /** 가문이 받은 훈장 */
   honors?: { id: string; personId: string; year: number }[];
   /** 라이벌 가문 */

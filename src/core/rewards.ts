@@ -12,6 +12,12 @@ export interface Reward {
   text: string;
   rarity: Rarity;
   pts: number;
+  /** 카드 획득이면 카드 id (카드 모양으로 보여 준다) */
+  card?: string;
+  /** 초상화를 그릴 인물 */
+  personId?: string;
+  /** 인생 성적표 등급 */
+  grade?: string;
 }
 export const RARITY_NAME: Record<Rarity, string> = { common: '일반', rare: '희귀', epic: '영웅', legend: '전설' };
 const RARITY_PTS: Record<Rarity, number> = { common: 5, rare: 12, epic: 30, legend: 80 };

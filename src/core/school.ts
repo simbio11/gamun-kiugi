@@ -313,6 +313,74 @@ prog('X', '애니메이션 (2년)', 'anim', 50, { ...VOC, school: '일본 도쿄
 prog('X', '영화 연출 (1년)', 'film', 55, { ...VOC, school: '미국 뉴욕 필름 아카데미', years: 1, tuition: 6000, elite: 'media', tag: 'stage' });
 prog('X', '게임 디자인 (1년)', 'game', 55, { ...VOC, school: '캐나다 밴쿠버 필름스쿨', years: 1, tuition: 5000, elite: 'tech', tag: 'stage' });
 
+// ───────── 실명 대학 확장 (수시·정시 공통. 합격선은 대략적인 입결 서열을 게임용으로 단순화) ─────────
+type UniMajor = [string, string, number, Partial<Program>?];
+function uni(tier: Tier, school: string, base: number, majors: UniMajor[], o: Partial<Program> = {}) {
+  for (const [major, key, d, mo] of majors) prog(tier, major, key, Math.round((base + d) * 10) / 10, { school, ...o, ...mo });
+}
+const BIZ: Partial<Program> = { tag: 'business' };
+const PUB: Partial<Program> = { tag: 'public' };
+const STG: Partial<Program> = { tag: 'stage' };
+// 상위권
+uni('A', '연세대', 96.5, [['경영학과', 'biz', 0.5, BIZ], ['컴퓨터과학과', 'cs', 0.3], ['의예과', 'med', 3.2, { years: 6, track: 'med_school', tuition: 1300 }], ['언론홍보영상학부', 'media', -0.8, STG], ['간호학과', 'nurse', -4, { track: 'nurse_school', ...PUB }]]);
+uni('A', '고려대', 96.3, [['경영학과', 'biz', 0.5, BIZ], ['전기전자공학부', 'ee', 0.2], ['행정학과', 'admin', -0.3, PUB], ['식품자원경제학과', 'agri', -3, { tag: 'free' }], ['보건정책관리학부', 'welfare', -3, PUB]]);
+uni('A', '서강대', 95.3, [['경제학과', 'econ', 0], ['컴퓨터공학과', 'cs', 0.2], ['신문방송학과', 'media', -0.3, STG]]);
+uni('A', '성균관대', 95.5, [['글로벌경영학과', 'biz', 0.3, BIZ], ['소프트웨어학과', 'cs', 0.6], ['약학과', 'pharm', 2.8, { years: 6, track: 'pharm_school', tuition: 1100 }]]);
+uni('A', '한양대', 95.2, [['기계공학부', 'mech', 0], ['건축학부 (5년)', 'arch', 0, { years: 5, ...STG }], ['경영학부', 'biz', 0.2, BIZ], ['연극영화학과', 'acting', -35, { practical: { stat: 'cha', need: 72 }, ...STG }]]);
+// 인서울 중상위
+uni('B', '중앙대', 92, [['경영학부', 'biz', 0.5, BIZ], ['약학부', 'pharm', 6, { years: 6, track: 'pharm_school', tuition: 1100 }], ['공공인재학부', 'admin', 0, PUB], ['첨단소재공학과', 'ee', 0]]);
+uni('B', '경희대', 91.5, [['한의예과', 'kmd', 7, { years: 6, track: 'kmd_school', tuition: 1100 }], ['호텔경영학과', 'hotel', -1, { tag: 'free' }], ['경영학과', 'biz', 0.3, BIZ], ['간호학과', 'nurse', -1, { track: 'nurse_school', ...PUB }]]);
+uni('B', '한국외대', 91, [['LT학부 (통번역)', 'lang', 0.5, { tag: 'free' }], ['국제통상학과', 'econ', 0, BIZ], ['Language & Diplomacy', 'admin', 0.3, PUB]]);
+uni('B', '서울시립대', 91.5, [['세무학과', 'biz', 0, BIZ], ['도시행정학과', 'admin', 0, PUB], ['전자전기컴퓨터공학부', 'ee', 0], ['조경학과', 'agri', -3, { tag: 'free' }]], { tuition: 250 });
+uni('B', '이화여대', 91, [['경영학부', 'biz', 0, BIZ], ['초등교육과', 'edu_elem', 1, { track: 'edu_school', ...PUB }], ['간호학부', 'nurse', -1, { track: 'nurse_school', ...PUB }]]);
+uni('B', '건국대', 88.5, [['수의예과', 'vet', 8, { years: 6, track: 'vet_school' }], ['부동산학과', 'econ', -0.5, BIZ], ['경영학과', 'biz', 0, BIZ], ['스마트ICT융합공학과', 'cs', 0]]);
+uni('B', '동국대', 88, [['경찰행정학부', 'police', 1.5, PUB], ['연극학부', 'acting', -30, { practical: { stat: 'cha', need: 70 }, ...STG }], ['경영학과', 'biz', 0, BIZ], ['컴퓨터공학전공', 'cs', 0]]);
+uni('B', '홍익대', 87.5, [['건축학부 (5년)', 'arch', 0, { years: 5, ...STG }], ['경영학부', 'biz', -0.5, BIZ], ['게임소프트웨어전공', 'game', 0]]);
+uni('B', '숙명여대', 87, [['경영학부', 'biz', 0, BIZ], ['약학부', 'pharm', 9, { years: 6, track: 'pharm_school', tuition: 1100 }], ['미디어학부', 'media', 0, STG]]);
+uni('B', '국민대', 85.5, [['자동차공학과', 'mech', 0], ['경영학부', 'biz', 0, BIZ], ['소프트웨어학부', 'cs', 0.5]]);
+uni('B', '숭실대', 85, [['컴퓨터학부', 'cs', 0.5], ['AI융합학부', 'cs', 0], ['경영학부', 'biz', -0.5, BIZ], ['사회복지학부', 'welfare', -2, PUB]]);
+uni('B', '세종대', 84.5, [['호텔관광외식경영', 'hotel', 0, { tag: 'free' }], ['항공시스템공학과', 'mech', 0], ['만화애니메이션텍', 'anim', -40, { practical: { stat: 'cha', need: 60 }, ...STG }]]);
+uni('B', '광운대', 83.5, [['전자공학과', 'ee', 0], ['로봇학부', 'mech', 0], ['미디어커뮤니케이션학부', 'media', -1, STG]]);
+uni('B', '명지대', 81.5, [['경영정보학과', 'biz', 0, BIZ], ['건축학부', 'arch', 0, STG], ['영화뮤지컬학부', 'film', -35, { practical: { stat: 'cha', need: 62 }, ...STG }]]);
+uni('B', '서울과학기술대', 84, [['기계시스템디자인공학과', 'mech', 0], ['컴퓨터공학과', 'cs', 0.5], ['안경광학과', 'clinical', -3, PUB]], { tuition: 450 });
+uni('B', '인하대', 85, [['항공우주공학과', 'mech', 1], ['물류학과', 'marine', 0, BIZ], ['의예과', 'med', 13.5, { years: 6, track: 'med_school', tuition: 1200 }]]);
+uni('B', '아주대', 84.5, [['의예과', 'med', 14, { years: 6, track: 'med_school', tuition: 1200 }], ['소프트웨어학과', 'cs', 0], ['경영학과', 'biz', -0.5, BIZ]]);
+// 지방 거점국립대 (지역인재·지역균형 전형이 강하다)
+const LOC: Partial<Program> = { tuition: 450 };
+uni('C', '부산대', 79, [['경영학과', 'biz', 1, BIZ], ['기계공학부', 'mech', 1], ['의예과', 'med', 20, { years: 6, track: 'med_school', tuition: 1100 }], ['간호학과', 'nurse', 3, { track: 'nurse_school', ...PUB }], ['사범대 (국어교육)', 'edu', 3, { track: 'edu_school', ...PUB }]], LOC);
+uni('C', '경북대', 78, [['전자공학부', 'ee', 2], ['행정학부', 'admin', 0, PUB], ['수의예과', 'vet', 17, { years: 6, track: 'vet_school' }], ['간호학과', 'nurse', 3, { track: 'nurse_school', ...PUB }]], LOC);
+uni('C', '전남대', 76, [['의예과', 'med', 22.5, { years: 6, track: 'med_school', tuition: 1100 }], ['경영학부', 'biz', 0, BIZ], ['농업생명과학대학', 'agri', -6, { tag: 'free' }]], LOC);
+uni('C', '충남대', 76, [['약학과', 'pharm', 20, { years: 6, track: 'pharm_school' }], ['자율운항시스템공학과', 'mech', 0], ['행정학부', 'admin', 0, PUB]], LOC);
+uni('C', '전북대', 74, [['간호학과', 'nurse', 4, { track: 'nurse_school', ...PUB }], ['IT지능정보공학과', 'cs', 0], ['동물생명공학과', 'agri', -5, { tag: 'free' }]], LOC);
+uni('C', '강원대', 70, [['산림과학부', 'agri', -4, { tag: 'free' }], ['수의예과', 'vet', 25, { years: 6, track: 'vet_school' }], ['관광경영학과', 'hotel', -3, { tag: 'free' }]], LOC);
+uni('C', '충북대', 71, [['수의예과', 'vet', 25, { years: 6, track: 'vet_school' }], ['소프트웨어학과', 'cs', 2], ['사회복지학과', 'welfare', -4, PUB]], LOC);
+uni('C', '경상국립대', 68, [['항공우주공학부', 'mech', 2], ['농업경제학과', 'agri', -4, { tag: 'free' }], ['간호학과', 'nurse', 5, { track: 'nurse_school', ...PUB }]], LOC);
+uni('C', '제주대', 64, [['해양생명과학과', 'agri', -2, { tag: 'free' }], ['관광경영학과', 'hotel', 0, { tag: 'free' }], ['초등교육과 (교대)', 'edu_elem', 18, { track: 'edu_elem', ...PUB }]], LOC);
+uni('C', '부경대', 68, [['해양생산시스템관리학부', 'marine', -3, { tag: 'free' }], ['식품공학과', 'bio', 0], ['경영학부', 'biz', 0, BIZ]], LOC);
+uni('C', '한국교통대', 58, [['항공운항학과', 'flight', 20, { track: 'flight_univ', tuition: 900, need: { stat: 'hp', min: 45 } }], ['철도경영물류학과', 'rail', 0, PUB]], LOC);
+// 지방 사립·수도권 중위권
+uni('D', '가천대', 62, [['의예과', 'med', 36, { years: 6, track: 'med_school', tuition: 1200 }], ['간호학과', 'nurse', 8, { track: 'nurse_school', ...PUB }], ['게임영상학과', 'game', 0], ['경찰안보학과', 'police', 2, PUB]]);
+uni('D', '단국대', 60, [['치의예과', 'dent', 37, { years: 6, track: 'dent_school', tuition: 1300 }], ['공연영화학부', 'film', -30, { practical: { stat: 'cha', need: 60 }, ...STG }], ['경영학부', 'biz', 0, BIZ]]);
+uni('D', '영남대', 55, [['약학부', 'pharm', 41, { years: 6, track: 'pharm_school', tuition: 1100 }], ['새마을국제개발학과', 'admin', -3, PUB], ['기계공학부', 'mech', 0]]);
+uni('D', '계명대', 50, [['패션마케팅학과', 'fashion', 0, STG], ['의예과', 'med', 47, { years: 6, track: 'med_school', tuition: 1200 }], ['호텔경영학과', 'hotel', 0, { tag: 'free' }]]);
+uni('D', '동아대', 48, [['경찰학과', 'police', 3, PUB], ['조경학과', 'agri', 0, { tag: 'free' }], ['경영학과', 'biz', 0, BIZ]]);
+uni('D', '조선대', 46, [['치의예과', 'dent', 50, { years: 6, track: 'dent_school', tuition: 1200 }], ['간호학과', 'nurse', 16, { track: 'nurse_school', ...PUB }], ['항공우주공학과', 'mech', 0]]);
+uni('D', '한림대', 45, [['의예과', 'med', 53, { years: 6, track: 'med_school', tuition: 1200 }], ['사회복지학부', 'welfare', 0, PUB], ['미디어스쿨', 'media', 0, STG]]);
+uni('D', '순천향대', 44, [['의예과', 'med', 54, { years: 6, track: 'med_school', tuition: 1200 }], ['물리치료학과', 'pt', 6, { track: 'health_pt', ...PUB }], ['관광경영학과', 'hotel', 0, { tag: 'free' }]]);
+uni('D', '원광대', 42, [['한의예과', 'kmd', 55, { years: 6, track: 'kmd_school', tuition: 1100 }], ['경찰행정학과', 'police', 4, PUB], ['원예산업학과', 'agri', 0, { tag: 'free' }]]);
+uni('D', '인제대', 42, [['의예과', 'med', 55.5, { years: 6, track: 'med_school', tuition: 1200 }], ['임상병리학과', 'clinical', 4, { track: 'health_clinical', ...PUB }], ['물리치료학과', 'pt', 6, { track: 'health_pt', ...PUB }]]);
+uni('D', '대구대', 38, [['특수교육과', 'edu', 10, { track: 'edu_school', ...PUB }], ['재활심리학과', 'welfare', 0, PUB], ['컴퓨터정보공학부', 'cs', 0]]);
+uni('D', '한남대', 36, [['경영학과', 'biz', 0, BIZ], ['건축학과 (5년)', 'arch', 2, { years: 5, ...STG }], ['경찰학과', 'police', 3, PUB]]);
+uni('D', '울산대', 50, [['조선해양공학부', 'mech', 3], ['의예과', 'med', 49, { years: 6, track: 'med_school', tuition: 1200 }], ['화학공학부', 'bio', 1]]);
+// 전문대 (실무·취업 중심)
+uni('E', '명지전문대', 28, [['사회복지과', 'welfare', 0, { years: 2, ...PUB }], ['유아교육과', 'kinder', 4, { years: 3, track: 'kinder_edu', ...PUB }], ['전자공학과', 'itc', 0, { years: 2 }]]);
+uni('E', '인하공업전문대', 35, [['항공운항서비스과', 'air', 6, { years: 2, tag: 'free' }], ['항공기계과', 'auto', 0, { years: 2, tag: 'free' }], ['컴퓨터시스템과', 'itc', 0, { years: 3 }]]);
+uni('E', '대림대', 22, [['자동차과', 'auto', 0, { years: 2, tag: 'free' }], ['보건의료행정과', 'welfare', 0, { years: 3, ...PUB }]]);
+uni('E', '동양미래대', 30, [['로봇소프트웨어과', 'itc', 0, { years: 3 }], ['경영학과', 'biz', 0, { years: 2, ...BIZ }]]);
+uni('E', '영남이공대', 25, [['간호학과', 'nurse', 20, { years: 4, track: 'nurse_school', ...PUB }], ['뷰티스타일리스트', 'beauty', -3, { years: 2, ...STG }], ['기계계열 (대기업 반)', 'auto', 0, { years: 2, tag: 'free' }]]);
+uni('E', '경복대', 20, [['치위생과', 'clinical', 5, { years: 3, ...PUB }], ['호텔조리과', 'cook', 0, { years: 2, tag: 'free' }]]);
+uni('E', '백석예술대', 22, [['실용음악과', 'music', 8, { years: 2, track: 'music_school', practical: { stat: 'cha', need: 55 }, ...STG }], ['외식산업학부', 'cook', 0, { years: 2, tag: 'free' }]]);
+
 export const PROGRAMS: Record<string, Program> = Object.fromEntries(P.map((p) => [p.id, p]));
 
 /** 전공 → 직업 분야 (관심·성향 추천용) */
@@ -627,12 +695,12 @@ export function recommendSusiType(s: GameState, p: Person, type: SusiType, pct: 
     .map((pr) => [pr, susiChance(s, p, pr, type, pct)] as const)
     .filter(([, c]) => c >= 0.06)
     .sort((a, b) => b[0].cut - a[0].cut)
-    .filter(([pr]) => !seen.has(pr.key + pr.tier) && (seen.add(pr.key + pr.tier), true))
+    .filter(([pr]) => !seen.has(programName(pr)) && (seen.add(programName(pr)), true))
     .map(([pr]) => pr);
   // 적성 맞는 곳 5곳 + 나머지 좋은 곳 (같은 전공은 2곳까지)
-  const fit = all.filter((pr) => fitsMajor(p, pr, fs)).slice(0, 5);
+  const fit = all.filter((pr) => fitsMajor(p, pr, fs)).slice(0, 6);
   const per = new Map<string, number>();
-  const rest = all.filter((pr) => !fit.includes(pr) && (per.set(pr.key, (per.get(pr.key) ?? 0) + 1).get(pr.key)! <= 2)).slice(0, 12 - fit.length);
+  const rest = all.filter((pr) => !fit.includes(pr) && (per.set(pr.key, (per.get(pr.key) ?? 0) + 1).get(pr.key)! <= 2)).slice(0, 16 - fit.length);
   return [...fit, ...rest];
 }
 

@@ -40,6 +40,8 @@ import { MISSIONS } from '../core/missions';
 import { rivalLine, rivalMood } from '../core/rival';
 import { buyPerk, HONORS, PERKS, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
+import { CARD, CARDS, effText } from '../core/cards';
+import { familyScore, lifeGrade, lifeParts } from '../core/score';
 import { pendingAffairs } from '../core/fate';
 import { ACTIONS, STAGE_NAMES, apLeft, apMax, doAction, forHead, stageOf, type ActionCat } from '../core/actions';
 import { spendable as canSpend } from '../core/ev-util';
@@ -857,6 +859,13 @@ function lifeRows(g: GameState, p: Person): string {
     const need = fameNeed(p);
     rows.push(`<div class="sh-row ${pl.approval < 25 || pl.fund < 0 ? 'warn' : ''}"><span>정치</span><span>지지율 ${pl.approval}% · 정치자금 ${formatMoney(pl.fund)}${pl.slush ? ` · 🕶 비자금 ${formatMoney(pl.slush)}` : ''}${pl.heat >= 30 ? ' · ⚠ 수사 위험' : ''}<br>가문 명성 ${Math.round(g.fame)} / 체면 유지 ${need}${g.fame < need ? ' ⚠ 부족' : ''}</span></div>`);
   }
+  if (!p.inLaw && (age(g, p) >= 15 || p.lifeScore !== undefined)) {
+    const parts = lifeParts(g, p);
+    const v = p.lifeScore ?? parts.reduce((t, x) => t + x.v, 0);
+    rows.push(`<div class="sh-row"><span>인생 점수</span><span><b class="lg-${lifeGrade(v).g.toLowerCase()}">${lifeGrade(v).g}</b> ${v}점${p.lifeScore === undefined ? ' (지금까지)' : ''}<br><small>${parts.map((x) => `${x.label} ${x.v > 0 ? '+' : ''}${x.v}`).join(' · ')}</small></span></div>`);
+  }
+  const myCards = (g.cards ?? []).filter((c) => c.personId === p.id);
+  if (myCards.length) rows.push(`<div class="sh-row"><span>카드</span><span>${myCards.map((c) => `${CARD[c.id].icon} ${CARD[c.id].name}`).join('<br>')}</span></div>`);
   if (p.flags.includes('convicted_politician')) rows.push(`<div class="sh-row warn"><span>⚖</span><span>정치자금법 위반 전과</span></div>`);
   return rows.join('');
 }
@@ -1014,7 +1023,13 @@ function rewardModal(r: Reward): string {
     <div class="event reward ${r.rarity}" data-stop>
       <div class="rw-burst">${Array.from({ length: sparks }, (_, i) => `<i style="--a:${Math.round((360 / sparks) * i)}deg;--d:${(i % 5) * 60}ms"></i>`).join('')}</div>
       <div class="rw-rarity">${RARITY_NAME[r.rarity]}</div>
-      <div class="rw-icon">${r.icon}</div>
+      ${
+        r.card && CARD[r.card]
+          ? `<div class="hcard ${r.rarity}"><div class="hc-in"><div class="hc-top">${CARD[r.card].icon} <b>${CARD[r.card].name}</b></div>${r.personId && g0()?.people[r.personId] ? `<img class="px hc-face" src="${portraitURL(g0()!.people[r.personId], age(g0()!, g0()!.people[r.personId]))}" alt="">` : `<div class="rw-icon">${CARD[r.card].icon}</div>`}<div class="hc-name">${r.personId && g0()?.people[r.personId] ? esc(fullName(g0()!.people[r.personId])) : ''}</div><div class="hc-eff">${esc(effText(CARD[r.card].eff))}</div></div><i class="hc-shine"></i></div>`
+          : r.grade
+            ? `<div class="grade-stamp g-${r.grade.toLowerCase()}">${r.grade}</div>`
+            : `<div class="rw-icon">${r.icon}</div>`
+      }
       <h3>${esc(r.title)}</h3>
       <p class="ev-text">${nl(r.text)}</p>
       ${r.pts ? `<div class="rw-pts">+${r.pts} <b>✦</b> 명예</div>` : ''}
@@ -1024,6 +1039,17 @@ function rewardModal(r: Reward): string {
   </div>`;
 }
 const g0 = () => ui.game;
+/** 가문별 최고 총점 (이 기기에만) */
+function bestScore(g: GameState, now: number): number {
+  const key = `gamun-best-${g.seed}`;
+  try {
+    const b = Number(localStorage.getItem(key) ?? 0);
+    if (now > b) localStorage.setItem(key, String(now));
+    return Math.max(b, now);
+  } catch {
+    return now;
+  }
+}
 
 function reportModal(r: { title: string; lines: string[] }): string {
   return `
@@ -1479,7 +1505,28 @@ function achvScreen(g: GameState): string {
   const tot = g.gloryTotal ?? 0;
   const pctR = nxt ? Math.round(((tot - cur0.at) / (nxt.at - cur0.at)) * 100) : 100;
   const honors = g.honors ?? [];
+  const fsc = familyScore(g);
+  const best = Math.max(fsc.total, bestScore(g, fsc.total));
+  const dexGot = new Map<string, string[]>();
+  for (const c of g.cards ?? []) dexGot.set(c.id, [...(dexGot.get(c.id) ?? []), fullName(g.people[c.personId])]);
   return `
+  <section class="card score-card">
+    <div class="sc-l">가문 총점</div>
+    <div class="sc-v">${fsc.total.toLocaleString()}<small>점</small></div>
+    <div class="sc-best">🏅 최고 기록 ${best.toLocaleString()}점</div>
+    <div class="sc-parts">${fsc.parts.map((x) => `<span>${x.label} <b>${x.v.toLocaleString()}</b></span>`).join('')}</div>
+    <p class="fine">가족이 세상을 떠날 때 「인생 성적표」를 받고, 그 점수가 가문 총점에 영원히 쌓인다. 가계도에서 사람을 누르면 지금까지의 인생 점수를 볼 수 있다.</p>
+  </section>
+  <section class="card">
+    <h2>🃏 명예의 전당 카드 <small class="muted">${dexGot.size}/${CARDS.length}종</small></h2>
+    <div class="dex">${[...CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).map((d) => {
+      const who = dexGot.get(d.id);
+      return who
+        ? `<div class="dx ${d.rarity}" title="${esc(effText(d.eff))}"><span>${d.icon}</span><b>${d.name}</b><small>${esc(who.join(', '))}</small><em>${esc(effText(d.eff))}</em></div>`
+        : `<div class="dx locked"><span>❔</span><b>${d.name}</b><small>${esc(d.how)}</small></div>`;
+    }).join('')}</div>
+    <p class="fine">카드 주인이 살아 있는 동안 효과가 계속된다. 3·6·10·16·24종을 모으면 세트 보상.</p>
+  </section>
   <section class="card rank-card">
     <div class="rank-top"><span class="rank-ic">${cur0.icon}</span><div><b>${esc(g.familyName)}씨 가문 · ${cur0.name}</b><small>누적 명예 ${tot}✦${nxt ? ` · 다음 "${nxt.name}"까지 ${nxt.at - tot}✦` : ' · 최고 등급'}</small></div></div>
     <div class="rank-bar"><i style="width:${pctR}%"></i></div>

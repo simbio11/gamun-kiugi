@@ -30,6 +30,8 @@ import { rivalYear } from './rival';
 import { careerYear, ministerLeaves, presidentLeaves } from './career';
 import { achvRarity, checkHonors, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
+import { cardYear } from './cards';
+import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
@@ -340,6 +342,8 @@ export function simulateYear(s: GameState): void {
   for (const m of eraYear(s)) log(s, m, 'market');
   for (const m of rivalYear(s, familyTotal(s))) log(s, m, 'life');
   for (const m of careerYear(s)) log(s, m, 'life');
+  cardYear(s);
+  trackPeak(s);
   perkYear(s, wageIndex(s.year));
 
   retirementAndGraduation(s);
@@ -694,6 +698,7 @@ function deaths(s: GameState) {
     const cause = causeOf(s, p);
     p.deathYear = s.year;
     log(s, `🕯 ${fullName(p)} ${cause} 별세 (향년 ${age(s, p)}세)`, 'death');
+    if (!p.inLaw && (wasHead || isMainline(s, p) || isDescendantOf(s, head(s), p)) && age(s, p) >= 15) lifeReport(s, p);
     lifeInsurancePayout(s, p);
 
     if (wasHead) {
