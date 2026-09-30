@@ -11,39 +11,28 @@ import { formatMoney } from './economy';
 import type { GameState, Person } from './types';
 import { GATE_ONLY, GATE_READY } from './super-gates';
 
+interface SuperStep {
+  title: string;
+  text: string;
+  check: (p: Person) => boolean;
+  rate: number;
+  succText: string;
+  succMoney: number;
+  failText: string;
+  yesLabel?: string;
+  noLabel?: string;
+  onNo?: (x: { s: GameState; p: Person }) => string;
+}
+
 interface SuperRoute {
   id: string;
   name: string;
   icon: string;
   /** 1단계 트리거 자격 조건 */
   ready: (s: GameState, p: Person) => boolean;
-  step1: {
-    title: string;
-    text: string;
-    check: (p: Person) => boolean;
-    rate: number;
-    succText: string;
-    succMoney: number;
-    failText: string;
-  };
-  step2: {
-    title: string;
-    text: string;
-    check: (p: Person) => boolean;
-    rate: number;
-    succText: string;
-    succMoney: number;
-    failText: string;
-  };
-  step3: {
-    title: string;
-    text: string;
-    check: (p: Person) => boolean;
-    rate: number;
-    succText: string;
-    succMoney: number;
-    failText: string;
-  };
+  step1: SuperStep;
+  step2: SuperStep;
+  step3: SuperStep;
 }
 
 const A = (s: GameState, p: Person) => age(s, p);
@@ -138,7 +127,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     name: '밤의 대부',
     icon: '🥃',
     ready: (s, p) =>
-      A(s, p) >= 28 && A(s, p) <= 70 && ST(p).cha >= 56 &&
+      p.sex === 'M' && A(s, p) >= 28 && A(s, p) <= 70 && ST(p).cha >= 56 &&
       (markOf(p, 'cheat') >= 1 || markOf(p, 'risk') >= 3 ||
         p.flags.includes('hidden:hj_gambler') || p.flags.includes('hidden:hj_smuggler')),
     step1: {
@@ -205,38 +194,64 @@ export const SUPER_ROUTES: SuperRoute[] = [
     },
   },
 
-  // 🂡 비밀 카지노의 딜러: 심야 하우스 초대 → 100억의 팟 → 약속의 대결 (도박의 왕)
+  // 🂡 비밀 카지노의 딜러 (도박의 왕): 카지노 권유 → 3번 방문 중독 전직, 거절 시 10년 쿨다운
   {
     id: 'hj_underground_dealer',
-    name: '비밀 카지노의 딜러',
+    name: '비밀 카지노의 딜러 (도박의 왕)',
     icon: '🂡',
-    ready: (s, p) => p.sex === 'M' && A(s, p) >= 21 && ST(p).int >= 68 && ST(p).cha >= 62,
+    ready: (s, p) => {
+      if (p.sex !== 'M' || A(s, p) < 20 || A(s, p) > 65) return false;
+      const last = s.storySeen?.['casino_refused:' + p.id];
+      if (last != null && s.year - Number(last) < 10) return false;
+      return true;
+    },
     step1: {
-      title: '🂡 심야 하우스의 초대',
-      text: '도심 깊은 지하, 간판 없는 카지노에서 호출이 왔다. "새로운 딜러가 필요해. 손놀림과 배짱을 보여봐."',
-      check: (p) => ST(p).cha >= 62 && ST(p).int >= 68,
-      rate: 0.88,
-      succText: '{n}의 날렵한 셔플과 상대를 꿰뚫는 눈빛에 베테랑 꾼들이 숨을 삼켰다. 테이블의 지배자로 인정받았다.',
+      title: '🂡 친구의 권유 (카지노 1차 방문)',
+      text: '오랜 친구가 은밀하게 다가와 어깨를 툭 친다. "야, 도심 지하에 기가 막힌 카지노가 있는데 딱 한 번만 가볼래? 가볍게 게임만 하자. 손해 보면 내가 메꿔줄게!"',
+      yesLabel: '호기심에 친구를 따라 카지노에 가본다',
+      noLabel: '도박은 위험하다며 단호히 거절한다',
+      check: (p) => ST(p).cha >= 50 || ST(p).int >= 50,
+      rate: 0.92,
+      succText: '화려한 조명과 칩 소리에 매료되었다! 첫 배팅에서 승리하며 짜릿한 쾌감이 온몸을 감싼다.',
       succMoney: 5000,
-      failText: '첫 셔플에서 카드가 튀었다. 다음 기회를 노린다.',
+      failText: '첫 판부터 칩을 잃었지만, 테이블의 묘한 긴장감이 머릿속에서 떠나지 않는다.',
+      onNo: (x) => {
+        x.s.storySeen = x.s.storySeen || {};
+        x.s.storySeen['casino_refused:' + x.p.id] = x.s.year;
+        return '도박은 패가망신의 지름길이라며 친구의 권유를 단호히 거절했다. (최소 10년간 카지노 권유를 받지 않습니다)';
+      },
     },
     step2: {
-      title: '🃏 100억의 팟',
-      text: '거물 정재계 인사들이 모인 하이롤러 룸. 판돈 100억 앞에서 치명적인 속임수를 쓰려는 자를 카드 한 장으로 제압해야 한다.',
-      check: (p) => ST(p).int >= 72 && ST(p).cha >= 66,
-      rate: 0.85,
-      succText: '소매 속의 트릭을 완벽하게 간파하고 판을 장악했다! 하우스의 명성이 {n}의 손에 올랐다.',
+      title: '🃏 카지노의 밤 (카지노 2차 방문과 중독)',
+      text: '지난번 방문 이후 귓가에 칩 소리가 맴돌아 일이 손에 잡히지 않는다. 결국 또다시 홀린 듯 지하 카지노 문 앞까지 왔다. 오늘 밤도 배팅을 시작할까?',
+      yesLabel: '짜릿한 손맛을 잊지 못하고 카지노로 들어간다',
+      noLabel: '더 깊이 빠지기 전에 충동을 누르고 돌아선다',
+      check: (p) => ST(p).int >= 55 || ST(p).cha >= 55,
+      rate: 0.9,
+      succText: '신들린 직감과 카드 카운팅으로 하이롤러 테이블을 휩쓸었다! 카지노에 완전히 중독되어 딜러의 손기술까지 눈에 들어오기 시작한다.',
       succMoney: 15000,
-      failText: '판의 흐름을 놓쳐 거액의 판돈이 엉뚱한 곳으로 흘러갔다.',
+      failText: '치열한 접전 끝에 아슬아슬하게 본전을 건졌다. 어둠의 열기가 점점 온몸을 잠식해간다.',
+      onNo: (x) => {
+        x.s.storySeen = x.s.storySeen || {};
+        x.s.storySeen['casino_refused:' + x.p.id] = x.s.year;
+        return '더 깊이 빠져들기 전에 정신을 차리고 카지노를 박차고 나왔다. (카지노의 유혹에서 벗어났습니다)';
+      },
     },
     step3: {
-      title: '👑 약속의 대결 (도박의 왕)',
-      text: '전설의 도박왕이 찾아왔다. "돈은 필요 없다. 진 자는 평생 지킬 약속 하나를 건다." 운명의 마지막 딜링.',
-      check: (p) => ST(p).int >= 74 && ST(p).cha >= 70,
+      title: '👑 도박의 왕 (카지노 3차 방문과 전직)',
+      text: '어느덧 3번째 카지노 방문. 이제는 손님으로 만족할 수 없는 지경에 이르렀다. 카지노의 총지배인이 {n}의 비범한 재능과 서늘한 눈빛을 보고 VIP 테이블을 총괄하는 전설의 딜러 자리를 제안한다. "베팅은 자유입니다. 다만 지면, 제게 하나만 약속하십시오."',
+      yesLabel: '카지노의 왕(비밀 카지노 딜러)이 된다',
+      noLabel: '마지막 순간 파멸을 직감하고 손을 뗀다',
+      check: (p) => ST(p).int >= 60 || ST(p).cha >= 60,
       rate: 0.95,
-      succText: '"베팅은 자유입니다. 다만 지면, 제게 하나만 약속하십시오." 전설을 무릎 꿇리고 비밀 카지노의 지배자로 군림했다.',
+      succText: '"베팅은 자유입니다. 지면 제게 하나만 약속하시죠." 테이블의 모든 패를 지배하며, 패배자들에게 평생의 약속을 받아내는 비밀 카지노의 전설(도박의 왕)로 등극했다!',
       succMoney: 30000,
-      failText: '마지막 카드 한 장 차이로 패배했다.',
+      failText: '마지막 딜링 테스트에서 아깝게 실수를 저질렀다.',
+      onNo: (x) => {
+        x.s.storySeen = x.s.storySeen || {};
+        x.s.storySeen['casino_refused:' + x.p.id] = x.s.year;
+        return '마지막 순간 차가운 이성을 되찾고 어둠의 세계를 떠났다. 평온한 일상으로 돌아왔다.';
+      },
     },
   },
 
@@ -319,7 +334,7 @@ const step1Event: EventDef = {
     const r = ROUTE_MAP[c.ev.data.id];
     return gate(c.s, [
       {
-        label: `도전한다 (자격 확인)`,
+        label: r.step1.yesLabel ?? `도전한다 (자격 확인)`,
         run: (x) => {
           const ok = r.step1.check(x.p) && chance(x.s, r.step1.rate);
           if (ok) {
@@ -332,8 +347,11 @@ const step1Event: EventDef = {
         },
       },
       {
-        label: '거절하고 평범하게 산다',
-        run: (x) => `도전을 고사했다. ${fullName(x.p)}의 일상은 평화롭게 흘러간다.`,
+        label: r.step1.noLabel ?? '거절하고 평범하게 산다',
+        run: (x) => {
+          if (r.step1.onNo) return r.step1.onNo(x);
+          return `도전을 고사했다. ${fullName(x.p)}의 일상은 평화롭게 흘러간다.`;
+        },
       },
     ]);
   },
@@ -352,7 +370,7 @@ const step2Event: EventDef = {
     const r = ROUTE_MAP[c.ev.data.id];
     return gate(c.s, [
       {
-        label: `한 단계 더 나아간다 (2단계 돌파)`,
+        label: r.step2.yesLabel ?? `한 단계 더 나아간다 (2단계 돌파)`,
         run: (x) => {
           const ok = r.step2.check(x.p) && chance(x.s, r.step2.rate);
           if (ok) {
@@ -365,9 +383,10 @@ const step2Event: EventDef = {
         },
       },
       {
-        label: '여기서 멈추고 손을 뗀다',
+        label: r.step2.noLabel ?? '여기서 멈추고 손을 뗀다',
         run: (x) => {
           x.p.flags = x.p.flags.filter((f) => !f.startsWith(`sh:${r.id}`));
+          if (r.step2.onNo) return r.step2.onNo(x);
           return `위험한 판에서 조용히 빠져나왔다. 번 돈은 지켰다.`;
         },
       },
@@ -388,7 +407,7 @@ const step3Event: EventDef = {
     const r = ROUTE_MAP[c.ev.data.id];
     return gate(c.s, [
       {
-        label: `모든 것을 걸고 정점에 선다 (최종 전직)`,
+        label: r.step3.yesLabel ?? `모든 것을 걸고 정점에 선다 (최종 전직)`,
         run: (x) => {
           const ok = r.step3.check(x.p) && chance(x.s, r.step3.rate);
           if (ok) {
@@ -407,9 +426,10 @@ const step3Event: EventDef = {
         },
       },
       {
-        label: '마지막 순간 평범한 삶을 택한다',
+        label: r.step3.noLabel ?? '마지막 순간 평범한 삶을 택한다',
         run: (x) => {
           x.p.flags = x.p.flags.filter((f) => !f.startsWith(`sh:${r.id}`));
+          if (r.step3.onNo) return r.step3.onNo(x);
           return `모든 욕망을 내려놓고 평온한 일상으로 돌아왔다.`;
         },
       },

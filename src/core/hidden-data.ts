@@ -31,6 +31,7 @@ export const SUPER_HIDDEN_IDS = new Set([
   'hj_vtuber',
   'hj_drifter',
   'hj_mafia',
+  'hj_godmother',
   'hj_private_jet',
   'hj_underground_dealer',
   ...HOH_IDS,
@@ -53,7 +54,6 @@ export const HIDDEN: HiddenJob[] = [
   { id: 'hj_smuggler', name: '밀매상', icon: '💎', pay: 20000, color: '#6a4a2a', fx: 'crate', eff: { cash: 1500 }, hint: '장사 수완에 흐린 양심, 항구의 창고.', strategy: '25세 이상, 도덕 45 이하, 상인·무역·물류·운송 계열 재직 시 항구 창고 비밀 보석 밀수 수락' },
   { id: 'hj_pirate', name: '해적', icon: '🏴‍☠️', pay: 14000, color: '#2a4a6a', fx: 'waves', eff: { fame: 2, cash: 800 }, hint: '바다에서 자랐고, 규칙을 싫어한다.', strategy: '20~50세, 체력 60 이상, 도덕 50 이하, 항구 선술집에서 외눈 선장의 공해 보물선 해적단 승선 제의' },
   { id: 'hj_mercenary', name: '용병', icon: '🪖', pay: 22000, color: '#4a5a2a', fx: 'fire', eff: { cash: 1500, hp: -1 }, hint: '전쟁을 겪은 몸은 평범한 일상을 견디지 못한다.', strategy: '22~50세, 체력 64 이상, 군 복무·장교·참전 경력 시 해외 민간군사기업(PMC) 분쟁지역 용병 계약' },
-  { id: 'hj_mafia', name: '밤의 대부', icon: '🥃', pay: 60000, color: '#2a1a1a', fx: 'smoke', eff: { cash: 6000, fame: 6, heat: 4, kid: 'str' }, hint: '도시의 밤을 쥔 반지. 도박판·밀수판에서 이름을 날린 자에게 부름이 온다.', strategy: '28세 이상 · 매력 56 이상이면서 위험·속임수 성향(또는 타짜·밀매상 이력, 숨은 길 완주) → 3단계: 대부의 부름 → 가문 전쟁 → 도시의 왕' },
   { id: 'hj_trader', name: '월스트리트 트레이더', icon: '📈', pay: 35000, color: '#2a3a5a', fx: 'screen', eff: { cash: 2500 }, hint: '숫자 천재 금융인, 한 번의 대박.', strategy: '1985년 이후 26세 이상, 지능 62 이상, 금융권 재직 중 작성한 공매도 리포트 히트로 뉴욕 헤지펀드 이직' },
   { id: 'hj_bounty', name: '현상금 사냥꾼', icon: '🎯', pay: 12000, color: '#5a3a1a', fx: 'dust', eff: { fame: 1, cash: 600 }, hint: '제복을 벗은 사냥개.', strategy: '28세 이상, 체력 58 이상, 경찰·군인·경비 경력 시 해외 도주 흉악범 거액 사비 현상금 추적 착수' },
   { id: 'hj_tarot', name: '타로 점술가', icon: '🔯', pay: 5000, color: '#3a2a5a', fx: 'magic', eff: { hap: 2 }, hint: '사람 마음을 잘 읽고, 보이지 않는 걸 믿는다.', strategy: '22세 이상, 매력 58, 지능 50, 도덕 50 이상 시 조모 유품 타로 카드로 골목길 심야 점집 개업' },
@@ -70,7 +70,10 @@ export const HIDDEN: HiddenJob[] = [
   { id: 'hj_timetraveler', name: '시간 정지의 여제', icon: '⏳', pay: 72000, color: '#5a8ad0', fx: 'magic', eff: { cash: 8000, fame: 7, kid: 'int', study: 5 }, hint: '멈춘 사무실, 공중에 뜬 서류와 커피. 그녀만 움직인다.', strategy: '지능 78+ 여성이 높은 직급에 오르면 어느 날 문득 시간이 멈춘다 (확률) · 또는 슈퍼 히든 가문 → 3단계: 멈춘 시계 → 얼어붙은 1초 → 시간 정지의 여제' },
   // ── 슈퍼 히든 (프라이빗 제트 전속 승무원 · 비밀 카지노의 딜러) ──
   { id: 'hj_private_jet', name: '프라이빗 제트 전속 승무원', label: '프라이빗 제트', icon: '✈️', pay: 68000, color: '#1e3250', fx: 'city', eff: { cash: 6500, fame: 5, hap: 6, hp: 3 }, hint: '은은한 조명의 전용기, 구름 위의 샴페인.', strategy: '20~32세 여성, 매력 68+, 지능 60+ → 3단계 미션: VVIP 전담 면접 → 대양 횡단 야간 비행 → 단 한 명을 위한 전속 계약' },
-  { id: 'hj_underground_dealer', name: '비밀 카지노의 딜러 (도박의 왕)', label: '언더그라운드 카지노', icon: '🂡', pay: 75000, color: '#3a1a4a', fx: 'cards', eff: { cash: 8000, fame: 6, hap: 4, heat: -2 }, hint: '초록 펠트 테이블, 보라 네온, 그리고 돈이 아닌 약속.', strategy: '21세 이상 남성, 지능 68+, 매력 62+ → 3단계 미션: 심야 하우스의 초대 → 100억의 팟 → 약속의 대결 (도박의 왕)' },
+  { id: 'hj_underground_dealer', name: '비밀 카지노의 딜러 (도박의 왕)', label: '언더그라운드 카지노', icon: '🂡', pay: 75000, color: '#3a1a4a', fx: 'cards', eff: { cash: 8000, fame: 6, hap: 4, heat: -2 }, hint: '초록 펠트 테이블, 보라 네온, 그리고 돈이 아닌 약속.', strategy: '20세 이상 남성, 친구의 카지노 권유를 받아 3번 방문하면 중독되어 전직 (안 가면 10년에 1번씩 추천)' },
+  // ── 슈퍼 히든 (밤의 대부 · 밤의 대모: 남녀 한 쌍, 도감 맨 아래) ──
+  { id: 'hj_mafia', name: '밤의 대부', icon: '🥃', pay: 60000, color: '#2a1a1a', fx: 'smoke', eff: { cash: 6000, fame: 6, heat: 4, kid: 'str' }, hint: '도시의 밤을 쥔 반지. 도박판·밀수판에서 이름을 날린 자에게 부름이 온다.', strategy: '28세 이상 남성 · 매력 56 이상이면서 위험·속임수 성향(또는 타짜·밀매상 이력, 숨은 길 완주) → 3단계: 대부의 부름 → 가문 전쟁 → 도시의 왕' },
+  { id: 'hj_godmother', name: '밤의 대모', icon: '🖤', pay: 55000, color: '#3a0f22', fx: 'smoke', eff: { cash: 5500, hap: 6, fame: 5, heat: 3 }, hint: '뒷방의 회중시계와 아무도 모르는 장부. 조직을 낳고 키운 손.', strategy: '28세 이상 여성 · 매력 56 이상이면서 위험·속임수 성향(또는 타짜·밀매상 이력, 숨은 길 완주) → 3단계: 대모의 부름 → 다섯 가문의 중재 → 밤의 어머니' },
 ];
 export const HIDDEN_BY_ID: Record<string, HiddenJob> = Object.fromEntries(HIDDEN.map((h) => [h.id, h]));
 export const isHiddenJob = (job: string) => job.startsWith('hj_');

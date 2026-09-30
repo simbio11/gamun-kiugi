@@ -10,14 +10,22 @@ const NAMED = Object.entries(FILES).map(([k, v]) => [k.split('/').pop()!.replace
 /** 전체 그림 / 인물만 오려 낸 그림 (배경 투명) */
 const ART: Record<string, string> = Object.fromEntries(NAMED.filter(([n]) => !n.endsWith('.fig')));
 const FIG: Record<string, string> = Object.fromEntries(NAMED.filter(([n]) => n.endsWith('.fig')).map(([n, v]) => [n.slice(0, -4), v]));
+/** 카드 영상: <그림 이름>.mp4 — 카드 그림에서 이어지고, 끝나면 그림으로 돌아온다 */
+// mp4(원본 화질 그대로)를 먼저, 못 트는 브라우저는 webm(VP9)으로
+const VIDEO: Record<string, { webm?: string; mp4?: string }> = {};
+for (const [k, v] of Object.entries(import.meta.glob('../assets/hidden/video/*.{mp4,webm}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>)) {
+  const f = k.split('/').pop()!;
+  const [name, ext] = [f.replace(/\.(mp4|webm)$/, ''), f.endsWith('.webm') ? 'webm' : 'mp4'];
+  (VIDEO[name] ??= {})[ext as 'webm' | 'mp4'] = v;
+}
 
 /** 이 직업·성별의 그림 (여러 장이면 seed로 고른다). 없으면 undefined */
-export function hiddenArt(id: string, sex: 'M' | 'F' = 'F', seed = 0): { src: string; fig?: string } | undefined {
+export function hiddenArt(id: string, sex: 'M' | 'F' = 'F', seed = 0): { src: string; fig?: string; vid?: { webm?: string; mp4?: string } } | undefined {
   const key = id.slice(3);
   const own = Object.keys(ART).filter((n) => n.startsWith(`${key}_${sex === 'F' ? 'f' : 'm'}`)).sort();
   if (!own.length) return undefined;
   const n = own[seed % own.length];
-  return { src: ART[n], fig: FIG[n] };
+  return { src: ART[n], fig: FIG[n], vid: VIDEO[n] };
 }
 
 /** 입자 효과: 색·모양·움직임 */
@@ -79,12 +87,93 @@ export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; 
     return `<div class="hid-card locked ${tierCls} ${o.cls ?? ''}"><div class="hid-stage">${
       a ? `<img class="hid-back" src="${a.src}" alt=""><img class="hid-img hid-blur" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-sil" src="${a.fig}" alt="">` : ''}` : ''
     }<div class="hid-q">?</div></div><div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in only"><b>${tierLabel}</b></div><i class="hid-orn r"></i><em class="hid-medal">${tierMedal}</em></div></div>`;
+  // 도감 썸네일은 가볍게: 영상은 크게 볼 때(크게 보기·보상 창)만 만든다
+  const big = !(o.cls ?? '').includes('dx-art');
+  // 영상은 <video>를 화면에 두지 않고 캔버스에 그린다: 모바일 브라우저가 영상 위에 띄우는 확대·팝업 버튼이 안 생긴다
+  const vid = big && a?.vid ? `<canvas class="hid-img hid-vid" width="496" height="864"${a.vid.mp4 ? ` data-mp4="${a.vid.mp4}"` : ''}${a.vid.webm ? ` data-webm="${a.vid.webm}"` : ''}></canvas>` : '';
   const art = a
-    ? `<img class="hid-back" src="${a.src}" alt=""><div class="hid-pan"><img class="hid-img hid-bg" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-fig" src="${a.fig}" alt="">` : ''}</div>`
+    ? `<img class="hid-back" src="${a.src}" alt=""><div class="hid-pan"><img class="hid-img hid-bg" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-fig" src="${a.fig}" alt="">` : ''}${vid}</div>`
     : `<div class="hid-q">${h.icon}<small>그림 준비 중</small></div>`;
   return `<div class="hid-card fx-${h.fx} ${tierCls} ${o.cls ?? ''}" style="--hc:${h.color}">
     <div class="hid-stage">${art}<div class="hid-fx">${particles(h.fx)}</div><i class="hid-shine"></i></div>
     <div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in"><b>${h.label ? `👑 ${h.label} 👑` : (superJob ? '👑 SUPER HIDDEN 👑' : '✦ HIDDEN JOB ✦')}</b><span>${h.name}</span></div><i class="hid-orn r"></i><em class="hid-medal">${h.icon}</em></div>
     <i class="hid-glint g1"></i><i class="hid-glint g2"></i><i class="hid-glint g3"></i>
+    ${vid ? '<span class="hid-replay" role="button" data-hid-replay title="영상 다시 보기">▶</span>' : ''}
   </div>`;
+}
+
+// ───────────────────────── 카드 영상 ─────────────────────────
+// 처음 얻을 때(보상 창): 그림자 베일이 걷히면 그림에서 영상으로 이어진다 (자동 재생은 소리 없이).
+// 끝나면 영상이 스르르 사라지며 원래 그림으로. ▶ 버튼으로 언제든 다시 (다시 볼 땐 소리와 함께).
+// 캔버스마다 화면 밖 <video> 하나: 재생되는 동안 프레임을 캔버스에 옮겨 그린다
+const VIDS = new WeakMap<HTMLCanvasElement, HTMLVideoElement>();
+const cardOf = (c: Element) => c.closest('.hid-card');
+function vidFor(c: HTMLCanvasElement): HTMLVideoElement {
+  let v = VIDS.get(c);
+  if (v) return v;
+  v = document.createElement('video');
+  v.playsInline = true;
+  v.setAttribute('playsinline', '');
+  v.preload = 'auto';
+  const { mp4, webm } = c.dataset;
+  v.src = mp4 && v.canPlayType('video/mp4; codecs="avc1.64001E"') ? mp4 : (webm ?? mp4 ?? '');
+  const off = () => cardOf(c)?.classList.remove('vid-on');
+  v.addEventListener('ended', off);
+  v.addEventListener('pause', off);
+  v.addEventListener('playing', () => {
+    cardOf(c)?.classList.add('vid-on');
+    const ctx = c.getContext('2d');
+    const draw = () => {
+      if (!c.isConnected) return v!.pause(); // 창을 닫으면 소리도 멈춘다
+      if (v!.paused || v!.ended) return;
+      if (v!.videoWidth && c.width !== v!.videoWidth) {
+        c.width = v!.videoWidth;
+        c.height = v!.videoHeight;
+      }
+      ctx?.drawImage(v!, 0, 0, c.width, c.height);
+      requestAnimationFrame(draw);
+    };
+    requestAnimationFrame(draw);
+  });
+  VIDS.set(c, v);
+  return v;
+}
+function playVid(c: HTMLCanvasElement, sound: boolean) {
+  const v = vidFor(c);
+  v.muted = !sound;
+  v.currentTime = 0;
+  v.play().catch(() => {
+    // 소리 재생이 막히면 소리 없이라도
+    v.muted = true;
+    v.play().catch(() => {});
+  });
+}
+
+let hooked = false;
+export function initHiddenVideos() {
+  if (hooked || typeof document === 'undefined') return;
+  hooked = true;
+  // ▶ 다시 보기: 카드 뒤집기·창 닫기로 새지 않게 먼저 잡는다
+  const replay = (e: Event) => {
+    const b = (e.target as Element)?.closest?.('[data-hid-replay]');
+    if (!b) return;
+    e.stopPropagation();
+    e.preventDefault();
+    if (e.type !== 'click') return;
+    const scope = b.getAttribute('data-hid-replay') === 'viewer' ? document.querySelector('.cv-modal') : b.closest('.hid-card');
+    const c = scope?.querySelector<HTMLCanvasElement>('canvas.hid-vid');
+    const cv = scope?.querySelector<HTMLElement>('.cv-card');
+    cv?.style.setProperty('--spin', '0deg'); // 뒷면(공략법)을 보고 있었으면 앞면으로
+    if (c) playVid(c, true);
+  };
+  for (const t of ['click', 'pointerdown', 'mousedown', 'touchstart']) document.addEventListener(t, replay, true);
+  // 보상 창에 새로 뜬 카드: 베일(2.4초)이 걷히면 바로 재생. 영상은 미리 받아 둔다
+  const kick = () => {
+    for (const c of document.querySelectorAll<HTMLCanvasElement>('.hidden-hc canvas.hid-vid:not([data-kick])')) {
+      c.dataset.kick = '1';
+      vidFor(c).load();
+      setTimeout(() => c.isConnected && playVid(c, false), 2500);
+    }
+  };
+  new MutationObserver(kick).observe(document.body, { childList: true, subtree: true });
 }
