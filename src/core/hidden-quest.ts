@@ -33,6 +33,7 @@ const LEAN: Record<string, Lean> = {
   hj_pirate: { a: [20, 50], need: ['str', 50], stat: 'str' },
   hj_mercenary: { a: [22, 50], need: ['str', 55], stat: 'str' },
   hj_mafia: { a: [28, 65], need: ['cha', 52], stat: 'cha' },
+  hj_godmother: { a: [28, 65], need: ['cha', 52], stat: 'cha' },
   hj_trader: { a: [25, 50], need: ['int', 58], from: 1985, stat: 'int' },
   hj_bounty: { a: [28, 55], need: ['str', 52], stat: 'str' },
   hj_tarot: { a: [20, 75], stat: 'cha' },

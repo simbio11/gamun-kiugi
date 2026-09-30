@@ -177,3 +177,4 @@ export function initHiddenVideos() {
   };
   new MutationObserver(kick).observe(document.body, { childList: true, subtree: true });
 }
+

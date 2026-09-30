@@ -1224,7 +1224,7 @@ describe('부모님 유산', () => {
   });
 
   it('슈퍼 히든 직업: 3단계 퀘스트 체인과 카드·도감 등록 검증', () => {
-    const superJobIds = ['hj_vtuber', 'hj_drifter', 'hj_mafia'];
+    const superJobIds = ['hj_vtuber', 'hj_drifter', 'hj_mafia', 'hj_godmother'];
 
     // 1. 직업 및 카드 등록 확인
     for (const id of superJobIds) {
@@ -1354,5 +1354,36 @@ describe('부모님 유산', () => {
     s2.year++;
     cardYear(s2);
     expect((s2.cards ?? []).some((c) => c.id === id)).toBe(true); // 도감·카드 획득
+    // 5. 남녀 한 쌍: 성별에 따라 다른 카드가 열리고, 도감 맨 아래에 있다
+    const god = 'hj_godmother';
+    const godmother = SUPER_ROUTES.find((x) => x.id === god)!;
+    expect(isSuperHidden(god)).toBe(true);
+    expect(CARDS.find((c) => c.id === god)?.rarity).toBe('legend');
+    expect(HIDDEN[HIDDEN.length - 2].id).toBe(id);
+    expect(HIDDEN[HIDDEN.length - 1].id).toBe(god);
+    mark(q, 'cheat', 2);
+    q.sex = 'F';
+    expect(godmother.ready(s2, q)).toBe(true); // 여성은 대모의 문이 열린다
+    expect(r.ready(s2, q)).toBe(false); // 여성은 대부가 될 수 없다
+    q.sex = 'M';
+    expect(godmother.ready(s2, q)).toBe(false);
+    expect(r.ready(s2, q)).toBe(true);
+    // 6. 대모 3단계도 끝까지 치를 수 있다
+    const s3 = newGame({ seed: 909, familyName: '선', sex: 'F' });
+    const w = head(s3);
+    s3.year += 40;
+    w.birthYear = s3.year - 42;
+    w.sex = 'F';
+    w.job = 'none';
+    w.flags = w.flags.filter((x) => x !== 'student');
+    for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) w.actual[k] = w.potential[k] = 85;
+    for (const [def, flag] of [['sh_step1', `sh:${god}:1`], ['sh_step2', `sh:${god}:2`], ['sh_step3', '']] as const) {
+      let tries = 0;
+      while ((flag ? !w.flags.includes(flag) : w.job !== god) && tries++ < 25) {
+        s3.events = [{ uid: s3.eventSeq++, defId: def, personId: w.id, data: { id: god } }];
+        resolveChoice(s3, 0);
+      }
+    }
+    expect(w.job).toBe(god);
   });
 });
