@@ -1,4 +1,5 @@
 import { chance, int, normal, pick } from './rng';
+import { kinLabel, rollKin } from './inlaws';
 import { prepBonus as prepMark } from './tracks';
 import { ART_TIERS, DREAM_QUOTES, EXAMS, JOB_CATS, JOB_IDS, JOBS, PREP_TIERS, STAT_NAMES, SURNAMES, TAG_NAMES, TALENTS } from './data';
 import { jobOpen } from './histidx';
@@ -724,6 +725,7 @@ export function makeDate(s: GameState, p: Person, bonus = 0): Person {
   cand.jobLevel = int(s, 0, Math.min(JOBS[cand.job].maxLevel, Math.floor((candAge - 24) / 5)));
   cand.cash = Math.round(Math.max(300, (quality - 30) * 120 + (candAge - 25) * 250 + int(s, 0, 6000) + bonus * 400));
   cand.inLaw = true;
+  rollKin(s, cand, quality);
   if (candAge >= 36 && chance(s, 0.3)) cand.flags.push('divorced');
   const shows = new Set<string>([pick(s, ['str', 'int', 'cha', 'mor', 'hp']), pick(s, ['int', 'cha', 'mor'])]);
   for (const k of shows) cand.flags.push('show:' + k);
@@ -769,7 +771,7 @@ export function suitorLine(c: Person, s: GameState): string {
   const shown = c.flags.filter((f) => f.startsWith('show:')).map((f) => f.slice(5) as StatKey);
   const uniq = [...new Set(shown)];
   const statTxt = uniq.map((k) => `${STAT_NAMES[k]}${stars(c.actual[k])}`).join(' ');
-  return `${fullName(c)} ${s.year - c.birthYear}세${c.flags.includes('divorced') ? '(돌싱)' : ''} · ${jobLabel(c)} · 집안${stars(c.cash / 150)} · ${statTxt}`;
+  return `${fullName(c)} ${s.year - c.birthYear}세${c.flags.includes('divorced') ? '(돌싱)' : ''} · ${jobLabel(c)} · ${kinLabel(c)} · ${statTxt}`;
 }
 
 /** 번듯한 직장이 없으면 결혼 승낙을 받기 어렵다 */

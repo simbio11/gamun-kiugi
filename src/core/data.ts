@@ -56,10 +56,11 @@ export const TRAITS: Record<string, TraitDef> = {
   ambitious: { name: '야심가', desc: '출세욕이 강하다. 명성 획득↑', good: true },
   speed_demon: { name: '질주본능', desc: '초감각적 운전 재능 (선천 희귀 특성 · 슈퍼 히든 드리프트 퀸 열쇠)', good: true },
   hypnotic_eye: { name: '마안(魔眼)', desc: '상대의 무의식을 홀리는 눈빛 (선천 희귀 특성 · 슈퍼 히든 최면술사 열쇠)', good: true },
+  blood_thirst: { name: '흡혈 적성', desc: '햇빛이 버겁고, 붉은 것에 끌린다 (선천 1% · 슈퍼 히든 핏빛 후작부인의 쉬운 길)', good: true },
   dark_artist: { name: '어둠의 손', desc: '영혼을 새기는 기괴한 미적 감각 (선천 희귀 특성 · 슈퍼 히든 타투이스트 열쇠)', good: true },
 };
 export const SUPER_RARE_TRAIT_IDS = ['speed_demon', 'hypnotic_eye', 'dark_artist'] as const;
-export const TRAIT_IDS = Object.keys(TRAITS).filter((k) => !SUPER_RARE_TRAIT_IDS.includes(k as any));
+export const TRAIT_IDS = Object.keys(TRAITS).filter((k) => !SUPER_RARE_TRAIT_IDS.includes(k as any) && k !== 'blood_thirst');
 
 export const TAG_NAMES: Record<CareerTag, string> = {
   study: '공부로 성공',
@@ -321,4 +322,11 @@ export const ACHIEVEMENTS: Record<string, { cat: AchvCat; name: string; desc: st
   saga_run: A('인생', '42.195', '러너 이야기를 끝까지 겪다'),
   saga_redev: A('인생', '조합장님', '재개발을 끝까지 이끌다'),
   saga_hidden: A('결혼·자녀', '핏줄', '숨겨진 형제와 가족이 되다'),
+  // 히든 직업 (job-acts-hidden · stories-work-hidden)
+  hid_legend10: A('영광', '그림자의 전설', '히든 직업으로 10년을 버티다'),
+  hid_super10: A('영광', '밤을 지배한 10년', '슈퍼 히든 직업으로 10년을 버티다'),
+  hid_pair: A('가문', '비밀의 가문', '살아 있는 가족 둘이 동시에 히든 직업'),
+  hid_hoh: A('영광', '히든의 히든', '히든의 히든 직업에 오르다'),
+  hid_jackpot: A('인생', '일생일대', '히든 직업의 「일생일대」 기회에서 대박을 내다'),
+  hid_clean: A('인생', '손을 씻다', '히든 직업에서 평범한 삶으로 돌아오다'),
 };

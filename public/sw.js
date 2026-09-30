@@ -1,5 +1,6 @@
 // 오프라인용 캐시 (네트워크 우선, 실패 시 캐시)
-const CACHE = 'gamun-kiugi-v6';
+const CACHE = 'gamun-kiugi-v8';
+
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) =>
   e.waitUntil(
@@ -11,10 +12,12 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        if (res.ok && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        }
         return res;
       })
-      .catch(() => caches.match(e.request)),
+      .catch(() => caches.match(e.request).then((r) => r || Response.error())),
   );
 });

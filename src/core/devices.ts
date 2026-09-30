@@ -116,6 +116,10 @@ export function commEvent(defId: string, title: string): 'call' | 'msg' | undefi
 const COMM_IDS: Record<string, 'call' | 'msg'> = {
   st_h_beeper: 'msg', st_h_pc_comm: 'msg', st_h_phone: 'call', st_h_telegram: 'msg', st_h_lucky_letter: 'msg', st_h_pager_060: 'msg',
   st_h_700: 'call', st_h_long_distance: 'call', st_h_email: 'msg', st_dev_messenger: 'msg', st_dev_deepvoice: 'call', st_dev_holo_family: 'call',
+  // 원래 일반 알림으로 오던 연락들도 휴대폰(연락 수단) 창으로
+  st_l3_overtime: 'msg', st_x_scam_call: 'msg', st_m_leak: 'call', st_s_parent_collapse: 'call', st_s_grandkid_admission: 'call', st_sp_twin_reunion: 'call',
+  st_x_hakwon_bus: 'call', st_phishing_text: 'msg', st_reunion: 'msg', st_sp_time_capsule: 'msg', st_i_sport_selection: 'call', st_l3_school_trip_accident: 'call',
+  st_m_car_insurance: 'call', st_x_selfharm_worry: 'msg', st_sg_love1: 'msg', st_rural_clinic: 'call', st_x_volunteer_briquette: 'call',
 };
 
 /** 이 해에는 이런 사기가 없었다 (보이스피싱 2006~, 스미싱 2012~, 메신저 피싱 2018~) */

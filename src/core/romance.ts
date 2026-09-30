@@ -11,7 +11,8 @@ import { homeOf, moveInto, moveIntoOwned, moveTo } from './housing';
 import { isHouse } from './realty';
 import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, mark, parentsOf, relationLabel } from './people';
 import type { GameState, Person } from './types';
-import { deliver, type LifeDef } from './life';
+import { deliver, setBond, type LifeDef } from './life';
+import { KIN_NAME, kinGap, kinOf, ourKin } from './inlaws';
 
 // ───────────────────────── 기본 동작 ─────────────────────────
 
@@ -629,13 +630,13 @@ const kidWedding: EventDef = {
   portraits: (c) => [c.p, partnerOf(c.s, c.p)!],
   text: (c) => {
     const q = partnerOf(c.s, c.p)!;
-    return `${iga(who(c))} ${datingYears(c.s, c.p)}년 사귄 사람을 데려왔다. 결혼하겠단다.\n${suitorLine(q, c.s)}`;
+    return `${iga(who(c))} ${datingYears(c.s, c.p)}년 사귄 사람을 데려왔다. 결혼하겠단다.\n${suitorLine(q, c.s)}\n${kinNote(c.s, q)}`;
   },
   choices: (c) => {
     const q = partnerOf(c.s, c.p)!;
     return gate(c.s, [
-      { label: '축복한다 (결혼식 비용 지원 3천만)', cost: 3000, run: (x) => (marry(x.s, x.p, q), (x.p.affinity = clamp(x.p.affinity + 12, -100, 100)), `💍 ${who(x)} ♥ ${fullName(q)} 결혼!`) },
-      { label: '축복한다 (알아서 하라고)', run: (x) => (marry(x.s, x.p, q), `💍 ${who(x)} ♥ ${fullName(q)} 결혼! 둘이 알뜰하게 준비했다.`) },
+      { label: '축복한다 (결혼식 비용 지원 3천만)', cost: 3000, run: (x) => (marry(x.s, x.p, q), (x.p.affinity = clamp(x.p.affinity + 12, -100, 100)), `💍 ${who(x)} ♥ ${fullName(q)} 결혼!${weddingKin(x.s, x.p, q)}`) },
+      { label: '축복한다 (알아서 하라고)', run: (x) => (marry(x.s, x.p, q), `💍 ${who(x)} ♥ ${fullName(q)} 결혼! 둘이 알뜰하게 준비했다.${weddingKin(x.s, x.p, q)}`) },
       {
         label: '반대한다',
         run: (x) => {
@@ -652,6 +653,31 @@ const kidWedding: EventDef = {
     ]);
   },
 };
+
+/** 결혼 허락 창: 두 집안 형편 비교 */
+function kinNote(s: GameState, q: Person): string {
+  const g = kinGap(s, q);
+  const base = `🏠 상대 집안: ${KIN_NAME[kinOf(q) ?? 'middle']} · 우리 집: ${KIN_NAME[ourKin(s)]}`;
+  if (g >= 2) return base + '\n⚠ 형편 차이가 크다: 사돈 지원은 두둑하겠지만 간섭·무시가 잦고, 금슬이 빨리 식는다 (선물·데이트로 붙잡아야 한다)';
+  if (g <= -2) return base + '\n⚠ 형편 차이가 크다: 사돈댁 생활비·병원비를 기대게 되고, 배우자가 기죽기 쉽다';
+  if (g === 1) return base + ' · 사돈댁이 조금 더 넉넉하다 (혼수·신혼집 도움이 있을 수 있다)';
+  if (g === -1) return base + ' · 우리 집이 조금 더 넉넉하다';
+  return base + ' · 형편이 비슷하다 (갈등이 적다)';
+}
+
+/** 결혼식: 사돈댁 형편에 따라 신혼집 보태기 · 예단 기싸움 */
+function weddingKin(s: GameState, p: Person, q: Person): string {
+  const k = kinOf(q) ?? 'middle';
+  const g = kinGap(s, q);
+  if (k === 'elite' || k === 'rich') {
+    const amt = k === 'elite' ? int(s, 30, 80) * 1000 : int(s, 8, 25) * 1000;
+    p.cash += amt;
+    if (g >= 2) setBond(p, q, (p.bond ?? 60) - 6);
+    return `\n🏠 사돈댁이 신혼집에 ${formatMoney(amt)}을 보탰다.${g >= 2 ? ' 대신 예단 기싸움으로 첫해부터 삐걱거린다 (금슬 −6).' : ''}`;
+  }
+  if (k === 'poor' && g <= -2) return '\n🏠 사돈댁 형편이 어려워 혼수는 우리 쪽이 거의 다 댔다. 배우자가 미안해한다.';
+  return '';
+}
 
 const exNews: EventDef = {
   id: 'ex_news',

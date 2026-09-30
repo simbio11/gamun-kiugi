@@ -12,6 +12,8 @@ import { vehicleAP } from './vehicle';
 import { oppActions } from './opportunities';
 import { jobActions } from './job-acts';
 import { QUEST_ACTIONS } from './hidden-quest';
+import { PHOTO_ACTIONS } from './photos';
+import { INLAW_ACTIONS } from './inlaws';
 import { bonusAP } from './rewards';
 import { CAREER_ACTIONS } from './career';
 import { RIVAL_ACTIONS } from './rival';
@@ -1319,7 +1321,8 @@ const STAGE_ACTIONS: ActionDef[] = [
 ];
 // 올해의 기회: 목록 맨 앞 (분류 칩도 맨 앞에 선다)
 ACTIONS.unshift(...oppActions((s) => stageOf(s, h(s))), ...QUEST_ACTIONS, ...jobActions());
-ACTIONS.push(...HIST_ACTIONS, ...DEVICE_ACTIONS, ...SPACE_ACTIONS, ...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, ...MONEY_ACTIONS, ...AUTONOMY_ACTIONS, {
+ACTIONS.push(...PHOTO_ACTIONS);
+ACTIONS.push(...HIST_ACTIONS, ...DEVICE_ACTIONS, ...SPACE_ACTIONS, ...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...INLAW_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, ...MONEY_ACTIONS, ...AUTONOMY_ACTIONS, {
   id: 'license',
   cat: '진로·자기계발',
   icon: '🚦',

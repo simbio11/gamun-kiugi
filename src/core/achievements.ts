@@ -3,6 +3,7 @@ import { personWorth, totalWorth } from './economy';
 import { addFlag, alive, hasFlag, head, isMainline, parentsOf } from './people';
 import type { GameState, Person } from './types';
 import { achvRarity, grant } from './rewards';
+import { isHiddenJob, isHoH, isSuperHidden } from './hidden-data';
 
 export function unlock(s: GameState, id: string) {
   if (!s.achievements.includes(id)) {
@@ -57,6 +58,8 @@ const FLAG_ACHV: [string, string][] = [
   ['saga_run', 'saga_run'],
   ['saga_redev', 'saga_redev'],
   ['saga_hidden', 'saga_hidden'],
+  ['hid_jackpot', 'hid_jackpot'],
+  ['hidden_retired', 'hid_clean'],
   ['masterpiece', 'masterpiece'],
   ['was_politician', 'politics'],
   ['president', 'president'],
@@ -104,6 +107,7 @@ export function checkAchievements(s: GameState) {
   if (seen >= 60) unlock(s, 'jobs60');
 
   const h = head(s);
+  if (members.filter((p) => isHiddenJob(p.job)).length >= 2) unlock(s, 'hid_pair');
   if (s.assets.some((a) => a.kind === 'apt_seoul' && a.ownerId === h.id)) addFlag(h, 'gangnam_head');
   if (threeGenerations(s, h, 'gangnam_head')) unlock(s, 'gangnam3');
 
@@ -119,6 +123,11 @@ export function checkAchievements(s: GameState) {
     if (alive(p) && p.job === 'none' && hasFlag(p, 'chosen_idle') && personWorth(s, p) >= 100000) unlock(s, 'noble_idle');
     if (alive(p) && hasFlag(p, 'bankrupt') && personWorth(s, p) >= 100000) unlock(s, 'comeback');
     for (const [fl, id] of FLAG_ACHV) if (hasFlag(p, fl)) unlock(s, id);
+    if (alive(p) && isHiddenJob(p.job)) {
+      if (p.jobYears >= 10) unlock(s, 'hid_legend10');
+      if (p.jobYears >= 10 && isSuperHidden(p.job)) unlock(s, 'hid_super10');
+      if (isHoH(p.job)) unlock(s, 'hid_hoh');
+    }
     for (const [job, lv, id] of TOP_JOB) if (p.job === job && p.jobLevel >= lv) unlock(s, id);
     if (Number(p.flags.find((x) => x.startsWith('retake:'))?.slice(7) ?? 0) >= 2 && p.flags.some((x) => x.startsWith('school:'))) unlock(s, 'retake3');
     if (hasFlag(p, 'ivf') && p.childIds.length) unlock(s, 'ivf');

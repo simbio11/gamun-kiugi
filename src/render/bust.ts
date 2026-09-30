@@ -7,6 +7,7 @@
 //   표정: 보통·기쁨·놀람·슬픔·화남·반함·돈·잠·울음·으쓱 + 눈 깜빡임 프레임
 import { JOBS } from '../core/data';
 import type { Person } from '../core/types';
+import { paint96 } from './bust96';
 
 export type Face = 'normal' | 'happy' | 'shock' | 'sad' | 'angry' | 'money' | 'love' | 'sleep' | 'cry' | 'smug';
 type Px = string | null;
@@ -18,7 +19,7 @@ const hash = (s: string = '') => {
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 };
-const mix = (c: string, k: number) => {
+export const mix = (c: string, k: number) => {
   const n = parseInt(c.slice(1, 7), 16);
   const f = (v: number) => Math.max(0, Math.min(255, Math.round(k >= 1 ? v + (255 - v) * (k - 1) : v * k)));
   return '#' + [f(n >>> 16), f((n >>> 8) & 255), f(n & 255)].map((v) => v.toString(16).padStart(2, '0')).join('');
@@ -159,7 +160,7 @@ function plan(p: Person, age: number, year: number): Build {
   const BABY = [9, 11, 12, 12, 13, 13, 13, 13, 13, 13, 12, 12, 11, 9, 7];
   const rows = st === 'baby' ? BABY : kidish ? KID : (f ? FACES_F : FACES_M)[(gn.face ?? 0) % 3];
   const faceTop = st === 'baby' ? 17 : kidish ? 15 : st === 'teen' ? 13 : 12;
-  const eyeY = faceTop + (st === 'baby' ? 7 : kidish ? 8 : 9);
+  const eyeY = faceTop + (st === 'baby' ? 7 : kidish ? 7 : 8);
   let style = (f ? FEMALE_STYLES : MALE_STYLES)[era][(gn.hairStyle * 7 + (h >>> 5)) % (f ? 9 : 10)];
   if (st === 'baby') style = 'baby';
   else if (st === 'child') style = f ? (['twin', 'bob', 'pony', 'long'] as const)[h % 4] : (['bowl', 'short', 'spiky', 'short'] as const)[h % 4];
@@ -246,20 +247,20 @@ function paint(p: Person, age: number, year: number, face: Face, blink: boolean)
 
   // 6) 개인 특징
   const mark = p.genes.mark ?? 0;
-  const lx = cx - 8;
+  const lx = cx - 9;
   const rx = cx + 3;
   if (mark === 1 && st !== 'baby') {
     const G = st === 'elder' ? '#8a6a3a' : '#3a3444';
     for (const x0 of [lx - 1, rx - 1]) {
-      g.row(eyeY - 2, x0, x0 + 6, G, 'acc');
-      g.row(eyeY + 4, x0, x0 + 6, G, 'acc');
-      for (let y = eyeY - 1; y <= eyeY + 3; y++) g.set(x0, y, G, 'acc'), g.set(x0 + 6, y, G, 'acc');
+      g.row(eyeY - 2, x0, x0 + 7, G, 'acc');
+      g.row(eyeY + 5, x0, x0 + 7, G, 'acc');
+      for (let y = eyeY - 1; y <= eyeY + 4; y++) g.set(x0, y, G, 'acc'), g.set(x0 + 7, y, G, 'acc');
       g.set(x0 + 1, eyeY - 1, '#ffffff', 'acc');
     }
     g.row(eyeY - 1, cx - 2, cx + 1, G, 'acc');
   }
   if (mark === 5 && st === 'adult' && face !== 'sleep') {
-    for (const x0 of [lx - 1, rx - 1]) for (let y = eyeY - 1; y <= eyeY + 3; y++) g.row(y, x0, x0 + 6, y === eyeY - 1 ? '#1a1a24' : '#2a2a3a', 'acc');
+    for (const x0 of [lx - 1, rx - 1]) for (let y = eyeY - 1; y <= eyeY + 4; y++) g.row(y, x0, x0 + 7, y === eyeY - 1 ? '#1a1a24' : '#2a2a3a', 'acc');
     g.set(lx + 1, eyeY, '#8a8aa0', 'acc'), g.set(rx + 1, eyeY, '#8a8aa0', 'acc');
     g.row(eyeY - 1, cx - 2, cx + 1, '#1a1a24', 'acc');
   }
@@ -274,8 +275,8 @@ function paint(p: Person, age: number, year: number, face: Face, blink: boolean)
   if (!f && (st === 'elder' || (st === 'adult' && age >= 40)) && (h >>> 11) % 4 === 0) {
     // 콧수염
     const m = st === 'elder' ? GRAY : hair.base;
-    g.row(eyeY + 6, cx - 3, cx + 2, m, 'hair');
-    g.set(cx - 4, eyeY + 7, m, 'hair'), g.set(cx + 3, eyeY + 7, m, 'hair');
+    g.row(eyeY + 7, cx - 3, cx + 2, m, 'hair');
+    g.set(cx - 4, eyeY + 8, m, 'hair'), g.set(cx + 3, eyeY + 8, m, 'hair');
   }
   if (f && (st === 'adult' || st === 'teen') && (h >>> 10) % 3 !== 0) {
     // 귀걸이
@@ -293,7 +294,7 @@ function paint(p: Person, age: number, year: number, face: Face, blink: boolean)
 }
 
 function drawHair(g: Grid, B: Build, inFace: (x: number, y: number) => boolean, maxW: number) {
-  const { cx, faceTop, hair, style, fringe, f, st, eyeY } = B;
+  const { cx, faceTop, hair, style, fringe, f, eyeY } = B;
   const H = (x: number, y: number, c = hair.base) => g.set(x, y, c, 'hair');
   if (style === 'bald') {
     // 옆머리만: 귀 위로 조금
@@ -315,12 +316,14 @@ function drawHair(g: Grid, B: Build, inFace: (x: number, y: number) => boolean, 
   g.ellipse(cx, top + ry, rx, ry, hair.base, 'hair', (x, y) => !inFace(x, y) || y < hairline);
   // 옆머리(귀 앞으로 내려오는 구레나룻 / 여자는 옆 가닥)
   const sideTo = f ? (style === 'bun' || style === 'pony' ? eyeY + 4 : eyeY + 9) : style === 'buzz' ? eyeY - 2 : eyeY - 1;
+  // 얼굴은 가리지 않는다: 옆머리는 얼굴 윤곽 바깥에서 얼굴을 감싸듯 흘러내린다
   for (let y = faceTop + 2; y <= sideTo; y++) {
     const i = y - faceTop;
     const w = B.rows[Math.min(i, B.rows.length - 1)];
-    const thick = f ? 2 : 1;
-    for (let k = 0; k < thick; k++) H(cx - w + k, y), H(cx + w - 1 - k, y);
-    if (f) H(cx - w - 1, y), H(cx + w, y);
+    if (f) {
+      const thick = y > eyeY + 5 ? 1 : 2;
+      for (let k = 1; k <= thick; k++) H(cx - w - k, y), H(cx + w - 1 + k, y);
+    } else if (y <= eyeY - 2) H(cx - w - 1, y), H(cx + w, y);
   }
   if (style === 'buzz') for (let x = cx - maxW; x < cx + maxW; x += 2) g.set(x, faceTop, hair.sh, 'hair');
   if (style === 'twoblock') for (let y = faceTop + 2; y <= eyeY - 1; y++) g.set(cx - maxW - 1, y, hair.sh, 'hair'), g.set(cx + maxW, y, hair.sh, 'hair');
@@ -332,22 +335,22 @@ function drawHair(g: Grid, B: Build, inFace: (x: number, y: number) => boolean, 
   switch (fringe) {
     case 'bangs': {
       // 일자 앞머리 (끝이 들쭉날쭉)
-      const depth = style === 'bowl' ? 6 : 7;
+      const depth = style === 'bowl' ? 5 : 5;
       for (let x = L; x <= R; x++) {
-        const d = depth - ((x - L) % 3 === 1 ? 1 : 0);
+        const d = depth - ((x - L) % 3 === 1 ? 1 : 0) - (x === L || x === R ? 1 : 0);
         for (let y = faceTop; y < faceTop + d; y++) if (inFace(x, y)) H(x, y);
       }
       break;
     }
     case 'bowl': {
-      for (let x = L; x <= R; x++) for (let y = faceTop; y < faceTop + 5; y++) if (inFace(x, y)) H(x, y);
+      for (let x = L; x <= R; x++) for (let y = faceTop; y < faceTop + 4; y++) if (inFace(x, y)) H(x, y);
       break;
     }
     case 'side': {
       // 옆으로 넘긴 앞머리: 왼쪽은 이마가 보이고 오른쪽으로 쓸려 내려온다
       for (let x = L; x <= R; x++) {
         const t = (x - L) / width;
-        const d = 2 + Math.round(t * (f ? 7 : 5));
+        const d = 1 + Math.round(t * (f ? 5 : 4));
         for (let y = faceTop; y < faceTop + d; y++) if (inFace(x, y)) H(x, y);
       }
       break;
@@ -355,7 +358,7 @@ function drawHair(g: Grid, B: Build, inFace: (x: number, y: number) => boolean, 
     case 'part': {
       // 가운데 가르마 (커튼 앞머리)
       for (let x = L; x <= R; x++) {
-        const d = 1 + Math.round(Math.abs(x + 0.5 - cx) / 1.4);
+        const d = Math.min(6, 1 + Math.round(Math.abs(x + 0.5 - cx) / 1.6));
         for (let y = faceTop; y < faceTop + d; y++) if (inFace(x, y)) H(x, y);
       }
       break;
@@ -364,7 +367,7 @@ function drawHair(g: Grid, B: Build, inFace: (x: number, y: number) => boolean, 
       // 삐죽삐죽: 아래로 뾰족한 가닥들
       for (let x = L; x <= R; x++) {
         const k = (x - L) % 4;
-        const d = [3, 5, 4, 2][k] + (st === 'teen' ? 1 : 0);
+        const d = [3, 4, 3, 2][k];
         for (let y = faceTop; y < faceTop + d; y++) if (inFace(x, y)) H(x, y);
       }
       // 위로 솟은 가닥
@@ -436,29 +439,29 @@ function drawFace(g: Grid, B: Build, face: Face, blink: boolean, mouthGene: numb
   const I = eye;
   const i2 = mix(eye, 1.35);
   const col: Record<string, string> = { K, D, I, i: i2, H: '#ffffff', W: WHITE, L: mix(skin.out, 1.15), R: '#e8506a', Y: '#f8d048', y: '#c89a28', B: '#8ad0ff', P: '#ff8ab0' };
-  const lx = cx - 8; // 왼눈 바깥쪽
+  const lx = cx - 9; // 왼눈 바깥쪽 (6칸 눈)
   const rx = cx + 3; // 오른눈 안쪽
   const eyes = (rows: string[], dy = 0) => {
     g.stamp(lx, eyeY + dy, rows, col, 'eye');
     g.stamp(rx, eyeY + dy, rows, col, 'eye', true);
   };
   const closed = blink || face === 'sleep';
-  // ── 눈 ──
-  if (face === 'love') eyes(['.R.R.', 'RRRRR', 'RPRRR', '.RRR.', '..R..']);
-  else if (face === 'money') eyes(['..Y..', '.YYY.', 'Y.Y..', '.YYY.', '..Y.Y', '.YYY.']);
-  else if (face === 'happy' || face === 'cry') eyes(['.KKK.', 'K...K']);
-  else if (closed) eyes(['.....', '.....', 'KKKKK', '.LLL.'], 0);
-  else if (face === 'shock') eyes(['.KKK.', 'KWWWK', 'KWDWK', 'KWWWK', '.KKK.']);
-  else if (face === 'smug') eyes(f ? ['KKKKK', 'KDDHW', '.LLL.'] : ['KKKKK', 'KDDHW', '.LLL.'], 1);
-  else if (kidish) eyes(st === 'baby' ? ['.KKK.', 'KDDHK', 'KIIDK', '.KKK.'] : ['.KKK.', 'KDDHK', 'KIiDK', 'KiiIK', '.KKK.']);
-  else if (st === 'elder') eyes(f ? ['.KKKK', 'KDDHW', '.LLL.'] : ['KKKKK', '.DDH.', '.LLL.']);
+  // ── 눈: 굵은 윗속눈썹 · 위는 짙고 아래로 밝아지는 눈동자 · 반짝이 둘 ──
+  if (face === 'love') eyes(['.R..R.', 'RRRRRR', 'RPRRRR', '.RRRR.', '..RR..']);
+  else if (face === 'money') eyes(['..YY..', '.YYYY.', 'Y.YY..', '.YYYY.', '..YY.Y', '.YYYY.']);
+  else if (face === 'happy' || face === 'cry') eyes(['.KKKK.', 'K....K']);
+  else if (closed) eyes(['......', '......', 'KKKKKK', '.LLLL.'], 0);
+  else if (face === 'shock') eyes(['.KKKK.', 'KWWWWK', 'KWDDWK', 'KWWWWK', '.KKKK.']);
+  else if (face === 'smug') eyes(['KKKKKK', 'KDDDHW', '.LLLL.'], 1);
+  else if (st === 'baby') eyes(['.KKKK.', 'KDDHDK', 'KIiiDK', '.KKKK.']);
+  else if (kidish) eyes(['.KKKK.', 'KDDDHK', 'KDIIHK', 'KIiiIK', '.KKKK.']);
+  else if (st === 'elder') eyes(f ? ['.KKKKK', 'KDDDHW', '.LLLL.'] : ['KKKKKK', '.DDDH.', '.LLLL.']);
   else if (f) {
-    // 긴 속눈썹·큰 눈동자·반짝이 두 개
-    eyes(['KKKKK', 'KDDHW', 'KIDDW', 'KiiIW', '.LLL.']);
-    g.set(lx - 1, eyeY, K, 'eye'), g.set(rx + 5, eyeY, K, 'eye');
-    g.set(lx - 1, eyeY - 1, K, 'eye'), g.set(rx + 5, eyeY - 1, K, 'eye');
-    g.set(lx + 1, eyeY + 3, '#ffffff', 'eye'), g.set(rx + 3, eyeY + 3, '#ffffff', 'eye');
-  } else eyes(['KKKKK', 'KDDHW', 'KIiDW', '.LLL.']);
+    eyes(['.KKKK.', 'KKKKKK', 'KDDDHW', 'KDIIHW', 'KIiiIW', '.LiiL.']);
+    g.set(lx - 1, eyeY, K, 'eye'), g.set(rx + 6, eyeY, K, 'eye');
+    g.set(lx - 1, eyeY + 1, K, 'eye'), g.set(rx + 6, eyeY + 1, K, 'eye');
+    g.set(lx + 2, eyeY + 4, '#ffffff', 'eye'), g.set(rx + 3, eyeY + 4, '#ffffff', 'eye');
+  } else eyes(['KKKKKK', 'KDDDHK', 'WDIIHW', 'WIiiIW', '.LLLL.']);
   if (face === 'angry' && !closed) {
     // 눈꼬리가 치켜 올라간다
     g.set(lx + 4, eyeY, skin.base, 'skin'), g.set(rx, eyeY, skin.base, 'skin');
@@ -467,7 +470,7 @@ function drawFace(g: Grid, B: Build, face: Face, blink: boolean, mouthGene: numb
   const bc = st === 'elder' ? '#9a948e' : hair.sh === hair.base ? hair.out : mix(hair.base, 0.62);
   const by = eyeY - (kidish ? 2 : 3);
   const browL = (pts: [number, number][]) => {
-    for (const [x, y] of pts) g.set(lx + x, by + y, bc, 'eye'), g.set(rx + 4 - x, by + y, bc, 'eye');
+    for (const [x, y] of pts) g.set(lx + x, by + y, bc, 'eye'), g.set(rx + 5 - x, by + y, bc, 'eye');
   };
   if (face === 'angry') browL([[0, -1], [1, -1], [2, 0], [3, 0], [4, 1], ...(f ? [] : ([[1, 0], [3, 1]] as [number, number][]))]);
   else if (face === 'sad' || face === 'cry') browL([[0, 1], [1, 0], [2, 0], [3, -1], [4, -1]]);
@@ -475,19 +478,20 @@ function drawFace(g: Grid, B: Build, face: Face, blink: boolean, mouthGene: numb
   else if (f || kidish) browL(browGene % 2 ? [[0, 0], [1, -1], [2, -1], [3, -1]] : [[1, -1], [2, -1], [3, -1], [4, 0]]);
   else browL(browGene % 2 ? [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [1, -1], [2, -1], [3, -1]] : [[0, 0], [1, -1], [2, -1], [3, -1], [4, 0], [1, 0], [2, 0], [3, 0]]);
   // ── 코 ──
-  const ny = eyeY + (kidish ? 4 : 5);
+  const ny = eyeY + (kidish ? 5 : 6);
   g.set(cx, ny, skin.sh, 'skin');
   if (!f && !kidish) g.set(cx, ny - 1, skin.sh, 'skin');
   g.set(cx - 1, ny - 1, skin.hi, 'skin');
   // ── 볼터치 ──
   if (f || kidish || face === 'love' || face === 'happy' || face === 'smug') {
     const b = f || kidish ? BLUSH : mix(BLUSH, 0.95);
-    g.row(eyeY + (kidish ? 4 : 5), lx, lx + 2, b, 'skin');
-    g.row(eyeY + (kidish ? 4 : 5), rx + 2, rx + 4, b, 'skin');
+    const byy = eyeY + (kidish ? 5 : 6);
+    g.row(byy, lx, lx + 2, b, 'skin'), g.row(byy, rx + 3, rx + 5, b, 'skin');
+    g.set(lx + 1, byy + 1, mix(b, 1.08), 'skin'), g.set(rx + 4, byy + 1, mix(b, 1.08), 'skin');
     if (face === 'love') g.row(eyeY + (kidish ? 5 : 6), lx + 1, lx + 2, b, 'skin'), g.row(eyeY + (kidish ? 5 : 6), rx + 2, rx + 3, b, 'skin');
   }
   // ── 입 ──
-  const my = eyeY + (kidish ? 6 : 7);
+  const my = eyeY + (kidish ? 7 : 8);
   const lip = f && !kidish && st !== 'elder' ? '#d8586e' : mix(skin.out, 1.25);
   const M: Record<string, string> = { M: lip, K: mix(skin.out, 0.8), r: '#e86a78', w: '#ffffff', d: '#6a2a32' };
   const mouth = (rows: string[]) => g.stamp(cx - Math.floor(rows[0].length / 2), my, rows, M, 'mouth');
@@ -848,6 +852,34 @@ function toURL(gr: Grid): string {
   return c.toDataURL();
 }
 
+/** 도트 확대 Scale2x(EPX): 칸을 넷으로 나누며 대각선 계단을 둥글게 다듬는다. 두 번 돌리면 48 → 192 */
+function scale2x(src: Px[][]): Px[][] {
+  const n = src.length;
+  const at = (x: number, y: number) => (x < 0 || y < 0 || x >= n || y >= n ? null : src[y][x]);
+  const out: Px[][] = Array.from({ length: n * 2 }, () => Array(n * 2).fill(null));
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++) {
+      const P = src[y][x], A = at(x, y - 1), B = at(x + 1, y), C = at(x - 1, y), D = at(x, y + 1);
+      let e0 = P, e1 = P, e2 = P, e3 = P;
+      if (C === A && C !== D && A !== B) e0 = A;
+      if (A === B && A !== C && B !== D) e1 = B;
+      if (D === C && D !== B && C !== A) e2 = C;
+      if (B === D && B !== A && D !== C) e3 = D;
+      out[y * 2][x * 2] = e0;
+      out[y * 2][x * 2 + 1] = e1;
+      out[y * 2 + 1][x * 2] = e2;
+      out[y * 2 + 1][x * 2 + 1] = e3;
+    }
+  return out;
+}
+function rowsURL(rows: Px[][]): string {
+  const c = document.createElement('canvas');
+  c.width = c.height = rows.length;
+  const ctx = c.getContext('2d')!;
+  rows.forEach((r, y) => r.forEach((col, x) => col && ((ctx.fillStyle = col), ctx.fillRect(x, y, 1, 1))));
+  return c.toDataURL();
+}
+
 const cache = new Map<string, string>();
 const keyOf = (p: Person, age: number, year: number) => `${p.id}:${stageOf(age)}:${p.job}:${eraOf(year)}:${p.sex}:${stageOf(age) === 'adult' && age >= 50 ? 'o' : ''}`;
 
@@ -856,6 +888,37 @@ export function bustURL(p: Person, age: number, year: number, face: Face = 'norm
   const key = keyOf(p, age, year) + face + (blink ? 'b' : '');
   let u = cache.get(key);
   if (!u) cache.set(key, (u = toURL(paint(p, age, year, face, blink))));
+  return u;
+}
+
+/** 96칸 초상화(bust96.ts)가 쓰는 설계값: 같은 사람이면 48칸과 같은 머리색·피부·머리 모양 */
+export function looks96(p: Person, age: number, year: number) {
+  const B = plan(p, age, year);
+  return { st: B.st, f: B.f, skin: B.skin, hair: B.hair, eye: B.eye, style: B.style, fringe: B.fringe, h: B.h, clothOut: '#2a1e24' };
+}
+/** 48칸 초상화의 옷을 두 배(Scale2x)로 키워 96칸 판에 입힌다. bodyTop = 96칸에서 옷이 시작하는 줄 */
+export function body48(p: Person, age: number, year: number, g96: { set: (x: number, y: number, c: string, m: string) => void; outs: Record<string, string> }, bodyTop: number) {
+  const B = plan(p, age, year);
+  const g = new Grid(N);
+  const faceBottom = B.faceTop + B.rows.length - 1;
+  drawBody(g, B, pickCloth(p, B.st, B.h, B.era), p, faceBottom);
+  const big = scale2x(g.c);
+  const dy = bodyTop - 2 * (faceBottom + 3);
+  for (let y = 0; y < big.length; y++)
+    for (let x = 0; x < big.length; x++) {
+      const c = big[y][x];
+      if (!c) continue;
+      const m = g.m[y >> 1][x >> 1] ?? 'cloth';
+      g96.set(x, y + dy, c, m === 'neck' ? 'neck' : m === 'cloth2' ? 'cloth2' : 'cloth');
+    }
+  g96.outs.cloth = g.outs.cloth ?? '#2a1e24';
+}
+
+/** 인물 창 큰 초상화: 96칸 전용 그림(bust96.ts)을 Scale2x 한 번(192×192)으로 매끈하게 */
+export function bustHiURL(p: Person, age: number, year: number, face: Face = 'normal', blink = false): string {
+  const key = 'hi' + keyOf(p, age, year) + face + (blink ? 'b' : '');
+  let u = cache.get(key);
+  if (!u) cache.set(key, (u = rowsURL(scale2x(paint96(p, age, year, face, blink)))));
   return u;
 }
 

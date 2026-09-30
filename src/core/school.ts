@@ -1307,7 +1307,7 @@ const path: EventDef = {
       { label: '🧭 맞춤 추천 (성적·적성·형편 종합)', run: (x) => ((x.ev.data.stage = 'fit'), { text: '', keep: true }) },
       { label: `🗂 분야별로 전체 보기 (${P.length}개 학과)`, run: (x) => ((x.ev.data.stage = 'field'), { text: '', keep: true }) },
       { label: '📝 정시 원서 쓰기 (가·나·다군 3장)', run: (x) => ((x.ev.data.stage = 'apply'), { text: '', keep: true }) },
-      ...(c.s.era === 'history' && c.s.year < 1996 ? [] : [{ label: `📚 수시 6장 (교과·종합·지역균형·기회균형·농어촌·논술·특기자) ${susiN}/6`, run: (x: Ctx) => ((x.ev.data.stage = 'susi'), { text: '', keep: true as const }) }]),
+      ...(c.s.era === 'history' && c.s.year < 1996 ? [{ label: '📚 수시 전형', req: ['1997학년도부터 생긴 제도', '지금은 학력고사 시절'], disabled: true, run: () => '' }] : [{ label: `📚 수시 6장 (교과·종합·지역균형·기회균형·농어촌·논술·특기자) ${susiN}/6`, run: (x: Ctx) => ((x.ev.data.stage = 'susi'), { text: '', keep: true as const }) }]),
       ...(hasFlag(p, 'high_sci') || hasFlag(p, 'gifted_center') || hasFlag(p, 'olympiad') || hasFlag(p, 'abroad') || hasFlag(p, 'high_lang') || spendable(c.s) >= 40000
         ? [{ label: '🧪🌏 특별 전형 (KAST·G-TECH / 해외 대학·요리·디자인 학교)', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]
         : [{ label: '🌏 해외 요리·디자인·음악 전문학교', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]),

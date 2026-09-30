@@ -267,6 +267,8 @@ export interface GameState {
   listings?: Listing[];
   /** 이야기를 마지막으로 겪은 해 (같은 이야기가 자꾸 반복되지 않게): '사람id:이야기id' → 해 */
   storySeen?: Record<string, number>;
+  /** 가문 앨범 (photos.ts) */
+  photos?: import('./photos').Photo[];
   /** 시작 난이도 (없으면 운명에 맡김) */
   difficulty?: 'easy' | 'normal' | 'hard' | 'hell';
   /** 보상 팝업 대기열 */

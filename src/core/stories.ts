@@ -8,6 +8,8 @@ import { AGE_STORIES } from './stories-ages';
 import { OWNED_STORIES } from './stories-owned';
 import { MOM_STORIES } from './stories-mom';
 import { PHONE_STORIES } from './stories-phone';
+import { PHONE2_STORIES } from './stories-phone2';
+import { GENDER_STORIES } from './stories-gender';
 import { HIDDEN_STORIES } from './stories-hidden';
 import { POLITICS_STORIES, homeCity, pledgeOf } from './stories-politics';
 import { wageIndex } from './pay';
@@ -37,6 +39,10 @@ import { SPECIAL_STORIES } from './stories-special';
 import { SAGA_STORIES } from './stories-saga';
 import { WORK_STORIES } from './stories-work';
 import { WORK2_STORIES } from './stories-work2';
+import { WORK3_STORIES } from './stories-work3';
+import { WORK4_STORIES } from './stories-work4';
+import { WORK5_STORIES } from './stories-work5';
+import { HIDDEN_WORK_STORIES } from './stories-work-hidden';
 
 export interface Eff {
   /** 그해 나온 전화기·컴퓨터를 들인다 (devices.ts) */
@@ -650,5 +656,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES, ...WORK2_STORIES, ...HIST_STORIES, ...DEVICE_STORIES, ...ERA_STORIES, ...AGE_STORIES, ...OWNED_STORIES, ...MOM_STORIES, ...POLITICS_STORIES, ...PHONE_STORIES, ...HIDDEN_STORIES].map(toLife);
-export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length + SUDDEN_STORIES.length + INTEREST_STORIES.length + LIFE3_STORIES.length + TEMPER_STORIES.length + SPECIAL_STORIES.length + SAGA_STORIES.length + WORK_STORIES.length + WORK2_STORIES.length;
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES, ...WORK2_STORIES, ...WORK3_STORIES, ...WORK4_STORIES, ...WORK5_STORIES, ...HIDDEN_WORK_STORIES, ...HIST_STORIES, ...DEVICE_STORIES, ...ERA_STORIES, ...AGE_STORIES, ...OWNED_STORIES, ...MOM_STORIES, ...POLITICS_STORIES, ...PHONE_STORIES, ...PHONE2_STORIES, ...GENDER_STORIES, ...HIDDEN_STORIES].map(toLife);
+export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length + SUDDEN_STORIES.length + INTEREST_STORIES.length + LIFE3_STORIES.length + TEMPER_STORIES.length + SPECIAL_STORIES.length + SAGA_STORIES.length + WORK_STORIES.length + WORK2_STORIES.length + WORK3_STORIES.length + WORK4_STORIES.length + WORK5_STORIES.length + HIDDEN_WORK_STORIES.length;
