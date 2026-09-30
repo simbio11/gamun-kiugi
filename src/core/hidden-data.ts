@@ -21,7 +21,7 @@ export interface HiddenJob {
 }
 
 /** 히든의 히든 9종 */
-export const HOH_IDS = ['hj_hermes', 'hj_vampire', 'hj_gumiho', 'hj_cyborg', 'hj_reaper', 'hj_nymph', 'hj_dragon', 'hj_timetraveler', 'hj_dokkaebi'];
+export const HOH_IDS = ['hj_hermes', 'hj_vampire', 'hj_gumiho', 'hj_cyborg', 'hj_timetraveler', 'hj_perfumer', 'hj_succubus', 'hj_poisonsomm', 'hj_lamia'];
 export const isHoH = (id: string) => HOH_IDS.includes(id);
 
 export const SUPER_HIDDEN_IDS = new Set([
@@ -78,14 +78,14 @@ export const HIDDEN: HiddenJob[] = [
   { id: 'hj_drifter', name: '드리프트 퀸', icon: '🏎️', pay: 52000, color: '#d03020', fx: 'fire', eff: { fame: 8, cash: 4000, hp: 5, hap: 4 }, hint: '새벽 3시 톨게이트, 붉은색 스포츠카, 차 키를 뺏긴 사내들.', strategy: '선천 희귀 특성 [질주본능](출생 시 2% 확률)을 타고난 여성(19세 이상) 시 100% 확정 제의 발생 → 3단계 미션 프리패스 격파' },
   // ── 히든의 히든 (슈퍼 히든을 배출한 가문에만, 3단계 미션) ──
   { id: 'hj_hermes', name: '헤르메스', icon: '🪽', pay: 70000, color: '#d0a030', fx: 'magic', eff: { cash: 8000, fame: 8, hap: 4, kid: 'int' }, hint: '날개 달린 샌들, 세 대륙을 하루에 오가는 사람. 전설의 가문에만 나타난다.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 25~55세 지능 70+·매력 65+ → 3단계: 날개 달린 샌들 → 세 대륙의 거래 → 신들의 전령' },
-  { id: 'hj_vampire', name: '뱀파이어 백작', icon: '🦇', pay: 65000, color: '#6a0a1a', fx: 'shadow', eff: { cash: 7000, fame: 7, hp: 6, hap: 2 }, hint: '해가 지면 깨어나는 고성의 주인. 늙지 않는 얼굴.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 30세 이상 매력 70+·건강 60+ → 3단계: 붉은 초대장 → 영원의 계약 → 고성의 주인' },
-  { id: 'hj_gumiho', name: '구미호', icon: '🦊', pay: 62000, color: '#e06a20', fx: 'spirit', eff: { cash: 6000, fame: 7, hap: 5, kid: 'cha' }, hint: '달빛 아래 아홉 꼬리. 천 년을 기다린 여우.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 20~45세 매력 72+ → 3단계: 여우 구슬 → 아홉 번째 꼬리 → 천년 여우' },
-  { id: 'hj_cyborg', name: '사이보그', icon: '🦾', pay: 68000, color: '#3a8ad0', fx: 'screen', eff: { cash: 7000, fame: 6, hp: 10, kid: 'str' }, hint: '반은 기계, 반은 사람. 심장 대신 뛰는 원자로.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 2040년 이후 근력 65+ (미래 의료 시술을 받았으면 더 쉽게) → 3단계: 인공 팔 → 전신 개조 → 강철의 전설' },
-  { id: 'hj_reaper', name: '저승사자', icon: '🎩', pay: 55000, color: '#1a1a2a', fx: 'smoke', eff: { fame: 6, hap: 3, hp: 5, cash: 5000 }, hint: '검은 갓, 창백한 얼굴. 명부에 이름을 적는 손.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 40세 이상 도덕 70+ → 3단계: 명부 → 억울한 넋 → 저승의 차사' },
-  { id: 'hj_nymph', name: '선녀', icon: '🌙', pay: 58000, color: '#a0c0f0', fx: 'spirit', eff: { hap: 8, fame: 6, hp: 6, kid: 'mor' }, hint: '날개옷, 무지개 다리, 하늘의 연못.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 20~40세 도덕 65+·매력 65+ → 3단계: 날개옷 → 하늘 연못 → 천상의 선녀' },
-  { id: 'hj_dragon', name: '용왕', icon: '🐉', pay: 75000, color: '#1a6a8a', fx: 'waves', eff: { cash: 9000, fame: 8, hp: 5 }, hint: '바다 밑 수정궁. 파도를 부리는 자.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 30세 이상 근력 70+ (어부·항해사·선장·해양 직업이면 더 쉽게) → 3단계: 여의주 → 수정궁 → 사해의 왕' },
-  { id: 'hj_timetraveler', name: '시간 여행자', icon: '⏳', pay: 72000, color: '#5a4ad0', fx: 'magic', eff: { cash: 8000, fame: 7, kid: 'int', study: 5 }, hint: '멈춘 회중시계, 미래에서 온 편지.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 지능 78+ → 3단계: 멈춘 시계 → 과거의 나 → 시간의 관리자' },
-  { id: 'hj_dokkaebi', name: '도깨비', icon: '👹', pay: 60000, color: '#3a8a3a', fx: 'fire', eff: { cash: 7000, hap: 6, fame: 5 }, hint: '방망이 한 번에 금 나와라 뚝딱. 씨름 좋아하는 장난꾸러기.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 매력 60+·모험 성향(위험 감수) → 3단계: 도깨비불 → 씨름 한 판 → 도깨비 방망이' },
+  { id: 'hj_vampire', name: '핏빛 후작부인', icon: '🩸', pay: 65000, color: '#6a0a1a', fx: 'shadow', eff: { cash: 7000, fame: 7, hp: 6, hap: 2 }, hint: '해가 지면 깨어나는 고성의 안주인. 늙지 않는 얼굴.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 30세 이상 매력 70+·건강 60+ → 3단계: 붉은 초대장 → 영원의 계약 → 고성의 안주인' },
+  { id: 'hj_gumiho', name: '아홉 꼬리 신부', icon: '🦊', pay: 62000, color: '#e06a20', fx: 'spirit', eff: { cash: 6000, fame: 7, hap: 5, kid: 'cha' }, hint: '달빛 아래 아홉 꼬리. 천 년을 기다린 여우.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 20~45세 매력 72+ → 3단계: 여우 구슬 → 아홉 번째 꼬리 → 천년 여우의 신부' },
+  { id: 'hj_cyborg', name: '강철의 미망인', icon: '⚙️', pay: 68000, color: '#3a8ad0', fx: 'screen', eff: { cash: 7000, fame: 6, hp: 10, kid: 'str' }, hint: '반은 기계, 반은 사람. 잃은 사람을 되살리려는 강철의 몸.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 2040년 이후 근력 65+ (미래 의료 시술을 받았으면 더 쉽게) → 3단계: 인공 팔 → 전신 개조 → 강철의 전설' },
+  { id: 'hj_timetraveler', name: '시간 정지의 여제', icon: '⏳', pay: 72000, color: '#5a8ad0', fx: 'magic', eff: { cash: 8000, fame: 7, kid: 'int', study: 5 }, hint: '멈춘 사무실, 공중에 뜬 서류와 커피. 그녀만 움직인다.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 지능 78+ → 3단계: 멈춘 시계 → 얼어붙은 1초 → 시간 정지의 여제' },
+  { id: 'hj_perfumer', name: '향의 연금술사', icon: '⚗️', pay: 60000, color: '#b0702a', fx: 'smoke', eff: { cash: 6500, fame: 6, hap: 6 }, hint: '호박색 병이 가득한 공방. 한 방울에 사람의 마음이 바뀐다.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 22~50세 매력 68+·지능 65+ → 3단계: 잃어버린 조향 노트 → 전설의 향 → 향의 연금술사' },
+  { id: 'hj_succubus', name: '계약서의 여주인', icon: '📜', pay: 66000, color: '#3a2060', fx: 'candle', eff: { cash: 8000, fame: 6, heat: 6 }, hint: '새벽 3시의 집무실. 그녀가 쓴 계약서엔 빠져나갈 조항이 없다.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 25~55세 지능 72+·매력 66+ → 3단계: 새벽 3시의 서명 → 영혼의 조항 → 계약서의 여주인' },
+  { id: 'hj_poisonsomm', name: '독의 소믈리에', icon: '🍷', pay: 62000, color: '#7a1020', fx: 'candle', eff: { cash: 6500, fame: 6, hp: 5 }, hint: '샹들리에 아래 만찬. 한 모금으로 잔 속의 모든 것을 알아맞히는 혀.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 25~55세 지능 70+·매력 66+ → 3단계: 이상한 한 모금 → 귀족들의 만찬 → 독의 소믈리에' },
+  { id: 'hj_lamia', name: '색욕의 성녀', icon: '🐍', pay: 64000, color: '#2a7a4a', fx: 'jungle', eff: { cash: 6500, fame: 7, hap: 5, hp: 4 }, hint: '물안개 낀 온실, 뱀의 비늘과 성녀의 미소.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 매력 74+·도덕 60+ → 3단계: 온실의 뱀 → 비늘의 축복 → 색욕의 성녀 (라미아)' },
 ];
 export const HIDDEN_BY_ID: Record<string, HiddenJob> = Object.fromEntries(HIDDEN.map((h) => [h.id, h]));
 export const isHiddenJob = (job: string) => job.startsWith('hj_');
