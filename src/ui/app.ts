@@ -1572,6 +1572,7 @@ function cardViewer(g: GameState, id: string): string {
             : ''
         }
         <button class="cv-ctrl-btn" data-action="flip-card">🔄 카드 뒤집기 (공략법)</button>
+        ${isHidden && got && hiddenArt(id, activeSex)?.vid ? `<button class="cv-ctrl-btn vid-btn" data-hid-replay="viewer">🎬 영상 보기</button>` : ''}
         ${
           isHidden && isTestMode()
             ? `<button class="cv-ctrl-btn" style="background:#551133;color:#ff99bb;border-color:#ff3366;" data-action="preview-reward" data-id="${id}">🎬 획득 연출 보기</button>`

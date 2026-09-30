@@ -1196,7 +1196,7 @@ describe('부모님 유산', () => {
     expect(p.flags.some((f) => f.startsWith('sh:hj_madam'))).toBe(false); // 임시 퀘스트 플래그 정리됨
   });
 
-  it('히든의 히든 9종: 슈퍼 히든을 배출한 가문에만 열리고, 슈퍼 히든과 똑같이 취급된다', async () => {
+  it('히든의 히든 8종: 슈퍼 히든을 배출한 가문에만 열리고, 슈퍼 히든과 똑같이 취급된다', async () => {
     const { HOH_IDS, isSuperHidden } = await import('../src/core/hidden-data');
     const { SUPER_ROUTES } = await import('../src/core/super-hidden');
     for (const id of HOH_IDS) {
@@ -1209,18 +1209,19 @@ describe('부모님 유산', () => {
     const p = head(s);
     s.year = 2060;
     p.birthYear = s.year - 35;
+    p.sex = 'F';
     for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) p.actual[k] = 90;
-    const hermes = SUPER_ROUTES.find((r) => r.id === 'hj_hermes')!;
+    const hermes = SUPER_ROUTES.find((r) => r.id === 'hj_succubus')!;
     expect(hermes.ready(s, p)).toBe(false); // 문이 닫혀 있다
     s.cards = [{ id: 'hj_madam', personId: 'x', year: 2040 } as never];
     expect(hermes.ready(s, p)).toBe(true); // 슈퍼 히든 가문이면 열린다
-    for (const [def, flag] of [['sh_step1', 'sh:hj_hermes:1'], ['sh_step2', 'sh:hj_hermes:2'], ['sh_step3', '']] as const) {
+    for (const [def, flag] of [['sh_step1', 'sh:hj_succubus:1'], ['sh_step2', 'sh:hj_succubus:2'], ['sh_step3', '']] as const) {
       let tries = 0;
-      while ((flag ? !p.flags.includes(flag) : p.job !== 'hj_hermes') && tries++ < 20) {
-        s.events = [{ uid: s.eventSeq++, defId: def, personId: p.id, data: { id: 'hj_hermes' } }];
+      while ((flag ? !p.flags.includes(flag) : p.job !== 'hj_succubus') && tries++ < 20) {
+        s.events = [{ uid: s.eventSeq++, defId: def, personId: p.id, data: { id: 'hj_succubus' } }];
         resolveChoice(s, 0);
       }
     }
-    expect(p.job).toBe('hj_hermes');
+    expect(p.job).toBe('hj_succubus');
   });
 });

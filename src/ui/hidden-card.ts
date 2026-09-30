@@ -124,7 +124,10 @@ export function initHiddenVideos() {
     e.stopPropagation();
     e.preventDefault();
     if (e.type !== 'click') return;
-    const v = b.closest('.hid-card')?.querySelector<HTMLVideoElement>('video.hid-vid');
+    const scope = b.getAttribute('data-hid-replay') === 'viewer' ? document.querySelector('.cv-modal') : b.closest('.hid-card');
+    const v = scope?.querySelector<HTMLVideoElement>('video.hid-vid');
+    const cv = scope?.querySelector<HTMLElement>('.cv-card');
+    cv?.style.setProperty('--spin', '0deg'); // 뒷면(공략법)을 보고 있었으면 앞면으로
     if (v) playVid(v, true);
   };
   for (const t of ['click', 'pointerdown', 'mousedown', 'touchstart']) document.addEventListener(t, replay, true);
