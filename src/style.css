@@ -1356,3 +1356,14 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 .hid-slides { position: absolute; inset: 0; pointer-events: none; }
 .hid-slides img { opacity: 0; animation: hid-slide calc(var(--n) * 5.5s) linear infinite; animation-delay: calc(var(--i) * 5.5s - 1.5s); }
 @keyframes hid-slide { 0% { opacity: 0; } 5.45% { opacity: 1; } 20% { opacity: 1; } 25.45% { opacity: 0; } 100% { opacity: 0; } }
+
+/* 슈퍼 히든 빛: 번지는 붉은 네온 대신 은은하게 */
+.hid-card.is-super { box-shadow: 0 0 8px rgba(255, 0, 85, .5), 0 0 18px rgba(255, 102, 0, .2); }
+/* 도감 썸네일은 가볍고 은은하게: 테두리 빛만 돌고, 깜빡이는 필터 효과·큰 그림자는 뺀다 */
+.dx-c .hid-card { animation: hid-rot 6s linear infinite; box-shadow: 0 0 5px color-mix(in srgb, var(--hc, #b06aff) 45%, transparent); }
+.dx-c .hid-card.is-super { box-shadow: 0 0 5px rgba(255, 0, 85, .45), 0 0 10px rgba(255, 102, 0, .15); }
+.dx-c .hid-card.locked { animation: none; box-shadow: 0 0 4px rgba(120, 80, 200, .3); }
+.dx-c .hid-img.hid-sil { animation: none; }
+/* 화면 밖 도감 카드는 그리지 않는다 · 카드를 크게 보는 동안 뒤의 도감은 멈춘다 */
+.cdex .dx { content-visibility: auto; contain-intrinsic-size: auto 190px; }
+body:has(.cv-modal) .cdex * { animation-play-state: paused !important; }
