@@ -163,19 +163,17 @@ export const SYNERGIES: Synergy[] = [
   { id: 'guardians', name: '호국 가문', icon: '🛡', desc: '군·정보 + 치안·소방', groups: [['general', 'chief_of_staff', 'spymaster'], ['police_chief', 'fire_chief', 'national_hero', 'profiler']], eff: { fame: 3, kid: 'str' } },
   { id: 'saints', name: '성인의 가문', icon: '🕊', desc: '종교·양심 + 나눔·구호', groups: [['cardinal', 'conscience'], ['msf', 'philanthropist', 'eco_hero']], eff: { hap: 3, kid: 'mor' } },
   // ── 히든 직업 시너지 (히든·슈퍼 히든·히든의 히든 카드끼리, 혹은 일반 카드와) ──
-  { id: 'hid_underworld', name: '밤의 제국', icon: '🌃', desc: '마피아 보스 + 밤의 여왕(텐프로·카지노 퀸)', groups: [['hj_mafia'], ['hj_madam', 'hj_bunny']], eff: { cash: 25000, heat: 8 } },
   { id: 'hid_spirit', name: '신령의 집', icon: '🔔', desc: '무당·퇴마사 + 타로·교주', groups: [['hj_shaman', 'hj_exorcist'], ['hj_tarot', 'hj_cult']], eff: { hap: 4, fame: 2 } },
-  { id: 'hid_shadow', name: '그림자 가문', icon: '🕶', desc: '스파이·허니트랩 + 암살자·해커', groups: [['hj_spy', 'hj_honeytrap'], ['hj_assassin', 'hj_hacker']], eff: { fame: 4, heat: 6 } },
+  { id: 'hid_shadow', name: '그림자 가문', icon: '🕶', desc: '스파이 + 암살자·해커', groups: [['hj_spy'], ['hj_assassin', 'hj_hacker']], eff: { fame: 4, heat: 6 } },
   { id: 'hid_sea', name: '일곱 바다', icon: '🏴‍☠️', desc: '해적 + 밀매상·모험가', groups: [['hj_pirate'], ['hj_smuggler', 'hj_adventurer']], eff: { cash: 12000, kid: 'str' } },
   { id: 'hid_art', name: '위작의 전설', icon: '🖼', desc: '명화 위조범·괴도 + 거장(문화 카드)', groups: [['hj_forger', 'hj_thief'], ['great_author', 'maestro', 'best_actor', 'bestseller']], eff: { cash: 15000, fame: 2 } },
   { id: 'hid_ring', name: '투혼의 피', icon: '🥊', desc: '지하 격투왕·용병 + 스포츠 챔피언', groups: [['hj_fighter', 'hj_mercenary', 'hj_bounty'], ['olympic', 'national_coach']], eff: { hp: 3, kid: 'str' } },
   { id: 'hid_money', name: '벼락부자 가문', icon: '🐕', desc: '밈코인·트레이더 + 타짜', groups: [['hj_memecoin', 'hj_trader'], ['hj_gambler']], eff: { cash: 30000 } },
-  { id: 'hid_stage', name: '마성의 무대', icon: '🌀', desc: '마술사·최면술사 + 버튜버·사이버 사이렌', groups: [['hj_magician', 'hj_hypnotist'], ['hj_vtuber', 'hj_onlyfans']], eff: { fame: 5, hap: 3 } },
-  { id: 'hid_nightbloom', name: '영원의 밤', icon: '🩸', desc: '핏빛 후작부인 + 아홉 꼬리 신부·색욕의 성녀', groups: [['hj_vampire'], ['hj_gumiho', 'hj_lamia']], eff: { hp: 6, fame: 5, hap: 4 } },
-  { id: 'hid_alchemy', name: '연금술 가문', icon: '⚗️', desc: '향의 연금술사·독의 소믈리에 + 시간 정지의 여제·계약서의 여주인', groups: [['hj_perfumer', 'hj_poisonsomm'], ['hj_timetraveler', 'hj_succubus']], eff: { cash: 20000, kid: 'int' } },
-  { id: 'hid_steel', name: '강철의 혈통', icon: '⚙️', desc: '강철의 미망인 + 드리프트 퀸·잉크의 마녀', groups: [['hj_cyborg'], ['hj_drifter', 'hj_tattooist']], eff: { hp: 5, kid: 'str', fame: 3 } },
+  { id: 'hid_stage', name: '무대의 마법', icon: '🌀', desc: '마술사 + 버튜버 여제', groups: [['hj_magician'], ['hj_vtuber']], eff: { fame: 5, hap: 3 } },
+  { id: 'hid_nightbloom', name: '영원의 밤', icon: '🌙', desc: '핏빛 후작부인 + 시간 정지의 여제', groups: [['hj_vampire'], ['hj_timetraveler']], eff: { hp: 6, fame: 5, hap: 4 } },
+  { id: 'hid_steel', name: '질주의 혈통', icon: '🏁', desc: '드리프트 퀸 + 스포츠 챔피언', groups: [['hj_drifter'], ['olympic', 'gamer_champ']], eff: { hp: 5, kid: 'str', fame: 3 } },
   { id: 'hid_free', name: '떠도는 자들', icon: '🎒', desc: '방랑자·자연인 + 은둔자·모험가', groups: [['hj_nomad', 'hj_natural'], ['hj_hermit', 'hj_adventurer']], eff: { hap: 6 } },
-  { id: 'hid_legacy', name: '비밀의 명문', icon: '🌑', desc: '슈퍼 히든 + 명예의 전당 최고봉', groups: [['hj_madam', 'hj_onlyfans', 'hj_widow', 'hj_bunny', 'hj_honeytrap', 'hj_vtuber', 'hj_hypnotist', 'hj_tattooist', 'hj_drifter'], ['president', 'chaebol', 'nobel', 'world_star', 'chief_justice']], eff: { fame: 6, cash: 20000 } },
+  { id: 'hid_legacy', name: '비밀의 명문', icon: '🌑', desc: '슈퍼 히든 + 명예의 전당 최고봉', groups: [['hj_vtuber', 'hj_drifter', 'hj_vampire', 'hj_timetraveler'], ['president', 'chaebol', 'nobel', 'world_star', 'chief_justice']], eff: { fame: 6, cash: 20000 } },
 ];
 /** 지금 발동 중인 시너지 */
 /** 가문 시너지: 조건 묶음마다 서로 다른 가족이 채워야 한다 (한 사람이 카드를 다 모아도 "가문"은 아니다) */

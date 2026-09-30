@@ -86,7 +86,7 @@ export const MONEY_ACTIONS: ActionDef[] = [
     id: 'm_nightlife',
     cat: '재산',
     icon: '🍸',
-    name: '유흥업소에 건물 통임대',
+    name: '심야 술집에 건물 통임대',
     desc: '임대료 두 배 · 명성↓ · 스캔들 위험↑',
     ap: 1,
     show: (s) => s.assets.some((a) => a.kind === 'building' && a.ownerId === householder(s).id),
@@ -96,7 +96,7 @@ export const MONEY_ACTIONS: ActionDef[] = [
       householder(s).cash += gain;
       s.fame = Math.max(0, s.fame - 2);
       addScandal(s, 10);
-      return `${b.name}에 룸살롱이 들어왔다. 월세가 두 배. 동네 사람들이 수군댄다. (+${formatMoney(gain)}, 명성 −2)`;
+      return `${b.name}에 밤늦게까지 시끄러운 술집이 들어왔다. 월세가 두 배. 동네 사람들이 수군댄다. (+${formatMoney(gain)}, 명성 −2)`;
     },
   },
   {

@@ -4,7 +4,7 @@ import { MAJOR_JOBS, PROGRAMS, admitChance, recommend, suneung } from '../src/co
 import { MISSIONS } from '../src/core/missions';
 import { deathChance } from '../src/core/growth';
 import { age, head, parentsOf } from '../src/core/people';
-import { currentEvent, newGame, resolveChoice, simulateYear } from '../src/core/sim';
+import { currentEvent, migrate, newGame, resolveChoice, simulateYear } from '../src/core/sim';
 import { EVENTS } from '../src/core/registry';
 import { STORY_COUNT } from '../src/core/stories';
 import { makeDate } from '../src/core/events';
@@ -869,16 +869,16 @@ describe('부모님 유산', () => {
       const n = HIDDEN_WORK_STORIES.filter((st) => st.id.startsWith(`wk_h_${h.id}_`)).length;
       if (n < 3) thin.push(`story:${h.id}:${n}`);
     }
-    expect(HIDDEN.length).toBe(42);
+    expect(HIDDEN.length).toBe(27);
     expect(thin).toEqual([]);
     // 직장 이야기는 실제로 그 직업인 사람에게 나온다
     const s = newGame({ seed: 8, familyName: '서', sex: 'F' });
     const h = head(s);
     s.year += 30;
-    h.job = 'hj_gumiho';
+    h.job = 'hj_vampire';
     const mine = HIDDEN_WORK_STORIES.filter((st) => st.cond!(s, h));
     expect(mine.length).toBeGreaterThanOrEqual(5);
-    expect(mine.every((st) => st.id.includes('hj_gumiho'))).toBe(true);
+    expect(mine.every((st) => st.id.includes('hj_vampire'))).toBe(true);
   });
 
   it('모든 명예의 전당 카드는 실제 플레이로 얻을 수 있다 (자동 조건 또는 정점 이벤트, 2단계까지 끝까지)', () => {
@@ -1076,7 +1076,7 @@ describe('부모님 유산', () => {
     expect(doAction(s, hid.find((a) => a.cat === '내 직업')!.id).ok).toBe(true);
   });
 
-  it('숨은 길: 25개 히든 직업 모두 단서 → 세 단계 → 제안까지 갈 수 있다', () => {
+  it('숨은 길: 히든 직업 모두 단서 → 세 단계 → 제안까지 갈 수 있다', () => {
     for (const id of QUEST_IDS) {
       const s = newGame({ seed: 5, familyName: '윤', sex: 'M' });
       const h = head(s);
@@ -1085,7 +1085,6 @@ describe('부모님 유산', () => {
       h.birthYear = s.year - Math.round((l.a[0] + l.a[1]) / 2);
       h.job = 'parttime';
       h.flags = h.flags.filter((f) => f !== 'student');
-      if (id === 'hj_av') h.sex = 'F';
       for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) h.actual[k] = h.potential[k] = 75;
       expect(eligible(s, h)).toContain(id);
       _quest.startQuest(s, h, id);
@@ -1185,7 +1184,7 @@ describe('부모님 유산', () => {
     for (const id of ['pho_dol', 'pho_wedding', 'pho_grad', 'pho_hwangap', 'pho_newborn']) expect(EVENTS[id], id).toBeDefined();
   });
 
-  it('슈퍼 히든의 새 사연: 텐프로는 강남 집, 카지노 퀸은 카지노 세 번, 흡혈 적성은 백신을 거부하면 바로', async () => {
+  it('슈퍼 히든의 새 사연: 드리프트 퀸은 질주본능 + 좋은 차, 밤의 체질은 치료를 미루면 바로', async () => {
     const { SUPER_ROUTES } = await import('../src/core/super-hidden');
     const s = newGame({ seed: 44, familyName: '정', sex: 'F' });
     const p = head(s);
@@ -1195,21 +1194,10 @@ describe('부모님 유산', () => {
     p.job = 'none';
     p.flags = p.flags.filter((f) => f !== 'student');
     for (const k of ['str', 'int', 'cha', 'hp'] as const) p.actual[k] = 80;
-    p.actual.mor = 30;
-    const madam = SUPER_ROUTES.find((r) => r.id === 'hj_madam')!;
-    const bunny = SUPER_ROUTES.find((r) => r.id === 'hj_bunny')!;
-    expect(bunny.ready(s, p)).toBe(false);
-    for (let i = 0; i < 3; i++) {
-      s.events = [{ uid: s.eventSeq++, defId: 'gt_casino', personId: p.id }];
-      resolveChoice(s, 0);
-    }
-    expect(p.flags).toContain('casino_addict');
-    expect(bunny.ready(s, p)).toBe(true);
-    s.assets.push({ id: 'gn', kind: 'apt_seoul', ownerId: p.id, value: 100000 } as never);
-    expect(madam.ready(s, p)).toBe(true);
-    p.actual.mor = 50;
-    expect(madam.ready(s, p)).toBe(false); // 도덕 35 이하만
-    // 흡혈 적성: 세 장면 끝에 바로 핏빛 후작부인
+    const drifter = SUPER_ROUTES.find((r) => r.id === 'hj_drifter')!;
+    p.traits = (p.traits ?? []).filter((t) => t !== 'speed_demon');
+    expect(drifter.ready(s, p)).toBe(false);
+    // 밤의 체질: 세 장면 끝에 바로 핏빛 후작부인
     p.traits = [...(p.traits ?? []), 'blood_thirst'];
     for (const st of [0, 1, 2]) {
       s.events = [{ uid: s.eventSeq++, defId: 'gt_vamp', personId: p.id, data: { st } }];
@@ -1218,18 +1206,24 @@ describe('부모님 유산', () => {
     expect(p.job).toBe('hj_vampire');
   });
 
-  it('슈퍼 히든 직업 9종: 3단계 퀘스트 체인과 카드·도감 등록 검증', () => {
-    const superJobIds = [
-      'hj_madam',
-      'hj_onlyfans',
-      'hj_widow',
-      'hj_bunny',
-      'hj_honeytrap',
-      'hj_vtuber',
-      'hj_hypnotist',
-      'hj_tattooist',
-      'hj_drifter',
-    ];
+  it('옛 저장 정리: 게임에서 빠진 히든 직업의 흔적은 불러올 때 걷어 낸다', () => {
+    const old = 'hj_retired_test';
+    expect(JOBS[old]).toBeUndefined();
+    const s = newGame({ seed: 12, familyName: '한', sex: 'F' });
+    const h = head(s);
+    h.job = old;
+    h.flags.push(`hidden:${old}`, `sh:${old}:1`);
+    s.cards = [{ id: old, personId: h.id, year: 2000 } as never, { id: 'hj_vtuber', personId: h.id, year: 2001 } as never];
+    s.events.push({ uid: s.eventSeq++, defId: 'sh_step2', personId: h.id, data: { id: old } });
+    migrate(s);
+    expect(h.job).toBe('none');
+    expect(h.flags.some((f) => f.includes(old))).toBe(false);
+    expect(s.cards.map((c) => c.id)).toEqual(['hj_vtuber']);
+    expect(s.events.some((e) => e.data?.id === old)).toBe(false);
+  });
+
+  it('슈퍼 히든 직업: 3단계 퀘스트 체인과 카드·도감 등록 검증', () => {
+    const superJobIds = ['hj_vtuber', 'hj_drifter'];
 
     // 1. 직업 및 카드 등록 확인
     for (const id of superJobIds) {
@@ -1242,7 +1236,7 @@ describe('부모님 유산', () => {
     expect(EVENTS['sh_step2']).toBeDefined();
     expect(EVENTS['sh_step3']).toBeDefined();
 
-    // 3. 3단계 퀘스트 체인 흐름 검증 (텐프로 에이스 hj_madam)
+    // 3. 3단계 퀘스트 체인 흐름 검증 (버튜버 여제)
     const s = newGame({ seed: 777, familyName: '강', sex: 'F' });
     const p = head(s);
     p.sex = 'F';
@@ -1253,35 +1247,22 @@ describe('부모님 유산', () => {
     p.happiness = 80;
     p.birthYear = s.year - 24; // 24세
     p.job = 'none';
+    const id = 'hj_vtuber';
 
-    // 1단계 이벤트 실행
-    let tries = 0;
-    while (!p.flags.includes('sh:hj_madam:1') && tries++ < 20) {
-      s.events = [{ uid: s.eventSeq++, defId: 'sh_step1', personId: p.id, data: { id: 'hj_madam' } }];
-      resolveChoice(s, 0); // "도전한다"
+    for (const [def, flag] of [['sh_step1', `sh:${id}:1`], ['sh_step2', `sh:${id}:2`], ['sh_step3', '']] as const) {
+      let tries = 0;
+      while ((flag ? !p.flags.includes(flag) : p.job !== id) && tries++ < 20) {
+        s.events = [{ uid: s.eventSeq++, defId: def, personId: p.id, data: { id } }];
+        resolveChoice(s, 0);
+      }
+      if (flag) expect(p.flags).toContain(flag);
     }
-    expect(p.flags).toContain('sh:hj_madam:1');
-
-    // 2단계 이벤트 실행
-    tries = 0;
-    while (!p.flags.includes('sh:hj_madam:2') && tries++ < 20) {
-      s.events = [{ uid: s.eventSeq++, defId: 'sh_step2', personId: p.id, data: { id: 'hj_madam' } }];
-      resolveChoice(s, 0); // "판을 키운다"
-    }
-    expect(p.flags).toContain('sh:hj_madam:2');
-
-    // 3단계 클라이맥스 실행
-    tries = 0;
-    while (p.job !== 'hj_madam' && tries++ < 20) {
-      s.events = [{ uid: s.eventSeq++, defId: 'sh_step3', personId: p.id, data: { id: 'hj_madam' } }];
-      resolveChoice(s, 0); // "모든 것을 걸고 정점에 선다"
-    }
-    expect(p.job).toBe('hj_madam');
-    expect(p.flags).toContain('hidden:hj_madam');
-    expect(p.flags.some((f) => f.startsWith('sh:hj_madam'))).toBe(false); // 임시 퀘스트 플래그 정리됨
+    expect(p.job).toBe(id);
+    expect(p.flags).toContain(`hidden:${id}`);
+    expect(p.flags.some((f) => f.startsWith(`sh:${id}`))).toBe(false); // 임시 퀘스트 플래그 정리됨
   });
 
-  it('히든의 히든 8종: 슈퍼 히든을 배출한 가문에만 열리고, 슈퍼 히든과 똑같이 취급된다', async () => {
+  it('히든의 히든: 슈퍼 히든을 배출한 가문에만 열리고, 슈퍼 히든과 똑같이 취급된다', async () => {
     const { HOH_IDS, isSuperHidden } = await import('../src/core/hidden-data');
     const { SUPER_ROUTES } = await import('../src/core/super-hidden');
     for (const id of HOH_IDS) {
@@ -1296,17 +1277,17 @@ describe('부모님 유산', () => {
     p.birthYear = s.year - 35;
     p.sex = 'F';
     for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) p.actual[k] = 90;
-    const hermes = SUPER_ROUTES.find((r) => r.id === 'hj_succubus')!;
+    const hermes = SUPER_ROUTES.find((r) => r.id === 'hj_timetraveler')!;
     expect(hermes.ready(s, p)).toBe(false); // 문이 닫혀 있다
-    s.cards = [{ id: 'hj_madam', personId: 'x', year: 2040 } as never];
+    s.cards = [{ id: 'hj_vtuber', personId: 'x', year: 2040 } as never];
     expect(hermes.ready(s, p)).toBe(true); // 슈퍼 히든 가문이면 열린다
-    for (const [def, flag] of [['sh_step1', 'sh:hj_succubus:1'], ['sh_step2', 'sh:hj_succubus:2'], ['sh_step3', '']] as const) {
+    for (const [def, flag] of [['sh_step1', 'sh:hj_timetraveler:1'], ['sh_step2', 'sh:hj_timetraveler:2'], ['sh_step3', '']] as const) {
       let tries = 0;
-      while ((flag ? !p.flags.includes(flag) : p.job !== 'hj_succubus') && tries++ < 20) {
-        s.events = [{ uid: s.eventSeq++, defId: def, personId: p.id, data: { id: 'hj_succubus' } }];
+      while ((flag ? !p.flags.includes(flag) : p.job !== 'hj_timetraveler') && tries++ < 20) {
+        s.events = [{ uid: s.eventSeq++, defId: def, personId: p.id, data: { id: 'hj_timetraveler' } }];
         resolveChoice(s, 0);
       }
     }
-    expect(p.job).toBe('hj_succubus');
+    expect(p.job).toBe('hj_timetraveler');
   });
 });

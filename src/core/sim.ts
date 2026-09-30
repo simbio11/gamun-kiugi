@@ -53,7 +53,7 @@ import { gateYear } from './super-gates';
 import { commEvent } from './devices';
 import { pathYear } from './hidden-paths';
 import { photoYear } from './photos';
-import { HIDDEN, isHoH, isSuperHidden } from './hidden-data';
+import { HIDDEN, HIDDEN_BY_ID, isHoH, isSuperHidden } from './hidden-data';
 const STARTER_SUPER = HIDDEN.filter((h) => isSuperHidden(h.id) && !isHoH(h.id)).map((h) => h.id);
 const STARTER_HIDDEN = HIDDEN.filter((h) => !isSuperHidden(h.id) && h.id !== 'hj_hermit').map((h) => h.id);
 import { eun, iga } from './ev-util';
@@ -109,6 +109,25 @@ const BASE_START = 2025;
 const DEFAULT_MARKET: Record<MarketKey, number> = { apt_seoul: 250000, apt_local: 30000, land: 20000, building: 350000, stock: 100, coin: 100, art: 100 };
 
 /** 예전 버전 세이브를 현재 형식으로 */
+/** 게임에서 빠진 히든 직업(15세 등급 정리)의 흔적을 옛 저장에서 걷어 낸다. 여러 번 불러도 같다 */
+function dropRetiredHidden(s: GameState): void {
+  const gone = (id: unknown) => typeof id === 'string' && id.startsWith('hj_') && !HIDDEN_BY_ID[id];
+  for (const p of Object.values(s.people)) {
+    if (gone(p.job)) {
+      p.job = 'none';
+      p.jobLevel = 0;
+      p.jobYears = 0;
+    }
+    p.flags = p.flags.filter((f) => {
+      const m = /^(?:hidden:|sh:|hq:|hp:)(hj_[a-z0-9]+)/.exec(f);
+      return !(m && gone(m[1]));
+    });
+  }
+  s.cards = (s.cards ?? []).filter((c) => !gone(c.id));
+  s.events = s.events.filter((e) => !gone((e.data as { id?: unknown } | undefined)?.id));
+  if (s.jobsSeen) s.jobsSeen = s.jobsSeen.filter((j) => !gone(j));
+}
+
 export function migrate(s: GameState): GameState {
   bindState(s);
   s.achievements ??= [];
@@ -128,6 +147,7 @@ export function migrate(s: GameState): GameState {
   s.scandal ??= 0;
   s.cleanYears ??= 0;
   s.storySeen ??= {};
+  dropRetiredHidden(s);
   const v = s.version as number;
   if (v < 2) {
     s.market = { ...DEFAULT_MARKET, ...s.market };
@@ -238,7 +258,7 @@ export function newGame(o: NewGameOpts): GameState {
   for (const par of [father, mother]) {
     const sup = par.sex === 'F' && chance(s, 0.005);
     if (!sup && !chance(s, 0.007)) continue;
-    const pool = sup ? STARTER_SUPER : STARTER_HIDDEN.filter((id) => id !== 'hj_av' || par.sex === 'F');
+    const pool = sup ? STARTER_SUPER : STARTER_HIDDEN;
     const id = pick(s, pool);
     par.job = id;
     par.jobLevel = 0;
