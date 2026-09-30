@@ -1351,3 +1351,9 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 .hid-card.locked .hid-img.hid-sil { filter: brightness(0) drop-shadow(0 0 2px rgba(170, 120, 255, .55)); }
 /* 카드 뷰어의 영상 보기 버튼 */
 .cv-ctrl-btn.vid-btn { background: #3a1030; color: #ffd0e8; border-color: #ff5aa8; }
+
+/* 히든 카드 크게 보기: 추가 장면이 천천히 순환 (카드 그림 포함 n칸, 칸마다 6초) */
+.hid-slides { position: absolute; inset: 0; pointer-events: none; }
+.hid-slides img { opacity: 0; animation: hid-slide calc(var(--n) * 6s) linear infinite; animation-delay: calc(var(--i) * 6s - 1.5s); }
+@keyframes hid-slide { 0% { opacity: 0; } 5% { opacity: 1; } 20% { opacity: 1; } 25% { opacity: 0; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .hid-slides img { animation-duration: calc(var(--n) * 12s); } }
