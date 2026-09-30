@@ -304,3 +304,33 @@ export function cardYear(s: GameState): void {
     }
   }
 }
+
+/** 카드 그림 테마 (render/cardart.ts) */
+export const CARD_THEME: Record<string, string> = {
+  president: 'power', minister: 'power', lawmaker: 'power', mayor: 'power', model_civil: 'power',
+  chief_justice: 'law', prosecutor_general: 'law', constitutional: 'law', police_chief: 'law', profiler: 'law', pro_license: 'law',
+  general: 'military', chief_of_staff: 'military', public_servant: 'military',
+  ambassador: 'diplo', un_sg: 'diplo', captain: 'diplo',
+  chaebol: 'money', ceo: 'money', bok_governor: 'money', hedge_fund: 'money', sales_king: 'money',
+  nobel: 'science', scholar: 'science', star_tutor: 'science',
+  astronaut: 'space', space_founder: 'space',
+  spymaster: 'tech', cyber_commander: 'tech', turing: 'tech', bigtech: 'tech', gamer_champ: 'tech', esports_owner: 'tech', engineer_award: 'tech',
+  famed_doctor: 'medical', who_hero: 'medical', new_drug: 'medical', msf: 'medical', angel_care: 'medical',
+  national_mc: 'stage', world_star: 'stage', ent_chair: 'stage', rookie_star: 'stage',
+  best_actor: 'screen', webtoon_ip: 'screen', gold_button: 'screen', cannes: 'screen', mega_creator: 'screen',
+  national_singer: 'music', billboard: 'music', maestro: 'music', grammy: 'music',
+  anchor: 'press', bestseller: 'press', media_mogul: 'press', pulitzer: 'press', great_author: 'press',
+  olympic: 'sports', national_coach: 'sports',
+  michelin: 'service', star_chef: 'service', service_master: 'service', local_legend: 'service',
+  architect: 'craft', master_craft: 'craft', heritage_master: 'craft', craft_hands: 'craft',
+  national_hero: 'hero', fire_chief: 'hero',
+  cardinal: 'faith', conscience: 'faith', good_heart: 'faith',
+  star_farmer: 'nature', eco_hero: 'nature', explorer: 'nature', good_driver: 'nature', farm_hero: 'nature',
+  philanthropist: 'family', best_teacher: 'family', proud_parent: 'family', centenarian: 'family', filial: 'family',
+};
+export const SYN_THEME: Record<string, string> = {
+  military_industrial: 'military', academic: 'science', law_dynasty: 'law', hallyu: 'stage', tech_empire: 'tech', power_peak: 'power', medical_house: 'medical',
+  press_power: 'press', sports_house: 'sports', finance_empire: 'money', culture_house: 'screen', guardians: 'hero', saints: 'faith',
+};
+/** 도감 번호 */
+export const cardNo = (id: string) => CARDS.findIndex((c) => c.id === id) + 1;

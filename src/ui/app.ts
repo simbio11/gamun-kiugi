@@ -43,7 +43,8 @@ import { HONOR_JOBS, scandalLabel } from '../core/scandal';
 import { willLine, willOf } from '../core/autonomy';
 import { buyPerk, HONORS, PERKS, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
-import { activeSynergies, CARD, CARDS, effText, SYNERGIES, tierOf as cardTier } from '../core/cards';
+import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
+import { cardBackURL, cardFrontURL, crestURL, type Theme } from '../render/cardart';
 import { familyScore, lifeGrade, lifeParts } from '../core/score';
 import { pendingAffairs } from '../core/fate';
 import { ACTIONS, STAGE_NAMES, apLeft, apMax, doAction, forHead, stageOf, type ActionCat } from '../core/actions';
@@ -90,6 +91,8 @@ interface UIState {
   settings?: boolean;
   actCat?: string;
   assetSub?: string;
+  /** 크게 보고 있는 명예의 전당 카드 */
+  cardView?: string;
   /** 업적 탭에서 펼친 목록 (카드 도감·시너지) */
   open?: Record<string, boolean>;
   confirmReset?: boolean;
@@ -171,6 +174,7 @@ function back(): boolean {
   const g = ui.game;
   if (!g) return false;
   if (ui.settings || ui.sheet) return (ui.settings = ui.confirmReset = false), (ui.sheet = undefined), render(), true;
+  if (ui.cardView) return (ui.cardView = undefined), (fx.modalKey = ''), render(), true;
   if (ui.outcome) return (ui.outcome = undefined), (fx.modalKey = ''), render(), true;
   if (ui.game?.rewards?.length) return ui.game.rewards.shift(), (fx.modalKey = ''), render(), true;
   if (ui.report) return (ui.report = undefined), (fx.modalKey = ''), render(), true;
@@ -191,6 +195,8 @@ export function mount(el: HTMLElement) {
   root.addEventListener('click', onClick);
   root.addEventListener('touchstart', () => {}, { passive: true }); // iOS에서 :active 눌림 효과 켜기
   root.addEventListener('input', onInput);
+  root.addEventListener('pointermove', tilt);
+  root.addEventListener('pointerleave', tilt, true);
   render();
 }
 
@@ -228,6 +234,7 @@ function render() {
       buzz(rw.rarity === 'legend' ? 180 : rw.rarity === 'epic' ? 90 : 40);
     }
   }
+  else if (ui.cardView && CARD[ui.cardView]) (modal = cardViewer(g, ui.cardView)), (modalKey = 'card' + ui.cardView);
   else if (g.events.length) {
     modal = eventModal(g);
     const ev = g.events[0];
@@ -1084,7 +1091,7 @@ function rewardModal(r: Reward): string {
       <div class="rw-rarity">${RARITY_NAME[r.rarity]}</div>
       ${
         r.card && CARD[r.card]
-          ? `<div class="hcard ${r.rarity}"><div class="hc-in"><div class="hc-top">${CARD[r.card].icon} <b>${CARD[r.card].name}</b></div>${r.personId && g0()?.people[r.personId] ? `<img class="px hc-face" src="${portraitURL(g0()!.people[r.personId], age(g0()!, g0()!.people[r.personId]))}" alt="">` : `<div class="rw-icon">${CARD[r.card].icon}</div>`}<div class="hc-name">${r.personId && g0()?.people[r.personId] ? esc(fullName(g0()!.people[r.personId])) : ''}</div><div class="hc-eff">${esc(effText(CARD[r.card].eff))}</div></div><i class="hc-shine"></i></div>`
+          ? `<div class="hcard ${r.rarity}"><img class="hc-art" src="${cardArt(CARD[r.card])}" alt=""><div class="hc-title">${CARD[r.card].name}</div><div class="hc-name">${r.personId && g0()?.people[r.personId] ? esc(fullName(g0()!.people[r.personId])) : ''}</div><i class="hc-shine"></i></div><div class="hc-eff">${esc(effText(CARD[r.card].eff))}</div>`
           : r.grade
             ? `<div class="grade-stamp g-${r.grade.toLowerCase()}">${r.grade}</div>`
             : `<div class="rw-icon">${r.icon}</div>`
@@ -1098,6 +1105,41 @@ function rewardModal(r: Reward): string {
   </div>`;
 }
 const g0 = () => ui.game;
+const cardArt = (d: CardDef, locked = false) => cardFrontURL(d.id, d.icon, (CARD_THEME[d.id] ?? 'power') as Theme, d.rarity, locked);
+
+/** 🃏 카드 뷰어: 실물 카드처럼 크게. 기울이면 홀로그램, 누르면 뒤집힌다 */
+function cardViewer(g: GameState, id: string): string {
+  const d = CARD[id];
+  const hs = (g.cards ?? []).filter((c) => c.id === id);
+  const got = hs.length > 0;
+  const hp = got ? g.people[hs[0].personId] : undefined;
+  return `
+  <div class="modal cv-modal" data-action="close-card">
+    <div class="cv-wrap" data-stop>
+      <div class="cv-card ${d.rarity} ${got ? '' : 'locked'}" data-action="flip-card">
+        <div class="cv-face cv-front">
+          <img class="cv-img" src="${cardArt(d, !got)}" alt="">
+          <div class="cv-name">${got ? d.name : '???'}</div>
+          <div class="cv-no">No.${String(cardNo(id)).padStart(3, '0')}</div>
+          ${hp ? `<img class="cv-portrait" src="${portraitURL(hp, alive(hp) ? age(g, hp) : hp.deathYear! - hp.birthYear)}" alt="">` : ''}
+          <div class="cv-bottom">
+            <div class="cv-stars">${'★'.repeat(cardTier(d))}<span>${RARITY_NAME[d.rarity]}</span></div>
+            ${got ? `<b>${hs.map((c) => esc(fullName(g.people[c.personId]))).join(', ')}</b><small>${hs[0].year}년 획득</small>` : `<b>미획득</b><small>${esc(d.how)}</small>`}
+            <em>${esc(effText(d.eff))}</em>
+          </div>
+          <i class="cv-holo"></i>
+        </div>
+        <div class="cv-face cv-back">
+          <img class="cv-img" src="${cardBackURL(d.rarity)}" alt="">
+          <div class="cv-back-top">명예의 전당 · ${RARITY_NAME[d.rarity]}</div>
+          <div class="cv-crest">${esc(g.familyName)}</div>
+          <div class="cv-back-bottom"><b>${d.name}</b><small>${esc(d.how)}</small>${d.honor && HONORS[d.honor] ? `<small>🎖 ${HONORS[d.honor].name}</small>` : ''}</div>
+        </div>
+      </div>
+      <div class="cv-actions"><button class="btn" data-action="flip-card">🔄 뒤집기</button><button class="btn primary" data-action="close-card">닫기</button></div>
+    </div>
+  </div>`;
+}
 /** 가문별 최고 총점 (이 기기에만) */
 function bestScore(g: GameState, now: number): number {
   const key = `gamun-best-${g.seed}`;
@@ -1578,11 +1620,9 @@ function achvScreen(g: GameState): string {
   </section>
   <section class="card">
     <h2>🃏 명예의 전당 카드 <small class="muted">${dexGot.size}/${CARDS.length}종</small></h2>
-    <div class="dex">${[...CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.dex ? 999 : 6).map((d) => {
+    <div class="cdex">${[...CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.dex ? 999 : 6).map((d) => {
       const who = dexGot.get(d.id);
-      return who
-        ? `<div class="dx ${d.rarity}" title="${esc(effText(d.eff))}"><span>${d.icon}</span><b>${d.name}</b><i class="dx-tier">${'★'.repeat(cardTier(d))}</i><small>${esc(who.join(', '))}</small><em>${esc(effText(d.eff))}</em></div>`
-        : `<div class="dx locked"><span>❔</span><b>${d.name}</b><i class="dx-tier">${'★'.repeat(cardTier(d))}</i><small>${esc(d.how)}</small></div>`;
+      return `<button class="dx ${who ? d.rarity : 'locked'}" data-action="card-view" data-id="${d.id}"><img class="dx-art" src="${cardArt(d, !who)}" alt=""><b>${d.name}</b><i class="dx-tier">${'★'.repeat(cardTier(d))}</i><small>${who ? esc(who.join(', ')) : '미획득'}</small></button>`;
     }).join('')}</div>
     <button class="more-btn" data-action="more" data-v="dex">${ui.open?.dex ? '▲ 접기' : `▼ 더보기 (${CARDS.length - 6}종 더)`}</button>
     <p class="fine">★ 난이도 (★★★는 2단계 도전·선행 카드). 카드 주인이 살아 있는 동안 효과가 계속된다. 3·6·10·16·24종을 모으면 세트 보상.</p>
@@ -1591,7 +1631,7 @@ function achvScreen(g: GameState): string {
     <h2>✨ 가문 시너지 <small class="muted">발동 ${activeSynergies(g).length}/${SYNERGIES.length}</small></h2>
     <div class="syn">${[...SYNERGIES].sort((a, b) => Number(activeSynergies(g).includes(b)) - Number(activeSynergies(g).includes(a))).slice(0, ui.open?.syn ? 99 : 3).map((sy) => {
       const on = activeSynergies(g).includes(sy);
-      return `<div class="sy ${on ? 'on' : ''}"><span>${sy.icon}</span><div><b>${sy.name}</b> <small>${esc(sy.desc)}</small><em>${sy.groups.map((gr) => '[' + gr.map((id) => (dexGot.has(id) ? `✅${CARD[id].name}` : CARD[id].name)).join(' / ') + ']').join(' + ')}</em><em class="sy-eff">→ ${esc(effText(sy.eff))}</em></div></div>`;
+      return `<div class="sy ${on ? 'on' : ''}"><img class="sy-crest" src="${crestURL(sy.id, [CARD[sy.groups[0][0]].icon, CARD[sy.groups[1][0]].icon], (SYN_THEME[sy.id] ?? 'power') as Theme, on)}" alt=""><div><b>${sy.name}</b> <small>${esc(sy.desc)}</small><em>${sy.groups.map((gr) => '[' + gr.map((id) => (dexGot.has(id) ? `✅${CARD[id].name}` : CARD[id].name)).join(' / ') + ']').join(' + ')}</em><em class="sy-eff">→ ${esc(effText(sy.eff))}</em></div></div>`;
     }).join('')}</div>
     <button class="more-btn" data-action="more" data-v="syn">${ui.open?.syn ? '▲ 접기' : `▼ 더보기 (${SYNERGIES.length - 3}개 더)`}</button>
     <p class="fine">서로 다른 분야의 카드 주인이 같은 시대에 함께 살아 있으면 발동한다.</p>
@@ -1681,6 +1721,24 @@ function onInput(e: Event) {
 const SFX: Record<string, Sfx> = { choose: 'choose', next: 'next', buy: 'coin', 'buy-l': 'coin', repay: 'coin', sell: 'coin', gift: 'coin', 'gift-asset': 'coin', 'ok-outcome': 'close', 'ok-report': 'close', 'close-sheet': 'close', start: 'great', 'buy-car': 'coin' };
 let leaving = false;
 
+/** 카드 기울이기: 손가락·마우스 위치에 따라 3D로 기울고 홀로그램이 흐른다 */
+function tilt(e: PointerEvent) {
+  const c = (e.target as HTMLElement)?.closest?.<HTMLElement>('.cv-card');
+  if (!c) return;
+  if (e.type === 'pointerleave') {
+    c.style.setProperty('--rx', '0deg');
+    c.style.setProperty('--ry', '0deg');
+    return;
+  }
+  const r = c.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width;
+  const y = (e.clientY - r.top) / r.height;
+  c.style.setProperty('--ry', `${((x - 0.5) * 26).toFixed(1)}deg`);
+  c.style.setProperty('--rx', `${((0.5 - y) * 22).toFixed(1)}deg`);
+  c.style.setProperty('--mx', `${(x * 100).toFixed(0)}%`);
+  c.style.setProperty('--my', `${(y * 100).toFixed(0)}%`);
+}
+
 function onClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
   const el = target.closest<HTMLElement>('[data-action]');
@@ -1689,6 +1747,11 @@ function onClick(e: MouseEvent) {
   if (el.classList.contains('modal') && target.closest('[data-stop]') && !target.closest('button')) return;
   if ((el as HTMLButtonElement).disabled) return;
   const a = el.dataset.action!;
+  if (a === 'flip-card') {
+    root.querySelector('.cv-card')?.classList.toggle('flip');
+    sfx('choose');
+    return;
+  }
   if (a !== 'act') sfx(SFX[a] ?? 'tap');
   buzz(a === 'next' || a === 'choose' ? 12 : 6);
   // 창을 닫을 땐 내려가는 모습을 보여 주고 처리
@@ -1797,6 +1860,12 @@ function handle(el: HTMLElement) {
     case 'pref-text':
       prefs.text = v as TextSize;
       savePrefs();
+      break;
+    case 'card-view':
+      ui.cardView = id;
+      break;
+    case 'close-card':
+      ui.cardView = undefined;
       break;
     case 'more':
       (ui.open ??= {})[v] = !ui.open[v];
