@@ -1131,4 +1131,69 @@ describe('부모님 유산', () => {
     expect(thin).toEqual([]);
     expect(more.length).toBeGreaterThan(250);
   });
+
+  it('슈퍼 히든 직업 9종: 3단계 퀘스트 체인과 카드·도감 등록 검증', () => {
+    const superJobIds = [
+      'hj_madam',
+      'hj_onlyfans',
+      'hj_widow',
+      'hj_bunny',
+      'hj_honeytrap',
+      'hj_vtuber',
+      'hj_hypnotist',
+      'hj_tattooist',
+      'hj_drifter',
+    ];
+
+    // 1. 직업 및 카드 등록 확인
+    for (const id of superJobIds) {
+      expect(JOBS[id], `직업 ${id} 존재`).toBeDefined();
+      expect(CARDS.some((c) => c.id === id), `카드 ${id} 존재`).toBe(true);
+    }
+
+    // 2. 이벤트 등록 확인
+    expect(EVENTS['sh_step1']).toBeDefined();
+    expect(EVENTS['sh_step2']).toBeDefined();
+    expect(EVENTS['sh_step3']).toBeDefined();
+
+    // 3. 3단계 퀘스트 체인 흐름 검증 (텐프로 에이스 hj_madam)
+    const s = newGame({ seed: 777, familyName: '강', sex: 'F' });
+    const p = head(s);
+    p.sex = 'F';
+    p.actual.cha = 85;
+    p.actual.mor = 30;
+    p.actual.str = 70;
+    p.actual.int = 70;
+    p.happiness = 80;
+    p.birthYear = s.year - 24; // 24세
+    p.job = 'none';
+
+    // 1단계 이벤트 실행
+    let tries = 0;
+    while (!p.flags.includes('sh:hj_madam:1') && tries++ < 20) {
+      s.events = [{ uid: s.eventSeq++, defId: 'sh_step1', personId: p.id, data: { id: 'hj_madam' } }];
+      resolveChoice(s, 0); // "도전한다"
+    }
+    expect(p.flags).toContain('sh:hj_madam:1');
+
+    // 2단계 이벤트 실행
+    tries = 0;
+    while (!p.flags.includes('sh:hj_madam:2') && tries++ < 20) {
+      s.events = [{ uid: s.eventSeq++, defId: 'sh_step2', personId: p.id, data: { id: 'hj_madam' } }];
+      resolveChoice(s, 0); // "판을 키운다"
+    }
+    expect(p.flags).toContain('sh:hj_madam:2');
+
+    // 3단계 클라이맥스 실행
+    tries = 0;
+    while (p.job !== 'hj_madam' && tries++ < 20) {
+      s.events = [{ uid: s.eventSeq++, defId: 'sh_step3', personId: p.id, data: { id: 'hj_madam' } }];
+      resolveChoice(s, 0); // "모든 것을 걸고 정점에 선다"
+    }
+    expect(p.job).toBe('hj_madam');
+    expect(p.flags).toContain('hidden:hj_madam');
+    expect(p.flags.some((f) => f.startsWith('sh:hj_madam'))).toBe(false); // 임시 퀘스트 플래그 정리됨
+  });
 });
+
+
