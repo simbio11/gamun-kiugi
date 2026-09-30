@@ -1398,8 +1398,12 @@ function rewardModal(r: Reward): string {
   </div>`;
 }
 const g0 = () => ui.game;
+// 전설 직업 카드 그림: legend/는 파일로, legend-inline/은 페이지 안에 (배포 방식 때문)
 const LEGEND_ART: Record<string, string> = Object.fromEntries(
-  Object.entries(import.meta.glob('../assets/legend/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>).map(([k, v]) => [k.split('/').pop()!.replace('.webp', ''), v]),
+  Object.entries({
+    ...(import.meta.glob('../assets/legend/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>),
+    ...(import.meta.glob('../assets/legend-inline/*.webp', { eager: true, query: '?inline', import: 'default' }) as Record<string, string>),
+  }).map(([k, v]) => [k.split('/').pop()!.replace('.webp', ''), v]),
 );
 const HIDDEN_CARDS = CARDS.filter((d) => d.hidden);
 const NORMAL_CARDS = CARDS.filter((d) => !d.hidden);
