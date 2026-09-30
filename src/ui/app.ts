@@ -148,7 +148,18 @@ const ui: UIState = {
 function load(): GameState | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    return raw ? migrate(JSON.parse(raw) as GameState) : null;
+    const g = raw ? migrate(JSON.parse(raw) as GameState) : null;
+    if (g && typeof window !== 'undefined') {
+      const pms = new URLSearchParams(window.location.search);
+      if (pms.get('all_cards') === '1' || pms.has('unlock')) {
+        const p = head(g);
+        g.cards = CARDS.map((c) => ({ id: c.id, personId: p.id, year: g.year }));
+        (ui.open ??= {})['dex'] = true;
+        (ui.open ??= {})['hdex'] = true;
+        (ui.open ??= {})['syn'] = true;
+      }
+    }
+    return g;
   } catch {
     return null;
   }
@@ -1450,10 +1461,18 @@ function cardViewer(g: GameState, id: string): string {
           <img class="cv-img" src="${cardBackURL(d.rarity)}" alt="">
           <div class="cv-back-top">명예의 전당 · ${RARITY_NAME[d.rarity]}</div>
           <div class="cv-crest">${esc(g.familyName)}</div>
-          <div class="cv-back-bottom"><b>${d.hidden && !got ? 'HIDDEN JOB' : d.name}</b>${d.hidden && !got ? '' : `<small>${esc(d.how)}</small>`}${d.honor && HONORS[d.honor] ? `<small>🎖 ${HONORS[d.honor].name}</small>` : ''}</div>
+          <div class="cv-back-bottom">
+            <b>${d.hidden && !got ? 'HIDDEN JOB' : d.name}</b>
+            ${d.hidden && !got ? '' : `<small>${esc(d.how)}</small>`}
+            ${got || !d.hidden ? `<em class="cv-eff" style="display:block;margin-top:6px;color:#ffe08a;font-weight:bold;font-size:12px;">✨ ${esc(effText(d.eff))}</em>` : ''}
+            ${d.honor && HONORS[d.honor] ? `<small>🎖 ${HONORS[d.honor].name}</small>` : ''}
+          </div>
         </div>
       </div>
-      <div class="cv-hint">↔ 카드를 옆으로 밀어 돌려 보세요 · 바깥을 누르면 닫혀요</div>
+      <div class="cv-hint">
+        ${got ? `<div style="background:rgba(20,15,10,0.9);padding:8px 14px;border-radius:10px;margin-bottom:8px;color:#ffe08a;border:1px solid rgba(255,224,138,0.5);font-size:12px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.6);"><b style="color:#fff;">✨ [가문 지속 효과]</b><br>${esc(effText(d.eff))}</div>` : ''}
+        ↔ 카드를 옆으로 밀어 돌려 보세요 · 바깥을 누르면 닫혀요
+      </div>
     </div>
   </div>`;
 }
@@ -2028,7 +2047,10 @@ function achvScreen(g: GameState): string {
     <p class="fine">가족이 세상을 떠날 때 「인생 성적표」를 받고, 그 점수가 가문 총점에 영원히 쌓인다. 가계도에서 사람을 누르면 지금까지의 인생 점수를 볼 수 있다.</p>
   </section>
   <section class="card">
-    <h2>🃏 명예의 전당 카드 <small class="muted">${[...dexGot.keys()].filter((id) => !CARD[id]?.hidden).length}/${NORMAL_CARDS.length}종</small></h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h2 style="margin:0;">🃏 명예의 전당 카드 <small class="muted">${[...dexGot.keys()].filter((id) => !CARD[id]?.hidden).length}/${NORMAL_CARDS.length}종</small></h2>
+      <button class="mini do" data-action="unlock-all-cards" style="font-size:11px;padding:3px 10px;cursor:pointer;">✨ 전 카드 해금</button>
+    </div>
     <div class="cdex">${[...NORMAL_CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.dex ? 999 : 6).map((d) => {
       const who = dexGot.get(d.id);
       return `<button class="dx ${who ? d.rarity : 'locked'}" data-action="card-view" data-id="${d.id}"><span class="dx-c">${cardImg(d, !who, 'dx-art')}<i class="dx-nm">${who ? d.name : '???'}</i></span><small>${who ? esc(who.join(', ')) : '미획득'}</small></button>`;
@@ -2297,6 +2319,16 @@ function handle(el: HTMLElement) {
     case 'start': {
       const sn = (ui.setup.surname || '김').slice(0, 2);
       ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin, era: ui.setup.era === 'history' ? 'history' : undefined });
+      if (typeof window !== 'undefined') {
+        const pms = new URLSearchParams(window.location.search);
+        if (pms.get('all_cards') === '1' || pms.has('unlock')) {
+          const p = head(ui.game);
+          ui.game.cards = CARDS.map((c) => ({ id: c.id, personId: p.id, year: ui.game!.year }));
+          (ui.open ??= {})['dex'] = true;
+          (ui.open ??= {})['hdex'] = true;
+          (ui.open ??= {})['syn'] = true;
+        }
+      }
       ui.tab = 'tree';
       track(`start-${ui.setup.origin}`, `새 가문 (${ui.setup.origin})`);
       break;
@@ -2405,6 +2437,18 @@ function handle(el: HTMLElement) {
       ui.assetSub = v;
       window.scrollTo(0, 0);
       break;
+    case 'unlock-all-cards': {
+      if (!g) break;
+      const p = head(g);
+      g.cards = CARDS.map((c) => ({ id: c.id, personId: p.id, year: g.year }));
+      (ui.open ??= {})['dex'] = true;
+      (ui.open ??= {})['hdex'] = true;
+      (ui.open ??= {})['syn'] = true;
+      ui.toast = '🃏 모든 명예의 전당 & 히든 카드 해금!';
+      sfx('fanfare');
+      save();
+      break;
+    }
     case 'buy-car': {
       const r = buyVehicle(g!, id);
       if (r.ok) ui.outcome = { title: '🔑 새 탈것', text: r.text };
