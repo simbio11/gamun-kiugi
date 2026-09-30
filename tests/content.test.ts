@@ -1036,8 +1036,11 @@ describe('부모님 유산', () => {
     expect(s.scandal ?? 0).toBeGreaterThanOrEqual(12);
     s.scandal = 80;
     s.fame = 50;
-    s.events = [{ uid: s.eventSeq++, defId: 'scandal_break', personId: h.id }];
-    resolveChoice(s, 2); // 모르쇠
+    // 모르쇠: 20%는 운 좋게 묻힌다. 여러 번 해 보면 결국 명성이 깎인다
+    for (let i = 0; i < 10 && s.fame >= 50; i++) {
+      s.events = [{ uid: s.eventSeq++, defId: 'scandal_break', personId: h.id }];
+      resolveChoice(s, 2);
+    }
     expect(s.fame).toBeLessThan(50);
   });
 
@@ -1087,13 +1090,18 @@ describe('부모님 유산', () => {
       expect(eligible(s, h)).toContain(id);
       _quest.startQuest(s, h, id);
       let tries = 0;
-      while (!s.events.some((e) => e.defId === 'hid_offer' && e.data.id === id) && tries++ < 40) {
+      const y0 = s.year;
+      while (!s.events.some((e) => e.defId === 'hid_offer' && e.data.id === id) && tries++ < 80) {
         if (!_quest.questOf(h)) _quest.startQuest(s, h, id);
         s.ap = 3;
         s.actUsed = {};
-        doAction(s, 'hq_step');
+        if (!doAction(s, 'hq_step').ok) {
+          s.year++; // 한 해 2번을 다 썼으면 다음 해로
+          h.birthYear++;
+        }
       }
-      expect(tries).toBeLessThan(40);
+      expect(tries).toBeLessThan(80);
+      expect(s.year - y0).toBeGreaterThanOrEqual(1); // 세 단계는 적어도 두 해에 걸친다
     }
   });
 

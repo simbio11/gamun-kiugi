@@ -7,6 +7,7 @@
 //   표정: 보통·기쁨·놀람·슬픔·화남·반함·돈·잠·울음·으쓱 + 눈 깜빡임 프레임
 import { JOBS } from '../core/data';
 import type { Person } from '../core/types';
+import { paint96 } from './bust96';
 
 export type Face = 'normal' | 'happy' | 'shock' | 'sad' | 'angry' | 'money' | 'love' | 'sleep' | 'cry' | 'smug';
 type Px = string | null;
@@ -18,7 +19,7 @@ const hash = (s: string = '') => {
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 };
-const mix = (c: string, k: number) => {
+export const mix = (c: string, k: number) => {
   const n = parseInt(c.slice(1, 7), 16);
   const f = (v: number) => Math.max(0, Math.min(255, Math.round(k >= 1 ? v + (255 - v) * (k - 1) : v * k)));
   return '#' + [f(n >>> 16), f((n >>> 8) & 255), f(n & 255)].map((v) => v.toString(16).padStart(2, '0')).join('');
@@ -890,11 +891,34 @@ export function bustURL(p: Person, age: number, year: number, face: Face = 'norm
   return u;
 }
 
-/** 인물 창 큰 초상화: 같은 그림을 Scale2x 두 번(192×192)으로 매끈하게 */
+/** 96칸 초상화(bust96.ts)가 쓰는 설계값: 같은 사람이면 48칸과 같은 머리색·피부·머리 모양 */
+export function looks96(p: Person, age: number, year: number) {
+  const B = plan(p, age, year);
+  return { st: B.st, f: B.f, skin: B.skin, hair: B.hair, eye: B.eye, style: B.style, fringe: B.fringe, h: B.h, clothOut: '#2a1e24' };
+}
+/** 48칸 초상화의 옷을 두 배(Scale2x)로 키워 96칸 판에 입힌다. bodyTop = 96칸에서 옷이 시작하는 줄 */
+export function body48(p: Person, age: number, year: number, g96: { set: (x: number, y: number, c: string, m: string) => void; outs: Record<string, string> }, bodyTop: number) {
+  const B = plan(p, age, year);
+  const g = new Grid(N);
+  const faceBottom = B.faceTop + B.rows.length - 1;
+  drawBody(g, B, pickCloth(p, B.st, B.h, B.era), p, faceBottom);
+  const big = scale2x(g.c);
+  const dy = bodyTop - 2 * (faceBottom + 3);
+  for (let y = 0; y < big.length; y++)
+    for (let x = 0; x < big.length; x++) {
+      const c = big[y][x];
+      if (!c) continue;
+      const m = g.m[y >> 1][x >> 1] ?? 'cloth';
+      g96.set(x, y + dy, c, m === 'neck' ? 'neck' : m === 'cloth2' ? 'cloth2' : 'cloth');
+    }
+  g96.outs.cloth = g.outs.cloth ?? '#2a1e24';
+}
+
+/** 인물 창 큰 초상화: 96칸 전용 그림(bust96.ts)을 Scale2x 한 번(192×192)으로 매끈하게 */
 export function bustHiURL(p: Person, age: number, year: number, face: Face = 'normal', blink = false): string {
   const key = 'hi' + keyOf(p, age, year) + face + (blink ? 'b' : '');
   let u = cache.get(key);
-  if (!u) cache.set(key, (u = rowsURL(scale2x(scale2x(paint(p, age, year, face, blink).c)))));
+  if (!u) cache.set(key, (u = rowsURL(scale2x(paint96(p, age, year, face, blink)))));
   return u;
 }
 

@@ -181,22 +181,23 @@ export const QUEST_ACTIONS: ActionDef[] = [
     ap: 1,
     stages: ['univ', 'prep', 'adult', 'senior'],
     show: (s) => !!questOf(head(s)),
+    // 한 해에 두 번까지: 세 단계를 끝내려면 적어도 두 해가 걸린다
+    blocked: (s) => ((s.storySeen ?? {})[`hqn:${s.year}`] ?? 0) >= 2 ? '올해는 더 나아갈 수 없다 (한 해 2번)' : undefined,
     label: (s) => {
       const p = head(s);
       const q = questOf(p);
       if (!q) return { name: '숨은 길 따라가기', desc: '' };
       const n = stepOf(p);
-      return { name: `🌑 숨은 길 ${n + 1}/${STEPS.length}: ${STEPS[n]}`, desc: `"${HIDDEN_BY_ID[q].hint}" · ${STAT_NAMES[LEAN[q].stat]}로 판정 · 대박이면 두 단계` };
+      return { name: `🌑 숨은 길 ${n + 1}/${STEPS.length}: ${STEPS[n]}`, desc: `"${HIDDEN_BY_ID[q].hint}" · ${STAT_NAMES[LEAN[q].stat]}로 판정 · 한 해 2번까지` };
     },
     run: (s) => {
       const p = head(s);
       const q = questOf(p)!;
-      const t = rollTier(s, p, { stat: LEAN[q].stat, bonus: 0.12 + (lowly(p) > 1.5 ? 0.06 : 0) });
-      if (t === 'great') {
-        const a = advance(s, p, q);
-        return TIER_MARK[t] + '단숨에 두 걸음을 나아갔다.\n' + (questOf(p) ? advance(s, p, q) : a);
-      }
-      if (t === 'good') return '한 걸음 더 다가갔다.\n' + advance(s, p, q);
+      const sn = (s.storySeen ??= {});
+      sn[`hqn:${s.year}`] = (sn[`hqn:${s.year}`] ?? 0) + 1;
+      const t = rollTier(s, p, { stat: LEAN[q].stat, bonus: lowly(p) > 1.5 ? 0.03 : -0.03 });
+      if (t === 'great') return TIER_MARK[t] + '확신이 섰다. 한 걸음 나아갔다.\n' + advance(s, p, q);
+      if (t === 'good') return chance(s, 0.75) ? '한 걸음 더 다가갔다.\n' + advance(s, p, q) : '거의 다 왔는데, 마지막 순간 단서가 흐려졌다.';
       if (t === 'meh') return '헛걸음이었다. 단서는 아직 살아 있다.';
       p.actual.hp = clamp(p.actual.hp - 3, 0, 100);
       if (chance(s, 0.2)) {

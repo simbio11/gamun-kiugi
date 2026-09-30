@@ -9,6 +9,7 @@ import { chance } from './rng';
 import { myVehicles } from './vehicle';
 import { formatMoney } from './economy';
 import type { GameState, Person } from './types';
+import { GATE_ONLY, GATE_READY } from './super-gates';
 
 interface SuperRoute {
   id: string;
@@ -411,6 +412,14 @@ export const SUPER_ROUTES: SuperRoute[] = [
     ['🐍 비늘의 축복', '피부에 초록 비늘 무늬가 피어났다. 아픈 사람이 {n}의 손을 잡으면 낫는다는 소문이 돈다.', (p) => ST(p).mor >= 62 && ST(p).cha >= 76, 0.82, '온실 앞에 순례자들이 줄을 선다.', 10000, '비늘이 희미해졌다.'],
     ['✨ 색욕의 성녀', '뱀의 신전이 {n}을(를) 부른다. 유혹과 치유를 함께 쥔 성녀의 자리다.', (p) => ST(p).cha >= 78, 0.9, '{n}은(는) 색욕의 성녀 라미아가 되었다. 눈빛 하나로 사람을 홀리고, 손길 하나로 치유한다.', 22000, '신전의 문이 열리지 않았다.']),
 ];
+
+// 직업마다의 새 사연(super-gates.ts)으로 문을 연다. 단계 성공률은 조금 낮춰 실패도 있게
+for (const r of SUPER_ROUTES) {
+  const gateReady = GATE_READY[r.id];
+  const old = r.ready;
+  if (gateReady) r.ready = GATE_ONLY.has(r.id) ? gateReady : (s, p) => gateReady(s, p) || old(s, p);
+  for (const st of [r.step1, r.step2, r.step3]) st.rate = Math.max(0.6, st.rate - 0.1);
+}
 
 const ROUTE_MAP = Object.fromEntries(SUPER_ROUTES.map((r) => [r.id, r]));
 const fill = (t: string, p: Person) => t.replaceAll('{n}', fullName(p));
