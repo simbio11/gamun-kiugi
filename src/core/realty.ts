@@ -5,6 +5,7 @@ import type { Asset, GameState, Listing, Person } from './types';
 import { addAsset, expectedIncome, formatMoney, pay } from './economy';
 import { alive, clamp, fullName, head, spouseOf } from './people';
 import { creditBlocked, homeOf, JEONSE_TERM, refundOf } from './housing';
+import { queueJeonseEnd, tenantYear } from './tenant';
 
 export const HOUSE_KINDS = ['apt_seoul', 'apt_local'] as const;
 export const REALTY_KINDS = ['apt_seoul', 'apt_local', 'land', 'building'] as const;
@@ -133,7 +134,7 @@ const vacancyOf = (a: Asset) => (a.tags?.includes('상가') ? 0.2 : VACANCY[a.ki
 
 /** 올해 받을 월세 (실거주·전세 낀 집·땅은 없다) */
 export function rentable(s: GameState, a: Asset): boolean {
-  return isRealty(a) && !a.deposit && !isPrimary(s, a) && yieldOf(a) > 0;
+  return isRealty(a) && !a.deposit && a.lease !== 'empty' && !isPrimary(s, a) && yieldOf(a) > 0;
 }
 
 // ───────────────────────── 한 해 정산 ─────────────────────────
@@ -175,8 +176,10 @@ export function realtyYear(s: GameState): string[] {
         if (me) sum.rent += r;
       }
     }
-    // 전세 만기: 재계약하거나 보증금을 돌려준다
-    if (a.deposit && s.year >= (a.depositEnd ?? s.year)) {
+    // 전세 만기: 우리 집이면 직접 고르고(이벤트), 남의 집은 재계약하거나 보증금을 돌려준다
+    if (a.deposit && s.year >= (a.depositEnd ?? s.year) && queueJeonseEnd(s, a)) {
+      /* 이벤트에서 처리 */
+    } else if (a.deposit && s.year >= (a.depositEnd ?? s.year)) {
       if (chance(s, 0.55)) {
         const nd = Math.round((a.value * (0.5 + next(s) * 0.15)) / 100) * 100;
         const diff = nd - a.deposit;
@@ -209,6 +212,7 @@ export function realtyYear(s: GameState): string[] {
       }
     }
   }
+  tenantYear(s, s.assets.filter((a) => isRealty(a) && (rentable(s, a) || !!a.deposit)));
   // 종합부동산세 (가구별 한 번)
   const done = new Set<string>();
   for (const p of Object.values(s.people)) {

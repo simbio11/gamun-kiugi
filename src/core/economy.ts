@@ -11,6 +11,7 @@ import { vehicleUpkeep, vehicleYear } from './vehicle';
 import { petUpkeep } from './lifecost';
 import { debtRate } from './debt';
 import { medicalCost, woeItems } from './woes';
+import { allowanceOf, allowanceYear } from './allowance';
 import { allowanceForecast, careYear, childAllowanceYear, reverseMortgageYear, youthAccountYear } from './welfare';
 
 export function formatMoney(man: number): string {
@@ -405,7 +406,7 @@ export interface Forecast {
   expense: [string, number][];
   net: number;
   /** 독립 전 가주의 내 통장: 수입 − 세금 − 제 몫 지출 − 집에 보태는 돈 */
-  mine?: { income: number; tax: number; own: number; contrib: number; net: number };
+  mine?: { income: number; allow: number; tax: number; own: number; contrib: number; net: number };
 }
 
 /** 얹혀 사는 성인 자녀의 한 해: 제 몫 지출과 집에 보태는 돈 */
@@ -497,11 +498,13 @@ export function forecast(s: GameState): Forecast {
   if (s.policy.taxAdvisor) add(expense, '세무사 수임료', advisorFee(s));
   const net = income.reduce((t, [, v]) => t + v, 0) - expense.reduce((t, [, v]) => t + v, 0);
   const hInc = hh.id !== h.id ? incomes.get(h.id) ?? 0 : 0;
+  const allow = hh.id !== h.id ? allowanceOf(s, h).amount : 0;
+  if (allow) add(expense, `${h.name} 용돈`, allow);
   let mine: Forecast['mine'];
-  if (hInc > 0 && inHouse.has(h.id)) {
-    const k = atHomeSpend(s, hInc);
-    const t = incomeTax(hInc, s.year);
-    mine = { income: hInc, tax: t.tax + t.social, own: k.own, contrib: k.contrib, net: hInc - t.tax - t.social - k.own - k.contrib };
+  if ((hInc > 0 && inHouse.has(h.id)) || allow) {
+    const k = hInc > 0 ? atHomeSpend(s, hInc) : { own: 0, contrib: 0 };
+    const t = hInc > 0 ? incomeTax(hInc, s.year) : { tax: 0, social: 0 };
+    mine = { income: hInc, allow, tax: t.tax + t.social, own: k.own, contrib: k.contrib, net: hInc + allow - t.tax - t.social - k.own - k.contrib };
   }
   return { income, expense, net, mine };
 }
@@ -563,6 +566,9 @@ export function economyYear(s: GameState): string[] {
     p.cash -= k.own + k.contrib;
     hh.cash += k.contrib;
   }
+
+  // 용돈: 부모 집에 사는 가주가 받는다 (형편 따라)
+  allowanceYear(s);
 
   // 기초생활보장: 가구 소득이 기준 중위소득 32%에 못 미치고 재산이 적으면 모자란 만큼 생계급여 (의료급여도 함께)
   const aid = livelihoodAid(s, incomes, inHouse);

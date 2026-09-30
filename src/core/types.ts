@@ -134,6 +134,8 @@ export interface Asset {
   heir?: string;
   /** 작년 이맘때 시세 (올해 등락 표시) */
   prev?: number;
+  /** 비거주 주택을 어떻게 굴리나 (전세는 deposit으로 판단) */
+  lease?: 'wolse' | 'jeonse' | 'empty';
 }
 
 /** 올해 나온 부동산 매물 */

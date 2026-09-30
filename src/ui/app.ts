@@ -39,6 +39,7 @@ import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, is
 import { MISSIONS } from '../core/missions';
 import { rivalLine, rivalMood } from '../core/rival';
 import { FOCUS_LABEL, focusOf } from '../core/spouse';
+import { jeonseRatio, LEASE_NAME, leaseOf, setLease, type Lease } from '../core/tenant';
 import { WOES, woesOf } from '../core/woes';
 import { chooseSuccessor } from '../core/estate';
 import { HONOR_JOBS, scandalLabel } from '../core/scandal';
@@ -638,6 +639,7 @@ function realtyCard(g: GameState): string {
         <div class="re-t">${role}${extra}</div>
         <div class="re-f"><small>${a.cost ? `산 값 ${formatMoney(a.cost)} (${gain >= 0 ? '+' : ''}${formatMoney(gain)}) · ` : ''}팔면 양도세 ${formatMoney(gt.tax)}${gt.note ? ` (${esc(gt.note)})` : ''}</small>
           <span>${a.loan ? `<button class="mini" data-action="repay" data-id="${a.id}" ${h.cash > 0 ? '' : 'disabled'}>대출 갚기</button>` : ''}${a.ownerId === h.id ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>
+        ${!prim && isHouse(a) ? leaseRow(g, a) : ''}
       </div>`;
     })
     .join('');
@@ -663,6 +665,25 @@ function realtyCard(g: GameState): string {
     ${listings || '<p class="hint">올해는 매물이 다 나갔다.</p>'}
     <details class="moves"><summary>부동산 세금·규칙 보기</summary><p class="fine">첫 집(실거주)은 월세가 없는 대신 재산세가 싸고, 2년 넘게 살면 12억까지 양도세 비과세.<br>두 번째 집부터는 투자: 취득세 8%(3채 이상 12%), 대출 LTV 30%(3채부터 0%), 공시가 9억 넘으면 종부세, 팔 때 양도세 중과. 월세는 공실이면 0원.<br>전세 낀 매물은 적은 돈으로 살 수 있지만(갭투자), 만기에 세입자가 나가면 보증금을 돌려줘야 한다.</p></details>
   </section>`;
+}
+
+/** 비거주 주택: 월세·전세·비워 두기 */
+function leaseRow(g: GameState, a: Asset): string {
+  const cur = leaseOf(a);
+  const o = g.people[a.ownerId];
+  const dep = Math.round(a.value * jeonseRatio(a));
+  const btn = (to: Lease, label: string, sub: string, dis = false) =>
+    `<button class="lease-b ${cur === to ? 'on' : ''}" data-action="lease" data-id="${a.id}" data-v="${to}" ${cur === to || dis ? 'disabled' : ''}><b>${label}</b><small>${sub}</small></button>`;
+  const needBack = cur === 'jeonse' && (o?.cash ?? 0) < (a.deposit ?? 0);
+  return `<div class="lease">
+    <span class="lease-now">🔑 ${LEASE_NAME[cur]}</span>
+    <div class="lease-row">
+      ${btn('wolse', '월세', `연 ${formatMoney(Math.round(a.value * yieldOf(a)))} (${(yieldOf(a) * 100).toFixed(1)}%)`, needBack)}
+      ${btn('jeonse', '전세', `보증금 ~${formatMoney(dep)} 받음`)}
+      ${btn('empty', '비워 두기', '월세 0 · 언제든 입주·매도', needBack)}
+    </div>
+    ${needBack ? `<small class="fine">전세를 빼려면 보증금 ${formatMoney(a.deposit ?? 0)}을 돌려줄 현금이 필요하다</small>` : ''}
+  </div>`;
 }
 
 /** 작년 대비 시세 등락 */
@@ -692,7 +713,7 @@ function budgetCard(g: GameState): string {
     ${f.income.map(([l, v]) => row(l, v, '+')).join('') || '<div class="arow"><span>수입 없음</span><span></span></div>'}
     ${f.expense.map(([l, v]) => row(l, v, '−')).join('')}
     <div class="arow total"><span>한 해 남는 돈</span><b class="${f.net < 0 ? 'neg' : 'pos'}">${f.net < 0 ? '' : '+'}${formatMoney(f.net)}</b></div>
-    ${f.mine ? `<p class="fine">독립 전 내 통장: 수입 ${formatMoney(f.mine.income)} − 세금 ${formatMoney(f.mine.tax)} − 용돈·교통·통신·여가 ${formatMoney(f.mine.own)} − 집에 보태는 생활비 ${formatMoney(f.mine.contrib)} = <b>${f.mine.net < 0 ? '' : '+'}${formatMoney(f.mine.net)}</b></p>` : ''}
+    ${f.mine ? `<p class="fine">독립 전 내 통장: ${[f.mine.allow ? `용돈 ${formatMoney(f.mine.allow)} (월 ${formatMoney(Math.round(f.mine.allow / 12))})` : '', f.mine.income ? `수입 ${formatMoney(f.mine.income)} − 세금 ${formatMoney(f.mine.tax)} − 교통·통신·여가 ${formatMoney(f.mine.own)} − 집에 보태는 생활비 ${formatMoney(f.mine.contrib)}` : ''].filter(Boolean).join(' + ')} = <b>${f.mine.net < 0 ? '' : '+'}${formatMoney(f.mine.net)}</b>/년</p>` : ''}
     <p class="fine">월급은 세전 금액, 소득세·4대보험은 따로 빠진다 (연봉 3천 약 12%, 5천 16%, 1억 21%). 사업·크리에이터 수입과 시세는 해마다 출렁인다. 학년·진학 이벤트에서 고르는 사교육비는 따로 나간다.</p>
   </section>`;
 }
@@ -2090,6 +2111,11 @@ function handle(el: HTMLElement) {
     case 'close-card':
       ui.cardView = ui.honorView = undefined;
       break;
+    case 'lease': {
+      const a = g!.assets.find((x) => x.id === id);
+      if (a) ui.toast = setLease(g!, a, v as Lease) || undefined;
+      break;
+    }
     case 'honor-view':
       ui.honorView = Number(id);
       break;

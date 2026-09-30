@@ -410,7 +410,13 @@ const REAL_MED: [Tier, string, string, string, number, Partial<Program>][] = [
   // 수의예과
   ['C', '전남대', '수의예과', 'vet', 96.8, VD], ['C', '전북대', '수의예과', 'vet', 96.8, VD], ['C', '경상국립대', '수의예과', 'vet', 96.5, VD], ['C', '제주대', '수의예과', 'vet', 96.3, VD],
 ];
-for (const [tier, school, major, key, cut, o] of REAL_MED) prog(tier, major, key, cut, { school, ...o });
+/**
+ * 정시 고증: 의치한약수 정원을 합치면 수험생 상위 1.4% 안팎이다.
+ * 지방 의대 막차도 백분위 99 안팎, 치대 98.8, 한의대 98.1, 약대 97.9, 수의대 97.3 선 (2025 진학사·종로 정시 배치표 흐름)
+ */
+const MED_CUT = (key: string, cut: number) =>
+  key === 'med' ? (cut < 99.3 ? 98.95 + (cut - 98.6) * 0.6 : cut) : key === 'dent' ? cut + 0.3 : key === 'kmd' ? cut + 0.55 : key === 'pharm' ? cut + 0.45 : key === 'vet' ? cut + 0.75 : cut;
+for (const [tier, school, major, key, cut, o] of REAL_MED) prog(tier, major, key, Math.round(MED_CUT(key, cut) * 100) / 100, { school, ...o });
 /** 앞서 만든 의약계열 합격선을 실제 서열에 맞춘다 */
 const REAL_CUT: Record<string, number> = {
   '연세대 의예과': 99.7, '인하대 의예과': 99.2, '아주대 의예과': 99.3, '부산대 의예과': 99.2, '전남대 의예과': 99.0, '가천대 의예과': 99.1, '계명대 의예과': 98.9, '한림대 의예과': 99.0,
@@ -725,6 +731,31 @@ export function susiFields(p: Person): string[] {
  */
 const favor = (v: number, k: number) => clamp(100 - (100 - v) * k, 0, 99.99);
 
+/**
+ * 백분위 ↔ 연속 등급 (1.0 = 최상위, 1.5 = 1·2등급 경계(96), 2.5 = 2·3등급 경계(89) …).
+ * 기회균형·농어촌 같은 정원 외 전형은 실제 입결에서 "같은 대학 일반 전형보다 0.5~1등급 낮은 내신"으로 붙는다.
+ */
+const GRADE_PTS: [number, number][] = [[100, 1], [96, 1.5], [89, 2.5], [77, 3.5], [60, 4.5], [40, 5.5], [23, 6.5], [11, 7.5], [4, 8.5], [0, 9]];
+function toGrade(pct: number): number {
+  for (let i = 1; i < GRADE_PTS.length; i++) {
+    const [p1, g1] = GRADE_PTS[i];
+    const [p0, g0] = GRADE_PTS[i - 1];
+    if (pct >= p1) return g0 + ((p0 - pct) / (p0 - p1)) * (g1 - g0);
+  }
+  return 9;
+}
+function fromGrade(g: number): number {
+  const gg = clamp(g, 1, 9);
+  for (let i = 1; i < GRADE_PTS.length; i++) {
+    const [p1, g1] = GRADE_PTS[i];
+    const [p0, g0] = GRADE_PTS[i - 1];
+    if (gg <= g1) return p0 - ((gg - g0) / (g1 - g0)) * (p0 - p1);
+  }
+  return 0;
+}
+/** 내신을 bonus 등급만큼 좋게 쳐 준다 */
+const gradeBoost = (pct: number, bonus: number) => clamp(fromGrade(toGrade(pct) - bonus), 0, 99.99);
+
 /** 수시에서 보는 '실질 백분위': 성적 + 활동 + 지역인재(지방 대학) */
 export function susiPct(s: GameState, p: Person, pct: number, pr?: Program): number {
   const hood = hoodOf(s, p).hood;
@@ -795,9 +826,9 @@ export const SUSI: Record<SusiType, SusiDef> = {
   gyo: { icon: '📘', name: '학생부교과', desc: '내신 성적만 본다. 과외 없이 학교 수업에 충실했다면 가장 확실한 길', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], score: (s, p) => naesinPct(s, p), min: { S: 75, A: 65, B: 45 } },
   hak: { icon: '📚', name: '학생부종합', desc: '동아리·봉사·반장 등 학교생활 전체와 전공 적합성', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], score: (s, p, pct, pr) => susiPct(s, p, naesinPct(s, p) * 0.75 + pct * 0.25, pr) },
   region: { icon: '🏫', name: '지역균형 (학교장 추천)', desc: '학교마다 추천받은 내신 최상위 몇 명만. 강남보다 일반고가 유리', tiers: ['S', 'A', 'B', 'C'], deny: (s, p) => (naesin(s, p) < 62 ? '내신 최상위만 학교장 추천' : undefined), score: (s, p) => favor(naesinPct(s, p), 0.85), min: { S: 70, A: 60 } },
-  opp: { icon: '🤝', name: '기회균형 (저소득층)', desc: '기초생활수급·차상위 가정 학생을 정원 외로 뽑는다. 합격선이 크게 낮다', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], deny: (s, p) => (['poor', 'modest'].includes(hoodOf(s, p).hood) || s.origin === 'poor' || hasFlag(p, 'welfare') ? undefined : '저소득 가정만'), score: (s, p) => favor(naesinPct(s, p), 0.6) },
-  rural: { icon: '🌾', name: '농어촌 특별전형', desc: '읍·면 지역에서 6년 이상 다닌 학생. 정원 외 선발', tiers: ['S', 'A', 'B', 'C', 'D'], deny: (s, p) => (hoodOf(s, p).hood === 'local' || hasFlag(p, 'local_talent') || hasFlag(p, 'rural') ? undefined : '농어촌 거주자만'), score: (s, p) => favor(naesinPct(s, p), 0.7) },
-  equal: { icon: '🕊', name: '고른기회 (한부모·자립준비청년 등)', desc: '부모를 잃었거나 한부모 가정, 보훈·다문화 가정 학생', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], deny: (s, p) => (parentGone(s, p) || hasFlag(p, 'multicultural') ? undefined : '해당 가정만'), score: (s, p) => favor(naesinPct(s, p), 0.65) },
+  opp: { icon: '🤝', name: '기회균형 (저소득층)', desc: '기초생활수급·차상위 가정 학생을 정원 외로 뽑는다. 합격선이 크게 낮다', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], deny: (s, p) => (['poor', 'modest'].includes(hoodOf(s, p).hood) || s.origin === 'poor' || hasFlag(p, 'welfare') ? undefined : '저소득 가정만'), score: (s, p) => gradeBoost(naesinPct(s, p), 0.62) },
+  rural: { icon: '🌾', name: '농어촌 특별전형', desc: '읍·면 지역에서 6년 이상 다닌 학생. 정원 외 선발', tiers: ['S', 'A', 'B', 'C', 'D'], deny: (s, p) => (hoodOf(s, p).hood === 'local' || hasFlag(p, 'local_talent') || hasFlag(p, 'rural') ? undefined : '농어촌 거주자만'), score: (s, p) => gradeBoost(naesinPct(s, p), 0.58) },
+  equal: { icon: '🕊', name: '고른기회 (한부모·자립준비청년 등)', desc: '부모를 잃었거나 한부모 가정, 보훈·다문화 가정 학생', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], deny: (s, p) => (parentGone(s, p) || hasFlag(p, 'multicultural') ? undefined : '해당 가정만'), score: (s, p) => gradeBoost(naesinPct(s, p), 0.55) },
   essay: { icon: '✍️', name: '논술', desc: '내신·수능보다 글 한 편. 경쟁률 수십 대 1, 운도 크다. 역전의 기회', tiers: ['S', 'A', 'B', 'C'], luck: 2.6, score: (_s, p) => 100 / (1 + Math.exp(-(p.actual.int * 0.65 + studyOf(p) * 0.35 - 62) / 7)), min: { S: 65, A: 55 } },
   talent: { icon: '🏅', name: '특기자 (어학·SW·과학·체육)', desc: '올림피아드·어학 성적·수상 실적이 있는 학생', tiers: ['S', 'A', 'B', 'C'], keys: ['lang', 'cs', 'ee', 'bio', 'mech', 'sport', 'econ'], deny: (_s, p) => (['high_lang', 'olympiad', 'high_sci', 'gifted_center', 'high_sport'].some((f) => hasFlag(p, f)) || markOf(p, 'sport') >= 5 ? undefined : '수상·특기 실적 필요'), score: (_s, _p, pct) => favor(pct, 0.55) },
 };
@@ -819,6 +850,14 @@ export function susiChance(s: GameState, p: Person, pr: Program, type: SusiType,
   const v = d.score(s, p, pct, pr);
   const w = Math.max(0.35, (100 - pr.cut) * 0.3) * (d.luck ?? 1);
   let c = 1 / (1 + Math.exp(-(v - pr.cut) / w));
+  // 정원 외 전형(기회균형·농어촌·고른기회)은 등급으로 따진다: 같은 대학 일반 전형보다 몇 등급 낮아도 붙는다.
+  // 지방 의대 기균은 내신 2등급 초반이 반반(0.6등급 우대), 서울대는 0.25등급 남짓만 우대
+  if (type === 'opp' || type === 'rural' || type === 'equal') {
+    const tierBonus = MEDICAL.has(pr.key) ? 0.58 : ({ S: 0.25, A: 0.37, B: 0.5 } as Record<string, number>)[pr.tier] ?? 0.55;
+    const bonus = tierBonus * (type === 'opp' ? 1 : type === 'rural' ? 0.95 : 0.9);
+    const gEff = toGrade(naesinPct(s, p)) - bonus;
+    c = 1 / (1 + Math.exp(-(toGrade(pr.cut) - gEff) / 0.14));
+  }
   if (d.luck) c = Math.min(c, MEDICAL.has(pr.key) ? 0.06 : 0.55); // 논술은 아무리 잘 써도 절반 운. 의대 논술은 경쟁률 수백 대 1
   const need = Math.max(d.min?.[pr.tier] ?? 0, medMin(type, pr) ?? 0);
   if (need && pct < need) c *= MEDICAL.has(pr.key) ? 0.03 : 0.12; // 수능 최저 미달

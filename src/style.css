@@ -709,3 +709,11 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .sh-medal { display: flex; align-items: center; gap: 6px; padding: 2px 6px 2px 2px; border: 1px solid rgba(0,0,0,.15); border-radius: 6px; background: rgba(255,255,255,.4); font: inherit; font-size: .9em; color: inherit; cursor: pointer; text-align: left; }
 .sh-medal img { width: 20px; height: 30px; image-rendering: pixelated; }
 .calm .hv-medal, .calm .hv-shine, .calm .honor .hn-art { animation: none; }
+.lease { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(0,0,0,.18); }
+.lease-now { font-size: .78em; font-weight: bold; }
+.lease-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-top: 4px; }
+.lease-b { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 2px; border: 2px solid rgba(0,0,0,.2); border-radius: 6px; background: rgba(255,255,255,.5); font: inherit; color: inherit; cursor: pointer; min-width: 0; }
+.lease-b b { font-size: .8em; }
+.lease-b small { font-size: .62em; opacity: .75; text-align: center; overflow-wrap: anywhere; }
+.lease-b.on { border-color: #2a8a4a; background: #dff4e0; }
+.lease-b:disabled:not(.on) { opacity: .45; }
