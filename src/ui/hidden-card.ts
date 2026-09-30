@@ -5,7 +5,7 @@
 //   · 히든 전용 테두리: 무지개빛 금테 + 광채 + 빛 스침
 import { HIDDEN_BY_ID, type HiddenFx, type HiddenJob } from '../core/hidden-data';
 
-const FILES = import.meta.glob('../assets/hidden/*.webp', { eager: true, query: '?inline', import: 'default' }) as Record<string, string>;
+const FILES = import.meta.glob('../assets/hidden/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const NAMED = Object.entries(FILES).map(([k, v]) => [k.split('/').pop()!.replace('.webp', ''), v] as const);
 /** 전체 그림 / 인물만 오려 낸 그림 (배경 투명) */
 const ART: Record<string, string> = Object.fromEntries(NAMED.filter(([n]) => !n.endsWith('.fig')));
