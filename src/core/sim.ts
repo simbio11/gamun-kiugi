@@ -37,6 +37,7 @@ import { eggForKids, eggYear, scheduleEggs } from './nestegg';
 import { spouseYear } from './spouse';
 import { anachronistic, histOverride, inHistory, periodize, TIMELESS } from './histpack';
 import { HIST_PARENT_JOBS, HIST_START, histOrigins, histYear } from './history';
+import { timelineYear } from './timeline';
 import { HIST_BASE, histPrice, histRel } from './histidx';
 import { autonomyYear } from './autonomy';
 import { lifeReport, trackPeak } from './score';
@@ -345,7 +346,7 @@ export function queue(s: GameState, defId: string, personId: string, data?: any)
   s.events.push({ uid: s.eventSeq++, defId, personId, data });
 }
 
-const log = (s: GameState, text: string, kind?: GameState['log'][number]['kind']) => s.log.push({ year: s.year, text: periodize(s, text), kind });
+const log = (s: GameState, text: string, kind?: GameState['log'][number]['kind']) => s.log.push({ year: s.year, text: text.startsWith('📰') ? text : periodize(s, text), kind }); // 뉴스는 그 시대 말로 이미 쓰였다
 
 export function mainlineMembers(s: GameState): Person[] {
   return Object.values(s.people).filter((p) => alive(p) && isMainline(s, p));
@@ -382,6 +383,7 @@ export function simulateYear(s: GameState): void {
   for (const m of marketYear(s)) log(s, m, 'market');
   for (const m of leverageYear(s)) log(s, m, 'money');
   for (const m of histYear(s)) log(s, m, 'market');
+  for (const m of timelineYear(s)) log(s, m, 'market');
   for (const m of eraYear(s)) log(s, m, 'market');
   for (const m of rivalYear(s, familyTotal(s))) log(s, m, 'life');
   for (const m of careerYear(s)) log(s, m, 'life');
@@ -1018,7 +1020,7 @@ function eventView(ctx: Ctx) {
   const { ev, p } = ctx;
   const def = defOf(ctx.s, ev.defId);
   const hist = inHistory(ctx.s);
-  const text = hist ? periodize(ctx.s, def.text(ctx)) : def.text(ctx);
+  const text = periodize(ctx.s, def.text(ctx));
   // 비용이 가용 자금을 넘는 선택지는 이벤트 정의와 무관하게 잠근다
   const money = spendable(ctx.s);
   let raw = def.choices(ctx);
@@ -1031,7 +1033,7 @@ function eventView(ctx: Ctx) {
   const choices = raw.map((c) => (c.cost && c.cost > money ? { ...c, disabled: true } : c));
   // 돈이 없어 고를 게 하나도 없으면 막히지 않게 탈출구를 준다
   if (choices.every((c) => c.disabled)) choices.push({ label: '어쩔 수 없다 (그냥 넘긴다)', run: () => '할 수 있는 게 없었다.' });
-  return { ev, def, ctx, title: hist ? periodize(ctx.s, def.title(ctx)) : def.title(ctx), text, choices, portraits: def.portraits?.(ctx) ?? [p] };
+  return { ev, def, ctx, title: periodize(ctx.s, def.title(ctx)), text, choices, portraits: def.portraits?.(ctx) ?? [p] };
 }
 
 export function resolveChoice(s: GameState, idx: number): string {

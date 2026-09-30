@@ -72,6 +72,20 @@ export const JOB_FROM: Record<string, number> = {
   flight_attendant: 1969, pilot: 1969, aero_engineer: 1990, smart_farmer: 2015, realtor: 1985, labor_attorney: 1986, appraiser: 1989,
   trainer: 1990, radiographer: 1965, clinical: 1965, emt: 1995, caregiver: 2008, nurse_aide: 1967, voice_actor: 1961, pd: 1961, announcer: 1961,
   model: 1970, writer: 2003, hotelier: 1970, tour_guide: 1970, big_factory: 1970, crane_operator: 1970, train_driver: 1960,
+  // 미래 직업 (현대 모드에도 적용: 그해가 와야 생긴다)
+  ai_trainer: 2027, robot_tech: 2034, drone_control: 2036, climate_eng: 2038, vr_architect: 2042, care_robot_mgr: 2046, longevity_doc: 2055,
+  ai_auditor: 2056, space_tech: 2063, bci_surgeon: 2066, memory_designer: 2080, sea_farmer: 2074, mars_pioneer: 2088,
+};
+/** 이 해부터 새로 뛰어들 수 없는 직업 (자율주행·드론·AI가 대신한다) */
+export const JOB_UNTIL: Record<string, number> = {
+  taxi: 2048, bus_driver: 2055, trucker: 2052, delivery_rider: 2045, courier: 2058, cvs_owner: 2060, secretary: 2050, insurance: 2060,
+  tour_guide: 2065, mail_carrier: 2065, parttime: 9999, train_driver: 2060, crane_operator: 2055, barista: 2070,
+};
+/** 직업이 열리는 해 (모드를 가리지 않는 미래 직업은 현대 모드에도) */
+export const jobOpen = (era: string | undefined, year: number, id: string) => {
+  const from = JOB_FROM[id] ?? 0;
+  if ((era === 'history' || from > 2025) && year < from) return false;
+  return year < (JOB_UNTIL[id] ?? 99999);
 };
 /** 수시 전형이 생긴 해 */
 export const SUSI_FROM: Record<string, number> = { gyo: 1997, essay: 1997, talent: 1997, rural: 1996, region: 2005, hak: 2008, opp: 2009, equal: 2009 };

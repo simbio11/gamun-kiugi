@@ -7,6 +7,8 @@ import { age, alive, check, clamp, fullName, hasFlag, isMainline } from './peopl
 import { wageIndex } from './pay';
 import { awardHonor, diffMod, grant, type Rarity } from './rewards';
 import { MORE_CARDS, MORE_SUMMITS } from './cards-more';
+import { setCardNamer } from './timeline';
+import { CARD_FROM, cardNameAt, ERA_CARDS } from './cards-era';
 import type { GameState, Person, StatKey } from './types';
 
 export interface CardEff {
@@ -83,8 +85,12 @@ export const CARDS: CardDef[] = [
   { id: 'star_farmer', name: '신지식 농업인', icon: '🌾', rarity: 'rare', how: '농업인으로 정점 (정점 이벤트)', eff: { hp: 1, cash: 1500 } },
   { id: 'national_hero', name: '의인·명예 소방관', icon: '🚒', rarity: 'epic', how: '구조 현장에서 목숨을 구한다 (정점 이벤트)', eff: { fame: 3, hap: 1 } },
   ...MORE_CARDS,
+  ...ERA_CARDS,
 ];
 export const CARD = Object.fromEntries(CARDS.map((c) => [c.id, c])) as Record<string, CardDef>;
+setCardNamer((id) => CARD[id]?.name ?? id);
+/** 그 카드를 받은 해의 이름 (1980년대의 "은막의 스타") */
+export const cardTitle = (id: string, year: number) => cardNameAt(CARD[id]?.name ?? id, id, year);
 
 export function effText(e: CardEff): string {
   const S: Record<StatKey, string> = { str: '근력', int: '지능', cha: '매력', mor: '도덕성', hp: '건강' };
@@ -109,7 +115,7 @@ export function awardCard(s: GameState, p: Person, id: string, why?: string) {
   const first = !(s.cards ?? []).some((c) => c.id === id);
   (s.cards ??= []).push({ id, personId: p.id, year: s.year });
   if (d.honor) awardHonor(s, p, d.honor, d.name);
-  grant(s, d.icon, `${first ? '🆕 ' : ''}카드 획득: ${d.name}`, `${fullName(p)}${why ? ' — ' + why : ''}\n효과 (살아 있는 동안): ${effText(d.eff)}`, d.rarity);
+  grant(s, d.icon, `${first ? '🆕 ' : ''}카드 획득: ${cardNameAt(d.name, id, s.year)}`, `${fullName(p)}${why ? ' — ' + why : ''}\n효과 (살아 있는 동안): ${effText(d.eff)}`, d.rarity);
   const r = s.rewards?.[s.rewards.length - 1];
   if (r) (r.card = id), (r.personId = p.id);
   // 도감 세트 보상
@@ -267,11 +273,12 @@ export const CARD_EVENTS: EventDef[] = SUMMITS.map(summitDef);
 export function cardYear(s: GameState): void {
   const seen = (s.storySeen ??= {});
   const people = Object.values(s.people).filter((p) => alive(p) && !p.inLaw && isMainline(s, p));
-  for (const p of people) for (const d of CARDS) if (d.auto?.(s, p)) awardCard(s, p, d.id);
+  const open = (id: string) => s.year >= (CARD_FROM[id] ?? 0);
+  for (const p of people) for (const d of CARDS) if (open(d.id) && d.auto?.(s, p)) awardCard(s, p, d.id);
   // 정점 이벤트: 한 해에 하나
   const cands: [Summit, Person][] = [];
   for (const p of people)
-    for (const sm of SUMMITS) if (!hasCard(s, p, sm.card) && sm.ok(s, p) && (seen[`summit:${p.id}:${sm.card}`] ?? -99) <= s.year - 2) cands.push([sm, p]);
+    for (const sm of SUMMITS) if (open(sm.card) && !hasCard(s, p, sm.card) && sm.ok(s, p) && (seen[`summit:${p.id}:${sm.card}`] ?? -99) <= s.year - 2) cands.push([sm, p]);
   for (let i = 0; i < 2 && cands.length && chance(s, i === 0 ? 0.65 : 0.3); i++) {
     const [sm, p] = pick(s, cands);
     seen[`summit:${p.id}:${sm.card}`] = s.year;
@@ -327,6 +334,7 @@ export const CARD_THEME: Record<string, string> = {
   cardinal: 'faith', conscience: 'faith', good_heart: 'faith',
   star_farmer: 'nature', eco_hero: 'nature', explorer: 'nature', good_driver: 'nature', farm_hero: 'nature',
   philanthropist: 'family', best_teacher: 'family', proud_parent: 'family', centenarian: 'family', filial: 'family',
+  ...Object.fromEntries(ERA_CARDS.map((c) => [c.id, c.theme])),
 };
 export const SYN_THEME: Record<string, string> = {
   military_industrial: 'military', academic: 'science', law_dynasty: 'law', hallyu: 'stage', tech_empire: 'tech', power_peak: 'power', medical_house: 'medical',

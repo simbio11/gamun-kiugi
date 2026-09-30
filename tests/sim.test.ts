@@ -5,7 +5,7 @@ import { inherit, createPerson } from '../src/core/people';
 import { next } from '../src/core/rng';
 import type { GameState } from '../src/core/types';
 
-function autoplay(seed: number, years: number, difficulty?: 'easy' | 'normal' | 'hard' | 'hell'): GameState {
+function autoplay(seed: number, years: number, difficulty?: 'easy' | 'normal' | 'hard' | 'hell', each?: (s: GameState) => void): GameState {
   const s = difficulty ? newGame({ seed, familyName: '김', sex: 'M', difficulty }) : newGame({ seed, familyName: '김', sex: 'M', origin: 'middle' });
   for (let y = 0; y < years && !s.gameOver; y++) {
     let guard = 0;
@@ -22,6 +22,7 @@ function autoplay(seed: number, years: number, difficulty?: 'easy' | 'normal' | 
     }
     expect(s.events.length).toBe(0);
     simulateYear(s);
+    each?.(s);
   }
   return s;
 }
@@ -88,13 +89,14 @@ describe('시뮬레이션', () => {
     const seen = new Set<string>();
     for (const d of ['easy', 'normal', 'hard', 'hell'] as const)
       for (const seed of [11, 12]) {
-        const s = autoplay(seed, 60, d);
+        let woeEver = false; // 끝난 시점엔 짐이 다 풀렸을 수도 있으니 60년 동안 한 번이라도
+        const s = autoplay(seed, 60, d, (g) => (woeEver ||= Object.values(g.people).some((p) => p.flags.some((f) => f.startsWith('woe')))));
         for (const e of s.log) for (const k of ['기초생활보장', '근로장려금', '스무 살']) if (e.text.includes(k)) seen.add(k);
         for (const p of Object.values(s.people)) {
           expect(Number.isFinite(p.cash)).toBe(true);
           for (const f of p.flags) if (f.startsWith('woe')) seen.add('woe');
         }
-        if (d === 'hell') expect(Object.values(s.people).some((p) => p.flags.some((f) => f.startsWith('woe')))).toBe(true);
+        if (d === 'hell') expect(woeEver).toBe(true);
       }
     expect(seen.has('woe')).toBe(true);
   }, 60000);

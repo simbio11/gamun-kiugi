@@ -39,7 +39,8 @@ import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, is
 import { MISSIONS } from '../core/missions';
 import { rivalLine, rivalMood } from '../core/rival';
 import { FOCUS_LABEL, focusOf } from '../core/spouse';
-import { govOf, histStyle } from '../core/history';
+import { govOf } from '../core/history';
+import { epochOf, newsMedium, newsStyle, type AlertMedia } from '../core/timeline';
 import { anachronistic, inHistory, periodize } from '../core/histpack';
 import { jeonseRatio, LEASE_NAME, leaseOf, setLease, type Lease } from '../core/tenant';
 import { WOES, woesOf } from '../core/woes';
@@ -48,7 +49,7 @@ import { HONOR_JOBS, scandalLabel } from '../core/scandal';
 import { willLine, willOf } from '../core/autonomy';
 import { buyPerk, HONORS, PERKS, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
-import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
+import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
 import { cardBackURL, cardFrontURL, crestURL, medalURL, type Theme } from '../render/cardart';
 import { familyScore, lifeGrade, lifeParts } from '../core/score';
 import { pendingAffairs } from '../core/fate';
@@ -301,6 +302,10 @@ function render() {
   const hy = ui.game?.era === 'history' && ui.game.year <= 2025 ? ui.game.year : 0;
   root.classList.toggle('hist', !!hy);
   root.dataset.decade = hy ? (hy < 1980 ? '60' : hy < 1990 ? '80' : '90') : '';
+  // 먼 미래: 시대마다 화면 빛깔이 달라진다 (2040년대 로봇 → 2050년대 녹색 → 2060~70년대 우주 → 2080년대 신인류 → 22세기)
+  const fy = ui.game && ui.game.year >= 2040 ? ui.game.year : 0;
+  root.classList.toggle('fut', !!fy);
+  root.dataset.epoch = fy ? epochOf(fy).theme : '';
   root.classList.toggle('text-s', prefs.text === 's');
   root.classList.toggle('text-l', prefs.text === 'l');
   if (!g) {
@@ -614,7 +619,7 @@ function header(g: GameState): string {
     <div class="top-l">
       <div class="year">${g.year}년 <button class="gear" data-action="settings" title="설정" aria-label="설정">⚙</button></div>
       <div class="fam">${esc(g.familyName)}씨 ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
-      ${g.era === 'history' && g.year <= 2025 ? `<div class="fam gov">🏛 ${esc(govOf(g.year))}</div>` : ''}
+      ${g.era === 'history' && g.year <= 2025 ? `<div class="fam gov">🏛 ${esc(govOf(g.year))}</div>` : `<div class="fam gov">${epochOf(g.year).icon} ${esc(epochOf(g.year).name)}</div>`}
       <div class="fam">명성 ${Math.round(g.fame)}${(g.scandal ?? 0) >= 10 ? ` · <span class="scandal-chip" title="가문 스캔들 위험 ${Math.round(g.scandal ?? 0)}">${scandalLabel(g.scandal ?? 0)}</span>` : ''} · <button class="rank-chip" data-action="tab" data-v="achv">${RANKS[rankOf(g)].icon} ${RANKS[rankOf(g)].name} <b>${g.glory ?? 0}✦</b></button></div>
     </div>
     <button class="top-r" data-action="tab" data-v="assets" data-sub="sum" title="자산 탭에서 내년 가계부 보기">
@@ -788,7 +793,9 @@ function jobBadge(g: GameState, p: Person): [string, string] | undefined {
 }
 
 /** 카드 아래 한 줄: 학생/수험생/직업 */
-function jobShort(g: GameState, p: Person): string {
+/** 가계도 카드의 직업·신분 (그 시대 말로: 1970년대 "국민학생", 2060년대 "홀로 크리에이터") */
+const jobShort = (g: GameState, p: Person) => (alive(p) ? periodize(g, jobShort0(g, p)) : jobShort0(g, p));
+function jobShort0(g: GameState, p: Person): string {
   if (!alive(p)) return relationLabel(g, p);
   const a = age(g, p);
   if (p.flags.some((f) => f.startsWith('serving:'))) return '군 복무';
@@ -941,7 +948,7 @@ function rosterRow(g: GameState, p: Person): string {
     <img class="px" src="${portraitURL(p, a)}" alt="">
     <span class="r-nm">${esc(fullName(p))}<small>${esc(relationLabel(g, p))}</small></span>
     <span class="r-ag">${dead ? '†' : ''}${a}</span>
-    <span class="r-job">${esc(dead ? '' : jobShort(g, p) === JOBS[p.job].name ? jobTitle(p) : jobShort(g, p))}</span>
+    <span class="r-job">${esc(dead ? '' : jobShort(g, p) === periodize(g, JOBS[p.job].name) ? periodize(g, jobTitle(p)) : jobShort(g, p))}</span>
     <span class="r-w">${dead ? '' : formatMoney(personWorth(g, p))}</span>
     <span class="r-b">${badges}</span>
   </button>`;
@@ -1059,7 +1066,7 @@ function lifeRows(g: GameState, p: Person): string {
     rows.push(`<div class="sh-row"><span>인생 점수</span><span><b class="lg-${lifeGrade(v).g.toLowerCase()}">${lifeGrade(v).g}</b> ${v}점${p.lifeScore === undefined ? ' (지금까지)' : ''}<br><small>${parts.map((x) => `${x.label} ${x.v > 0 ? '+' : ''}${x.v}`).join(' · ')}</small></span></div>`);
   }
   const myCards = (g.cards ?? []).filter((c) => c.personId === p.id);
-  if (myCards.length) rows.push(`<div class="sh-row"><span>카드</span><span>${myCards.map((c) => `${CARD[c.id].icon} ${CARD[c.id].name}`).join('<br>')}</span></div>`);
+  if (myCards.length) rows.push(`<div class="sh-row"><span>카드</span><span>${myCards.map((c) => `${CARD[c.id].icon} ${cardTitle(c.id, c.year)}`).join('<br>')}</span></div>`);
   if (alive(p) && !p.inLaw && p.id !== g.headId && age(g, p) >= 13 && isDescendantOf(g, p, head(g))) {
     const w = willOf(p);
     rows.push(`<div class="sh-row"><span>성향</span><span>${willLine(p)}<br><small>독립심 ${w.indep} · 야망 ${w.ambition} · 충성도 ${w.loyalty} — 충성도가 낮고 독립심이 높으면 가주의 뜻을 거스르고, 야망이 크면 일을 벌인다</small></span></div>`);
@@ -1165,7 +1172,7 @@ function personSheet(g: GameState, p: Person): string {
 
 function eventModal(g: GameState): string {
   const cur = currentEvent(g)!;
-  const media = histStyle(cur.def.id, g.year);
+  const media = newsStyle(cur.def.id, g.year);
   if (media) return newsModal(g, cur, media);
   const how = commEvent(cur.def.id, cur.title);
   if (how) return commModal(g, cur, how);
@@ -1242,7 +1249,7 @@ function commModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent
 }
 
 /** 역사의 큰 사건: 1960~80년대 호외, 1990~2000년대 TV 속보, 2010년대~ 휴대폰 알림 */
-function newsModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>>, media: 'extra' | 'tv' | 'push'): string {
+function newsModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>>, media: AlertMedia): string {
   const [sub, ...rest] = cur.text.split('\n\n');
   const body = rest.join('\n\n');
   const paper = pick2(g.year, ['동아일보', '조선일보', '경향신문', '한국일보', '서울신문']);
@@ -1260,7 +1267,11 @@ function newsModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent
          <h2 class="nw-h">${esc(cur.title)}</h2><div class="nw-sub">${esc(sub)}</div>`
       : media === 'tv'
         ? `<div class="nw-tv"><div class="nw-tvbar"><b>속보</b><span>${esc(cur.title)}</span></div><div class="nw-tvsub">${esc(sub)} · ${pick2(g.year, ['KBS 9시 뉴스', 'MBC 뉴스데스크', 'SBS 8뉴스'])}</div></div>`
-        : `<div class="nw-pushcard"><div class="nw-pushapp">🔔 뉴스 속보 · 지금</div><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`;
+        : media === 'push'
+          ? `<div class="nw-pushcard"><div class="nw-pushapp">🔔 뉴스 속보 · 지금</div><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
+          : media === 'holo'
+            ? `<div class="nw-holohead"><span class="nw-holo-tag">◉ LIVE 속보</span><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
+            : `<div class="nw-aihead"><div class="nw-ai-av">🤖</div><div class="nw-ai-b"><small>AI 비서 · 지금</small><p>"잠깐만요, 가문에 중요한 소식이에요."</p><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div></div>`;
   return `
   <div class="modal nw-modal nw-${media}">
     <div class="event nw-card" data-stop>
@@ -1397,14 +1408,40 @@ function bestScore(g: GameState, now: number): number {
   }
 }
 
+/** 연말 뉴스: 종이 신문 → 포털 → AR 피드 → AI 브리핑 */
+function newsBlock(year: number, news: string[], trends: string[]): string {
+  if (!news.length) return '';
+  const items = news.map((l) => l.slice(3));
+  const m = newsMedium(year);
+  if (m === 'paper')
+    return `<div class="paper"><div class="paper-mast">📰 올해의 신문 <small>${year}년</small></div>${items.map((l, i) => `<div class="paper-item ${i === 0 ? 'lead' : ''}">${esc(l)}</div>`).join('')}</div>`;
+  if (m === 'portal') {
+    const press = ['연합통신', '한빛일보', '누리경제', '새날뉴스', '미래신문', '한결방송'];
+    const trend = trends[0] ? trends[0].slice(3).split(' · ') : [];
+    return `<div class="portal">
+      <div class="pt-bar"><b class="pt-logo">누리</b><div class="pt-search"><span>${year}년 올해의 뉴스</span><i>🔍</i></div></div>
+      <div class="pt-tabs"><span class="on">뉴스</span><span>경제</span><span>사회</span><span>IT·과학</span></div>
+      ${trend.length ? `<div class="pt-trend"><b>실시간 검색어</b>${trend.map((t, i) => `<span><em>${i + 1}</em>${esc(t)}</span>`).join('')}</div>` : ''}
+      ${items.map((l, i) => `<div class="pt-item"><i class="pt-thumb" style="--h:${(year * 37 + i * 71) % 360}"></i><div><b>${esc(l)}</b><small>${press[(year + i) % press.length]} · ${1 + ((year * 7 + i * 5) % 11)}시간 전</small></div></div>`).join('')}
+    </div>`;
+  }
+  if (m === 'feed')
+    return `<div class="feed"><div class="fd-top">👓 오늘의 피드 <small>${year}</small></div>${items.map((l, i) => `<div class="fd-item" style="animation-delay:${i * 90}ms"><span class="fd-dot"></span>${esc(l)}</div>`).join('')}</div>`;
+  return `<div class="aib"><div class="aib-h"><span class="aib-av">🤖</span><b>AI 비서</b><small>${year}년 한 해 브리핑</small></div>
+    <div class="aib-msg">올해 알아 두실 소식 ${items.length}가지를 정리했어요.</div>
+    ${items.map((l, i) => `<div class="aib-msg" style="animation-delay:${200 + i * 160}ms"><em>${i + 1}</em> ${esc(l)}</div>`).join('')}</div>`;
+}
+
 function reportModal(r: { title: string; lines: string[] }): string {
   const news = r.lines.filter((l) => l.startsWith('📰 '));
-  const rest = r.lines.filter((l) => !l.startsWith('📰 '));
+  const trends = r.lines.filter((l) => l.startsWith('🔎 '));
+  const rest = r.lines.filter((l) => !l.startsWith('📰 ') && !l.startsWith('🔎 '));
+  const year = Number(r.title.match(/\d{4}/)?.[0] ?? 2025);
   return `
   <div class="modal" data-action="ok-report">
     <div class="event report" data-stop>
       <h3>${esc(r.title)}</h3>
-      ${news.length ? `<div class="paper"><div class="paper-mast">📰 올해의 신문 <small>${esc(r.title.replace(/[^0-9년]/g, ''))}</small></div>${news.map((l, i) => `<div class="paper-item ${i === 0 ? 'lead' : ''}">${esc(l.slice(3))}</div>`).join('')}</div>` : ''}
+      ${newsBlock(year, news, trends)}
       <ul>${rest.map((l, i) => `<li style="animation-delay:${120 + Math.min(i, 12) * 45}ms">${esc(l)}</li>`).join('') || '<li class="muted">조용한 한 해였다.</li>'}</ul>
       <button class="btn primary" data-action="ok-report">확인</button>
     </div>
@@ -1669,7 +1706,7 @@ const AUTO_GIFT_STEPS = [0, 300, 500, 1000, 2500, 5000];
 function actionsScreen(g: GameState): string {
   const ap = apLeft(g);
   // 근현대사: 그 시절에 없던 행동은 숨기고 (코딩 학원·코인 …), 이름은 시대말로
-  const list = ACTIONS.filter((a) => forHead(g, a) && !anachronistic(g, a.name + ' ' + a.desc)).map((a) => (a.label ? { ...a, ...a.label(g) } : a)).map((a) => (inHistory(g) ? { ...a, name: periodize(g, a.name), desc: periodize(g, a.desc) } : a));
+  const list = ACTIONS.filter((a) => forHead(g, a) && !anachronistic(g, a.name + ' ' + a.desc)).map((a) => (a.label ? { ...a, ...a.label(g) } : a)).map((a) => (inHistory(g) || g.year >= 2040 ? { ...a, name: periodize(g, a.name), desc: periodize(g, a.desc) } : a));
   const cats = [...new Set(list.map((a) => a.cat))] as ActionCat[];
   const cat = ui.actCat && cats.includes(ui.actCat as ActionCat) ? (ui.actCat as ActionCat) : cats[0];
   const money = canSpend(g);

@@ -4,6 +4,7 @@
 import type { GameState, Person } from './types';
 import { fullName } from './people';
 
+import { ERA_HONORS } from './cards-era';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legend';
 export interface Reward {
   id: number;
@@ -148,6 +149,7 @@ export const HONORS: Record<string, Honor> = {
   dongbaek: { name: '국민훈장 동백장', icon: '🌸', fame: 12, rarity: 'epic', desc: '국민의 생명을 지킨 공로' },
   mugunghwa_nat: { name: '국민훈장 무궁화장', icon: '🏵', fame: 22, rarity: 'legend', desc: '국민 훈장의 최고 등급. 인류와 사회에 크게 공헌' },
   ungbi: { name: '과학기술훈장 웅비장', icon: '🚀', fame: 15, rarity: 'epic', desc: '국가 우주·과학 프로젝트의 주역' },
+  ...ERA_HONORS,
 };
 
 export function awardHonor(s: GameState, p: Person, id: string, why: string) {

@@ -859,12 +859,23 @@ describe('부모님 유산', () => {
       let ok = false;
       if (d.auto) {
         // 자동 카드: 직업·직급으로 되는지, 아니면 플래그가 게임 어딘가에서 실제로 붙는지
-        for (const id of JOB_IDS) for (let lv = JOBS[id].maxLevel; lv >= 0 && !ok; lv--) {
-          h.job = id; h.jobLevel = lv; h.jobYears = 30;
-          if (d.auto(s, h)) ok = true;
+        // 시대의 카드는 그 시대에만: 1975·1990·2000·2035·2070년에도 해 본다 (나이는 40세로)
+        const base = s.year;
+        for (const y of [base, 1975, 1990, 2000, 2035, 2070]) {
+          s.year = y;
+          const by = h.birthYear;
+          h.birthYear = y - 40;
+          for (const id of JOB_IDS) for (let lv = JOBS[id].maxLevel; lv >= 0 && !ok; lv--) {
+            h.job = id; h.jobLevel = lv; h.jobYears = 30;
+            if (d.auto(s, h)) ok = true;
+          }
+          h.birthYear = by;
+          if (ok) break;
         }
+        s.year = base;
         if (!ok) {
-          const flags = ['president', 'was_minister', 'was_politician', 'nobel', 'olympic_gold']; // 모두 이벤트에서 실제로 붙는 플래그 (대선·청문회·총선·노벨상·올림픽)
+          // 근현대사·미래 사건이 붙이는 플래그 (history.ts 파독·중동·월남·5·18, histpack 금 모으기, timeline.ts 뉴럴·달·화성)
+          const flags = ['president', 'was_minister', 'was_politician', 'nobel', 'olympic_gold', 'mideast', 'germany', 'vietnam', 'arrested80', 'gold_ring', 'neural', 'moon_worker', 'mars_settler']; // 모두 이벤트에서 실제로 붙는 플래그 (대선·청문회·총선·노벨상·올림픽)
           for (const f of flags) {
             h.flags.push(f);
             if (d.auto(s, h)) ok = true;

@@ -105,7 +105,7 @@ const WORDS: [string, string, number][] = [
   ['사과 문자를 보냈다', '사과 편지를 썼다', 1998], ['SNS에 뜬 사진 한 장.', '동창회에서 들은 소식.', 2009], ['휴대폰을 뺏고', '용돈을 끊고', 1997],
   ['대치동 학원가', '종로 학원가', 1985], ['지방 아파트 단지', '지방 주택가', 1985], ['수도권 아파트 단지', '수도권 주택가', 1985], ['반지하 동네', '달동네', 1985],
   ['에어컨', '선풍기', 1988], ['대박이야', '떼돈 번다', 2000], ['체당금 신청하고', '노동청에 진정 넣고', 1998], ['모둠 과제', '분단 숙제', 1995],
-  ['스몰 웨딩', '조촐한 예식', 2005], ['소개팅', '맞선', 1985], ['치킨집', '통닭집', 1985], ['알바', '아르바이트', 1995], ['마트', '시장', 1993], ['반려견', '강아지', 2010],
+  ['초등학생', '국민학생', 1996], ['웹툰·웹소설 작가', '만화가', 2003], ['스몰 웨딩', '조촐한 예식', 2005], ['소개팅', '맞선', 1985], ['치킨집', '통닭집', 1985], ['알바', '아르바이트', 1995], ['마트', '시장', 1993], ['반려견', '강아지', 2010],
   ['반려동물', '애완동물', 2010], ['워킹맘', '맞벌이 엄마', 2000], ['비혼', '독신', 2010], ['헬스장', '체육관', 1990], ['학원 셔틀', '학원 봉고차', 2000],
   ['단톡방', '반상회', 2012], ['키즈카페', '놀이방', 2005], ['요양원', '양로원', 2008], ['요양보호사', '간병인', 2008], ['동아리', '서클', 1985], ['택시 앱', '택시', 2015], ['문자', '편지', 1997], ['전화해', '편지해', 1975], ['사교육', '과외', 1990], ['공무원 시험', '공무원 채용 시험', 1990],
 ];
@@ -125,8 +125,27 @@ function josa(t: string, word: string): string {
   out = out.replace(new RegExp(word + (bat && !rieul ? '로(?![가-힣])' : '으로'), 'g'), word + (bat && !rieul ? '으로' : '로'));
   return out;
 }
+/** 먼 미래의 말: [지금 말, 그때 말, 이 해부터] — 2040년 이후 이야기 속 물건이 그 시대 것으로 바뀐다 (게임 속 상상) */
+const FUTURE_WORDS: [string, string, number][] = [
+  ['스마트폰', 'AR 글래스', 2050], ['PC방', 'VR방', 2040], ['유튜버', '홀로 크리에이터', 2060], ['유튜브', '홀로튜브', 2060], ['인스타', '피드', 2050],
+  ['카톡', '메신저', 2045], ['단톡방', '가족 채널', 2045], ['인강', 'AI 과외', 2045], ['노트북', '공간 컴퓨터', 2055], ['배달 라이더', '배달 드론', 2050],
+  ['택시', '로보택시', 2050], ['운전면허', '수동 운전 면허', 2055], ['편의점 알바', '무인점포 관리', 2055], ['키오스크', '홀로 안내원', 2060],
+  ['휴대폰', '글래스', 2055], ['문자', '뉴럴 메시지', 2070], ['영상통화', '홀로그램 통화', 2060], ['TV', '벽 스크린', 2045], ['넷플릭스', '몰입형 드라마', 2055],
+];
+function futurize(year: number, text: string): string {
+  let t = text;
+  for (const [a, b, y] of FUTURE_WORDS)
+    if (year >= y && t.includes(a)) {
+      t = t.split(a).join(b);
+      t = josa(t, b);
+    }
+  return t;
+}
+
 export function periodize(s: GameState, text: string): string {
-  if (!inHistory(s) || !text) return text;
+  if (!text) return text;
+  if (s.year >= 2040) return futurize(s.year, text);
+  if (!inHistory(s)) return text;
   let t = text;
   for (const [a, b, y] of WORDS)
     if (s.year < y && t.includes(a)) {
@@ -534,7 +553,7 @@ export const HIST_STORIES: Story[] = [
     { label: '혼자 삭인다', text: '공원 벤치에서 신문 구인란을 뒤적였다.', eff: { hap: -5, hp: -2 } },
   ] },
   { id: 'h_gold_ring', title: '금 모으기 운동', age: [20, 80], w: 0.06, once: true, era: [1998, 1998], head: true, text: '나라가 IMF 구제금융을 받았다. "금 모으기 운동"에 온 국민이 줄을 섰다. 장롱 속 돌반지가 떠오른다.', choices: [
-    { label: '돌반지를 내놓는다', text: '아이 돌반지와 결혼반지를 내놓았다. 줄 선 사람들 눈시울이 붉었다.', eff: { mor: 3, fame: 1, hap: 3, mark: { honest: 1 } } },
+    { label: '돌반지를 내놓는다', text: '아이 돌반지와 결혼반지를 내놓았다. 줄 선 사람들 눈시울이 붉었다.', eff: { mor: 3, fame: 1, hap: 3, mark: { honest: 1 }, flag: 'gold_ring' } },
     { label: '지금은 우리 집도 어렵다', text: '반지를 다시 장롱에 넣었다.', eff: { cash: 20 } },
   ] },
   { id: 'h_pc_comm', title: 'PC통신', age: [15, 35], w: 0.04, era: [1992, 1999], text: '밤 11시, 전화선을 연결하면 "삐— 치이익" 모뎀 소리. 하이텔 동호회에 새 글이 올라왔다.', choices: [
@@ -628,6 +647,114 @@ export const HIST_ACTIONS: ActionDef[] = [
       const gain = Math.round(Math.min(h.cash, 2000 * wi(s)) * 0.08);
       h.cash += gain;
       return `월급날마다 은행 창구에 줄을 섰다. 비과세 고금리 이자 ${gain.toLocaleString()}만 원이 붙었다.`;
+    },
+  },
+  // ── 유튜브·인스타 대신: 그 시절 이름을 알리는 법 ──
+  {
+    id: 'h_song_contest',
+    cat: '사회',
+    icon: '🎤',
+    name: '전국노래자랑 나가기',
+    desc: '일요일 낮 KBS 전국노래자랑 예심에 나간다 (1980~). 잘하면 동네 스타 (매력·명성)',
+    ap: 1,
+    who: 'any',
+    show: (s) => inHistory(s) && s.year >= 1980 && s.year < 2008,
+    run: (s) => {
+      const h = s.people[s.headId];
+      const pass = h.actual.cha + (h.talents.some((t) => t.id === 'star') ? 25 : 0) > 55 || chance(s, 0.2);
+      if (!pass) return (hap(h, 2), '예심에서 "땡!" 그래도 동네 사람들이 한참 놀렸다(칭찬이었다).');
+      up(h, 'cha', 2);
+      s.fame += chance(s, 0.25) ? 3 : 1;
+      hap(h, 8);
+      return chance(s, 0.25) ? '"딩동댕!" 최우수상! 사회자가 어깨를 두드렸다. 다음 날 시장에서 사람들이 알아본다.' : '"딩동댕~" 인기상을 받았다. 상품으로 냉장고를 탔다.';
+    },
+  },
+  {
+    id: 'h_radio_letter',
+    cat: '사회',
+    icon: '📻',
+    name: '라디오에 사연 보내기',
+    desc: '엽서 한 장에 우리 집 이야기를 적어 보낸다 (1964~2004). 읽히면 온 동네가 듣는다',
+    ap: 1,
+    who: 'any',
+    show: (s) => inHistory(s) && s.year >= 1964 && s.year < 2005,
+    run: (s) => {
+      const h = s.people[s.headId];
+      if (!chance(s, 0.3)) return (up(h, 'int', 1), '엽서를 정성껏 써서 부쳤다. 이번 주엔 소개되지 않았다. 글솜씨는 늘었다.');
+      s.fame += 1;
+      hap(h, 6);
+      up(h, 'cha', 1);
+      return 'DJ가 사연을 읽어 줬다! "○○동에 사는 청취자분이…" 식구들이 라디오 앞에서 소리를 질렀다. 선물로 카세트테이프를 받았다.';
+    },
+  },
+  {
+    id: 'h_penpal',
+    cat: '진로·자기계발',
+    icon: '✉',
+    name: '펜팔 친구 사귀기',
+    desc: '잡지 펜팔란에서 다른 도시·외국 친구와 편지를 주고받는다 (1965~1997, 매력·지능)',
+    ap: 1,
+    who: 'kid',
+    show: (s) => inHistory(s) && s.year >= 1965 && s.year < 1998,
+    run: (s) => {
+      const h = s.people[s.headId];
+      up(h, 'cha', 1);
+      up(h, 'int', 1);
+      return pick(s, ['부산 사는 친구와 편지를 주고받는다. 편지지에 향수를 뿌렸다.', '미국 오하이오의 펜팔 친구가 사진을 보내왔다. 사전을 뒤져 가며 답장을 썼다.', '군대 간 위문편지 상대와 펜팔을 시작했다. 우표가 쌓여 간다.']);
+    },
+  },
+  {
+    id: 'h_speech',
+    cat: '진로·자기계발',
+    icon: '📢',
+    name: '웅변대회 나가기',
+    desc: '"이 연사, 힘차게 외칩니다!" 반공·새마을 웅변대회 (1960~1990, 매력)',
+    ap: 1,
+    who: 'kid',
+    show: (s) => inHistory(s) && s.year < 1991,
+    run: (s) => {
+      const h = s.people[s.headId];
+      up(h, 'cha', 2);
+      if (h.actual.cha >= 50 && chance(s, 0.4)) return (s.fame += 0.5), (hap(h, 6)), '"이 연사, 목 놓아 외칩니다!" 교육감상을 탔다. 조회 시간에 전교생 앞에서 상장을 받았다.';
+      return '두 손을 번쩍 들고 외쳤다. 원고를 까먹어 잠깐 멈췄지만 박수를 받았다.';
+    },
+  },
+  {
+    id: 'h_abacus',
+    cat: '자녀 교육',
+    icon: '🧮',
+    name: '주산 학원 보내기',
+    desc: '"더하기 빼기~" 주산·암산은 은행·회사 취직의 무기 (1960~1990, 지능·성적)',
+    ap: 1,
+    who: 'any',
+    show: (s) => inHistory(s) && s.year < 1991,
+    run: (s) => {
+      const h = s.people[s.headId];
+      const kid = age(s, h) < 20 ? h : Object.values(s.people).find((p) => p.birthYear && age(s, p) >= 7 && age(s, p) <= 15 && parentsOf(s, p).some((q) => q.id === h.id));
+      if (!kid) return '주산 가르칠 아이가 없다.';
+      householder(s).cash -= Math.round(15 * wi(s));
+      up(kid, 'int', 1);
+      kid.study = clamp((kid.study ?? 40) + 2, 0, 100);
+      return `${fullName(kid)}이(가) 주판알을 튕긴다. 암산 급수 시험에서 3급을 땄다.`;
+    },
+  },
+  {
+    id: 'h_taekwondo',
+    cat: '자녀 교육',
+    icon: '🥋',
+    name: '태권도장 보내기',
+    desc: '동네 태권도장. 국기(國技)이자 방과 후 돌봄 (1970~, 근력·성품)',
+    ap: 1,
+    who: 'any',
+    show: (s) => inHistory(s) && s.year >= 1970 && s.year < 2000,
+    run: (s) => {
+      const h = s.people[s.headId];
+      const kid = age(s, h) < 20 ? h : Object.values(s.people).find((p) => age(s, p) >= 6 && age(s, p) <= 14 && parentsOf(s, p).some((q) => q.id === h.id));
+      if (!kid) return '도장에 보낼 아이가 없다.';
+      householder(s).cash -= Math.round(12 * wi(s));
+      up(kid, 'str', 1);
+      up(kid, 'mor', 1);
+      return `${fullName(kid)}이(가) 노란 띠를 맸다. "태권!" 기합 소리가 우렁차다.`;
     },
   },
 ];

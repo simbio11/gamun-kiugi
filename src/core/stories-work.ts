@@ -369,4 +369,109 @@ export const WORK_STORIES: Story[] = [
     { label: '한 달 휴직한다', mark: { warmth: 1 }, text: '제주도 한 달 살기. 다시 웃을 수 있게 됐다.', eff: { hap: 12, cash: -500 } },
     { label: '참고 다닌다', text: '', roll: ['hp', 50, [{ hap: 2 }, '겨우 버텼다.'], [{ hp: -6, hap: -6 }, '결국 쓰러졌다. 입원.']] },
   ] },
+  // ───────── 미래 직업 (2027년~) ─────────
+  { id: 'wk_ait_bias', title: 'AI가 편을 든다', age: W, w: 1, cond: J('ai_trainer'), text: '{n}이(가) 튜닝한 상담 AI가 특정 지역 사람에게만 대출을 거절한다는 민원이 터졌다.', choices: [
+    { label: '데이터를 처음부터 다시 본다', mark: { study: 1 }, text: '', roll: ['int', 55, [{ promo: 1, fame: 1 }, '학습 데이터의 편향을 찾아냈다. 업계 사례집에 실렸다.'], [{ hap: -5, hp: -2 }, '석 달을 매달렸지만 원인을 못 찾았다.']] },
+    { label: '필터로 급히 막는다', text: '민원은 잦아들었다. 찝찝함은 남았다.', eff: { hap: -2 } },
+  ] },
+  { id: 'wk_ait_jailbreak', title: '탈옥 대회', age: W, w: 0.8, cond: J('ai_trainer'), text: '해커들이 {n}네 AI를 속여 금지된 답을 받아 내는 "탈옥 대회"를 열었다. 상금은 회사가 건다.', choices: [
+    { label: '밤새 방어 규칙을 짠다', text: '', roll: ['int', 50, [{ promo: 1, cash: 600 }, '끝까지 뚫리지 않았다. 보너스가 나왔다.'], [{ hap: -6 }, '12분 만에 뚫렸다. 뉴스에 캡처가 돌았다.']] },
+    { label: '해커들을 채용하자고 건의한다', mark: { network: 1 }, text: '"적을 친구로." 우승자가 팀에 합류했다.', eff: { cha: 1 } },
+  ] },
+  { id: 'wk_robo_recall', title: '관절 리콜', age: W, w: 1, cond: J('robot_tech'), text: '가정용 로봇 한 모델의 무릎 관절이 갑자기 풀린다. 리콜 대상 3만 대, {n}의 팀이 맡았다.', choices: [
+    { label: '주말 없이 돈다', text: '석 달 동안 3천 가구를 돌았다. 어르신들이 커피를 타 주셨다.', eff: { cash: 700, hp: -3, str: 1 } },
+    { label: '원인 부품을 파고든다', mark: { study: 1 }, text: '', roll: ['int', 50, [{ promo: 1 }, '윤활유 규격이 문제였다. 본사가 설계를 바꿨다.'], [{ hap: -3 }, '원인을 못 찾고 교체만 반복했다.']] },
+  ] },
+  { id: 'wk_robo_grandma', title: '로봇을 고쳐 주세요', age: W, w: 0.8, cond: J('robot_tech'), text: '홀로 사는 할머니가 20년 된 구형 로봇을 고쳐 달라신다. 부품은 단종됐다. "영감 떠나고 이 녀석이 말벗이야."', choices: [
+    { label: '3D 프린터로 부품을 만든다', text: '로봇이 다시 "할머니, 약 드실 시간이에요" 했다. 할머니가 울었다.', eff: { mor: 2, hap: 6 } },
+    { label: '새 모델을 권한다', text: '할머니는 끝내 새 로봇을 사지 않으셨다.', eff: { hap: -2 } },
+  ] },
+  { id: 'wk_drone_storm', title: '돌풍 경보', age: W, w: 1, cond: J('drone_control'), text: '갑작스러운 돌풍. 도심 상공에 배송 드론 4천 대, 에어택시 30대가 떠 있다. 관제실이 {n}을(를) 바라본다.', choices: [
+    { label: '전 기체 즉시 착륙 명령', text: '', roll: ['int', 50, [{ promo: 1, fame: 1 }, '한 대의 사고도 없었다. 관제소장이 박수를 쳤다.'], [{ hap: -6 }, '착륙장이 모자라 드론 수백 대가 공원에 불시착했다.']] },
+    { label: '고도를 낮춰 운항 유지', mark: { risk: 1 }, text: '', roll: ['luck', 55, [{ cash: 400 }, '배송 지연 없이 넘겼다.'], [{ hap: -10, promo: -1 }, '드론 두 대가 충돌했다. 청문회에 불려 갔다.']] },
+  ] },
+  { id: 'wk_drone_night', title: '야간 관제', age: W, w: 0.8, cond: J('drone_control'), text: '새벽 3시 관제실. 화면 속 수천 개의 점이 반딧불 같다. 졸음이 쏟아진다.', choices: [
+    { label: 'AI 보조에 맡기고 눈을 붙인다', mark: { risk: 1 }, text: '', roll: ['luck', 60, [{ hap: 3 }, '아무 일 없었다.'], [{ promo: -1, hap: -6 }, '그 사이 경보가 울렸다. 징계를 받았다.']] },
+    { label: '커피를 들이켜고 버틴다', text: '아침 교대 때 눈이 빨갰다.', eff: { hp: -2, mor: 1 } },
+  ] },
+  { id: 'wk_climate_wall', title: '방조제 설계', age: W, w: 1, cond: J('climate_eng'), text: '해수면 상승 대비 방조제 설계를 맡았다. 높이 1m마다 예산이 수천억씩 뛴다. 주민들은 "바다를 막아 달라"고 한다.', choices: [
+    { label: '100년 뒤를 보고 높게 짓자고 주장한다', text: '', roll: ['cha', 50, [{ promo: 1, fame: 1 }, '예산이 통과됐다. 손주 세대까지 지킬 벽이다.'], [{ hap: -4 }, '"과잉 설계" 소리를 듣고 밀려났다.']] },
+    { label: '예산에 맞춘다', text: '무난하게 통과됐다. 밤마다 파도 소리가 신경 쓰인다.', eff: { hap: -1 } },
+  ] },
+  { id: 'wk_climate_heat', title: '폭염 도시', age: W, w: 0.8, cond: J('climate_eng'), text: '올여름 도심 기온 43도. {n}의 팀이 만든 "바람길" 설계가 시범 적용된다.', choices: [
+    { label: '현장에서 직접 측정한다', text: '땡볕 아래 온도계를 들고 다녔다. 3도가 내려갔다!', eff: { hp: -2, fame: 1, hap: 4 } },
+    { label: '시뮬레이션을 믿는다', text: '', roll: ['int', 50, [{ promo: 1 }, '예측이 딱 맞았다.'], [{ hap: -4 }, '실제 바람은 시뮬레이션과 달랐다.']] },
+  ] },
+  { id: 'wk_vr_crash', title: '가상 도시 정전', age: W, w: 1, cond: J('vr_architect'), text: '{n}이(가) 설계한 가상 도시에 동시 접속자 200만 명. 서버가 버티지 못하고 건물들이 녹아내리기 시작했다.', choices: [
+    { label: '구역을 쪼개 긴급 분산', text: '', roll: ['int', 50, [{ promo: 1 }, '20분 만에 복구. "월드 빌더답다"는 말을 들었다.'], [{ hap: -6 }, '결국 전체 점검. 사과문을 썼다.']] },
+    { label: '"새 이벤트"라고 공지한다', mark: { risk: 1 }, text: '"녹는 도시 체험"이 오히려 화제가 됐다.', eff: { cha: 1, hap: 3 } },
+  ] },
+  { id: 'wk_vr_wedding', title: '가상 결혼식', age: W, w: 0.8, cond: J('vr_architect'), text: '해외에 흩어진 가족을 위해 가상 결혼식장을 지어 달라는 의뢰. 신부의 할머니는 60년 전 고향 마을을 원한다.', choices: [
+    { label: '옛 사진으로 마을을 복원한다', text: '할머니가 가상 골목을 걸으며 "여기가 우리 집이었어" 하셨다.', eff: { mor: 2, hap: 6 } },
+    { label: '화려한 궁전으로 짓는다', text: '멋있었지만 할머니는 조용하셨다.', eff: { cash: 300 } },
+  ] },
+  { id: 'wk_crm_lonely', title: '로봇이 못 하는 일', age: W, w: 1, cond: J('care_robot_mgr'), text: '돌봄 로봇이 모든 일을 척척 한다. 그런데 한 어르신이 로봇을 밀치며 "사람하고 얘기하고 싶다"고 우신다.', choices: [
+    { label: '매일 30분 말벗이 된다', text: '어르신이 {n}의 손을 꼭 잡으셨다. 기록에 남지 않는 일이다.', eff: { mor: 2, hap: 4 } },
+    { label: '로봇 대화 모드를 조정한다', text: '', roll: ['int', 45, [{ promo: 1 }, '말투를 돌아가신 아드님처럼 맞췄다. 어르신이 웃으셨다.'], [{ hap: -3 }, '어르신이 더 서글퍼하셨다.']] },
+  ] },
+  { id: 'wk_crm_fall', title: '낙상 경보', age: W, w: 0.8, cond: J('care_robot_mgr'), text: '새벽, 로봇 두 대가 동시에 낙상 경보를 울렸다. 한 대는 오작동일 가능성이 높다.', choices: [
+    { label: '두 곳 다 뛰어간다', text: '한 곳은 진짜였다. 제때 도착했다.', eff: { hp: -2, mor: 1, fame: 1 } },
+    { label: '데이터를 보고 한 곳만', mark: { risk: 1 }, text: '', roll: ['int', 55, [{ hap: 2 }, '판단이 맞았다.'], [{ hap: -10, promo: -1 }, '판단이 틀렸다. 어르신이 한참 쓰러져 계셨다.']] },
+  ] },
+  { id: 'wk_lon_rich', title: 'VIP 대기 명단', age: W, w: 1, cond: J('longevity_doc'), text: '재벌 회장 비서가 찾아왔다. "대기 순서를 앞당겨 주시면 병원에 연구동 하나를 지어 드리겠습니다."', choices: [
+    { label: '순서대로 한다', text: '회장은 다른 병원으로 갔다. 대기 명단의 노부부가 편지를 보내왔다.', eff: { mor: 3 } },
+    { label: '병원장에게 넘긴다', mark: { risk: 1 }, text: '', roll: ['luck', 50, [{ promo: 1, cash: 2000 }, '연구동이 지어졌다. 아무도 묻지 않았다.'], [{ fame: -2, hap: -8 }, '특혜 의혹 기사가 났다.']] },
+  ] },
+  { id: 'wk_lon_side', title: '부작용', age: W, w: 0.8, cond: J('longevity_doc'), text: '노화 역전 치료를 받은 환자 몇 명에게서 드문 부작용이 보고됐다. 학회 발표를 앞두고 있다.', choices: [
+    { label: '있는 그대로 발표한다', text: '', roll: ['mor', 45, [{ fame: 2, promo: 1 }, '정직함이 신뢰를 얻었다. 치료 기준이 더 안전해졌다.'], [{ hap: -4 }, '주가가 떨어졌다며 재단이 불편해했다.']] },
+    { label: '추가 연구 뒤로 미룬다', text: '발표는 순조로웠다. 마음 한편이 무겁다.', eff: { mor: -2 } },
+  ] },
+  { id: 'wk_aud_judge', title: 'AI 판결 감사', age: W, w: 1, cond: J('ai_auditor'), text: 'AI 보조 판사가 낸 양형 수천 건을 감사한다. 한 사건에서 AI의 판단 근거가 설명되지 않는다.', choices: [
+    { label: '끝까지 근거를 요구한다', text: '', roll: ['int', 55, [{ promo: 1, fame: 1 }, '알고리즘 결함을 찾아 판결 200건이 재심에 들어갔다.'], [{ hap: -5 }, '"설명 불가도 결과는 정확하다"는 반박에 밀렸다.']] },
+    { label: '결과가 맞으면 통과시킨다', text: '보고서는 깔끔했다.', eff: { mor: -1, cash: 300 } },
+  ] },
+  { id: 'wk_aud_lobby', title: '로비', age: W, w: 0.8, cond: J('ai_auditor'), text: '감사 대상 빅테크의 임원이 저녁을 사겠단다. "우리 AI, 조금만 너그럽게 봐 주시면…"', choices: [
+    { label: '거절하고 보고한다', text: '윤리위원회가 {n}을(를) 표창했다.', eff: { mor: 3, fame: 1 } },
+    { label: '밥만 먹는다', mark: { risk: 1 }, text: '', roll: ['luck', 50, [{ cash: 500 }, '별일 없었다.'], [{ promo: -1, fame: -2 }, '사진이 찍혔다. 감사에서 빠졌다.']] },
+  ] },
+  { id: 'wk_moon_leak', title: '기지 공기 누출', age: W, w: 1, cond: J('space_tech'), text: '달 기지 B동에 미세한 공기 누출 경보. 밖은 영하 170도의 진공이다.', choices: [
+    { label: '직접 선외 수리에 나선다', text: '', roll: ['str', 50, [{ promo: 1, fame: 2 }, '2시간 만에 틈을 막았다. 지구 뉴스에 나왔다.'], [{ hp: -12 }, '우주복이 긁혀 저산소증으로 쓰러졌다. 무사히 구조됐다.']] },
+    { label: '구역을 봉쇄하고 로봇을 보낸다', text: '시간은 걸렸지만 안전하게 끝났다.', eff: { int: 1 } },
+  ] },
+  { id: 'wk_moon_home', title: '지구가 뜬다', age: W, w: 0.8, cond: J('space_tech'), text: '6개월째 달 기지. 가족 영상통화는 1.3초씩 늦게 닿는다. 아이 생일인데 지구가 창밖에 푸르게 떠 있다.', choices: [
+    { label: '지구를 배경으로 생일 노래를 부른다', text: '아이가 그 영상을 평생 간직했다.', eff: { hap: 6, aff: 5 } },
+    { label: '일에 집중한다', text: '임무를 앞당겨 마쳤다. 귀환이 2주 빨라졌다.', eff: { promo: 1, hap: -3 } },
+  ] },
+  { id: 'wk_bci_hack', title: '칩 해킹', age: W, w: 1, cond: J('bci_surgeon'), text: '{n}이(가) 시술한 환자의 뉴럴 칩이 해킹당했다는 의심 신고. 환자가 "머릿속에 광고가 들린다"고 한다.', choices: [
+    { label: '긴급 제거 수술을 한다', text: '', roll: ['int', 55, [{ fame: 1, promo: 1 }, '무사히 제거했다. 보안 기준이 바뀌었다.'], [{ hap: -6 }, '후유증으로 환자가 한동안 말을 더듬었다.']] },
+    { label: '보안팀과 원격 패치를 한다', mark: { risk: 1 }, text: '', roll: ['luck', 55, [{ hap: 3 }, '패치로 해결됐다.'], [{ hap: -8 }, '패치가 실패했다. 소송이 걸렸다.']] },
+  ] },
+  { id: 'wk_bci_walk', title: '다시 걷다', age: W, w: 0.8, cond: J('bci_surgeon'), text: '10년간 누워 있던 청년이 {n}의 수술 뒤 처음으로 일어섰다. 기자들이 몰려왔다.', choices: [
+    { label: '재활팀에 공을 돌린다', text: '재활팀이 두고두고 {n}을(를) 존경했다.', eff: { mor: 2, fame: 1 } },
+    { label: '인터뷰에 나선다', text: '9시 뉴스에 나왔다. 수술 예약이 3년 치 찼다.', eff: { fame: 2, cash: 1000 } },
+  ] },
+  { id: 'wk_mem_erase', title: '지워 주세요', age: W, w: 1, cond: J('memory_designer'), text: '의뢰인이 사고로 떠난 가족의 기억을 통째로 지워 달라고 한다. "너무 아파서 살 수가 없어요."', choices: [
+    { label: '지우지 않고 모서리만 다듬는다', text: '', roll: ['cha', 50, [{ fame: 1, mor: 2 }, '1년 뒤 의뢰인이 찾아와 고맙다고 했다. "그 사람을 잃지 않아서요."'], [{ hap: -5 }, '의뢰인이 화를 내며 다른 곳으로 갔다.']] },
+    { label: '원하는 대로 지운다', text: '의뢰인은 가벼워졌다. 그런데 가끔 이유 없이 운다고 한다.', eff: { cash: 800, mor: -1 } },
+  ] },
+  { id: 'wk_mem_fake', title: '가짜 추억', age: W, w: 0.8, cond: J('memory_designer'), text: '부자 고객이 "행복한 어린 시절"을 새로 심어 달라고 한다. 실제로는 없던 기억이다.', choices: [
+    { label: '윤리 규정상 거절한다', text: '규정을 지켰다. 고객은 해외 업체를 찾았다.', eff: { mor: 2 } },
+    { label: '"각색"까지만 해 준다', mark: { risk: 1 }, text: '', roll: ['int', 50, [{ cash: 2000 }, '고객이 만족했다.'], [{ promo: -1, fame: -1 }, '자격 정지 3개월.']] },
+  ] },
+  { id: 'wk_mars_dust', title: '모래 폭풍', age: W, w: 1, cond: J('mars_pioneer'), text: '화성 전역에 모래 폭풍. 태양광이 끊기고 돔 온실의 작물이 위험하다. 한 달은 간다고 한다.', choices: [
+    { label: '온실부터 살린다', text: '', roll: ['str', 50, [{ promo: 1, fame: 1 }, '감자 한 알도 잃지 않았다. 정착촌 회의에서 박수가 터졌다.'], [{ hp: -6, hap: -4 }, '온실 절반을 잃었다. 배급이 줄었다.']] },
+    { label: '사람들 거주 구역에 전력을 몰아준다', text: '추위는 피했다. 작물은 다시 심는다.', eff: { mor: 1 } },
+  ] },
+  { id: 'wk_mars_letter', title: '지구에서 온 편지', age: W, w: 0.8, cond: J('mars_pioneer'), text: '20분 늦게 도착하는 영상 편지. 지구의 어머니가 늙으셨다. "밥은 잘 먹니?"', choices: [
+    { label: '화성 첫 수확 감자를 보여 준다', text: '어머니가 화면 너머로 웃으셨다.', eff: { hap: 5, aff: 4 } },
+    { label: '귀환 신청서를 들여다본다', text: '결국 내지 않았다. 여기가 이제 집이다.', eff: { hap: -3, mor: 1 } },
+  ] },
+  { id: 'wk_sea_typhoon', title: '초대형 태풍', age: W, w: 1, cond: J('sea_farmer'), text: '초대형 태풍이 해상 도시로 온다. 양식장을 통째로 가라앉혀야 버틴다. 잠수 장치가 오래됐다.', choices: [
+    { label: '가라앉힌다', text: '', roll: ['luck', 60, [{ hap: 4 }, '태풍이 지나가고 양식장이 멀쩡히 떠올랐다.'], [{ cash: -3000, hap: -8 }, '장치가 고장 나 일부가 쓸려 갔다.']] },
+    { label: '줄을 더 묶고 버틴다', mark: { risk: 1 }, text: '', roll: ['str', 45, [{ cash: 500 }, '밤새 버텼다.'], [{ cash: -5000, hap: -10 }, '양식장 절반이 부서졌다.']] },
+  ] },
+  { id: 'wk_sea_market', title: '해조 스테이크', age: W, w: 0.8, cond: J('sea_farmer'), text: '{n}네 해조류로 만든 "바다 스테이크"가 SNS에서 뜨고 있다. 대형 식품사가 독점 계약을 제안한다.', choices: [
+    { label: '계약한다', text: '안정적인 매출이 생겼다.', eff: { cash: 3000 } },
+    { label: '우리 브랜드로 간다', mark: { risk: 1 }, text: '', roll: ['cha', 50, [{ cash: 6000, fame: 1 }, '브랜드가 전국에 퍼졌다.'], [{ cash: -1500 }, '유통망을 뚫지 못했다.']] },
+  ] },
 ];

@@ -23,10 +23,11 @@ const cache = new Map<string, string>();
 export function portraitURL(p: Person, age: number): string {
   const stage = stageOf(age);
   const gn = p.genes;
-  const key = [gn.hairStyle, gn.hairColor, gn.skin, gn.eyes, gn.face, gn.brows, gn.mouth, gn.mark, p.sex, stage, p.job].join('-');
+  const era = eraOf(p.birthYear + age);
+  const key = [gn.hairStyle, gn.hairColor, gn.skin, gn.eyes, gn.face, gn.brows, gn.mouth, gn.mark, p.sex, stage, p.job, era].join('-');
   const hit = cache.get(key);
   if (hit) return hit;
-  const grid = draw(p, stage);
+  const grid = draw(p, stage, era);
   const c = document.createElement('canvas');
   c.width = 16;
   c.height = 16;
@@ -44,7 +45,10 @@ export function portraitURL(p: Person, age: number): string {
   return url;
 }
 
-function draw(p: Person, stage: Stage): (string | null)[][] {
+/** 옷차림의 시대: 0 1960~70년대 · 1 1980~2030년대 · 2 2040년대~ */
+const eraOf = (y: number) => (y < 1983 ? 0 : y < 2040 ? 1 : 2);
+
+function draw(p: Person, stage: Stage, era = 1): (string | null)[][] {
   const g: (string | null)[][] = Array.from({ length: 16 }, () => Array(16).fill(null));
   const set = (x: number, y: number, c: string | null) => {
     if (x >= 0 && x < 16 && y >= 0 && y < 16) g[y][x] = c;
@@ -58,14 +62,29 @@ function draw(p: Person, stage: Stage): (string | null)[][] {
   const f = p.sex === 'F';
 
   // 몸
-  const shirt = stage === 'baby' ? '#f3b6c8' : stage === 'child' ? '#e2b93b' : stage === 'teen' ? '#3f6fb5' : JOBS[p.job].color;
+  // 아이 옷·교복도 시대를 탄다: 60~70년대 물려 입은 무채색 옷과 검정 교복, 2040년대~ 형광 기능성 옷
+  const kidShirt = era === 0 ? '#8a7a5a' : era === 2 ? '#4fd0e0' : '#e2b93b';
+  const teenShirt = era === 0 ? '#1e1e28' : era === 2 ? '#e8ecf4' : '#3f6fb5';
+  const shirt = stage === 'baby' ? '#f3b6c8' : stage === 'child' ? kidShirt : stage === 'teen' ? teenShirt : JOBS[p.job].color;
   if (stage === 'baby') rect(4, 13, 11, 15, shirt);
   else if (stage === 'child') {
     rect(4, 12, 11, 15, shirt);
     rect(7, 11, 8, 11, skin);
   } else {
-    rect(3, 13, 12, 15, shirt);
-    rect(7, 11, 8, 12, skin);
+    if (f) {
+      // 여자: 좁은 어깨 + 파인 목선
+      rect(4, 13, 11, 15, shirt);
+      rect(7, 11, 8, 13, skin);
+      set(6, 13, skin);
+      set(9, 13, skin);
+    } else {
+      // 남자: 넓은 어깨 + 깃
+      rect(3, 13, 12, 15, shirt);
+      rect(2, 14, 13, 15, shirt);
+      rect(7, 11, 8, 12, skin);
+      set(6, 13, '#f2f2f2');
+      set(9, 13, '#f2f2f2');
+    }
     if (p.job === 'doctor' || p.job === 'pharmacist') rect(7, 13, 8, 15, '#7fb3d5');
     if (['office', 'corp', 'civil', 'public_corp', 'lawyer', 'accountant', 'politician'].includes(p.job)) rect(7, 13, 7, 15, p.job === 'politician' ? '#e8b64c' : '#a33');
     if (['police', 'officer', 'firefighter', 'pilot'].includes(p.job)) set(5, 14, '#f0d060');
@@ -109,6 +128,14 @@ function draw(p: Person, stage: Stage): (string | null)[][] {
   if (stage === 'baby') {
     rect(6, top - 1, 9, top - 1, hair);
     set(7, top - 2, hair);
+  } else if (stage === 'elder' && f) {
+    // 할머니: 짧은 뽀글 파마
+    rect(4, ht, 11, top, hair);
+    rect(3, top, 4, top + 3, hair);
+    rect(11, top, 12, top + 3, hair);
+    set(5, ht - 1, hair);
+    set(8, ht - 1, hair);
+    set(10, ht - 1, hair);
   } else if (stage === 'elder' && !f && style % 2 === 0) {
     rect(5, top, 5, top + 2, hair);
     rect(10, top, 10, top + 2, hair);
@@ -126,8 +153,9 @@ function draw(p: Person, stage: Stage): (string | null)[][] {
         rect(11, top, 11, bottom + 2, hair);
         break;
       case 2: // 포니테일
-        rect(5, ht, 10, top, hair);
-        rect(11, top, 12, top + 4, hair);
+        rect(4, ht, 11, top, hair);
+        rect(4, top, 4, top + 3, hair);
+        rect(11, top, 12, top + 6, hair);
         break;
       case 3: // 뽀글
         rect(4, ht - 1, 11, top, hair);
@@ -145,8 +173,10 @@ function draw(p: Person, stage: Stage): (string | null)[][] {
         rect(11, top + 1, 12, top + 6, hair);
         break;
       default: // 올림머리
-        rect(5, ht + 1, 10, top, hair);
-        rect(7, ht - 1, 8, ht, hair);
+        rect(4, ht + 1, 11, top, hair);
+        rect(6, ht - 1, 9, ht, hair);
+        rect(4, top, 4, top + 3, hair);
+        rect(11, top, 11, top + 3, hair);
     }
   } else {
     switch (style) {
@@ -178,10 +208,10 @@ function draw(p: Person, stage: Stage): (string | null)[][] {
         rect(4, ht, 11, top - 1, hair);
         rect(5, top, 10, top, hair);
         break;
-      case 6: // 장발
+      case 6: // 덮은 머리 (남자는 귀 밑까지만)
         rect(4, ht, 11, top, hair);
-        rect(4, top, 4, bottom + 1, hair);
-        rect(11, top, 11, bottom + 1, hair);
+        rect(4, top, 4, top + 3, hair);
+        rect(11, top, 11, top + 3, hair);
         break;
       default: // 스포츠
         rect(5, ht + 2, 10, top, hair);
@@ -190,6 +220,16 @@ function draw(p: Person, stage: Stage): (string | null)[][] {
 
   // 눈·눈썹·입
   const ey = top + 3;
+  // 성별 표시: 여자는 머리핀·리본, 속눈썹, 붉은 입술, 귀걸이 / 남자는 짙은 눈썹, 구레나룻, 수염 자국
+  const kidish = stage === 'child' || stage === 'teen';
+  if (f && stage !== 'baby') {
+    const acc = ['#e8506a', '#f0a0c0', '#f0d060', '#8a6ad0'][p.genes.hairColor % 4];
+    if (kidish) {
+      set(10, top - 2, acc);
+      set(11, top - 2, acc);
+      set(11, top - 3, acc);
+    } else set(10, top - 1, acc);
+  }
   const eyes = p.genes.eyes % 5;
   const grown = stage !== 'baby';
   set(6, ey, EYE);
@@ -226,9 +266,25 @@ function draw(p: Person, stage: Stage): (string | null)[][] {
       set(9, ey - 2, bc);
     }
   }
+  if (grown && stage !== 'child' && f) {
+    // 속눈썹
+    set(5, ey - 1, EYE);
+    set(10, ey - 1, EYE);
+  }
+  if (grown && !f && stage !== 'child') {
+    // 짙은 일자 눈썹
+    const bc = stage === 'elder' ? GRAY : HAIR[p.genes.hairColor % HAIR.length];
+    rect(5, ey - 2, 6, ey - 2, bc);
+    rect(9, ey - 2, 10, ey - 2, bc);
+    if (stage === 'adult' || stage === 'elder') {
+      // 구레나룻
+      set(5, top + 1, hair);
+      set(10, top + 1, hair);
+    }
+  }
   const my = Math.min(bottom - 1, ey + 2);
   const mouth = (p.genes.mouth ?? 0) % 4;
-  const lip = LIP[mouth];
+  const lip = f && (stage === 'teen' || stage === 'adult') ? ['#d8485a', '#e05a6a', '#c83c50', '#d05070'][mouth] : f ? LIP[mouth] : ['#9c5a50', '#a86458', '#8e5048', '#9c5a50'][mouth];
   if (mouth === 1 && grown) {
     // 미소
     set(6, my, lip);
@@ -241,7 +297,18 @@ function draw(p: Person, stage: Stage): (string | null)[][] {
     set(7, my, lip);
     set(8, my, lip);
   }
-  if (f || stage === 'baby' || stage === 'child' || (p.genes.mark ?? 0) === 4) {
+  if (f && (stage === 'adult' || stage === 'elder') && mouth === 2 && grown) set(8, my, lip); // 여자 어른은 입술이 도톰하게
+  if (!f && stage === 'adult' && (p.genes.face ?? 1) % 3 !== 2 && (p.genes.mouth ?? 0) % 2 === 0) {
+    // 수염 자국
+    set(6, my + 1 <= bottom ? my + 1 : my, shade);
+    set(9, my + 1 <= bottom ? my + 1 : my, shade);
+  }
+  if (f && (stage === 'adult' || stage === 'elder')) {
+    // 귀걸이
+    set(4, ey + 2, '#f0d060');
+    set(11, ey + 2, '#f0d060');
+  }
+  if (f || stage === 'baby' || (p.genes.mark ?? 0) === 4) {
     set(5, ey + 1, '#f19a9a');
     set(10, ey + 1, '#f19a9a');
   }

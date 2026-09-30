@@ -1,7 +1,7 @@
 import { chance, int, normal, pick } from './rng';
 import { prepBonus as prepMark } from './tracks';
 import { ART_TIERS, DREAM_QUOTES, EXAMS, JOB_CATS, JOB_IDS, JOBS, PREP_TIERS, STAT_NAMES, SURNAMES, TAG_NAMES, TALENTS } from './data';
-import { JOB_FROM } from './histidx';
+import { jobOpen } from './histidx';
 import { anachronistic } from './histpack';
 import { MAJOR_JOBS } from './school';
 import { startDating } from './romance';
@@ -507,7 +507,7 @@ function jobChoice(c: Ctx, id: string): Choice | undefined {
   const j = JOBS[id];
   const e = j?.entry;
   if (!e || id === 'none') return;
-  if (c.s.era === 'history' && c.s.year < (JOB_FROM[id] ?? 0)) return; // 아직 없는 직업
+  if (!jobOpen(c.s.era, c.s.year, id)) return; // 아직 없는 직업 · 이미 사라진 직업
   const p = c.p;
   const a = age(c.s, p);
   const lacks = (e.needFlags && !e.needFlags.some((f) => hasFlag(p, f))) || (e.univ && !hasUniv(p)) || (e.maxAge !== undefined && a > e.maxAge);
