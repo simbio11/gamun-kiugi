@@ -3,7 +3,8 @@
 
 import { chance, int, pick } from './rng';
 import { gate, schedule, type Choice, type Ctx, type EventDef } from './ev-util';
-import { age, alive, check, clamp, fullName, hasFlag, isMainline } from './people';
+import { age, alive, check, clamp, fullName, hasFlag, isMainline, parentsOf } from './people';
+import { JOBS } from './data';
 import { wageIndex } from './pay';
 import { awardHonor, diffMod, grant, type Rarity } from './rewards';
 import { MORE_CARDS, MORE_SUMMITS } from './cards-more';
@@ -157,9 +158,21 @@ export const SYNERGIES: Synergy[] = [
   { id: 'saints', name: '성인의 가문', icon: '🕊', desc: '종교·양심 + 나눔·구호', groups: [['cardinal', 'conscience'], ['msf', 'philanthropist', 'eco_hero']], eff: { hap: 3, kid: 'mor' } },
 ];
 /** 지금 발동 중인 시너지 */
+/** 가문 시너지: 조건 묶음마다 서로 다른 가족이 채워야 한다 (한 사람이 카드를 다 모아도 "가문"은 아니다) */
 export function activeSynergies(s: GameState): Synergy[] {
-  const live = new Set((s.cards ?? []).filter((c) => s.people[c.personId] && alive(s.people[c.personId])).map((c) => c.id));
-  return SYNERGIES.filter((sy) => sy.groups.every((g) => g.some((id) => live.has(id))));
+  const live = (s.cards ?? []).filter((c) => s.people[c.personId] && alive(s.people[c.personId]));
+  const holders = (g: string[]) => [...new Set(live.filter((c) => g.includes(c.id)).map((c) => c.personId))];
+  const fits = (groups: string[][], used: Set<string>): boolean => {
+    if (!groups.length) return true;
+    for (const pid of holders(groups[0])) {
+      if (used.has(pid)) continue;
+      used.add(pid);
+      if (fits(groups.slice(1), used)) return true;
+      used.delete(pid);
+    }
+    return false;
+  };
+  return SYNERGIES.filter((sy) => fits(sy.groups, new Set()));
 }
 
 // ───────────────────────── 정점 이벤트 ─────────────────────────
@@ -230,13 +243,15 @@ export const SUMMITS: Summit[] = [
   ...MORE_SUMMITS,
 ];
 const STAT_KO: Record<StatKey, string> = { str: '근력', int: '지능', cha: '매력', mor: '도덕성', hp: '건강' };
+/** 몇 단계 도전인가: 전설 카드는 무조건 3단계, 영웅 카드는 2단계 이상 */
+const stagesOf = (sm: Summit) => Math.max(sm.stages ?? 1, CARD[sm.card]?.rarity === 'legend' ? 3 : CARD[sm.card]?.rarity === 'epic' ? 2 : 1);
 const summitDef = (sm: Summit): EventDef => ({
   id: 'summit_' + sm.card,
   title: () => sm.title,
   valid: (c) => alive(c.p),
   text: (c) => {
     const stage = c.ev.data?.stage ?? 1;
-    const total = sm.stages ?? 1;
+    const total = stagesOf(sm);
     const tag = total > 1 ? (stage < total ? `\n\n⚔️ ${stage}차 관문 (${total}단계 도전)` : `\n\n🔥 최종 관문! 여기서 이기면 역사에 남는다.`) : '';
     return `${sm.text(c)}${tag}\n\n🃏 성공하면 「${CARD[sm.card].name}」 카드 (${'★'.repeat(tierOf(CARD[sm.card]))}) · ${effText(CARD[sm.card].eff)}`;
   },
@@ -246,15 +261,18 @@ const summitDef = (sm: Summit): EventDef => ({
       req: [`${STAT_KO[st]} 판정`],
       run: (x) => {
         const stage = x.ev.data?.stage ?? 1;
-        const total = sm.stages ?? 1;
-        // 실패할수록 경험이 쌓여 다음 도전이 쉬워진다
+        const total = stagesOf(sm);
+        const rar = CARD[sm.card]?.rarity;
+        // 실패할수록 경험이 쌓여 다음 도전이 쉬워진다 (전설은 조금만). 관문이 뒤로 갈수록 어렵다
         const tries = x.s.storySeen?.[`try:${x.p.id}:${sm.card}`] ?? 0;
-        const need = need0 - 6 + (stage > 1 ? 2 : 0) + diffMod(x.s).challenge - Math.min(15, tries * 5);
+        const legendHard = rar === 'legend' ? 8 : rar === 'epic' ? 3 : 0;
+        const ease = rar === 'legend' ? Math.min(6, tries * 2) : Math.min(15, tries * 5);
+        const need = need0 - 6 + (stage - 1) * 3 + legendHard + diffMod(x.s).challenge - ease;
         if (check(x.s, x.p.actual[st], need, 10)) {
           if (stage < total) {
             schedule(x.s, int(x.s, 1, 2), 'summit_' + sm.card, x.p.id, { stage: stage + 1 });
             x.p.happiness = clamp(x.p.happiness + 6, 0, 100);
-            return `✅ ${stage}차 관문 통과! 1~2년 뒤 최종 관문이 기다린다.`;
+            return `✅ ${stage}차 관문 통과! 1~2년 뒤 ${stage + 1 < total ? `${stage + 1}차 관문` : '최종 관문'}이 기다린다.`;
           }
           awardCard(x.s, x.p, sm.card, sm.title.replace(/^\S+ /, ''));
           x.p.happiness = clamp(x.p.happiness + 15, 0, 100);
@@ -272,7 +290,17 @@ export const CARD_EVENTS: EventDef[] = SUMMITS.map(summitDef);
 /** 해마다: 자동 카드 · 정점 이벤트 · 카드 효과 */
 export function cardYear(s: GameState): void {
   const seen = (s.storySeen ??= {});
-  const people = Object.values(s.people).filter((p) => alive(p) && !p.inLaw && isMainline(s, p));
+  // 가주의 부모·조부모도 제 직업에서 정점에 오를 수 있다
+  const h0 = s.people[s.headId];
+  const elders = h0 ? [...parentsOf(s, h0), ...parentsOf(s, h0).flatMap((q) => parentsOf(s, q))] : [];
+  const people = Object.values(s.people).filter((p) => alive(p) && !p.inLaw && (isMainline(s, p) || elders.includes(p)));
+  // 윗세대도 일하는 동안 조금씩 올라간다 (능력이 좋을수록)
+  for (const q of elders) {
+    const j = JOBS[q.job];
+    if (!alive(q) || !j || q.job === 'none' || q.job === 'pension' || q.jobLevel >= j.maxLevel - 1) continue;
+    const best = Math.max(q.actual.int, q.actual.cha, q.actual.str);
+    if (q.jobYears >= 4 && chance(s, 0.04 + best / 1200)) q.jobLevel++;
+  }
   const open = (id: string) => s.year >= (CARD_FROM[id] ?? 0);
   for (const p of people) for (const d of CARDS) if (open(d.id) && d.auto?.(s, p)) awardCard(s, p, d.id);
   // 정점 이벤트: 한 해에 하나
@@ -281,6 +309,7 @@ export function cardYear(s: GameState): void {
     for (const sm of SUMMITS) if (open(sm.card) && !hasCard(s, p, sm.card) && sm.ok(s, p) && (seen[`summit:${p.id}:${sm.card}`] ?? -99) <= s.year - 2) cands.push([sm, p]);
   for (let i = 0; i < 2 && cands.length && chance(s, i === 0 ? 0.65 : 0.3); i++) {
     const [sm, p] = pick(s, cands);
+    if (CARD[sm.card]?.rarity === 'legend' && !chance(s, 0.4)) continue; // 전설은 기회 자체가 드물다
     seen[`summit:${p.id}:${sm.card}`] = s.year;
     s.events.push({ uid: s.eventSeq++, defId: 'summit_' + sm.card, personId: p.id });
     cands.splice(cands.findIndex(([x, q]) => x === sm && q === p), 1);

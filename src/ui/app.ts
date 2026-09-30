@@ -1975,6 +1975,7 @@ function achvScreen(g: GameState): string {
   </section>
   <section class="card">
     <h2>✨ 가문 시너지 <small class="muted">발동 ${activeSynergies(g).length}/${SYNERGIES.length}</small></h2>
+    <p class="fine">조건 묶음마다 서로 다른 가족이 카드를 가져야 발동한다 (한 사람이 다 모으면 안 된다).</p>
     <div class="syn">${[...SYNERGIES].sort((a, b) => Number(activeSynergies(g).includes(b)) - Number(activeSynergies(g).includes(a))).slice(0, ui.open?.syn ? 99 : 3).map((sy) => {
       const on = activeSynergies(g).includes(sy);
       return `<div class="sy ${on ? 'on' : ''}"><img class="sy-crest" src="${crestURL(sy.id, [CARD[sy.groups[0][0]].icon, CARD[sy.groups[1][0]].icon], (SYN_THEME[sy.id] ?? 'power') as Theme, on)}" alt=""><div><b>${sy.name}</b> <small>${esc(sy.desc)}</small><em>${sy.groups.map((gr) => '[' + gr.map((id) => (dexGot.has(id) ? `✅${CARD[id].name}` : CARD[id].name)).join(' / ') + ']').join(' + ')}</em><em class="sy-eff">→ ${esc(effText(sy.eff))}</em></div></div>`;

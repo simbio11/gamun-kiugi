@@ -903,7 +903,7 @@ describe('부모님 유산', () => {
         }
         if (ok) {
           // 이벤트를 끝까지 실제로 치른다 (능력치 100이면 이긴다)
-          for (let stage = 1; stage <= (sm.stages ?? 1); stage++) {
+          for (let stage = 1; stage <= 3 && !(s.cards ?? []).some((c) => c.id === d.id && c.personId === h.id); stage++) {
             s.events = [{ uid: s.eventSeq++, defId: 'summit_' + d.id, personId: h.id, data: { stage } }];
             resolveChoice(s, 0);
           }
@@ -924,6 +924,9 @@ describe('부모님 유산', () => {
     const dad = parentsOf(s, h)[0];
     s.year += 30;
     awardCard(s, h, 'general');
+    awardCard(s, h, 'chaebol');
+    expect(activeSynergies(s).some((x) => x.id === 'military_industrial')).toBe(false); // 한 사람이 다 가지면 가문 시너지가 아니다
+    s.cards = s.cards!.filter((c) => c.id !== 'chaebol');
     awardCard(s, dad, 'chaebol');
     expect(activeSynergies(s).some((x) => x.id === 'military_industrial')).toBe(true);
     s.events = [];
