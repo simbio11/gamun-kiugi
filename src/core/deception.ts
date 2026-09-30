@@ -11,6 +11,7 @@ import { wageIndex } from './pay';
 import { addFlag, age, alive, check, clamp, fullName, mark, spouseOf } from './people';
 import { FEMALE_NAMES, MALE_NAMES, SURNAMES } from './data';
 import { buyPower } from './leverage';
+import { CALL_FROM } from './devices';
 
 const W = (s: GameState, v: number) => Math.round(v * wageIndex(s.year));
 const hap = (p: Person, d: number) => (p.happiness = clamp(p.happiness + d, 0, 100));
@@ -290,6 +291,7 @@ function callDef(t: CallTpl): LifeDef {
       const a = age(s, p);
       if (p.id !== s.headId || a < t.age[0] || a > t.age[1]) return 0;
       if (t.cond && !t.cond(s, p)) return 0;
+      if (s.year < (CALL_FROM[t.id] ?? 0)) return 0; // 그 수법이 없던 시절
       return t.w ?? 0.015;
     },
     title: () => t.title,

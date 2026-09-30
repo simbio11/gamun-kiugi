@@ -2,6 +2,7 @@ import { chance, int, normal, pick } from './rng';
 import { prepBonus as prepMark } from './tracks';
 import { ART_TIERS, DREAM_QUOTES, EXAMS, JOB_CATS, JOB_IDS, JOBS, PREP_TIERS, STAT_NAMES, SURNAMES, TAG_NAMES, TALENTS } from './data';
 import { JOB_FROM } from './histidx';
+import { anachronistic } from './histpack';
 import { MAJOR_JOBS } from './school';
 import { startDating } from './romance';
 import { appealBonus } from './marks';
@@ -194,7 +195,7 @@ const dream: EventDef = {
   title: () => '장래희망',
   text: (c) => {
     c.p.desire = c.p.desire ?? computeDesire(c.p);
-    c.ev.data ??= { quote: dreamQuote(c.s, c.p) ?? pick(c.s, DREAM_QUOTES[c.p.desire]) };
+    c.ev.data ??= { quote: dreamQuote(c.s, c.p) ?? pick(c.s, DREAM_QUOTES[c.p.desire].filter((q) => !anachronistic(c.s, q)).concat(DREAM_QUOTES[c.p.desire].every((q) => anachronistic(c.s, q)) ? ['훌륭한 사람이 될래요!'] : [])) };
     return `${iga(who(c))} 진지하게 말한다.\n"${c.ev.data.quote}"`;
   },
   choices: (c) => gate(c.s, [

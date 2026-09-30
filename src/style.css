@@ -773,3 +773,35 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .nw-pushcard small { opacity: .75; font-size: .75em; }
 @keyframes nw-buzz { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 .calm .nw-card, .calm .nw-hoei, .calm .nw-tvbar b, .calm .nw-pushcard { animation: none !important; }
+
+/* 연락 수단별 사건 창 (devices.ts) */
+.cm-modal { align-items: center; }
+.cm-dev { animation: cm-in .5s cubic-bezier(.2, 1.2, .3, 1) both; }
+.cm-screen { border-radius: 12px; padding: 10px 12px; margin: 4px 0 10px; position: relative; overflow: hidden; }
+.cm-screen h3 { margin: 6px 0 4px; }
+.cm-screen .ev-text { margin: 0; }
+.cm-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .75em; font-weight: bold; }
+@keyframes cm-in { 0% { transform: translateY(24px) scale(.96); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes cm-ring { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-18deg); } 40% { transform: rotate(16deg); } 60% { transform: rotate(-10deg); } 80% { transform: rotate(8deg); } }
+@keyframes cm-glow { 0%, 100% { opacity: .85; } 50% { opacity: 1; } }
+/* 편지·전보: 누런 전보 용지 */
+.cm-letter .cm-screen { background: #efe3c4 repeating-linear-gradient(0deg, transparent 0 22px, rgba(150,60,40,.18) 22px 23px); color: #2a1d10; border: 2px solid #8a3a2a; border-radius: 4px; font-family: 'Nanum Myeongjo', 'Batang', serif; }
+.cm-stamp { color: #b01818; border: 2px solid #b01818; padding: 0 6px; font-size: 1.3em; transform: rotate(-5deg); display: inline-block; }
+/* 다이얼·버튼 전화 */
+.cm-shared .cm-screen, .cm-landline .cm-screen, .cm-carphone .cm-screen { background: #e9dcc0; color: #2a2016; border: 3px solid #6b4a2a; }
+.cm-ringer { font-size: 1.8em; display: inline-block; animation: cm-ring .7s ease-in-out 3; }
+/* 삐삐·시티폰: 초록 LCD */
+.cm-pager .cm-screen, .cm-citi .cm-screen { background: #22262a; color: #e8ecef; border: 3px solid #0e1012; }
+.cm-lcd { display: flex; align-items: baseline; justify-content: space-between; background: #9db07a; color: #1a2410; font-family: 'Courier New', monospace; padding: 6px 10px; border-radius: 4px; box-shadow: inset 0 2px 6px rgba(0,0,0,.35); animation: cm-glow 1s steps(2) 4; }
+.cm-lcd span { font-size: 1.8em; font-weight: bold; letter-spacing: 4px; }
+/* 휴대폰·폴더폰: 파란 백라이트 */
+.cm-cell .cm-screen, .cm-feature .cm-screen { background: linear-gradient(#bfe0f5, #8cc3e8); color: #0d2233; border: 6px solid #3a3f48; border-radius: 16px 16px 10px 10px; font-family: 'Galmuri11', monospace; }
+/* 스마트폰 */
+.cm-smart .cm-screen { background: #f4f5f8; color: #16181d; border: 7px solid #111; border-radius: 22px; }
+.cm-smart .cm-top { opacity: .7; }
+.cm-smart .ev-text { background: #fff; border-radius: 14px; padding: 8px 10px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+/* 미래: AR 글래스 · 뉴럴 링크 · 홀로그램 */
+.cm-glass .cm-screen, .cm-neural .cm-screen, .cm-holo .cm-screen { background: rgba(20,60,90,.55); color: #d8f6ff; border: 1px solid rgba(120,230,255,.7); box-shadow: 0 0 22px rgba(80,220,255,.35), inset 0 0 18px rgba(80,220,255,.2); backdrop-filter: blur(3px); }
+.cm-glass .cm-screen::after, .cm-neural .cm-screen::after, .cm-holo .cm-screen::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(160,240,255,.08) 0 1px, transparent 1px 4px); animation: cm-glow 2s ease-in-out infinite; }
+.cm-neural .cm-screen { background: rgba(60,20,90,.55); border-color: rgba(220,140,255,.7); box-shadow: 0 0 22px rgba(200,120,255,.35); color: #f2e2ff; }
+.calm .cm-dev, .calm .cm-ringer, .calm .cm-lcd, .calm .cm-screen::after { animation: none !important; }

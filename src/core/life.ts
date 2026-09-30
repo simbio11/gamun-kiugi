@@ -15,6 +15,8 @@ import type { GameState, Person } from './types';
 import { illMult } from './marks';
 
 export interface LifeDef extends EventDef {
+  /** 이야기 원문 (근현대사 모드에서 시대에 안 맞는 말이 있나 거를 때) */
+  raw?: string;
   /** 한 해에 이 사람에게 일어날 가중치 (0이면 안 일어남) */
   weight?: (s: GameState, p: Person) => number;
 }

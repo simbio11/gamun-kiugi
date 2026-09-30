@@ -8,7 +8,7 @@ import { addFlag, age, alive, clamp, fullName, hasFlag, head, householder, mark,
 import { isPrimary, isRealty, liab, sellRealty } from './realty';
 import { afterHomeSold, homeOf, moveQuote, moveTo, refundOf, tierOf, tiers } from './housing';
 
-export const creditOf = (p: Person) => p.credit ?? 750;
+export const creditOf = (p: Person) => Math.round(p.credit ?? 750);
 
 export function creditGrade(c: number): string {
   return c >= 850 ? '최우수' : c >= 750 ? '우수' : c >= 650 ? '보통' : c >= 500 ? '주의' : '위험';

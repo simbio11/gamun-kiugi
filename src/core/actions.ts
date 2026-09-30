@@ -14,6 +14,8 @@ import { RIVAL_ACTIONS } from './rival';
 import { MONEY_ACTIONS } from './scandal';
 import { AUTONOMY_ACTIONS, obeys } from './autonomy';
 import { STUDENT_ACTIONS } from './student-actions';
+import { HIST_ACTIONS } from './histpack';
+import { DEVICE_ACTIONS } from './devices';
 import { fitCats } from './interests';
 import { JOB_CATS } from './jobs';
 import { wageIndex } from './pay';
@@ -82,6 +84,8 @@ export interface ActionDef {
   blocked?: (s: GameState, t?: Person) => string | undefined;
   /** 이 행동이 키우는 관심 분야 (적성에 맞으면 💡 표시하고 위로) */
   fit?: string;
+  /** 해마다 바뀌는 이름·설명 (그해 나온 물건 등) */
+  label?: (s: GameState) => { name: string; desc: string };
   run: (s: GameState, t?: Person) => string;
 }
 
@@ -1267,7 +1271,7 @@ const STAGE_ACTIONS: ActionDef[] = [
 ];
 // 올해의 기회: 목록 맨 앞 (분류 칩도 맨 앞에 선다)
 ACTIONS.unshift(...oppActions((s) => stageOf(s, h(s))));
-ACTIONS.push(...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, ...MONEY_ACTIONS, ...AUTONOMY_ACTIONS, {
+ACTIONS.push(...HIST_ACTIONS, ...DEVICE_ACTIONS, ...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, ...MONEY_ACTIONS, ...AUTONOMY_ACTIONS, {
   id: 'license',
   cat: '진로·자기계발',
   icon: '🚦',

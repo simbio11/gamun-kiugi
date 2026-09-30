@@ -40,6 +40,7 @@ import { MISSIONS } from '../core/missions';
 import { rivalLine, rivalMood } from '../core/rival';
 import { FOCUS_LABEL, focusOf } from '../core/spouse';
 import { govOf, histStyle } from '../core/history';
+import { anachronistic, inHistory, periodize } from '../core/histpack';
 import { jeonseRatio, LEASE_NAME, leaseOf, setLease, type Lease } from '../core/tenant';
 import { WOES, woesOf } from '../core/woes';
 import { chooseSuccessor } from '../core/estate';
@@ -77,6 +78,7 @@ import {
 import type { Difficulty } from '../core/sim';
 import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, MarketKey, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
+import { commEvent, pcOf, phoneOf, type CommKind } from '../core/devices';
 
 type Tab = 'tree' | 'act' | 'policy' | 'assets' | 'log' | 'achv';
 type Zoom = 'big' | 'mid' | 'small';
@@ -1067,6 +1069,7 @@ function lifeRows(g: GameState, p: Person): string {
   if (alive(p) && woes.length) rows.push(`<div class="sh-row warn"><span>짐</span><span>${woes.map((w) => `${WOES[w].icon} ${WOES[w].name}`).join('<br>')}</span></div>`);
   if (p.flags.includes('disowned')) rows.push(`<div class="sh-row warn"><span>💔</span><span>의절한 자식</span></div>`);
   if (p.flags.includes('noble_inlaw') || p.flags.includes('rich_inlaw')) rows.push(`<div class="sh-row"><span>혼인</span><span>${p.flags.includes('noble_inlaw') ? '🏯 명문가와 정략결혼' : '💎 신흥 부유층과 정략결혼'}</span></div>`);
+  if (alive(p) && p.id === g.headId) rows.push(`<div class="sh-row"><span>살림</span><span>${esc(phoneOf(g).label)}${g.year >= 1983 ? `<br>${pcOf(g).model.id === 'none' ? '🖥 컴퓨터 없음' : esc(pcOf(g).label)}` : ''}</span></div>`);
   if (alive(p) && !['none', 'parttime', 'pension'].includes(p.job) && age(g, p) >= 18) rows.push(`<div class="sh-row"><span>직업 성격</span><span>${HONOR_JOBS.has(p.job) ? '🎖 명예형 — 해마다 가문 명성 +0.6, 대신 품위 유지비로 수입의 6%가 나가고 스캔들에 약하다' : JOBS[p.job].fame >= 1 ? '⭐ 인기형 — 이름을 알리는 일' : '💰 실리형 — 돈을 버는 일'}</span></div>`);
   if (p.flags.includes('convicted_politician')) rows.push(`<div class="sh-row warn"><span>⚖</span><span>정치자금법 위반 전과</span></div>`);
   return rows.join('');
@@ -1164,6 +1167,8 @@ function eventModal(g: GameState): string {
   const cur = currentEvent(g)!;
   const media = histStyle(cur.def.id, g.year);
   if (media) return newsModal(g, cur, media);
+  const how = commEvent(cur.def.id, cur.title);
+  if (how) return commModal(g, cur, how);
   const ports = cur.portraits
     .filter(Boolean)
     .slice(0, 3)
@@ -1187,6 +1192,51 @@ function eventModal(g: GameState): string {
           )
           .join('')}
       </div>
+    </div>
+  </div>`;
+}
+
+/** 전화·문자로 오는 사건: 그 집이 쓰는 연락 수단 모양으로 뜬다 (전보 → 다이얼 전화 → 삐삐 → 폴더폰 → 스마트폰 → AR 글래스 → 뉴럴 링크 → 홀로그램) */
+function commModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>>, how: 'call' | 'msg'): string {
+  const gear = phoneOf(g);
+  let kind: CommKind = gear.model.kind;
+  const paper = /^(✉)/.test(cur.title) || cur.def.id === 'st_h_telegram' || cur.def.id === 'st_h_lucky_letter';
+  if (paper) kind = 'letter';
+  else if (how === 'msg' && ['shared', 'landline', 'carphone'].includes(kind)) kind = 'letter';
+  else if (how === 'call' && kind === 'letter') kind = 'shared';
+  const title = cur.title.replace(/^(📞|☎|📱|💌|📟|✉|📧|💬|💠)\s*/u, '');
+  const clock = `${String(7 + ((g.year * 7) % 15)).padStart(2, '0')}:${String((g.year * 13) % 60).padStart(2, '0')}`;
+  const top =
+    kind === 'letter'
+      ? `<div class="cm-top"><span class="cm-stamp">${cur.def.id === 'st_h_telegram' ? '電報' : '郵便'}</span><span>${g.year < 2000 ? '체신부' : '우정사업본부'} · ${g.year}년</span></div>`
+      : kind === 'shared' || kind === 'landline' || kind === 'carphone'
+        ? `<div class="cm-top"><span class="cm-ringer">☎</span><span>따르릉… 따르릉…</span></div>`
+        : kind === 'pager' || kind === 'citi'
+          ? `<div class="cm-lcd"><span>${how === 'call' ? '8282' : '1004'}</span><small>${clock} · 음성 1</small></div>`
+          : kind === 'cell' || kind === 'feature'
+            ? `<div class="cm-top"><span>📶▮▮▮</span><span>${how === 'call' ? '전화 왔어요' : '✉ 새 문자 1'}</span><span>${clock}</span></div>`
+            : kind === 'smart'
+              ? `<div class="cm-top"><span>${how === 'call' ? '📞 전화 수신 중' : '💬 메시지'}</span><span>지금</span></div>`
+              : `<div class="cm-top"><span>${kind === 'neural' ? '🧠 뉴럴 수신' : kind === 'holo' ? '💠 홀로그램 연결' : '👓 시야 알림'}</span><span>${clock}</span></div>`;
+  const choices = cur.choices
+    .map(
+      (c, i) => `<button class="choice" style="animation-delay:${500 + i * 70}ms" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
+        <span class="cl">${esc(c.label)}</span>
+        ${c.cost || c.req?.length ? `<span class="badges">${c.cost ? `<b class="cost">💰${formatMoney(c.cost)}</b>` : ''}${c.disabled && c.cost && c.cost > wallet(g).amount ? '<b class="why">돈 부족</b>' : ''}${(c.req ?? []).map((r) => `<b>${esc(r)}</b>`).join('')}</span>` : ''}
+      </button>`,
+    )
+    .join('');
+  return `
+  <div class="modal cm-modal cm-${kind}">
+    <div class="event cm-dev" data-stop>
+      <div class="ev-count">${g.year}년 · ${esc(gear.label)}</div>
+      <div class="cm-screen">
+        ${top}
+        <h3>${esc(title)}</h3>
+        <p class="ev-text">${nl(cur.text)}</p>
+      </div>
+      ${cur.choices.some((c) => c.cost) ? `<div class="ev-wallet">${wallet(g).label} <b>${formatMoney(wallet(g).amount)}</b></div>` : ''}
+      <div class="choices">${choices}</div>
     </div>
   </div>`;
 }
@@ -1618,7 +1668,8 @@ const AUTO_GIFT_STEPS = [0, 300, 500, 1000, 2500, 5000];
 /** 행동 탭: 턴을 넘기기 전에 직접 하는 일. 분류 칩으로 한 묶음씩 보여 줘서 스크롤을 줄인다 */
 function actionsScreen(g: GameState): string {
   const ap = apLeft(g);
-  const list = ACTIONS.filter((a) => forHead(g, a));
+  // 근현대사: 그 시절에 없던 행동은 숨기고 (코딩 학원·코인 …), 이름은 시대말로
+  const list = ACTIONS.filter((a) => forHead(g, a) && !anachronistic(g, a.name + ' ' + a.desc)).map((a) => (a.label ? { ...a, ...a.label(g) } : a)).map((a) => (inHistory(g) ? { ...a, name: periodize(g, a.name), desc: periodize(g, a.desc) } : a));
   const cats = [...new Set(list.map((a) => a.cat))] as ActionCat[];
   const cat = ui.actCat && cats.includes(ui.actCat as ActionCat) ? (ui.actCat as ActionCat) : cats[0];
   const money = canSpend(g);
@@ -2303,7 +2354,7 @@ function handle(el: HTMLElement) {
       const r = doAction(g!, id, target);
       sfx(!r.ok ? 'error' : r.text.startsWith('🌟') ? 'great' : r.text.startsWith('💦') ? 'bad' : 'choose');
       if (!r.ok) ui.toast = r.text;
-      else ui.outcome = { title: ACTIONS.find((a) => a.id === id)!.name, text: r.text };
+      else ui.outcome = { title: periodize(g!, ACTIONS.find((a) => a.id === id)!.name), text: periodize(g!, r.text) };
       break;
     }
     case 'gift-asset': {

@@ -35,6 +35,7 @@ import { scandalYear } from './scandal';
 import { assignWoes, woeYear, woesOf, WOES } from './woes';
 import { eggForKids, eggYear, scheduleEggs } from './nestegg';
 import { spouseYear } from './spouse';
+import { anachronistic, histOverride, inHistory, periodize, TIMELESS } from './histpack';
 import { HIST_PARENT_JOBS, HIST_START, histOrigins, histYear } from './history';
 import { HIST_BASE, histPrice, histRel } from './histidx';
 import { autonomyYear } from './autonomy';
@@ -344,7 +345,7 @@ export function queue(s: GameState, defId: string, personId: string, data?: any)
   s.events.push({ uid: s.eventSeq++, defId, personId, data });
 }
 
-const log = (s: GameState, text: string, kind?: GameState['log'][number]['kind']) => s.log.push({ year: s.year, text, kind });
+const log = (s: GameState, text: string, kind?: GameState['log'][number]['kind']) => s.log.push({ year: s.year, text: periodize(s, text), kind });
 
 export function mainlineMembers(s: GameState): Person[] {
   return Object.values(s.people).filter((p) => alive(p) && isMainline(s, p));
@@ -492,8 +493,11 @@ function lifeYear(s: GameState) {
   }
   // 일상 이야기: 해마다 한두 개
   const stories: [LifeDef, Person, number][] = [];
+  const histNow = inHistory(s);
   for (const p of members) for (const d of STORIES) {
     if (d.id.startsWith('st_wk_')) continue; // 직장 이야기는 따로 (workEvents)
+    if (histNow && d.raw && anachronistic(s, d.raw)) continue; // 그 시절에 없던 이야기
+    if (histNow && s.year < 2000 && !d.id.startsWith('st_h_') && !d.id.startsWith('st_dev_') && !TIMELESS.has(d.id.slice(3))) continue; // 2000년 전엔 그 시절 이야기와 어느 시대에나 있을 이야기만
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) stories.push([d, p, w]);
   }
@@ -935,7 +939,7 @@ function workEvents(s: GameState) {
   let n = 0;
   for (const p of workers) {
     if (n >= 2 || !chance(s, p.id === s.headId ? 0.6 : 0.25)) continue;
-    const pool = WORK_DEFS.map((d) => [d, d.weight?.(s, p) ?? 0] as const).filter(([, w]) => w > 0);
+    const pool = WORK_DEFS.filter((d) => !(inHistory(s) && d.raw && anachronistic(s, d.raw))).map((d) => [d, d.weight?.(s, p) ?? 0] as const).filter(([, w]) => w > 0);
     const total = pool.reduce((t, [, w]) => t + w, 0);
     if (!total) continue;
     let r = next(s) * total;
@@ -987,15 +991,24 @@ function endGame(s: GameState, reason: string) {
 /** 죽은 사람 앞으로 온 이벤트도 보여주는 것들 */
 const FOR_THE_DEAD = new Set(['notice', 'choose_heir', 'parent_estate', 'naming']);
 
+/** 근현대사 모드: 뼈대 사건은 그 시절 판으로 */
+const defOf = (s: GameState, id: string) => histOverride(s, id) ?? EVENTS[id];
+/** 근현대사에서 그 시절에 없던 말이 들어가도 건너뛰지 않는 뼈대 사건 (선택지만 거른다) */
+const CORE_IDS = new Set(['notice', 'kinder', 'elementary', 'middle', 'high', 'exam', 'school_year', 'first_job', 'military', 'wedding', 'kid_wedding', 'naming', 'will', 'parent_estate', 'choose_heir', 'leave_home', 'kid_leave', 'house_promise', 'funeral', 'path', 'aptitude', 'dream', 'meet', 'dating_year', 'woe', 'allowance_talk', 'univ']);
+
 export function currentEvent(s: GameState): ReturnType<typeof eventView> | undefined {
   bindState(s);
   // 그사이 상황이 바뀐 이벤트(사망·이혼 등)는 건너뛴다
   while (s.events.length) {
     const ev = s.events[0];
-    const def = EVENTS[ev.defId];
+    const def = defOf(s, ev.defId);
     const p = s.people[ev.personId];
     const ctx: Ctx = { s, p, ev };
-    if (def && p && (alive(p) || FOR_THE_DEAD.has(def.id)) && (def.valid?.(ctx) ?? true)) return eventView(ctx);
+    if (def && p && (alive(p) || FOR_THE_DEAD.has(def.id)) && (def.valid?.(ctx) ?? true)) {
+      const v = eventView(ctx);
+      // 근현대사: 그 시절에 없던 물건·제도가 나오는 이야기는 건너뛴다
+      if (!inHistory(s) || v.def.id.startsWith('hist_') || CORE_IDS.has(v.def.id) || !anachronistic(s, v.title + ' ' + v.text)) return v;
+    }
     s.events.shift();
   }
   return undefined;
@@ -1003,14 +1016,22 @@ export function currentEvent(s: GameState): ReturnType<typeof eventView> | undef
 
 function eventView(ctx: Ctx) {
   const { ev, p } = ctx;
-  const def = EVENTS[ev.defId];
-  const text = def.text(ctx);
+  const def = defOf(ctx.s, ev.defId);
+  const hist = inHistory(ctx.s);
+  const text = hist ? periodize(ctx.s, def.text(ctx)) : def.text(ctx);
   // 비용이 가용 자금을 넘는 선택지는 이벤트 정의와 무관하게 잠근다
   const money = spendable(ctx.s);
-  const choices = def.choices(ctx).map((c) => (c.cost && c.cost > money ? { ...c, disabled: true } : c));
+  let raw = def.choices(ctx);
+  if (hist) {
+    // 그 시절에 없던 선택지는 빼고, 말은 시대말로. 이야기(st_)의 고정 금액은 그 시절 소득 수준으로
+    const w = wageIndex(ctx.s.year);
+    const kept = raw.filter((c) => !anachronistic(ctx.s, c.label));
+    raw = (kept.length ? kept : raw).map((c) => ({ ...c, label: periodize(ctx.s, c.label), cost: c.cost && def.id.startsWith('st_') ? Math.max(1, Math.round(c.cost * w)) : c.cost }));
+  }
+  const choices = raw.map((c) => (c.cost && c.cost > money ? { ...c, disabled: true } : c));
   // 돈이 없어 고를 게 하나도 없으면 막히지 않게 탈출구를 준다
   if (choices.every((c) => c.disabled)) choices.push({ label: '어쩔 수 없다 (그냥 넘긴다)', run: () => '할 수 있는 게 없었다.' });
-  return { ev, def, ctx, title: def.title(ctx), text, choices, portraits: def.portraits?.(ctx) ?? [p] };
+  return { ev, def, ctx, title: hist ? periodize(ctx.s, def.title(ctx)) : def.title(ctx), text, choices, portraits: def.portraits?.(ctx) ?? [p] };
 }
 
 export function resolveChoice(s: GameState, idx: number): string {
@@ -1020,7 +1041,7 @@ export function resolveChoice(s: GameState, idx: number): string {
   if (!ch || ch.disabled) return '';
   if (ch.cost) pay(s, householder(s), ch.cost);
   const res = ch.run(cur.ctx);
-  const text = typeof res === 'string' ? res : res.text;
+  const text = periodize(s, typeof res === 'string' ? res : res.text);
   if (typeof res === 'string' || !res.keep) s.events.shift();
   if (text && cur.def.id !== 'notice') log(s, `[${cur.title}] ${ch.label} → ${text.split('\n')[0]}`, 'life');
   checkAchievements(s);

@@ -100,7 +100,7 @@ describe('시뮬레이션', () => {
   }, 60000);
 
   it('근현대사 모드: 1960년 시작, 역사 사건이 제때 오고 2030년까지 크래시 없음', () => {
-    const s = newGame({ seed: 21, familyName: '박', sex: 'M', era: 'history' });
+    const s = newGame({ seed: 22, familyName: '박', sex: 'M', era: 'history' });
     expect(s.year).toBe(1960);
     expect(s.people[s.headId].birthYear).toBe(1955);
     const seen: string[] = [];
@@ -110,8 +110,10 @@ describe('시뮬레이션', () => {
         const cur = currentEvent(s);
         if (!cur) break;
         if (cur.def.id.startsWith('hist_')) seen.push(`${s.year}:${cur.def.id}`);
-        const en = cur.choices.map((c, i) => [c, i] as const).filter(([c]) => !c.disabled && !c.label.startsWith('←'));
-        resolveChoice(s, (en.length ? en : cur.choices.map((c, i) => [c, i] as const))[Math.floor(next(s) * Math.max(1, en.length))][1]);
+        const all = cur.choices.map((c, i) => [c, i] as const).filter(([c]) => !c.disabled);
+        const fwd = all.filter(([c]) => !c.label.startsWith('←'));
+        const pickFrom = fwd.length ? fwd : all;
+        resolveChoice(s, pickFrom[Math.floor(next(s) * pickFrom.length)][1]);
       }
       simulateYear(s);
       for (const p of Object.values(s.people)) expect(Number.isFinite(p.cash)).toBe(true);

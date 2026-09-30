@@ -254,6 +254,8 @@ export interface GameState {
   scheduled?: { year: number; defId: string; personId: string; data?: any }[];
   /** 근현대사 모드 (1960년 시작) */
   era?: 'history';
+  /** 우리 집이 직접 들인 전화기·컴퓨터 (devices.ts 모델 id) */
+  gear?: { phone?: string; pc?: string };
   gameOver?: { reason: string; score: number };
   /** 올해 부동산 매물 */
   listings?: Listing[];

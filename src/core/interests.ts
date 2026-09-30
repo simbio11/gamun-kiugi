@@ -1,5 +1,6 @@
 // 관심사: 어릴 때 해 본 것들이 쌓여 "어떤 일을 하고 싶은지"가 된다. 직업 분야(JOB_CATS)마다 흔적 'i:분야'.
 // 6·9·13·15세에 취미를 고르고 → 장래희망이 구체적인 직업이 되고 → 첫 직장에서 그 분야에 가산점.
+import { anachronistic, histCur } from './histpack';
 import type { Choice, Ctx, EventDef } from './ev-util';
 import type { GameState, Person, StatKey } from './types';
 import { chance, pick } from './rng';
@@ -145,7 +146,10 @@ const TRAIT_LABEL: Record<string, string> = {
 export function temperamentLine(p: Person): string {
   const tr = (p.traits ?? []).map((t) => TRAIT_LABEL[t]).filter(Boolean).slice(0, 3);
   const cats = fitCats(p, 3).map((k) => JOB_CATS[k]);
-  return `성향: ${mbtiLabel(p)}${tr.length ? ' · ' + tr.join('·') : ''}${cats.length ? ` → 잘 맞을 것 같은 분야: ${cats.join(', ')}` : ''}`;
+  // 근현대사 모드(2018년 전)엔 MBTI라는 말이 없었다
+  const h = histCur();
+  const mb = h && h.year < 2018 ? '' : mbtiLabel(p);
+  return `성향: ${[mb, ...tr].filter(Boolean).join(' · ') || '아직 잘 모르겠다'}${cats.length ? ` → 잘 맞을 것 같은 분야: ${cats.join(', ')}` : ''}`;
 }
 
 interface Hobby {
@@ -315,7 +319,9 @@ export const INTEREST_DREAMS: Record<Interest, string[]> = {
 /** 장래희망 한마디: 관심사가 뚜렷하면 구체적인 직업으로 */
 export function dreamQuote(s: GameState, p: Person): string | undefined {
   const [top] = topInterests(p, 1, 3);
-  return top ? pick(s, INTEREST_DREAMS[top]) : undefined;
+  if (!top) return undefined;
+  const list = INTEREST_DREAMS[top].filter((q) => !anachronistic(s, q));
+  return list.length ? pick(s, list) : undefined;
 }
 
 /** 첫 직장 가산점: 어릴 때부터 키운 관심 분야면 (최대 +10) */

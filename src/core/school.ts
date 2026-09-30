@@ -4,6 +4,7 @@
 
 import { chance, int, next, normal, pick } from './rng';
 import { examName, SUSI_FROM } from './histidx';
+import { histPlan, setHistCur } from './histpack';
 import { SURNAMES, TALENTS } from './data';
 import { formatMoney } from './economy';
 import {
@@ -30,6 +31,7 @@ import { spendable } from './ev-util';
 import { planLine, specialChoices, yearMood } from './school-flavor';
 import { bindKin, fitCats, temperamentLine, topInterests } from './interests';
 import { JOB_CATS } from './jobs';
+import { gearStudyMul, pcOf } from './devices';
 
 // ───────────────────────── 대학·학과 ─────────────────────────
 
@@ -576,6 +578,7 @@ export function addStudy(s: GameState, p: Person, base: number) {
   g *= studyBoost(p);
   g *= bonusStudy(s);
   g *= hoodOf(s, p).study; // 동네 학군: 반지하에선 같은 노력으로 덜 오른다
+  g *= gearStudyMul(s); // 집 컴퓨터: 인강·자료 검색 (1995년 이후)
   // 위로 갈수록 한 점 올리기가 훨씬 어렵다
   p.study = clamp(cur + g * Math.pow(Math.max(0, 1 - cur / 105), 1.4), 0, 100);
 }
@@ -614,7 +617,7 @@ export function gradeOf(pct: number): number {
 /** 지금 실력으로 본 전국 위치 (시험 운 제외): 백분위·상위 %·등급 */
 /** standing은 인자에 GameState가 없어 마지막으로 본 게임 상태로 동네를 본다 */
 let lastState: GameState | undefined;
-export const bindState = (s: GameState) => (bindKin(s), (lastState = s));
+export const bindState = (s: GameState) => (bindKin(s), setHistCur(s), (lastState = s));
 
 export function standing(p: Person): { pct: number; top: number; grade: number } {
   const raw = studyOf(p) * 0.6 + p.actual.int * 0.45 + eduBonus(p) + suneungBonus(p) + (hasTrait(p, 'anxious') ? -2 : hasTrait(p, 'cheerful') ? 1 : 0) + (lastState ? hoodOf(lastState, p).sat : 0);
@@ -1027,6 +1030,7 @@ const schoolYear: EventDef = {
     return (
       `${iga(who(c))} ${GRADE(a)}이 되었다. ${yearMood(c.s, c.p)}\n올해는 어떻게 보낼까?\n` +
       `🏘 ${hoodOf(c.s, c.p).name} (공부 효율 ×${hoodOf(c.s, c.p).study} · 학원비 ×${hoodOf(c.s, c.p).cost})\n` +
+      (c.s.year >= 1995 ? `${pcOf(c.s).model.id === 'none' ? '🖥 집에 컴퓨터가 없다' : `${pcOf(c.s).label}`} (공부 효율 ×${gearStudyMul(c.s)})\n` : '') +
       `성적 ${standingLabel(c.p)} · 누적 사교육비 ${formatMoney(c.p.eduSpent ?? 0)}` +
       (a >= 17 ? '\n수능까지 얼마 안 남았다.' : '')
     );
@@ -1036,12 +1040,19 @@ const schoolYear: EventDef = {
     const last = Number(c.p.flags.find((f) => f.startsWith('sy:'))?.slice(3) ?? -1);
     // 학원비는 동네 따라 다르다 (대치동 ×1.8, 반지하 동네 ×0.7)
     const cm = hoodOf(c.s, c.p).cost;
-    const costOf = (pl: Plan) => (pl.cost ? Math.round((pl.cost * (pl.budget >= 2 ? cm : 1)) / 10) * 10 : 0);
-    const list: Choice[] = PLANS.flatMap((pl, i) =>
-      (pl.minAge ?? 0) > a ? [] : [{ label: pl.label, cost: costOf(pl) || undefined, run: (x: Ctx) => runPlan(x, i, costOf(pl)) }],
-    );
-    if (last >= 0 && PLANS[last] && (PLANS[last].minAge ?? 0) <= a && ok(costOf(PLANS[last]), c.s))
-      list.unshift({ label: `작년처럼 (${PLANS[last].label})`, cost: costOf(PLANS[last]) || undefined, run: (x) => runPlan(x, last, costOf(PLANS[last])) });
+    // 근현대사: 같은 자리에 그 시절 방법 (전과·수련장, 입주 과외, 독서실, 주산 학원 …). null이면 그 시절엔 없던 방법
+    const view = (pl: Plan, i: number) => {
+      const h = histPlan(c.s, i, a);
+      if (h === null) return null;
+      const base = h ? h.cost : pl.cost;
+      return { label: h ? h.label : pl.label, cost: base ? Math.round((base * (pl.budget >= 2 ? cm : 1)) / 10) * 10 : 0 };
+    };
+    const list: Choice[] = PLANS.flatMap((pl, i) => {
+      const v = view(pl, i);
+      return (pl.minAge ?? 0) > a || !v ? [] : [{ label: v.label, cost: v.cost || undefined, run: (x: Ctx) => runPlan(x, i, v.cost) }];
+    });
+    const lv = last >= 0 && PLANS[last] ? view(PLANS[last], last) : null;
+    if (lv && (PLANS[last].minAge ?? 0) <= a && ok(lv.cost, c.s)) list.unshift({ label: `작년처럼 (${lv.label})`, cost: lv.cost || undefined, run: (x) => runPlan(x, last, lv.cost) });
     // 학년·학교·성적·동네에 따라 올해만 열리는 선택지
     list.push(...specialChoices(c.s, c.p));
     return gate(c.s, list);
