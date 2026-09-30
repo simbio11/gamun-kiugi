@@ -1,3 +1,4 @@
+import { HIDDEN } from './hidden-data';
 // 현대판 가문 명성 직업군: 정·관계, 과학·의료, 경제, 문화, 숨은 영웅.
 // 모두 게임 안의 직업에서 출발해 "정점 이벤트"로 얻는다. 선행 카드가 필요한 것, 2단계 도전인 것도 있다.
 import type { CardDef, Summit } from './cards';
@@ -15,7 +16,8 @@ const setJob = (job: string, lv: number) => (_s: GameState, p: Person) => {
 };
 
 export const MORE_CARDS: CardDef[] = [
-  { id: 'av_star', name: '히든 직업: AV 배우', icon: '💋', rarity: 'epic', how: '??? 숨겨진 스카우트 제의를 받아들이고 2년 넘게 활동 (성인만)', eff: { cash: 900, fame: 1 }, auto: (s, p) => p.job === 'av_actor' && p.jobYears >= 2 && s.year - p.birthYear >= 20 },
+  // 히든 직업 카드: 그 직업이 되면 얻는다
+  ...HIDDEN.map((h): CardDef => ({ id: h.id, name: `히든: ${h.name}`, icon: h.icon, rarity: 'epic', hidden: true, how: `??? ${h.hint}`, eff: h.eff, auto: (_s, p) => p.job === h.id })),
   // 정·관계·공공
   { id: 'chief_of_staff', name: '합참의장·참모총장', icon: '🎖', rarity: 'legend', how: '「별을 단 장군」 카드 → 참모총장 임명 (2단계)', eff: { fame: 4, kid: 'str' }, honor: 'taeguk' },
   { id: 'police_chief', name: '경찰청장', icon: '🚓', rarity: 'epic', how: '총경까지 오른 경찰관 → 청장 내정', eff: { fame: 2, heat: 3 }, honor: 'hongjo' },

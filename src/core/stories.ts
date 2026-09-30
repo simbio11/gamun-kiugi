@@ -134,7 +134,7 @@ function apply(x: Ctx, e: Eff | undefined) {
     if (q && alive(q)) p.bond = q.bond = clamp((p.bond ?? 60) + e.bond, 0, 100);
   }
   if (e.flag === 'av_start') {
-    p.job = 'av_actor';
+    p.job = 'hj_av';
     p.jobLevel = 0;
     p.jobYears = 0;
   }

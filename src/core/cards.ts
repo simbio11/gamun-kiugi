@@ -43,6 +43,8 @@ export interface CardDef {
   tier?: number;
   /** 얻으면 함께 받는 훈장 */
   honor?: string;
+  /** 히든 직업 카드 (숨은 루트로만) */
+  hidden?: boolean;
 }
 export const tierOf = (d: CardDef) => d.tier ?? { common: 1, rare: 1, epic: 2, legend: 3 }[d.rarity];
 
@@ -352,7 +354,7 @@ export function cardYear(s: GameState): void {
 
 /** 카드 그림 테마 (render/cardart.ts) */
 export const CARD_THEME: Record<string, string> = {
-  av_star: 'art', president: 'power', minister: 'power', lawmaker: 'power', mayor: 'power', model_civil: 'power',
+  president: 'power', minister: 'power', lawmaker: 'power', mayor: 'power', model_civil: 'power',
   chief_justice: 'law', prosecutor_general: 'law', constitutional: 'law', police_chief: 'law', profiler: 'law', pro_license: 'law',
   general: 'military', chief_of_staff: 'military', public_servant: 'military',
   ambassador: 'diplo', un_sg: 'diplo', captain: 'diplo',

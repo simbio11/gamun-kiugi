@@ -51,8 +51,8 @@ import { willLine, willOf } from '../core/autonomy';
 import { buyPerk, HONORS, PERKS, perkCost, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
+import { hiddenCardHTML } from './hidden-card';
 import { cardBackURL, cardFrontURL, crestURL, customFrames, medalURL, type Theme } from '../render/cardart';
-import '../render/glam';
 import { familyScore, lifeGrade, lifeParts } from '../core/score';
 import { pendingAffairs } from '../core/fate';
 import { ACTIONS, STAGE_NAMES, apLeft, apMax, doAction, forHead, stageOf, type ActionCat } from '../core/actions';
@@ -1381,7 +1381,9 @@ function rewardModal(r: Reward): string {
       <div class="rw-burst">${Array.from({ length: sparks }, (_, i) => `<i style="--a:${Math.round((360 / sparks) * i)}deg;--d:${(i % 5) * 60}ms"></i>`).join('')}</div>
       <div class="rw-rarity">${RARITY_NAME[r.rarity]}</div>
       ${
-        r.card && CARD[r.card]
+        r.card && CARD[r.card]?.hidden
+          ? `<div class="hcard hidden-hc">${cardImg(CARD[r.card], false, 'hc-art')}</div><div class="hc-eff">🌑 히든 직업 달성! ${esc(effText(CARD[r.card].eff))}</div>`
+          : r.card && CARD[r.card]
           ? `<div class="hcard ${r.rarity}">${cardImg(CARD[r.card], false, 'hc-art')}<div class="hc-title">${CARD[r.card].name}</div><div class="hc-name">${r.personId && g0()?.people[r.personId] ? esc(fullName(g0()!.people[r.personId])) : ''}</div><i class="hc-shine"></i></div><div class="hc-eff">${esc(effText(CARD[r.card].eff))}</div>`
           : r.grade
             ? `<div class="grade-stamp g-${r.grade.toLowerCase()}">${r.grade}</div>`
@@ -1396,9 +1398,18 @@ function rewardModal(r: Reward): string {
   </div>`;
 }
 const g0 = () => ui.game;
+const HIDDEN_CARDS = CARDS.filter((d) => d.hidden);
+const NORMAL_CARDS = CARDS.filter((d) => !d.hidden);
 const cardArt = (d: CardDef, locked = false, frame = 0) => cardFrontURL(d.id, d.icon, (CARD_THEME[d.id] ?? 'power') as Theme, d.rarity, locked, cardTier(d), frame);
 /** 움직이는 카드(여러 장)는 겹쳐 놓고 번갈아 보여 준다 */
 const cardImg = (d: CardDef, locked: boolean, cls: string) => {
+  if (d.hidden) {
+    // 히든 카드: 가진 사람의 성별 그림으로, 움직이는 효과와 함께
+    const gg = g0();
+    const c = gg?.cards?.find((x) => x.id === d.id);
+    const p = c ? gg!.people[c.personId] : undefined;
+    return hiddenCardHTML(d.id, { sex: p?.sex, seed: p ? p.birthYear : 0, locked, cls: `${cls}-h` });
+  }
   const n = locked ? 1 : customFrames(d.id);
   if (n <= 1) return `<img class="${cls}" src="${cardArt(d, locked)}" alt="">`;
   return `<span class="gif3">${Array.from({ length: n }, (_, i) => `<img class="${cls}${i ? ` gf gf${i}` : ''}" src="${cardArt(d, false, i)}" alt="">`).join('')}</span>`;
@@ -1414,22 +1425,22 @@ function cardViewer(g: GameState, id: string): string {
   <div class="modal cv-modal" data-action="close-card">
     <div class="cv-wrap">
       <div class="cv-card ${d.rarity} ${got ? '' : 'locked'}" data-stop>
-        <div class="cv-face cv-front">
-          ${cardImg(d, !got, 'cv-img')}
+        <div class="cv-face cv-front${d.hidden ? ' cv-hidden' : ''}">
+          ${cardImg(d, !got, 'cv-img')}${d.hidden ? '<!--' : ''}
           <div class="cv-no">No.${String(cardNo(id)).padStart(3, '0')} · ${RARITY_NAME[d.rarity]}</div>
           ${hp ? `<img class="cv-portrait" src="${portraitURL(hp, alive(hp) ? age(g, hp) : hp.deathYear! - hp.birthYear)}" alt="">` : ''}
           <div class="cv-bottom">
             <b class="cv-title">${got ? d.name : '???'}</b>
             ${got ? `<b>${hs.map((c) => esc(fullName(g.people[c.personId]))).join(', ')}</b><small>${hs[0].year}년 획득</small>` : `<b>미획득</b><small>${esc(d.how)}</small>`}
             <em>${esc(effText(d.eff))}</em>
-          </div>
+          </div>${d.hidden ? '-->' : ''}
           <i class="cv-holo"></i>
         </div>
         <div class="cv-face cv-back">
           <img class="cv-img" src="${cardBackURL(d.rarity)}" alt="">
           <div class="cv-back-top">명예의 전당 · ${RARITY_NAME[d.rarity]}</div>
           <div class="cv-crest">${esc(g.familyName)}</div>
-          <div class="cv-back-bottom"><b>${d.name}</b><small>${esc(d.how)}</small>${d.honor && HONORS[d.honor] ? `<small>🎖 ${HONORS[d.honor].name}</small>` : ''}</div>
+          <div class="cv-back-bottom"><b>${d.hidden && !got ? '??? 히든 직업' : d.name}</b><small>${esc(d.how)}</small>${d.honor && HONORS[d.honor] ? `<small>🎖 ${HONORS[d.honor].name}</small>` : ''}</div>
         </div>
       </div>
       <div class="cv-hint">↔ 카드를 옆으로 밀어 돌려 보세요 · 바깥을 누르면 닫혀요</div>
@@ -2004,13 +2015,22 @@ function achvScreen(g: GameState): string {
     <div class="sc-parts">${fsc.parts.map((x) => `<span>${x.label} <b>${x.v.toLocaleString()}</b></span>`).join('')}</div>
     <p class="fine">가족이 세상을 떠날 때 「인생 성적표」를 받고, 그 점수가 가문 총점에 영원히 쌓인다. 가계도에서 사람을 누르면 지금까지의 인생 점수를 볼 수 있다.</p>
   </section>
+  <section class="card hidden-dex">
+    <h2>🌑 히든 카드 <small class="muted">${HIDDEN_CARDS.filter((d) => dexGot.has(d.id)).length}/${HIDDEN_CARDS.length}종</small></h2>
+    <div class="cdex">${[...HIDDEN_CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.hdex ? 999 : 6).map((d) => {
+      const who = dexGot.get(d.id);
+      return `<button class="dx ${who ? 'hid' : 'locked'}" data-action="card-view" data-id="${d.id}"><span class="dx-c">${cardImg(d, !who, 'dx-art')}</span><small>${who ? esc(who.join(', ')) : '???'}</small></button>`;
+    }).join('')}</div>
+    <button class="more-btn" data-action="more" data-v="hdex">${ui.open?.hdex ? '▲ 접기' : `▼ 더보기 (${HIDDEN_CARDS.length - 6}종 더)`}</button>
+    <p class="fine">어떤 직업인지는 얻어야 알 수 있다. 평범한 길 위의 뜻밖의 사건, 능력과 흔적, 가족의 직업이 숨은 문을 연다. 연대기에 가끔 남는 🌑 수수께끼가 힌트.</p>
+  </section>
   <section class="card">
-    <h2>🃏 명예의 전당 카드 <small class="muted">${dexGot.size}/${CARDS.length}종</small></h2>
-    <div class="cdex">${[...CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.dex ? 999 : 6).map((d) => {
+    <h2>🃏 명예의 전당 카드 <small class="muted">${[...dexGot.keys()].filter((id) => !CARD[id]?.hidden).length}/${NORMAL_CARDS.length}종</small></h2>
+    <div class="cdex">${[...NORMAL_CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.dex ? 999 : 6).map((d) => {
       const who = dexGot.get(d.id);
       return `<button class="dx ${who ? d.rarity : 'locked'}" data-action="card-view" data-id="${d.id}"><span class="dx-c">${cardImg(d, !who, 'dx-art')}<i class="dx-nm">${who ? d.name : '???'}</i></span><small>${who ? esc(who.join(', ')) : '미획득'}</small></button>`;
     }).join('')}</div>
-    <button class="more-btn" data-action="more" data-v="dex">${ui.open?.dex ? '▲ 접기' : `▼ 더보기 (${CARDS.length - 6}종 더)`}</button>
+    <button class="more-btn" data-action="more" data-v="dex">${ui.open?.dex ? '▲ 접기' : `▼ 더보기 (${NORMAL_CARDS.length - 6}종 더)`}</button>
     <p class="fine">★ 난이도 (★★★는 2단계 도전·선행 카드). 카드 주인이 살아 있는 동안 효과가 계속된다. 3·6·10·16·24종을 모으면 세트 보상.</p>
   </section>
   <section class="card">

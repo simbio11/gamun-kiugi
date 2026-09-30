@@ -519,7 +519,8 @@ function pickCloth(p: Person, st: Stage, h: number, era: number): Cloth {
     if (['chef', 'restaurant', 'barista'].includes(j)) return 'chef';
     if (['farmer', 'fisher', 'rancher', 'factory', 'welder', 'mechanic', 'carpenter', 'plumber', 'shipbuilder', 'electrician', 'robot_tech', 'asteroid_miner', 'sea_farmer'].includes(j)) return 'overall';
     if (['athlete', 'coach', 'trainer', 'gamer'].includes(j)) return 'jersey';
-    if (j === 'av_actor') return f ? 'dress' : 'suit';
+    if (j === 'hj_av' || j === 'hj_spy' || j === 'hj_gambler' || j === 'hj_magician') return f ? 'dress' : 'suit';
+    if (j === 'hj_mafia' || j === 'hj_trader') return 'suit';
     if (['lawyer', 'judge', 'prosecutor', 'politician', 'minister', 'president', 'corp', 'banker', 'analyst', 'diplomat', 'accountant', 'founder', 'ceo', 'mayor', 'lawmaker'].includes(j)) return 'suit';
   }
   if (era === 2 && h % 3 === 0) return 'future';

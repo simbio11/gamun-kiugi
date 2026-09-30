@@ -1,3 +1,4 @@
+import { HIDDEN } from './hidden-data';
 // 직업 데이터베이스.
 // 연봉은 워크넷·임금직업포털(워크피디아)의 직업별 평균임금을 참고해 게임용으로 단순화한 값 (만원/년).
 // 레벨이 오르면 perLevel 만큼 오르고, 능력치(stats 가중합)에 따라 ±25% 보정된다.
@@ -240,7 +241,6 @@ job('navigator', '항해사', 'transport', 'salary', 5500, 2500, 4, { fame: 0.5,
 job('youtuber', '유튜버', 'media', 'creator', 0, 0, 5, { fame: 0.5, color: '#c8322d', retireAge: 0, titles: ['구독자 100명', '구독자 1만', '구독자 10만', '구독자 50만', '골드버튼 100만', '구독자 500만'], creator: { incomes: [300, 1800, 5500, 14000, 36000, 90000], stat: 'cha', talent: 'star', base: 0.04, div: 1200 }, entry: start('stage', { text: '카메라 대신 폰을 들었다. 첫 영상 조회수 37.' }) });
 job('entertainer', '연예인', 'media', 'creator', 0, 0, 5, { fame: 2, color: '#d9559b', retireAge: 0, titles: ['무명', '조연', '주연', '흥행 스타', '천만 배우', '월드 스타'], creator: { incomes: [500, 2500, 7000, 18000, 45000, 120000], stat: 'cha', talent: 'star', base: 0.02, div: 1600 }, entry: special('기획사 데뷔·길거리 캐스팅', 'stage') });
 job('actor', '연극배우', 'media', 'creator', 0, 0, 5, { fame: 1, color: '#8a2a4a', retireAge: 0, titles: ['대학로 배우', '단역', '조연', '주연', '연기파 배우', '국민 배우'], creator: { incomes: [800, 2000, 5000, 12000, 30000, 80000], stat: 'cha', talent: 'star', base: 0.02, div: 1800 }, entry: start('stage', { text: '대학로 소극장 무대에 섰다. 관객 스무 명.' }) });
-job('av_actor', 'AV 배우', 'media', 'creator', 0, 0, 3, { fame: 0.3, color: '#a0203a', retireAge: 0, titles: ['신인', '인기 배우', '톱 배우', '전설'], creator: { incomes: [2500, 7000, 16000, 32000], stat: 'cha', talent: 'star', base: 0.03, div: 1600 }, entry: special('히든: 스카우트 제의', 'stage') });
 job('model', '모델', 'media', 'creator', 0, 0, 5, { fame: 1, color: '#f0f0f0', retireAge: 0, titles: ['지망생', '쇼핑몰 모델', '패션쇼', '광고 모델', '톱모델', '해외 컬렉션'], creator: { incomes: [300, 1500, 4000, 10000, 25000, 60000], stat: 'cha', talent: 'star', base: 0.025, div: 1400 }, entry: hire(60, 'stage', { maxAge: 30, text: '에이전시와 계약했다.' }) });
 job('voice_actor', '성우', 'media', 'salary', 3000, 1500, 4, { color: '#5a3a6a', retireAge: 75, promote: 0.1, stats: { cha: 0.8, int: 0.2 }, titles: ['전속 성우', '프리랜서', '주연급', '국민 목소리', '레전드'], entry: hire(60, 'stage', { text: '방송사 공채 성우가 되었다.' }) });
 job('writer', '웹툰·웹소설 작가', 'media', 'creator', 0, 0, 5, { fame: 1, color: '#6e8a3a', retireAge: 0, titles: ['지망생', '신인 연재', '인기 연재', '베스트셀러', '드라마화', '글로벌 IP'], creator: { incomes: [100, 1500, 5000, 13000, 30000, 70000], stat: 'int', talent: 'artist', base: 0.015, div: 1800 }, entry: start('stage', { text: '무료 연재 플랫폼에 1화를 올렸다. 댓글 0개.' }) });
@@ -294,6 +294,8 @@ job('upload_engineer', '의식 업로드 엔지니어', 'medical', 'salary', 110
 job('xeno_biologist', '외계 생물학자', 'edu', 'salary', 8000, 3500, 5, { fame: 2, color: '#4ac8a0', retireAge: 95, promote: 0.1, stats: { int: 0.9, mor: 0.1 }, titles: ['연구원', '선임 연구원', '유로파 탐사대원', '책임 연구원', '외계 생명 연구소장', '태양계 과학원장'], entry: hire(76, 'study', { needFlags: ['grad_school', 'univ_top'], needNote: '대학원 유리', text: '얼음 바다 아래 미생물과 첫 눈을 맞췄다.' }) });
 job('star_navigator', '성간 항법사', 'transport', 'salary', 12000, 4500, 4, { fame: 2.5, color: '#e0d080', retireAge: 100, promote: 0.08, risk: 0.05, stats: { int: 0.7, hp: 0.2, mor: 0.1 }, titles: ['항법 훈련생', '항법사', '선임 항법사', '수석 항법사', '성간선 함장'], entry: hire(80, 'study', { univ: true, maxAge: 40, text: '별과 별 사이의 길을 읽는다. 한 번의 계산 실수가 수십 년을 잃게 한다.' }) });
 job('sea_farmer', '해양 도시 양식가', 'farm', 'business', 0, 0, 4, { color: '#2a7aa0', retireAge: 0, titles: ['창업 양식장', '부유식 양식장 1기', '5기', '수출 선단', '해양 식량 기업'], biz: { base: 3000, sd: 20, step: 4500, fail: -35 }, entry: start('business', { cost: 25000, text: '바다 위 도시 아래에 해조류·어류 양식장을 띄웠다.' }) });
+// 히든 직업: 숨겨진 루트로만 된다 (hidden.ts)
+for (const h of HIDDEN) job(h.id, h.name, 'etc', 'fixed', h.pay, 0, 0, { fame: 0, color: h.color, retireAge: 0, entry: special('히든 루트', 'free') });
 
 export const JOBS: Record<string, JobDef> = Object.fromEntries(LIST.map((j) => [j.id, j]));
 export const JOB_IDS = LIST.map((j) => j.id);

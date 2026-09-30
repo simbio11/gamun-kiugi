@@ -46,6 +46,7 @@ import { autonomyYear } from './autonomy';
 import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
 import { BOSS_STORIES, selfBoss } from './boss';
+import { hiddenYear } from './hidden';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -400,6 +401,7 @@ export function simulateYear(s: GameState): void {
   for (const m of rivalYear(s, familyTotal(s))) log(s, m, 'life');
   for (const m of careerYear(s)) log(s, m, 'life');
   cardYear(s);
+  for (const m of hiddenYear(s)) log(s, m, 'life');
   trackPeak(s);
   scandalYear(s);
   woeYear(s);

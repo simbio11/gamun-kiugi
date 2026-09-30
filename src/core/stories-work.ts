@@ -523,11 +523,11 @@ export const WORK_STORIES: Story[] = [
     { label: '답장을 녹음한다', text: '이 답장은 20년 뒤에 도착한다. 그래도 불렀다.', eff: { hap: 4, aff: 4 } },
     { label: '별을 보며 혼자 운다', text: '창밖 별빛이 흐려 보였다.', eff: { hap: -3, mor: 1 } },
   ] },
-  { id: 'wk_av_shoot', title: '촬영장', age: W, w: 0.8, cond: J('av_actor'), text: '새벽 촬영장. 감독이 계약서에 없던 장면을 요구한다. 매니저는 "업계 관행"이라며 눈치를 준다.', choices: [
+  { id: 'wk_av_shoot', title: '촬영장', age: W, w: 0.8, cond: J('hj_av'), text: '새벽 촬영장. 감독이 계약서에 없던 장면을 요구한다. 매니저는 "업계 관행"이라며 눈치를 준다.', choices: [
     { label: '계약서대로만 한다', text: '', roll: ['cha', 55, [{ mor: 2, hap: 2 }, '감독이 한발 물러섰다. 선을 지킨 배우로 소문이 났다.'], [{ cash: -300, hap: -4 }, '위약금을 물고 촬영에서 빠졌다.']] },
     { label: '노조·변호사에게 알린다', text: '업계 첫 "출연 동의 가이드라인"이 생겼다.', eff: { mor: 3, fame: 1 } },
   ] },
-  { id: 'wk_av_fanmeet', title: '팬 사인회', age: W, w: 0.8, cond: J('av_actor'), text: '해외 팬 사인회에 수백 명이 줄을 섰다. 그런데 한 팬이 집 주소를 안다며 쪽지를 건넨다.', choices: [
+  { id: 'wk_av_fanmeet', title: '팬 사인회', age: W, w: 0.8, cond: J('hj_av'), text: '해외 팬 사인회에 수백 명이 줄을 섰다. 그런데 한 팬이 집 주소를 안다며 쪽지를 건넨다.', choices: [
     { label: '경호를 늘리고 이사한다', text: '돈은 들었지만 마음은 놓였다.', eff: { cash: -500, hap: 2 } },
     { label: '경찰에 스토킹 신고', text: '', roll: ['luck', 55, [{ hap: 3 }, '접근 금지 명령이 나왔다.'], [{ hap: -6 }, '처벌이 약했다. 불안한 밤이 이어진다.']] },
   ] },

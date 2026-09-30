@@ -839,6 +839,7 @@ describe('부모님 유산', () => {
     const thin: string[] = [];
     for (const id of JOB_IDS) {
       if (['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'mayor', 'landlord', 'professor'].includes(id)) continue; // 정치·교수는 career.ts, 건물주는 부동산
+      if (id.startsWith('hj_')) continue; // 히든 직업 이야기는 hidden-work.ts (전용 행동과 함께)
       h.job = id;
       h.jobLevel = 2;
       h.jobYears = 20;
