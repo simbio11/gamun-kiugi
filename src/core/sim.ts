@@ -387,8 +387,12 @@ export function simulateYear(s: GameState): void {
   for (const m of autoGiftYear(s, (to, amt) => giveGift(s, head(s), to, amt).ok)) log(s, m, 'money');
   for (const m of marketYear(s)) log(s, m, 'market');
   for (const m of leverageYear(s)) log(s, m, 'money');
-  for (const m of histYear(s)) log(s, m, 'market');
-  for (const m of timelineYear(s)) log(s, m, 'market');
+  // 우리 가족이 대통령이면, 실제 역사·미래 뉴스 속 "대통령" 기사는 빼고 우리 대통령 소식으로
+  const ourPres = Object.values(s.people).find((p) => alive(p) && p.job === 'president');
+  const presNews = (m: string) => !ourPres || !m.startsWith('📰') || !/대통령|대선|청와대|대통령실|탄핵|취임식|국정 지지율/.test(m);
+  for (const m of histYear(s)) if (presNews(m)) log(s, m, 'market');
+  for (const m of timelineYear(s)) if (presNews(m)) log(s, m, 'market');
+  if (ourPres) log(s, `📰 ${fullName(ourPres)} 대통령, 국정 지지율 ${ourPres.pol?.approval ?? 50}% · ${pick(s, ['민생 경제 점검 회의 주재', '정상회담 참석차 출국', '신년 기자회견', '재난 현장 방문', '국무회의에서 개혁안 발표', '청년 간담회 개최'])}`, 'market');
   chainYear(s);
   for (const m of warYear(s)) log(s, m, 'market');
   medicalYear(s);

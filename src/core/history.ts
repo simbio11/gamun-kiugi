@@ -722,6 +722,8 @@ export function histYear(s: GameState): string[] {
     if (seen['hist:' + m.id] !== undefined) continue;
     if (s.year < m.y || s.year > (m.to ?? m.y)) continue;
     if (m.cond && !m.cond(s)) continue;
+    // 우리 가족이 대통령이면 실제 대통령이 주인공인 사건(탄핵·암살 등)은 건너뛴다
+    if (/대통령|탄핵|10·26|청와대/.test(m.head + m.sub) && Object.values(s.people).some((p) => alive(p) && p.job === 'president')) continue;
     const who = m.who ? m.who(s) : head(s);
     if (!who) continue;
     seen['hist:' + m.id] = s.year;

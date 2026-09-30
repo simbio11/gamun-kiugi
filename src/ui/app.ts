@@ -1313,6 +1313,25 @@ function newsModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent
             : media === 'neural'
               ? `<div class="nw-nrlhead"><span>🧠 뉴럴 속보가 머릿속에 떠오른다</span><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
               : `<div class="nw-aihead"><div class="nw-ai-av">🤖</div><div class="nw-ai-b"><small>AI 비서 · 지금</small><p>"잠깐만요, 가문에 중요한 소식이에요."</p><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div></div>`;
+  if (media === 'push') {
+    // 속보는 우리 집 휴대폰으로 온다: 폴더폰이면 문자, 스마트폰이면 잠금화면 알림
+    const gear = phoneOf(g);
+    const kind = gear.model.kind;
+    const clock = `${String(7 + ((g.year * 7) % 15)).padStart(2, '0')}:${String((g.year * 13) % 60).padStart(2, '0')}`;
+    const top = kind === 'smart' ? `<div class="cm-top"><span>🔔 뉴스 속보</span><span>${clock}</span></div>` : `<div class="cm-top"><span>📶▮▮▮</span><span>✉ [속보] 새 문자</span><span>${clock}</span></div>`;
+    return `
+  <div class="modal cm-modal cm-${['smart', 'feature', 'cell'].includes(kind) ? kind : 'smart'}">
+    <div class="event cm-dev" data-stop>
+      <div class="ev-count">${g.year}년 · ${esc(gear.label)}</div>
+      <div class="cm-screen">
+        ${top}
+        <h3>${esc(cur.title)}</h3>
+        <p class="ev-text"><b>${esc(sub)}</b>\n${nl(body)}</p>
+      </div>
+      <div class="choices">${choices}</div>
+    </div>
+  </div>`;
+  }
   return `
   <div class="modal nw-modal nw-${media}">
     <div class="event nw-card" data-stop>
@@ -1619,6 +1638,7 @@ function assetsScreen(g: GameState): string {
   </section>`
   }
   <div class="cat-chips sub-chips">${chips}</div>
+  ${g.assets.some((a) => /지분 \d+%/.test(a.name)) ? `<p class="fine share-note">🧩 <b>지분 N%</b> = 상속 때 한 채(한 필지)를 여러 상속인이 나눠 가진 몫. 시세의 N%만큼이 그 사람 재산이고, 월세·임대료도 그 비율만큼 받는다. 팔 때도 자기 지분만 판다 (다른 상속인 몫은 그대로).</p>` : ''}
   ${on('sum') ? mineCard(g) + budgetCard(g) : ''}
   ${on('home') ? homeCard(g) + realtyCard(g) : ''}
   ${on('car') ? vehicleCard(g) : ''}
