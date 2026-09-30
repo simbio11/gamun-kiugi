@@ -117,7 +117,10 @@ export function awardCard(s: GameState, p: Person, id: string, why?: string) {
   const d = CARD[id];
   if (!d || hasCard(s, p, id)) return;
   const first = !(s.cards ?? []).some((c) => c.id === id);
-  (s.cards ??= []).push({ id, personId: p.id, year: s.year });
+  (s.cards ??= []).push({ id, personId: p.id, year: s.year, sex: p.sex });
+  if (d.hidden) {
+    (s.hiddenCardSex ??= {})[id] = p.sex;
+  }
   if (d.honor) awardHonor(s, p, d.honor, d.name);
   grant(s, d.icon, `${first ? '🆕 ' : ''}카드 획득: ${cardNameAt(d.name, id, s.year)}`, `${fullName(p)}${why ? ' — ' + why : ''}\n효과 (살아 있는 동안): ${effText(d.eff)}`, d.rarity);
   const r = s.rewards?.[s.rewards.length - 1];

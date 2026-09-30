@@ -912,7 +912,8 @@ describe('부모님 유산', () => {
           }
         }
         if (ok) {
-          // 이벤트를 끝까지 실제로 치른다 (능력치 100이면 이긴다)
+          // 이벤트를 끝까지 실제로 치른다 (능력치가 높으면 이긴다)
+          for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) h.potential[k] = h.actual[k] = 200;
           for (let stage = 1; stage <= 3 && !(s.cards ?? []).some((c) => c.id === d.id && c.personId === h.id); stage++) {
             s.events = [{ uid: s.eventSeq++, defId: 'summit_' + d.id, personId: h.id, data: { stage } }];
             resolveChoice(s, 0);
