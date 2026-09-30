@@ -1,3 +1,4 @@
+import { selfBoss } from './boss';
 // 라이벌 가문: 같은 동네에서 대대로 엎치락뒤치락하는 집안.
 // 해마다 저쪽 재산도 불어나거나 줄고, 가끔 두 집안이 부딪친다. 앙숙이 될 수도, 사돈이 될 수도 있다.
 
@@ -282,7 +283,7 @@ const RIVAL_RANDOM: RivalDef[] = [
   {
     id: 'rv_boss',
     title: () => '회사에 온 라이벌',
-    weight: (c) => (hostile(c.s) && age(c.s, c.p) >= 28 && age(c.s, c.p) <= 55 && !['none', 'parttime', 'pension', 'founder'].includes(c.p.job) && !c.p.flags.includes('student') ? 0.7 : 0),
+    weight: (c) => (hostile(c.s) && age(c.s, c.p) >= 28 && age(c.s, c.p) <= 55 && !['none', 'parttime', 'pension', 'founder'].includes(c.p.job) && !selfBoss(c.p) && !c.p.flags.includes('student') ? 0.7 : 0),
     text: (c) => {
       c.ev.data ??= { k: kid(c.s) };
       return `새로 온 팀장이 ${R(c.s)}의 ${c.ev.data.k}이다. 첫 회의에서 ${n(c)}의 보고서를 대놓고 깎아내렸다.\n승진 심사가 코앞이다.`;

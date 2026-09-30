@@ -8,6 +8,7 @@ import { JOBS } from './data';
 import { wageIndex } from './pay';
 import { awardHonor, diffMod, grant, type Rarity } from './rewards';
 import { MORE_CARDS, MORE_SUMMITS } from './cards-more';
+import { homeCity } from './stories-politics';
 import { setCardNamer } from './timeline';
 import { CARD_FROM, cardNameAt, ERA_CARDS } from './cards-era';
 import type { GameState, Person, StatKey } from './types';
@@ -275,6 +276,14 @@ const summitDef = (sm: Summit): EventDef => ({
             return `✅ ${stage}차 관문 통과! 1~2년 뒤 ${stage + 1 < total ? `${stage + 1}차 관문` : '최종 관문'}이 기다린다.`;
           }
           awardCard(x.s, x.p, sm.card, sm.title.replace(/^\S+ /, ''));
+          if (sm.card === 'mayor') {
+            // 국회의원직을 내려놓고 시장으로 (사는 도시)
+            x.p.flags = x.p.flags.filter((f) => !f.startsWith('mayor_of:'));
+            x.p.flags.push('mayor_of:' + homeCity(x.s, x.p), 'was_politician');
+            x.p.job = 'mayor';
+            x.p.jobLevel = 0;
+            x.p.jobYears = 0;
+          }
           x.p.happiness = clamp(x.p.happiness + 15, 0, 100);
           return win;
         }

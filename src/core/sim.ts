@@ -45,6 +45,7 @@ import { HIST_BASE, histPrice, histRel } from './histidx';
 import { autonomyYear } from './autonomy';
 import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
+import { BOSS_STORIES, selfBoss } from './boss';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -506,6 +507,7 @@ function lifeYear(s: GameState) {
   const histNow = inHistory(s);
   for (const p of members) for (const d of STORIES) {
     if (d.id.startsWith('st_wk_')) continue; // 직장 이야기는 따로 (workEvents)
+    if (BOSS_STORIES.has(d.id.slice(3)) && selfBoss(p)) continue; // 상사·회사가 없는 사람에게 회사원 이야기는 없다
     if (histNow && d.raw && anachronistic(s, d.raw)) continue; // 그 시절에 없던 이야기
     if (histNow && s.year < 2000 && !d.id.startsWith('st_h_') && !d.id.startsWith('st_dev_') && !TIMELESS.has(d.id.slice(3))) continue; // 2000년 전엔 그 시절 이야기와 어느 시대에나 있을 이야기만
     const w = d.weight?.(s, p) ?? 0;

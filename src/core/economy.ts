@@ -201,9 +201,16 @@ export function statScore(p: Person, w: Partial<Record<keyof Person['actual'], n
   return v;
 }
 
-export const jobTitle = (p: Person) => JOBS[p.job].titles?.[p.jobLevel] ?? JOBS[p.job].name;
+export const jobTitle = (p: Person) => {
+  // 시장은 어느 도시 시장인지: "부산시장"·"서울시장(재선)"
+  if (p.job === 'mayor') {
+    const city = p.flags.find((f) => f.startsWith('mayor_of:'))?.slice(9) ?? '';
+    return `${city}시장${p.jobLevel ? ` (${p.jobLevel + 1}선)` : ''}`;
+  }
+  return JOBS[p.job].titles?.[p.jobLevel] ?? JOBS[p.job].name;
+};
 /** "공무원(9급)"처럼 직업명 + 직함 */
-export const jobLabel = (p: Person) => (JOBS[p.job].titles ? `${JOBS[p.job].name}(${jobTitle(p)})` : JOBS[p.job].name);
+export const jobLabel = (p: Person) => (p.job === 'mayor' ? jobTitle(p) : JOBS[p.job].titles ? `${JOBS[p.job].name}(${jobTitle(p)})` : JOBS[p.job].name);
 
 /** 직업 연간 수입 계산 + 커리어 진행. 로그용 메시지를 돌려줌. */
 export function workYear(s: GameState, p: Person): { income: number; msg?: string } {

@@ -342,8 +342,29 @@ export function careerYear(s: GameState): string[] {
         q(d.id, p);
       }
     }
+    // 시장: 4년마다 지방선거 (3선 연임 제한)
+    if (p.job === 'mayor' && p.jobYears > 0 && p.jobYears % 4 === 0) {
+      const pl = polOf(p);
+      const city = p.flags.find((f) => f.startsWith('mayor_of:'))?.slice(9) ?? '';
+      if (p.jobLevel >= 2) {
+        p.job = 'none';
+        p.jobLevel = 0;
+        p.jobYears = 0;
+        addFlag(p, 'was_mayor');
+        if (main) msgs.push(`🏙 ${fullName(p)} ${city}시장, 3선 임기를 마치고 물러났다. 시청 앞에 시민들이 모였다.`);
+      } else if (chance(s, clamp(0.25 + (pl.approval - 35) / 60, 0.1, 0.9))) {
+        p.jobLevel++;
+        if (main) msgs.push(`🗳 ${fullName(p)} ${city}시장 ${p.jobLevel + 1}선 성공! (지지율 ${pl.approval}%)`);
+      } else {
+        p.job = 'none';
+        p.jobLevel = 0;
+        p.jobYears = 0;
+        addFlag(p, 'was_mayor');
+        if (main) msgs.push(`📉 ${fullName(p)} ${city}시장 재선 실패. 낙선 인사를 하며 고개를 숙였다.`);
+      }
+    }
     // 정치인
-    if (p.job === 'politician' || p.job === 'president') {
+    if (p.job === 'politician' || p.job === 'president' || p.job === 'mayor') {
       const pl = polOf(p);
       const pres = p.job === 'president';
       // 후원금 (연 1.5억 한도) - 지역구 관리비
@@ -443,7 +464,7 @@ export const CAREER_ACTIONS: ActionDef[] = [
     name: '지역구 민원 챙기기',
     desc: '지지율↑ · 시장·경로당·민원실을 돈다 (정치인)',
     ap: 1,
-    show: (s) => ['politician', 'president'].includes(s.people[s.headId].job),
+    show: (s) => ['politician', 'president', 'mayor'].includes(s.people[s.headId].job),
     run: (s) => {
       const p = s.people[s.headId];
       const d = check(s, p.actual.cha, 50, 10) ? int(s, 4, 8) : int(s, 1, 3);

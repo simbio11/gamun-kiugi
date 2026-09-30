@@ -360,7 +360,7 @@ export const WORK_STORIES: Story[] = [
     { label: '돈을 받는다', mark: { cheat: 2 }, text: '', roll: ['luck', 30, [{ cash: 5000, mor: -8 }, '아무도 모른다. 잠이 오지 않는다.'], [{ fame: -10, flag: 'laid_off', hap: -25 }, '영구 제명. 가문 이름에 먹칠을 했다.']] },
   ] },
   // ───────── 모든 직장인 ─────────
-  { id: 'wk_any_raise', title: '연봉 협상', age: [24, 60], w: 0.5, cond: (_s, p) => !['none', 'parttime', 'pension', 'politician', 'president', 'minister'].includes(p.job) && !p.flags.includes('student'), text: '연봉 협상 시즌. 회사는 동결을 통보했다. {n}은(는) 올해 성과가 꽤 좋았다.', choices: [
+  { id: 'wk_any_raise', title: '연봉 협상', age: [24, 60], w: 0.5, cond: (_s, p) => !['none', 'parttime', 'pension', 'politician', 'president', 'minister', 'mayor'].includes(p.job) && !p.flags.includes('student'), text: '연봉 협상 시즌. 회사는 동결을 통보했다. {n}은(는) 올해 성과가 꽤 좋았다.', choices: [
     { label: '당당히 인상을 요구한다', mark: { risk: 1 }, text: '', roll: ['cha', 50, [{ cash: 800, hap: 4 }, '10% 인상! 말하길 잘했다.'], [{ hap: -4 }, '"다른 데 알아보든가." 싸늘하다.']] },
     { label: '조용히 이직 준비', text: '이력서를 업데이트했다. (행동 탭의 이직 시도)', eff: {} },
     { label: '회사를 믿는다', text: '내년엔 올려 주겠지.', eff: { mor: 1 } },

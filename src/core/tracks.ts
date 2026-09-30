@@ -48,7 +48,7 @@ const WORK_GROUP: Record<string, string> = {
   farmer: 'farm', smart_farmer: 'farm', fisher: 'farm', rancher: 'farm',
   journalist: 'press', pd: 'press', announcer: 'press', designer: 'press', voice_actor: 'press',
   youtuber: 'creator', entertainer: 'creator', actor: 'creator', model: 'creator', writer: 'creator', novelist: 'creator', musician: 'creator', painter: 'creator', photographer: 'creator',
-  clergy: 'public', politician: 'public', minister: 'public', president: 'public',
+  clergy: 'clergy', politician: 'politics', minister: 'politics', president: 'politics', mayor: 'politics',
 };
 
 export const TRACK_NAMES: Record<string, string> = {
@@ -57,10 +57,18 @@ export const TRACK_NAMES: Record<string, string> = {
   'x:suneung': 'N수생', 'x:civil': '공시생', 'x:uniform': '경찰·소방 준비생', 'x:law': '변시·임용 준비', 'x:license': '전문자격 수험생', 'x:teacher': '임용고시생', 'x:academia': '교수 임용 준비',
   'x:job': '취준생', 'x:press': '언론고시생', 'x:medlic': '국가고시 준비', 'x:idle': '백수',
   'w:office': '회사원', 'w:finance': '금융권', 'w:sales': '영업', 'w:public': '공무원', 'w:uniform': '제복 공무원', 'w:legal': '법조·전문직', 'w:med': '의료인', 'w:care': '간호·보건',
-  'w:edu': '교육자', 'w:service': '서비스업', 'w:trade': '기술·생산', 'w:transport': '운송', 'w:sport': '스포츠', 'w:owner': '사장님', 'w:farm': '농어업', 'w:press': '언론·방송', 'w:creator': '창작자', 'w:tech': '개발·연구',
+  'w:edu': '교육자', 'w:service': '서비스업', 'w:trade': '기술·생산', 'w:transport': '운송', 'w:sport': '스포츠', 'w:owner': '사장님', 'w:farm': '농어업', 'w:press': '언론·방송', 'w:creator': '창작자', 'w:tech': '개발·연구', 'w:politics': '정치인', 'w:clergy': '성직자',
 };
 
 export const examOf = (p: Person) => p.flags.find((f) => f.startsWith('prep:'))?.slice(5);
+
+/** 겸직: 본업 말고 창작 활동 (작가·화가·음악가·유튜버·사진가) */
+export const SIDE_JOBS = ['writer', 'painter', 'musician', 'youtuber', 'photographer'] as const;
+export const sideJobOf = (p: Person) => p.flags.find((f) => f.startsWith('side:'))?.slice(5);
+export const sideTrackOf = (p: Person) => {
+  const j = sideJobOf(p);
+  return j ? 'w:' + (WORK_GROUP[j] ?? 'creator') : undefined;
+};
 
 export function trackOf(s: GameState, p: Person): string | undefined {
   const a = age(s, p);
@@ -114,9 +122,18 @@ interface Spec {
   lines: Pool;
   extra?: (s: GameState, p: Person, t: Tier) => string;
   blocked?: (s: GameState) => string | undefined;
+  /** 직급: 이 이상(고참·임원)이거나 이 이하(신참)일 때만 보인다 */
+  minLevel?: number;
+  maxLevel?: number;
 }
 
 const hd = (s: GameState) => head(s);
+/** 정치인 지지율 변화 */
+function polBump(p: Person, d: number): string {
+  const pl = (p.pol ??= { approval: 45, fund: 0, slush: 0, heat: 0 });
+  pl.approval = Math.max(5, Math.min(90, pl.approval + d));
+  return d ? ` · 지지율 ${d > 0 ? '+' : ''}${d}% → ${pl.approval}%` : '';
+}
 
 function build(sp: Spec): ActionDef {
   return {
@@ -130,6 +147,7 @@ function build(sp: Spec): ActionDef {
     stages: ['univ', 'prep', 'adult', 'senior'],
     tracks: sp.tracks,
     blocked: sp.blocked,
+    show: sp.minLevel !== undefined || sp.maxLevel !== undefined ? (s) => hd(s).jobLevel >= (sp.minLevel ?? 0) && hd(s).jobLevel <= (sp.maxLevel ?? 99) : undefined,
     run: (s) => {
       const p = hd(s);
       const t = rollTier(s, p, { stat: sp.roll.stat, talent: sp.roll.talent, bonus: sp.roll.bonus?.(p) ?? 0 });
@@ -274,7 +292,7 @@ const X: Spec[] = [
 // ───────────────────────── 일하는 사람 (직업별) ─────────────────────────
 
 const W: Spec[] = [
-  { id: 'w_office_report', tracks: ['w:office', 'w:finance', 'w:public'], icon: '📑', name: '보고서 공들이기', desc: '윗선 눈도장 · 승진 기회 · 야근', roll: { stat: 'int' }, promo: 0.35, grow: [['int', 0.4]], hp: [0, -1, -1, -2], hap: [6, 0, -2, -5], bond: [0, -1, -1, -2],
+  { id: 'w_office_report', tracks: ['w:office', 'w:finance', 'w:public'], maxLevel: 3, icon: '📑', name: '보고서 공들이기', desc: '윗선 눈도장 · 승진 기회 · 야근', roll: { stat: 'int' }, promo: 0.35, grow: [['int', 0.4]], hp: [0, -1, -1, -2], hap: [6, 0, -2, -5], bond: [0, -1, -1, -2],
     lines: L(['사장님 보고에서 "이거 누가 썼어?" 칭찬을 받았다.'], ['팀장님이 보고서를 그대로 올렸다.'], ['수정만 열두 번. 결국 처음 안으로.'], ['숫자 하나 틀려 회의실이 얼어붙었다.']) },
   { id: 'w_office_politics', tracks: ['w:office', 'w:finance'], icon: '🍻', name: '사내 인맥 관리', desc: '줄 서기·회식 · 승진 기회 · 돈·건강 소모', cost: 50, roll: { stat: 'cha', bonus: (p) => markOf(p, 'network') * 0.01 }, promo: 0.3, marks: { network: 1 }, hp: [0, 0, -1, -2], hap: [5, 2, -2, -5],
     lines: L(['전무님과 골프를 쳤다. 다음 인사에서 이름이 오르내린다.'], ['타 부서 동기들과 끈끈해졌다.'], ['회식에서 분위기만 맞추다 왔다.'], ['술자리에서 줄을 잘못 섰다는 소문이 돌았다.']) },
@@ -286,7 +304,7 @@ const W: Spec[] = [
     lines: L(['예산 편성을 무사히 끝냈다. 국장님이 직접 이름을 불렀다.'], ['국정감사 자료를 밤새 만들었다.'], ['민원 전화에 하루가 다 갔다.'], ['감사에서 지적을 받았다.']) },
   { id: 'w_uniform_duty', tracks: ['w:uniform'], icon: '🚨', name: '위험한 현장 자원', desc: '공로·명성↑ 승진 기회 · 다칠 수 있다', roll: { stat: 'str' }, promo: 0.4, fame: [3, 1, 0, 0], hp: [0, -1, -2, -8], hap: [10, 3, -2, -10], marks: { kind: 1 },
     lines: L(['공로 표창을 받았다. 뉴스에 이름이 나왔다.'], ['무사히 임무를 마쳤다.'], ['긴 대기 끝에 철수했다.'], ['현장에서 크게 다쳤다. 병상에 누워 가족 얼굴만 떠올렸다.']) },
-  { id: 'w_uniform_exam', tracks: ['w:uniform', 'w:public'], icon: '📗', name: '승진 시험 공부', desc: '계급·직급 승진 시험 · 퇴근 후 공부', roll: { stat: 'int' }, promo: 0.6, grow: [['int', 0.4]], hap: [8, -1, -2, -5], bond: [0, -1, -1, -2],
+  { id: 'w_uniform_exam', tracks: ['w:uniform', 'w:public'], maxLevel: 3, icon: '📗', name: '승진 시험 공부', desc: '계급·직급 승진 시험 · 퇴근 후 공부', roll: { stat: 'int' }, promo: 0.6, grow: [['int', 0.4]], hap: [8, -1, -2, -5], bond: [0, -1, -1, -2],
     lines: L(['승진 시험 합격! 계급장이 바뀐다.'], ['퇴근 후 두 시간씩 꾸준히.'], ['야간 근무 때문에 공부가 끊긴다.'], ['시험 날 비상 소집이 걸렸다.']) },
   { id: 'w_legal_case', tracks: ['w:legal'], icon: '📂', name: '큰 사건 수임', desc: '성공하면 보수·명성 · 지면 평판↓', roll: { stat: 'int', talent: 'genius' }, promo: 0.35, cash: [4000, 1200, 200, -300], fame: [2, 0, 0, -1], hp: [0, -1, -1, -2], hap: [10, 3, -2, -8],
     lines: L(['세간이 주목한 사건을 이겼다. 의뢰가 밀려든다.'], ['합의로 잘 마무리했다.'], ['재판이 해를 넘긴다.'], ['패소. 의뢰인이 등을 돌렸다.']) },
@@ -326,6 +344,57 @@ const W: Spec[] = [
     lines: L(['대형 브랜드 광고를 따냈다!'], ['동료와의 합작이 반응이 좋다.'], ['섭외가 무산됐다.'], ['뒷광고 논란에 휘말렸다.']) },
   { id: 'w_tech_side', tracks: ['w:tech'], icon: '💻', name: '사이드 프로젝트·논문', desc: '실력·이직 가치↑ · 대박이면 창업 제안', roll: { stat: 'int', talent: 'genius' }, promo: 0.3, grow: [['int', 0.6]], cash: [1500, 0, 0, 0], hap: [10, 4, -1, -5],
     lines: L(['만든 앱이 앱스토어 1위를 찍었다!'], ['오픈소스에 기여해 이름이 알려졌다.'], ['주말마다 붙잡고 있지만 진척이 없다.'], ['회사 겸업 규정 위반 경고를 받았다.']) },
+  // ── 고참·임원이 되면 하는 일이 달라진다 ──
+  { id: 'w_exec_strategy', tracks: ['w:office', 'w:finance', 'w:sales', 'w:tech'], minLevel: 4, icon: '♟', name: '임원 전략 회의 주재', desc: '회사의 방향을 정한다 · 성과면 사장 후보 (지능)', roll: { stat: 'int' }, promo: 0.3, fame: [2, 1, 0, -1], cash: [3000, 800, 0, 0], hap: [8, 3, -2, -6],
+    lines: L(['신사업이 대박! 이사회가 주목한다.'], ['분기 목표를 무난히 맞췄다.'], ['회의만 길었다.'], ['밀어붙인 사업이 적자를 냈다. 문책성 인사 소문.']) },
+  { id: 'w_exec_mentor', tracks: ['w:office', 'w:finance', 'w:public', 'w:tech', 'w:legal', 'w:med', 'w:edu'], minLevel: 3, icon: '🧑‍🏫', name: '후배 키우기', desc: '성품·인맥↑ · 내 사람이 생긴다', roll: { stat: 'mor' }, grow: [['mor', 0.4], ['cha', 0.3]], marks: { network: 1, kind: 1 }, hap: [8, 5, 1, -2],
+    lines: L(['키운 후배가 사내 최연소 팀장이 됐다. "다 선배님 덕분입니다."'], ['후배들과 점심을 먹으며 고민을 들었다.'], ['잔소리로 들렸나 보다.'], ['아끼던 후배가 경쟁사로 떠났다.']) },
+  { id: 'w_public_policy', tracks: ['w:public'], minLevel: 4, icon: '🏛', name: '정책 총괄', desc: '국·실장급 · 정책이 신문 1면에 (지능)', roll: { stat: 'int' }, promo: 0.25, fame: [3, 1, 0, -1], hap: [8, 3, -2, -6],
+    lines: L(['총괄한 정책이 국무회의를 통과했다.'], ['국회 답변을 무사히 마쳤다.'], ['부처 간 협의가 막혔다.'], ['정책이 여론의 뭇매를 맞았다.']) },
+  { id: 'w_uniform_command', tracks: ['w:uniform'], minLevel: 4, icon: '🎖', name: '현장 지휘', desc: '지휘관 · 대형 사건을 맡는다 (지능)', roll: { stat: 'int' }, promo: 0.3, fame: [4, 1, 0, -2], hap: [10, 3, -2, -8],
+    lines: L(['대형 작전을 무사고로 지휘했다. 훈장 추천이 올라갔다.'], ['부하들이 믿고 따른다.'], ['상부와 현장 사이에서 애를 먹었다.'], ['지휘 책임을 지고 경위서를 썼다.']) },
+  { id: 'w_med_manage', tracks: ['w:med'], minLevel: 4, icon: '🏥', name: '병원 경영', desc: '원장·과장급 · 돈과 평판 (매력)', roll: { stat: 'cha' }, cash: [5000, 2000, 0, -1500], fame: [2, 1, 0, -1], hap: [6, 2, -3, -6],
+    lines: L(['새 센터를 열었다. 환자가 몰린다.'], ['적자 과를 살려 냈다.'], ['노조와 협상이 길어진다.'], ['의료 분쟁이 터졌다.']) },
+  { id: 'w_legal_partner', tracks: ['w:legal'], minLevel: 3, icon: '🤝', name: '대형 고객 영업', desc: '파트너급 · 수임료가 크다 (매력)', roll: { stat: 'cha' }, cash: [6000, 2500, 500, 0], marks: { network: 1 }, hap: [8, 3, -1, -4],
+    lines: L(['대기업 자문 계약을 따냈다.'], ['오랜 고객이 새 사건을 맡겼다.'], ['골프만 치고 왔다.'], ['경쟁 로펌에 고객을 뺏겼다.']) },
+  { id: 'w_edu_admin', tracks: ['w:edu'], minLevel: 3, icon: '📋', name: '학교·학과 운영', desc: '교감·교장·학과장 · 학교를 바꾼다 (성품)', roll: { stat: 'mor' }, fame: [2, 1, 0, 0], hap: [8, 3, -2, -5],
+    lines: L(['학교 폭력 제로 학교로 뽑혔다.'], ['교사들의 행정 업무를 줄였다.'], ['학부모 민원에 하루가 갔다.'], ['감사에서 지적을 받았다.']) },
+  // ── 정치인(의원·시장·장관·대통령): 승진 대신 지지율·명성, 그리고 비리의 유혹 ──
+  { id: 'w_pol_bill', tracks: ['w:politics'], icon: '📜', name: '법안·조례 발의', desc: '의정 성과 · 지지율·명성↑ (지능)', roll: { stat: 'int' }, fame: [3, 1, 0, 0], grow: [['int', 0.3]], hap: [8, 3, -1, -4],
+    extra: (_s, p, t) => polBump(p, [6, 3, 0, -2][IDX[t]]),
+    lines: L(['본회의 통과! "일하는 정치인" 기사가 났다.'], ['상임위에서 좋은 평가를 받았다.'], ['계류 중. 다음 회기를 기약한다.'], ['졸속 입법이라는 비판을 받았다.']) },
+  { id: 'w_pol_tv', tracks: ['w:politics'], icon: '📺', name: '시사 토론 출연', desc: '말 한마디로 지지율이 출렁인다 (매력)', roll: { stat: 'cha' }, fame: [4, 2, 0, -1], grow: [['cha', 0.4]], hap: [8, 3, -1, -6],
+    extra: (_s, p, t) => polBump(p, [8, 3, 0, -7][IDX[t]]),
+    lines: L(['토론 완승! 클립 조회수가 폭발했다.'], ['차분한 논리로 호평을 받았다.'], ['평범했다. 기억하는 사람이 없다.'], ['말실수가 짤로 돌았다.']) },
+  { id: 'w_pol_local', tracks: ['w:politics'], icon: '🚧', name: '지역 숙원 사업 예산 따오기', desc: '지역 민심↑ · 격무 (매력)', roll: { stat: 'cha' }, hp: [0, -1, -1, -2], hap: [8, 3, -2, -5],
+    extra: (_s, p, t) => polBump(p, [10, 5, 1, -3][IDX[t]]),
+    lines: L(['숙원이던 다리 예산을 따냈다. 현수막이 동네를 덮었다.'], ['주민 설명회가 잘 끝났다.'], ['예산 심사에서 절반이 잘렸다.'], ['다른 지역에 밀렸다. "힘없는 정치인" 소리를 들었다.']) },
+  { id: 'w_pol_party', tracks: ['w:politics'], icon: '🤝', name: '당내 세력 다지기', desc: '공천·당직에 유리 · 계파 싸움 (매력)', roll: { stat: 'cha' }, fame: [2, 1, 0, 0], marks: { network: 1 }, hap: [6, 2, -2, -4],
+    extra: (_s, p, t) => polBump(p, [3, 1, 0, -3][IDX[t]]),
+    lines: L(['지도부 핵심으로 떠올랐다. 당직 제의가 왔다.'], ['동료 의원들과 저녁을 먹으며 결속을 다졌다.'], ['계파 모임에서 겉돌았다.'], ['줄을 잘못 섰다. 반대파의 표적이 됐다.']) },
+  { id: 'w_pol_sponsor', tracks: ['w:politics'], icon: '💼', name: '기업 후원 "관리"', desc: '돈이 된다 · 비자금·수사 위험이 쌓인다 (비리)', roll: { stat: 'cha' }, cash: [3000, 1800, 900, 0], marks: { cheat: 1 },
+    extra: (_s, p, t) => {
+      const pl = (p.pol ??= { approval: 45, fund: 0, slush: 0, heat: 0 });
+      pl.slush += [4000, 2500, 1200, 0][IDX[t]];
+      pl.heat += [10, 12, 15, 30][IDX[t]];
+      p.actual.mor = Math.max(0, p.actual.mor - 2);
+      return ` · 비자금↑ 수사 위험 ${pl.heat}${t === 'bad' ? ' (첩보가 검찰에 들어갔다)' : ''}`;
+    },
+    lines: L(['조용히 큰돈이 들어왔다. 아무도 모른다… 아직은.'], ['후원 기업 행사에 얼굴을 비췄다.'], ['기업들이 몸을 사린다.'], ['돈 전달 현장이 CCTV에 찍혔다는 소문.']) },
+  { id: 'w_pol_clean', tracks: ['w:politics'], icon: '🧾', name: '정치자금 투명 공개', desc: '수사 위험↓ 성품↑ · 뒷돈은 끊긴다', roll: { stat: 'mor' }, grow: [['mor', 0.6]], fame: [2, 1, 0, 0], marks: { honest: 1 },
+    extra: (_s, p, t) => {
+      const pl = (p.pol ??= { approval: 45, fund: 0, slush: 0, heat: 0 });
+      pl.heat = Math.max(0, pl.heat - [20, 12, 6, 2][IDX[t]]);
+      return polBump(p, [4, 2, 0, 0][IDX[t]]) + ` · 수사 위험 ${pl.heat}`;
+    },
+    lines: L(['"한 푼도 숨기지 않았다." 청렴 정치인 1위에 뽑혔다.'], ['회계 장부를 모두 공개했다.'], ['아무도 관심이 없다.'], ['공개한 장부에서 실수가 발견됐다.']) },
+  // ── 성직자 ──
+  { id: 'w_clergy_sermon', tracks: ['w:clergy'], icon: '🕯', name: '강론·설교 준비', desc: '성품·매력↑ · 신도가 는다', roll: { stat: 'mor' }, grow: [['mor', 0.5], ['cha', 0.3]], fame: [2, 1, 0, 0], hap: [8, 4, 0, -3], promo: 0.2,
+    lines: L(['강론이 입소문을 탔다. 새 신도가 몰려왔다.'], ['신도들이 고개를 끄덕였다.'], ['졸고 있는 사람이 보였다.'], ['말이 꼬여 실언을 했다.']) },
+  { id: 'w_clergy_relief', tracks: ['w:clergy'], icon: '🍚', name: '무료 급식·구호', desc: '성품·명성↑ · 몸은 고되다', roll: { stat: 'mor' }, grow: [['mor', 0.8]], fame: [3, 1, 0, 0], hp: [0, -1, -1, -2], hap: [10, 6, 2, -2], marks: { kind: 1 },
+    lines: L(['쪽방촌 어르신들이 "고맙다"며 손을 잡았다. 뉴스에도 나왔다.'], ['300인분 밥을 지었다.'], ['봉사자가 모자라 힘들었다.'], ['감기 몸살로 앓아누웠다.']) },
+  { id: 'w_clergy_counsel', tracks: ['w:clergy'], icon: '🙏', name: '신도 상담', desc: '매력↑ · 마음을 나눈다', roll: { stat: 'cha' }, grow: [['cha', 0.5]], hap: [6, 4, 0, -3],
+    lines: L(['삶을 포기하려던 청년을 붙잡았다.'], ['부부 싸움을 중재했다.'], ['말없이 들어 주기만 했다.'], ['상담 내용이 새어 나가 곤란해졌다.']) },
 ];
 
 // ───────────────────────── 트랙 보강: 얇던 길마다 한두 개씩 더 ─────────────────────────

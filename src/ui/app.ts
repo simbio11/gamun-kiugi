@@ -1,5 +1,5 @@
 import { standingLabel } from '../core/school';
-import { TRACK_NAMES, trackOf } from '../core/tracks';
+import { sideJobOf, sideTrackOf, TRACK_NAMES, trackOf } from '../core/tracks';
 import { HOME_TYPE, buyCurrentHome, homeBuyQuote, moveInQuote, moveInto, moveIntoOwned, moveQuote, moveTo, ownedHomes, residence, tierOf, tiers } from '../core/housing';
 import { creditGrade, debtRate, inRehab, walletNet } from '../core/debt';
 import { fixJosa, iga } from '../core/ev-util';
@@ -103,6 +103,8 @@ interface UIState {
   /** 저장 슬롯·코드 안내 한 줄 */
   saveMsg?: string;
   actCat?: string;
+  /** 행동 탭: 겸직 탭을 보는 중 */
+  actSide?: boolean;
   assetSub?: string;
   /** 크게 보고 있는 명예의 전당 카드 */
   cardView?: string;
@@ -1189,6 +1191,7 @@ function personSheet(g: GameState, p: Person): string {
       }</span></div>
       ${!dead && p.id !== h.id ? `<div class="sh-row"><span>마음</span><span>${happy} 행복 · ${p.affinity >= 0 ? '♥' : '💢'} 관계 ${Math.round(p.affinity)}</span></div>` : ''}
       ${p.desire && p.desireKnown ? `<div class="sh-row"><span>꿈</span><span>${TAG_NAMES[p.desire]}</span></div>` : ''}
+      ${sideJobOf(p) ? `<div class="sh-row"><span>겸직</span><span>🎨 ${esc(JOBS[sideJobOf(p)!]?.name ?? '')}</span></div>` : ''}
       <div class="sh-row"><span>재산</span><span>${formatMoney(personWorth(g, p))}</span></div>
       ${p.home ? `<div class="sh-row"><span>사는 집</span><span>${homeLine(g, p.home)}</span></div>` : ''}
       ${!dead && a < 30 ? `<div class="sh-row"><span>성향</span><span>${esc(temperamentLine(p).replace('성향: ', ''))}</span></div>` : ''}
@@ -1756,7 +1759,16 @@ const AUTO_GIFT_STEPS = [0, 300, 500, 1000, 2500, 5000];
 function actionsScreen(g: GameState): string {
   const ap = apLeft(g);
   // 근현대사: 그 시절에 없던 행동은 숨기고 (코딩 학원·코인 …), 이름은 시대말로
-  const list = ACTIONS.filter((a) => forHead(g, a) && !anachronistic(g, a.name + ' ' + a.desc)).map((a) => (a.label ? { ...a, ...a.label(g) } : a)).map((a) => ({ ...a, name: periodize(g, a.name), desc: periodize(g, a.desc) }));
+  const all = ACTIONS.filter((a) => forHead(g, a) && !anachronistic(g, a.name + ' ' + a.desc)).map((a) => (a.label ? { ...a, ...a.label(g) } : a)).map((a) => ({ ...a, name: periodize(g, a.name), desc: periodize(g, a.desc) }));
+  // 겸직: 본업 행동과 겸직 행동을 탭으로 나눈다
+  const me0 = head(g);
+  const sideT = sideTrackOf(me0);
+  const mainT = trackOf(g, me0);
+  const sideOnly = (a: (typeof all)[number]) => !!sideT && !!a.tracks?.includes(sideT) && !a.tracks.includes(mainT ?? '');
+  const onSide = !!sideT && !!ui.actSide;
+  const list = sideT ? all.filter((a) => (onSide ? sideOnly(a) : !sideOnly(a))) : all;
+  const sideJ = sideJobOf(me0);
+  const jobTabs = sideT ? `<div class="job-tabs"><button data-action="act-side" data-v="0" class="${onSide ? '' : 'on'}">💼 본업 · ${esc(jobShort(g, me0))}</button><button data-action="act-side" data-v="1" class="${onSide ? 'on' : ''}">🎨 겸직 · ${esc(JOBS[sideJ!]?.name ?? '')}</button></div>` : '';
   const cats = [...new Set(list.map((a) => a.cat))] as ActionCat[];
   const cat = ui.actCat && cats.includes(ui.actCat as ActionCat) ? (ui.actCat as ActionCat) : cats[0];
   const money = canSpend(g);
@@ -1782,9 +1794,10 @@ function actionsScreen(g: GameState): string {
   };
   return `
   <section class="ap-bar">
-    <div><b>올해 할 일</b> <small>${STAGE_NAMES[stageOf(g, head(g))]}${TRACK_NAMES[trackOf(g, head(g)) ?? ''] ? ` · ${TRACK_NAMES[trackOf(g, head(g))!]}` : ''}</small></div>
+    <div><b>올해 할 일</b> <small>${STAGE_NAMES[stageOf(g, head(g))]}${!['none', 'parttime', 'pension'].includes(me0.job) ? ` · ${esc(jobShort(g, me0))}` : TRACK_NAMES[mainT ?? ''] ? ` · ${TRACK_NAMES[mainT!]}` : ''}${sideJ ? ` · 겸직 ${esc(JOBS[sideJ]?.name ?? '')}` : ''}</small></div>
     <span class="ap" title="행동력: 생활 수준 검소 2·보통 3·호화 4${car ? ` + 탈것 ${car}` : ''}">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, apMax(g) - ap))}</span>
   </section>
+  ${jobTabs}
   <div class="cat-chips">${cats
     .map((c) => {
       const n = list.filter((a) => a.cat === c).length;
@@ -2324,6 +2337,10 @@ function handle(el: HTMLElement) {
       break;
     case 'act-cat':
       ui.actCat = v;
+      break;
+    case 'act-side':
+      ui.actSide = v === '1';
+      ui.actCat = undefined;
       break;
     case 'asset-sub':
       ui.assetSub = v;

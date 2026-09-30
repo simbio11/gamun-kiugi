@@ -838,7 +838,7 @@ describe('부모님 유산', () => {
     s.year += 35;
     const thin: string[] = [];
     for (const id of JOB_IDS) {
-      if (['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'landlord', 'professor'].includes(id)) continue; // 정치·교수는 career.ts, 건물주는 부동산
+      if (['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'mayor', 'landlord', 'professor'].includes(id)) continue; // 정치·교수는 career.ts, 건물주는 부동산
       h.job = id;
       h.jobLevel = 2;
       h.jobYears = 20;
