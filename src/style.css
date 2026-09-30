@@ -564,3 +564,13 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .dx.locked { opacity: .45; filter: grayscale(1); }
 .dx.rare { border-color: #3c8cff; } .dx.epic { border-color: #a45cff; } .dx.legend { border-color: #f5a300; background: linear-gradient(160deg, rgba(255,214,90,.25), transparent); }
 .calm .hcard, .calm .hc-shine, .calm .grade-stamp { animation: none; }
+
+.dx-tier { font-style: normal; font-size: .6em; color: #d99000; letter-spacing: 1px; }
+.syn { display: flex; flex-direction: column; gap: 5px; }
+.sy { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; border-radius: 8px; background: rgba(128,128,128,.07); opacity: .6; }
+.sy.on { opacity: 1; background: linear-gradient(90deg, rgba(255,210,80,.25), transparent); box-shadow: inset 3px 0 0 #f5a300; }
+.sy span { font-size: 22px; }
+.sy div { display: flex; flex-direction: column; min-width: 0; }
+.sy small { opacity: .75; }
+.sy em { font-style: normal; font-size: .72em; opacity: .8; overflow-wrap: anywhere; }
+.sy-eff { color: #b07a00; }

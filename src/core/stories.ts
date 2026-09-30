@@ -8,6 +8,7 @@ import type { GameState, Person, StatKey } from './types';
 import type { LifeDef } from './life';
 import { MORE_STORIES } from './stories-more';
 import { severance } from './economy';
+import { JOBS } from './data';
 import { acquireCar, affordCar } from './vehicle';
 import { PATH_STORIES } from './stories-path';
 import { pathOf, type Path } from './path';
@@ -24,6 +25,7 @@ import { LIFE3_STORIES } from './stories-life3';
 import { TEMPER_STORIES } from './stories-temper';
 import { SPECIAL_STORIES } from './stories-special';
 import { SAGA_STORIES } from './stories-saga';
+import { WORK_STORIES } from './stories-work';
 
 export interface Eff {
   str?: number;
@@ -47,6 +49,8 @@ export interface Eff {
   later?: [number, number, number, string];
   /** 보이지 않게 쌓이는 흔적 (seeds.ts) */
   mark?: Record<string, number>;
+  /** 직급 변화 (승진 +1 / 좌천 -1) */
+  promo?: number;
 }
 export interface SC {
   label: string;
@@ -128,6 +132,7 @@ function apply(x: Ctx, e: Eff | undefined) {
     if (g) p.flags = [...p.flags.filter((f) => f !== g && f !== 'repeat_year'), 'grad:' + (Number(g.slice(5)) + 1)];
   }
   if (e.mark) for (const [k, n] of Object.entries(e.mark)) mark(p, k, n);
+  if (e.promo && JOBS[p.job]) p.jobLevel = clamp(p.jobLevel + e.promo, 0, JOBS[p.job].maxLevel);
   if (e.later && chance(x.s, e.later[0])) schedule(x.s, int(x.s, e.later[1], e.later[2]), e.later[3], p.id);
 }
 
@@ -596,5 +601,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES].map(toLife);
-export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length + SUDDEN_STORIES.length + INTEREST_STORIES.length + LIFE3_STORIES.length + TEMPER_STORIES.length + SPECIAL_STORIES.length + SAGA_STORIES.length;
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES].map(toLife);
+export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length + SUDDEN_STORIES.length + INTEREST_STORIES.length + LIFE3_STORIES.length + TEMPER_STORIES.length + SPECIAL_STORIES.length + SAGA_STORIES.length + WORK_STORIES.length;

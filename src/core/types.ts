@@ -252,7 +252,7 @@ export interface GameState {
   /** 이야기를 마지막으로 겪은 해 (같은 이야기가 자꾸 반복되지 않게): '사람id:이야기id' → 해 */
   storySeen?: Record<string, number>;
   /** 시작 난이도 (없으면 운명에 맡김) */
-  difficulty?: 'easy' | 'normal' | 'hard';
+  difficulty?: 'easy' | 'normal' | 'hard' | 'hell';
   /** 보상 팝업 대기열 */
   rewards?: import('./rewards').Reward[];
   /** 명예(✦): 쓸 수 있는 것 / 누적 (등급) */

@@ -8,7 +8,7 @@ import { gate, schedule, type Choice, type Ctx, type EventDef } from './ev-util'
 import { unlock } from './achievements';
 import { addFlag, age, alive, check, clamp, fullName, head, householder, isMainline, mark, randomName, spouseOf } from './people';
 import { JOBS } from './data';
-import { grant } from './rewards';
+import { diffMod, grant } from './rewards';
 import type { ActionDef } from './actions';
 import { buyPower } from './leverage';
 import type { GameState, Person } from './types';
@@ -48,7 +48,7 @@ export function initRival(s: GameState, ourWorth: number) {
   const born = h.birthYear + int(s, -3, 3);
   s.rival = {
     name,
-    worth: Math.round(Math.max(20000, ourWorth * (1.2 + 0.5 * next(s)))),
+    worth: Math.round(Math.max(20000, ourWorth * (1.2 + 0.5 * next(s))) * diffMod(s).rival),
     fame: Math.round(s.fame * 1.2 + 8),
     feud: 30,
     since: s.year,

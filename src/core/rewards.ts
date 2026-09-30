@@ -40,8 +40,13 @@ export const rankOf = (s: GameState) => {
   return i;
 };
 
+/** 난이도별 보정: 정점 도전 판정, 라이벌 체급, 명예 배율 */
+export const DIFF_MOD = { easy: { challenge: -4, rival: 1, glory: 0.8 }, normal: { challenge: 0, rival: 1.1, glory: 1 }, hard: { challenge: 3, rival: 1.3, glory: 1.25 }, hell: { challenge: 6, rival: 1.7, glory: 1.5 } } as const;
+export const diffMod = (s: GameState) => DIFF_MOD[(s.difficulty ?? 'normal') as keyof typeof DIFF_MOD] ?? DIFF_MOD.normal;
+
 /** 보상 지급: 명예가 쌓이고 팝업이 뜬다. 등급이 오르면 한 번 더 */
-export function grant(s: GameState, icon: string, title: string, text: string, rarity: Rarity, pts = RARITY_PTS[rarity]) {
+export function grant(s: GameState, icon: string, title: string, text: string, rarity: Rarity, pts0 = RARITY_PTS[rarity]) {
+  const pts = Math.round(pts0 * diffMod(s).glory);
   const before = rankOf(s);
   s.glory = (s.glory ?? 0) + pts;
   s.gloryTotal = (s.gloryTotal ?? 0) + pts;
@@ -137,6 +142,12 @@ export const HONORS: Record<string, Honor> = {
   euntap: { name: '은탑산업훈장', icon: '🏢', fame: 10, rarity: 'epic', desc: '기업을 상장시킨 창업주' },
   moran: { name: '국민훈장 모란장', icon: '💐', fame: 10, rarity: 'epic', desc: '나눔과 봉사로 사회에 기여' },
   sugyo: { name: '수교훈장 흥인장', icon: '🌐', fame: 10, rarity: 'epic', desc: '대사로서 국익에 기여' },
+  gwanghwa: { name: '수교훈장 광화대장', icon: '🌏', fame: 30, rarity: 'legend', desc: '국제기구 수장으로 세계 평화에 기여' },
+  taeguk: { name: '무공훈장 태극장', icon: '🎗', fame: 25, rarity: 'legend', desc: '국군 최고 지휘관으로 안보를 지켜낸 공로' },
+  gukseon: { name: '보국훈장 국선장', icon: '🛡', fame: 12, rarity: 'epic', desc: '드러나지 않게 국가 안보에 기여' },
+  dongbaek: { name: '국민훈장 동백장', icon: '🌸', fame: 12, rarity: 'epic', desc: '국민의 생명을 지킨 공로' },
+  mugunghwa_nat: { name: '국민훈장 무궁화장', icon: '🏵', fame: 22, rarity: 'legend', desc: '국민 훈장의 최고 등급. 인류와 사회에 크게 공헌' },
+  ungbi: { name: '과학기술훈장 웅비장', icon: '🚀', fame: 15, rarity: 'epic', desc: '국가 우주·과학 프로젝트의 주역' },
 };
 
 export function awardHonor(s: GameState, p: Person, id: string, why: string) {

@@ -71,12 +71,13 @@ export interface NewGameOpts {
   difficulty?: Difficulty;
 }
 
-export type Difficulty = 'easy' | 'normal' | 'hard';
+export type Difficulty = 'easy' | 'normal' | 'hard' | 'hell';
 /** 난이도별: 형편, 재벌가 확률, 부모 잠재력 보정, 아이 잠재력 보정, 부모 직급 보정 */
 export const DIFFICULTY: Record<Difficulty, { name: string; desc: string; origin: GameState['origin']; tycoon: number; parentQ: number; childQ: number; level: number }> = {
-  easy: { name: '쉬움 · 금수저', desc: '부유한 집(재벌가일 수도), 전문직 부모와 높은 직급, 뛰어난 유전자 — 잠재력↑, 재능 하나는 타고난다, 좋은 성격', origin: 'rich', tycoon: 0.4, parentQ: 6, childQ: 10, level: 1 },
+  easy: { name: '쉬움 · 금수저', desc: '부유한 집(재벌가일 수도), 전문직 부모와 높은 직급, 뛰어난 유전자 — 잠재력↑, 재능 하나는 타고난다, 좋은 성격. 정점 도전이 쉽지만 명예는 0.8배', origin: 'rich', tycoon: 0.4, parentQ: 6, childQ: 10, level: 1 },
   normal: { name: '보통 · 중산층', desc: '평범한 직장인 부모, 수도권·지방 아파트, 보통의 유전자', origin: 'middle', tycoon: 0, parentQ: 0, childQ: 0, level: 0 },
-  hard: { name: '어려움 · 흙수저', desc: '가난한 집, 빚과 반지하, 생계형 직업 부모, 불리한 유전자 — 잠재력↓, 재능 없음, 약점 하나', origin: 'poor', tycoon: 0, parentQ: -4, childQ: -8, level: -1 },
+  hard: { name: '어려움 · 흙수저', desc: '가난한 집, 빚과 반지하, 생계형 직업 부모, 불리한 유전자 — 잠재력↓, 재능 없음, 약점 하나. 정점 도전이 어렵고 라이벌이 강하지만 명예를 1.25배 받는다', origin: 'poor', tycoon: 0, parentQ: -4, childQ: -8, level: -1 },
+  hell: { name: '지옥 · 무일푼', desc: '가장 가난한 집, 약한 유전자, 부자 라이벌. 정점 도전 판정이 훨씬 어렵다. 대신 명예를 1.5배 받는다 — 여기서 대통령을 내면 전설이다', origin: 'poor', tycoon: 0, parentQ: -8, childQ: -14, level: -1 },
 };
 
 const START_YEAR = 2025;
@@ -354,6 +355,7 @@ export function simulateYear(s: GameState): void {
   milestones(s);
   adultEvents(s);
   lifeYear(s);
+  workEvents(s);
   randomEvents(s);
 
   for (const p of mainlineMembers(s)) {
@@ -444,6 +446,7 @@ function lifeYear(s: GameState) {
   // 일상 이야기: 해마다 한두 개
   const stories: [LifeDef, Person, number][] = [];
   for (const p of members) for (const d of STORIES) {
+    if (d.id.startsWith('st_wk_')) continue; // 직장 이야기는 따로 (workEvents)
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) stories.push([d, p, w]);
   }
@@ -874,6 +877,24 @@ function adultEvents(s: GameState) {
   }
   for (const p of Object.values(s.people)) {
     if (alive(p) && hasFlag(p, 'grievance') && chance(s, 0.5)) queue(s, 'grievance', p.id);
+  }
+}
+
+/** 직장 생활 이야기: 일하는 가족에게 그 직업다운 일이 해마다 생긴다 (가주는 자주, 다른 가족은 가끔, 한 해 최대 2건) */
+const WORK_DEFS = STORIES.filter((d) => d.id.startsWith('st_wk_'));
+function workEvents(s: GameState) {
+  const workers = mainlineMembers(s).filter((p) => age(s, p) >= 20 && !['none', 'parttime', 'pension'].includes(p.job) && !p.flags.includes('student'));
+  workers.sort((a, b) => Number(b.id === s.headId) - Number(a.id === s.headId));
+  let n = 0;
+  for (const p of workers) {
+    if (n >= 2 || !chance(s, p.id === s.headId ? 0.6 : 0.25)) continue;
+    const pool = WORK_DEFS.map((d) => [d, d.weight?.(s, p) ?? 0] as const).filter(([, w]) => w > 0);
+    const total = pool.reduce((t, [, w]) => t + w, 0);
+    if (!total) continue;
+    let r = next(s) * total;
+    const hit = pool.find(([, w]) => (r -= w) <= 0) ?? pool[pool.length - 1];
+    queue(s, hit[0].id, p.id);
+    n++;
   }
 }
 

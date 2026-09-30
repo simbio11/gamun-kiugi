@@ -26,8 +26,9 @@ import { homeOf, moveTo, settleHome } from '../src/core/housing';
 import { debtRate, goBankrupt, walletNet } from '../src/core/debt';
 import { awardHonor, buyPerk, grant, retireHonor } from '../src/core/rewards';
 import { profScore } from '../src/core/career';
-import { awardCard, cardYear } from '../src/core/cards';
+import { awardCard, cardYear, CARDS, SUMMITS, SYNERGIES, activeSynergies } from '../src/core/cards';
 import { familyScore, lifeReport } from '../src/core/score';
+import { WORK_STORIES } from '../src/core/stories-work';
 
 describe('콘텐츠 무결성', () => {
   it('직업 100개 이상, 모든 참조가 유효', () => {
@@ -825,5 +826,91 @@ describe('부모님 유산', () => {
     lifeReport(s, dad);
     expect(dad.lifeScore).toBeGreaterThan(0);
     expect(familyScore(s).total).toBeGreaterThan(before);
+  });
+
+  it('직장 생활: 모든 직업마다 그 직업다운 직장 이야기가 2개 이상 있다', () => {
+    const s = newGame({ seed: 74, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year += 35;
+    const thin: string[] = [];
+    for (const id of JOB_IDS) {
+      if (['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'landlord', 'professor'].includes(id)) continue; // 정치·교수는 career.ts, 건물주는 부동산
+      h.job = id;
+      h.jobLevel = 2;
+      h.jobYears = 20;
+      const n = WORK_STORIES.filter((st) => !st.id.startsWith('wk_any') && (!st.cond || st.cond(s, h))).length;
+      if (n < 2) thin.push(`${id}:${n}`);
+    }
+    expect(thin).toEqual([]);
+  });
+
+  it('모든 명예의 전당 카드는 실제 플레이로 얻을 수 있다 (자동 조건 또는 정점 이벤트, 2단계까지 끝까지)', () => {
+    const fail: string[] = [];
+    for (const d of CARDS) {
+      const sm = SUMMITS.find((x) => x.card === d.id);
+      if (!d.auto && !sm) { fail.push(d.id + ': 얻는 길 없음'); continue; }
+      const s = newGame({ seed: 90, familyName: '최', sex: 'M' });
+      const h = head(s);
+      s.year += 45;
+      s.events = [];
+      for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) h.potential[k] = h.actual[k] = 100;
+      let ok = false;
+      if (d.auto) {
+        // 자동 카드: 직업·직급으로 되는지, 아니면 플래그가 게임 어딘가에서 실제로 붙는지
+        for (const id of JOB_IDS) for (let lv = JOBS[id].maxLevel; lv >= 0 && !ok; lv--) {
+          h.job = id; h.jobLevel = lv; h.jobYears = 30;
+          if (d.auto(s, h)) ok = true;
+        }
+        if (!ok) {
+          const flags = ['president', 'was_minister', 'was_politician', 'nobel', 'olympic_gold']; // 모두 이벤트에서 실제로 붙는 플래그 (대선·청문회·총선·노벨상·올림픽)
+          for (const f of flags) {
+            h.flags.push(f);
+            if (d.auto(s, h)) ok = true;
+            h.flags.pop();
+          }
+          h.donated = 50000;
+          if (d.auto(s, h)) ok = true;
+        }
+      }
+      if (!ok && sm) {
+        if (sm.pre) awardCard(s, h, sm.pre);
+        if (sm.setup) {
+          sm.setup(s, h);
+          ok = sm.ok(s, h) && !!JOBS[h.job];
+        } else {
+          h.papers = 50; s.fame = 200; h.flags.push('was_politician');
+          for (const id of JOB_IDS) for (let lv = JOBS[id].maxLevel; lv >= 0 && !ok; lv--) {
+            h.job = id; h.jobLevel = lv; h.jobYears = 30;
+            if (sm.ok(s, h)) ok = true;
+          }
+        }
+        if (ok) {
+          // 이벤트를 끝까지 실제로 치른다 (능력치 100이면 이긴다)
+          for (let stage = 1; stage <= (sm.stages ?? 1); stage++) {
+            s.events = [{ uid: s.eventSeq++, defId: 'summit_' + d.id, personId: h.id, data: { stage } }];
+            resolveChoice(s, 0);
+          }
+          if (!(s.cards ?? []).some((c) => c.id === d.id && c.personId === h.id)) { ok = false; fail.push(d.id + ': 이벤트를 이겼는데 카드가 없다'); continue; }
+        }
+      }
+      if (!ok) fail.push(d.id + ': 조건을 만족하는 상태가 없다');
+    }
+    expect(fail).toEqual([]);
+    // 시너지는 실제 카드 id로만 이루어진다
+    const ids = new Set(CARDS.map((c) => c.id));
+    for (const sy of SYNERGIES) for (const g of sy.groups) for (const id of g) expect(ids.has(id)).toBe(true);
+  });
+
+  it('가문 시너지: 장군과 재계 거물이 함께 살아 있으면 "군수 재벌"이 발동한다', () => {
+    const s = newGame({ seed: 91, familyName: '최', sex: 'M' });
+    const h = head(s);
+    const dad = parentsOf(s, h)[0];
+    s.year += 30;
+    awardCard(s, h, 'general');
+    awardCard(s, dad, 'chaebol');
+    expect(activeSynergies(s).some((x) => x.id === 'military_industrial')).toBe(true);
+    s.events = [];
+    cardYear(s);
+    expect(s.rewards?.some((r) => r.title.includes('군수 재벌'))).toBe(true);
   });
 });

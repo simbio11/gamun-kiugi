@@ -40,7 +40,7 @@ import { MISSIONS } from '../core/missions';
 import { rivalLine, rivalMood } from '../core/rival';
 import { buyPerk, HONORS, PERKS, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
-import { CARD, CARDS, effText } from '../core/cards';
+import { activeSynergies, CARD, CARDS, effText, SYNERGIES, tierOf as cardTier } from '../core/cards';
 import { familyScore, lifeGrade, lifeParts } from '../core/score';
 import { pendingAffairs } from '../core/fate';
 import { ACTIONS, STAGE_NAMES, apLeft, apMax, doAction, forHead, stageOf, type ActionCat } from '../core/actions';
@@ -339,7 +339,7 @@ function titleScreen(): string {
         <input id="surname" maxlength="2" value="${esc(o.surname)}" autocomplete="off">
       </label>
       <div class="field">나의 성별 ${seg('setup-sex', o.sex, [['M', '남'], ['F', '여']])}</div>
-      <div class="field">난이도 (태어날 집안과 유전자) ${seg('setup-origin', o.origin, [['random', '🎲 운명에 맡긴다'], ['easy', '쉬움'], ['normal', '보통'], ['hard', '어려움']])}</div>
+      <div class="field">난이도 (태어날 집안과 유전자) ${seg('setup-origin', o.origin, [['random', '🎲 운명'], ['easy', '쉬움'], ['normal', '보통'], ['hard', '어려움'], ['hell', '🔥지옥']])}</div>
       <p class="fine">${o.origin === 'random' ? '집안 형편(서민 30%·중산층 52%·부유층 18%), 부모 직업·재산, 타고난 능력치와 재능 모두 운에 맡긴다.' : `<b>${DIFFICULTY[o.origin].name}</b> — ${DIFFICULTY[o.origin].desc}`}<br>다섯 살부터 시작한다. 형제자매는 태어나 봐야 안다.</p>
       <div class="field">시대 <div class="seg"><button class="on">현대 한국</button><button disabled>근현대사 (준비 중)</button></div></div>
       <button class="btn big primary" data-action="start">가문 시작</button>
@@ -1522,10 +1522,18 @@ function achvScreen(g: GameState): string {
     <div class="dex">${[...CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).map((d) => {
       const who = dexGot.get(d.id);
       return who
-        ? `<div class="dx ${d.rarity}" title="${esc(effText(d.eff))}"><span>${d.icon}</span><b>${d.name}</b><small>${esc(who.join(', '))}</small><em>${esc(effText(d.eff))}</em></div>`
-        : `<div class="dx locked"><span>❔</span><b>${d.name}</b><small>${esc(d.how)}</small></div>`;
+        ? `<div class="dx ${d.rarity}" title="${esc(effText(d.eff))}"><span>${d.icon}</span><b>${d.name}</b><i class="dx-tier">${'★'.repeat(cardTier(d))}</i><small>${esc(who.join(', '))}</small><em>${esc(effText(d.eff))}</em></div>`
+        : `<div class="dx locked"><span>❔</span><b>${d.name}</b><i class="dx-tier">${'★'.repeat(cardTier(d))}</i><small>${esc(d.how)}</small></div>`;
     }).join('')}</div>
-    <p class="fine">카드 주인이 살아 있는 동안 효과가 계속된다. 3·6·10·16·24종을 모으면 세트 보상.</p>
+    <p class="fine">★ 난이도 (★★★는 2단계 도전·선행 카드). 카드 주인이 살아 있는 동안 효과가 계속된다. 3·6·10·16·24종을 모으면 세트 보상.</p>
+  </section>
+  <section class="card">
+    <h2>✨ 가문 시너지 <small class="muted">발동 ${activeSynergies(g).length}/${SYNERGIES.length}</small></h2>
+    <div class="syn">${[...SYNERGIES].sort((a, b) => Number(activeSynergies(g).includes(b)) - Number(activeSynergies(g).includes(a))).map((sy) => {
+      const on = activeSynergies(g).includes(sy);
+      return `<div class="sy ${on ? 'on' : ''}"><span>${sy.icon}</span><div><b>${sy.name}</b> <small>${esc(sy.desc)}</small><em>${sy.groups.map((gr) => '[' + gr.map((id) => (dexGot.has(id) ? `✅${CARD[id].name}` : CARD[id].name)).join(' / ') + ']').join(' + ')}</em><em class="sy-eff">→ ${esc(effText(sy.eff))}</em></div></div>`;
+    }).join('')}</div>
+    <p class="fine">서로 다른 분야의 카드 주인이 같은 시대에 함께 살아 있으면 발동한다.</p>
   </section>
   <section class="card rank-card">
     <div class="rank-top"><span class="rank-ic">${cur0.icon}</span><div><b>${esc(g.familyName)}씨 가문 · ${cur0.name}</b><small>누적 명예 ${tot}✦${nxt ? ` · 다음 "${nxt.name}"까지 ${nxt.at - tot}✦` : ' · 최고 등급'}</small></div></div>
