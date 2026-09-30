@@ -14,7 +14,7 @@ const HAIR = [['#2b2220', '#44362f'], ['#4a3426', '#6a4a36'], ['#1c1c28', '#3434
 const GRAY: [string, string] = ['#b8b4ae', '#dcd8d2'];
 const CLOTH = ['#e2b93b', '#3f6fb5', '#d05a4a', '#4a9a5a', '#8a5ac0', '#e07aa0', '#3a8a9a', '#f0f0f0', '#2a2a34', '#c07a3a', '#6a8ac8', '#a0c850', '#e8d8b0', '#7a3a4a', '#f08a3a', '#4a4a6a', '#9ad0e8', '#d8a0c8'];
 
-const hash = (s: string) => {
+const hash = (s: string = '') => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;

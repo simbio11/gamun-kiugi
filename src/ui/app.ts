@@ -479,10 +479,13 @@ function titleScreen(): string {
 
 function demoPerson(sex: Sex, i: number): Person {
   return {
-    genes: { hairStyle: i + 1, hairColor: i % 3, skin: i % 4, eyes: i % 3 },
+    id: `demo${i}${sex}`,
+    birthYear: 1985,
+    flags: [],
+    genes: { hairStyle: i + 1, hairColor: i % 3, skin: i % 4, eyes: i % 3, face: i % 5, brows: i % 3, mouth: i % 6, mark: 0 },
     sex,
     job: i === 0 ? 'office' : i === 1 ? 'doctor' : 'none',
-  } as Person;
+  } as unknown as Person;
 }
 
 /** 지금 이벤트·행동 비용을 누가 내는지: 어릴 땐 부모님 지갑이다 */
