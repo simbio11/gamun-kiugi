@@ -43,6 +43,16 @@ export const HIDDEN: HiddenJob[] = [
   { id: 'hj_nomad', name: '방랑자', icon: '🎒', pay: 1500, color: '#6a5a3a', fx: 'dust', eff: { hap: 3 }, hint: '매인 곳 없는 떠돌이의 피.' },
   { id: 'hj_fighter', name: '지하 격투왕', icon: '🥊', pay: 10000, color: '#6a1a1a', fx: 'smoke', eff: { fame: 1, hp: -1, cash: 600 }, hint: '가난하고, 주먹이 세다.' },
   { id: 'hj_forger', name: '명화 위조범', icon: '🖌', pay: 16000, color: '#6a4a3a', fx: 'candle', eff: { cash: 1200 }, hint: '천재적인 붓, 가벼운 양심.' },
+  // ── 슈퍼 히든 (3단계 연작 미션 체인) ──
+  { id: 'hj_madam', name: '텐프로 에이스', icon: '🍾', pay: 35000, color: '#b02040', fx: 'neon', eff: { cash: 2500, fame: 2 }, hint: '새벽 강남의 네온사인. 거물들의 비밀이 모이는 방.' },
+  { id: 'hj_onlyfans', name: '사이버 사이렌', icon: '🍑', pay: 55000, color: '#e04070', fx: 'bokeh', eff: { cash: 4000, hap: 2 }, hint: '방 문을 잠그고 켠 분홍빛 웹캠. 전 세계의 구독자들.' },
+  { id: 'hj_widow', name: '블랙 위도우', icon: '🕷️', pay: 45000, color: '#2a1a2a', fx: 'shadow', eff: { cash: 5000, fame: 1 }, hint: '천사 같은 미소, 차가운 눈빛. 늙은 자산가의 유언장.' },
+  { id: 'hj_bunny', name: '카지노 퀸', icon: '🐰', pay: 25000, color: '#c03050', fx: 'cards', eff: { cash: 1800, hap: 1 }, hint: '비밀 엘리베이터 지하 3층. 나비넥타이와 칩 소리.' },
+  { id: 'hj_honeytrap', name: '허니트랩 요원', icon: '💄', pay: 32000, color: '#8a1a3a', fx: 'city', eff: { fame: 2, cash: 2200 }, hint: '완벽한 미모, 유창한 외국어, 핸드백 속의 소음기 권총.' },
+  { id: 'hj_vtuber', name: '버튜버 여제', icon: '💊', pay: 50000, color: '#7040d0', fx: 'screen', eff: { cash: 3500, hap: 2 }, hint: '모니터 속 귀여운 아바타, 그리고 책상 위 벗어둔 가면.' },
+  { id: 'hj_hypnotist', name: '마성의 최면술사', icon: '🌀', pay: 28000, color: '#502080', fx: 'magic', eff: { fame: 2, cash: 1800 }, hint: '어두운 상담실, 흔들리는 회중시계, 무장해제된 거물들.' },
+  { id: 'hj_tattooist', name: '잉크의 마녀', icon: '🖤', pay: 22000, color: '#202028', fx: 'smoke', eff: { cash: 1500, fame: 2 }, hint: '자욱한 인센스 연기, 잉크 냄새, 거친 사내들의 복종.' },
+  { id: 'hj_drifter', name: '드리프트 퀸', icon: '🏎️', pay: 26000, color: '#d03020', fx: 'fire', eff: { fame: 3, hp: 1 }, hint: '새벽 3시 톨게이트, 붉은색 스포츠카, 차 키를 뺏긴 사내들.' },
 ];
 export const HIDDEN_BY_ID: Record<string, HiddenJob> = Object.fromEntries(HIDDEN.map((h) => [h.id, h]));
 export const isHiddenJob = (job: string) => job.startsWith('hj_');
