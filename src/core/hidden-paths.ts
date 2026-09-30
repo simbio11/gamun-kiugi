@@ -1,6 +1,6 @@
 // 직업이 여는 히든의 길: 지금 하는 일에서 조건이 맞으면, 해마다 한 걸음씩 세 장면을 지나 히든 직업 제안(hid_offer)에 닿는다.
 // 헌책방·밤거리 헤매기와 달리 "하던 일"에서 새어 나오는 길. 장면 글은 분위기만 (방법은 그리지 않는다).
-//   예) 잘나가는 한의사인데 성품이 낮다 → 무당의 길
+//   예) 상담사 → 타로 점술가, 경찰 → 현상금 사냥꾼
 import type { EventDef } from './ev-util';
 import { HIDDEN_BY_ID } from './hidden-data';
 import { JOBS } from './data';
@@ -19,7 +19,6 @@ const A = (s: GameState, p: Person) => age(s, p);
 const st = (p: Person) => p.actual;
 
 export const PATHS: Path[] = [
-  { id: 'hj_shaman', jobs: ['kmd'], when: (s, p) => p.jobLevel >= 2 && st(p).mor <= 50 && A(s, p) >= 30, open: '진료실에 "원장님 뒤에 누가 서 있다"는 환자가 자꾸 찾아온다.' },
   { id: 'hj_tarot', jobs: ['psychologist', 'speech_therapist', 'social_worker', 'librarian'], when: (s, p) => st(p).cha >= 55 && A(s, p) >= 24, open: '내담자가 놓고 간 낡은 카드 한 벌. 뒤집는 그림마다 그날 들은 고민과 닮았다.' },
   { id: 'hj_cult', jobs: ['clergy'], when: (s, p) => st(p).mor <= 45 && st(p).cha >= 58 && A(s, p) >= 30, open: '신도들이 교단보다 {n}의 말을 더 따르기 시작했다.' },
   { id: 'hj_exorcist', jobs: ['clergy', 'funeral_director', 'nurse', 'caregiver'], when: (s, p) => st(p).mor >= 68 && A(s, p) >= 28, open: '임종을 지키던 밤, 방 안이 얼음처럼 차가워졌다가 {n}의 기도에 다시 따뜻해졌다.' },
