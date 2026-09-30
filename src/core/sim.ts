@@ -53,6 +53,7 @@ import { gateYear } from './super-gates';
 import { commEvent } from './devices';
 import { pathYear } from './hidden-paths';
 import { photoYear } from './photos';
+import { relicYear } from './relics';
 import { HIDDEN, HIDDEN_BY_ID, isHoH, isSuperHidden } from './hidden-data';
 const STARTER_SUPER = HIDDEN.filter((h) => isSuperHidden(h.id) && !isHoH(h.id)).map((h) => h.id);
 const STARTER_HIDDEN = HIDDEN.filter((h) => !isSuperHidden(h.id) && h.id !== 'hj_hermit').map((h) => h.id);
@@ -454,6 +455,7 @@ export function simulateYear(s: GameState): void {
   gateYear(s);
   pathYear(s);
   photoYear(s);
+  relicYear(s);
   for (const m of superHiddenYear(s)) log(s, m, 'life');
   trackPeak(s);
   scandalYear(s);

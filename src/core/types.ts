@@ -269,6 +269,8 @@ export interface GameState {
   storySeen?: Record<string, number>;
   /** 가문 앨범 (photos.ts) */
   photos?: import('./photos').Photo[];
+  /** 가문 가보 및 전리품 (relics.ts) */
+  relics?: import('./relics').Relic[];
   /** 시작 난이도 (없으면 운명에 맡김) */
   difficulty?: 'easy' | 'normal' | 'hard' | 'hell';
   /** 보상 팝업 대기열 */

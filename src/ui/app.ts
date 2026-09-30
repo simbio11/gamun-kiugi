@@ -2252,6 +2252,21 @@ function achvScreen(g: GameState): string {
     <div class="dex">${(g.jobsSeen ?? []).map((id) => `<b class="chip">${JOBS[id].name}</b>`).join(' ') || '<span class="muted">아직 아무도 일하지 않았다</span>'}</div>
   </section>
   <section class="card">
+    <h2>🏆 가문의 가보 및 전리품 <small class="muted">${(g.relics ?? []).length}점</small></h2>
+    ${(g.relics ?? []).length
+      ? `<div class="relics-list" style="display:flex;flex-direction:column;gap:8px;">${(g.relics ?? []).map((r) => {
+          const who = g.people[r.obtainedBy];
+          const whoNm = who ? fullName(who) : '선대 어르신';
+          const effStr = Object.entries(r.eff).map(([k, v]) => `${k === 'cash' ? `연 자산 +${formatMoney(v)}` : k === 'fame' ? `연 명성 +${v}` : `${k.toUpperCase()} +${v}`}`).join(' · ');
+          return `<div class="achv done" style="border-left:3px solid #d4af37;padding:8px 10px;background:rgba(212,175,55,0.06);">
+            <b>${r.icon} ${esc(r.name)} <small class="muted">(${r.obtainYear}년 · ${esc(whoNm)})</small></b>
+            <span>${esc(r.desc)}</span>
+            <div class="fine" style="color:#d4af37;margin-top:2px;">✦ 가문 영구 혜택: ${esc(effStr)}</div>
+          </div>`;
+        }).join('')}</div>`
+      : `<p class="fine">아직 없다. 직업 전용 행동에서 대박을 터뜨리거나, 역사적 위업 및 전설적 사연을 통해 가문의 영원한 가보를 획득할 수 있다. 가보는 대를 이어 전해지며 후손에게 새로운 운명의 길을 열어준다.</p>`}
+  </section>
+  <section class="card">
     <h2>🏆 업적 <small class="muted">${got} / ${total}</small></h2>
     ${cats
       .map((cat) => {

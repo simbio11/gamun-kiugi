@@ -16,6 +16,7 @@ import { JA5 } from './job-acts-5';
 import { JA6 } from './job-acts-6';
 import { hiddenActs } from './job-acts-hidden';
 import { jobDoor } from './hidden-quest';
+import { grantRelic, hasRelic } from './relics';
 
 /** cash 수입 · fame 명성 · promo 승진 · skill 능력치 · net 인맥 · care 보람 · risk 한탕 · hp 체력 · (히든) dark 큰 판 · legend 전설 · rest 숨 고르기 · jackpot 일생일대 */
 export type JaKind = 'cash' | 'fame' | 'promo' | 'skill' | 'net' | 'care' | 'risk' | 'hp' | 'dark' | 'legend' | 'rest' | 'jackpot';
@@ -126,8 +127,39 @@ function runJa(s: GameState, p: Person, job: string, a: JA, boost: number): stri
   if (kind === 'jackpot' && t === 'great' && !p.flags.includes('hid_jackpot')) p.flags.push('hid_jackpot');
   // 일 속에서 숨은 길의 단서를 만나기도 한다
   if (t === 'great') tail += jobDoor(s, p);
+  // 일에서 위대한 업적(대박)을 이루면 가문의 영원한 가보를 획득하기도 한다
+  if (t === 'great') tail += tryJobRelic(s, p, job);
   const ls = lines.split('|');
   return TIER_MARK[t] + (ls[i] ?? ls[0]) + fmt(out) + tail;
+}
+
+const JOB_RELIC_MAP: Record<string, string> = {
+  president: 'relic_presidential_medal',
+  landlord: 'relic_building_deed',
+  politician: 'relic_law_plaque',
+  minister: 'relic_law_plaque',
+  mayor: 'relic_law_plaque',
+  hj_chess_master: 'relic_chess_board',
+  chess_player: 'relic_chess_board',
+  hj_hacker: 'relic_cold_wallet',
+  hj_underground_dealer: 'relic_casino_chip',
+  hj_private_jet: 'relic_gold_wings',
+  hj_adventurer: 'relic_ancient_compass',
+  hj_mafia: 'relic_family_ring',
+  hj_godmother: 'relic_family_ring',
+  hj_vampire: 'relic_vampire_pendant',
+  hj_timetraveler: 'relic_time_watch',
+  painter: 'relic_masterpiece',
+  hj_forger: 'relic_masterpiece',
+  hj_exorcist: 'relic_sacred_bell',
+  hj_shaman: 'relic_sacred_bell',
+};
+
+function tryJobRelic(s: GameState, p: Person, job: string): string {
+  const relicId = JOB_RELIC_MAP[job];
+  if (!relicId || hasRelic(s, relicId)) return '';
+  const res = grantRelic(s, p, relicId);
+  return res ? '\n' + res : '';
 }
 
 /** 이 행동을 볼 사람: 본업 또는 겸직이 그 직업 */
