@@ -802,6 +802,8 @@ describe('부모님 유산', () => {
     awardHonor(s, h, 'hongjo', '중복');
     expect(s.honors?.length).toBe(1); // 같은 훈장은 한 번만
     grant(s, '🏆', '테스트', '', 'legend');
+    expect(buyPerk(s, 'ap').ok).toBe(false); // 행동력은 비싸다
+    for (let i = 0; i < 6; i++) grant(s, '🏆', '테스트' + i, '', 'legend');
     const ap = apMax(s);
     expect(buyPerk(s, 'ap').ok).toBe(true);
     expect(apMax(s)).toBe(ap + 1);

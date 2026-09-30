@@ -28,7 +28,7 @@ import { EVENTS, RANDOM_EVENTS } from './registry';
 import { eraYear } from './era';
 import { rivalYear } from './rival';
 import { careerYear, ministerLeaves, presidentLeaves } from './career';
-import { achvRarity, checkHonors, perkYear, retireHonor } from './rewards';
+import { achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
 import { cardYear } from './cards';
 import { scandalYear } from './scandal';
@@ -403,6 +403,7 @@ export function simulateYear(s: GameState): void {
   for (const m of spouseYear(s)) log(s, m, 'life');
   autonomyYear(s);
   perkYear(s, wageIndex(s.year));
+  capStats(s);
 
   retirementAndGraduation(s);
   deaths(s);

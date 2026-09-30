@@ -2,7 +2,7 @@
 // 큰 순간은 팝업으로 축하한다 (s.rewards 에 쌓아 두면 화면이 하나씩 보여 준다).
 
 import type { GameState, Person } from './types';
-import { fullName } from './people';
+import { fullName, isMainline } from './people';
 
 import { ERA_HONORS } from './cards-era';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legend';
@@ -80,27 +80,60 @@ export interface Perk {
   name: string;
   desc: string;
   cost: number[];
+  /** 몇 번이고 살 수 있는 것: 살 때마다 값이 25%씩 오른다 */
+  repeat?: (s: GameState) => string;
 }
+const famAlive = (s: GameState) => Object.values(s.people).filter((p) => !p.deathYear && isMainline(s, p));
 export const PERKS: Perk[] = [
-  { id: 'ap', icon: '🖼', name: '가훈 액자', desc: '해마다 행동력 +1', cost: [60, 150, 300] },
-  { id: 'luck', icon: '🏮', name: '조상신의 가호', desc: '모든 판정 운 +3%', cost: [40, 90, 180] },
-  { id: 'study', icon: '📚', name: '가문 서재', desc: '자녀 성적이 15% 더 잘 오른다', cost: [35, 80, 160] },
-  { id: 'fame', icon: '🎐', name: '가문의 기품', desc: '해마다 명성 +1', cost: [30, 70, 140] },
-  { id: 'vault', icon: '💰', name: '가문 금고', desc: '해마다 가주에게 300만 원씩 (물가 반영)', cost: [25, 50, 100, 200] },
-  { id: 'gene', icon: '🧬', name: '명문가의 혈통', desc: '태어나는 아이 잠재력 +2', cost: [80, 200] },
+  { id: 'ap', icon: '🖼', name: '가훈 액자', desc: '해마다 행동력 +1', cost: [150, 450, 1100, 2400] },
+  { id: 'luck', icon: '🏮', name: '조상신의 가호', desc: '모든 판정 운 +3%', cost: [40, 100, 220, 450, 900] },
+  { id: 'study', icon: '📚', name: '가문 서재', desc: '자녀 성적이 15% 더 잘 오른다', cost: [35, 90, 200, 420, 850] },
+  { id: 'fame', icon: '🎐', name: '가문의 기품', desc: '해마다 명성 +1', cost: [30, 80, 170, 350, 700] },
+  { id: 'vault', icon: '💰', name: '가문 금고', desc: '해마다 가주에게 300만 원씩 (물가 반영)', cost: [25, 60, 130, 270, 550, 1100] },
+  { id: 'gene', icon: '🧬', name: '명문가의 혈통', desc: '태어나는 아이 잠재력 +2', cost: [80, 220, 500, 1000] },
+  { id: 'doctor', icon: '🩺', name: '가문 주치의', desc: '해마다 가족 모두 건강 +1', cost: [60, 150, 320, 650] },
+  { id: 'limit', icon: '🔥', name: '한계 돌파 수련', desc: '가주 능력치 한도(잠재력) +3 · 대가: 수련할 때마다 건강 −10, 행복 −10', cost: [300, 700, 1400, 2600, 4500] },
+  { id: 'shrine', icon: '🏯', name: '사당 보수 (반복)', desc: '명성 +12', cost: [120], repeat: (s) => ((s.fame += 12), '사당 기와를 새로 얹었다. 명성 +12') },
+  { id: 'feast', icon: '🎎', name: '문중 잔치 (반복)', desc: '가족 모두 행복 +10', cost: [90], repeat: (s) => { for (const p of famAlive(s)) p.happiness = Math.min(100, p.happiness + 10); return '온 문중이 모여 잔치를 벌였다. 가족 행복 +10'; } },
+  { id: 'scholar', icon: '📜', name: '가문 장학금 (반복)', desc: '학생 자녀 모두 성적 +8', cost: [110], repeat: (s) => { for (const p of famAlive(s)) if (p.study !== undefined && s.year - p.birthYear < 25) p.study = Math.min(100, p.study + 8); return '문중 장학금을 풀었다. 아이들 성적 +8'; } },
 ];
 export const perkLv = (s: GameState, id: string) => s.perks?.[id] ?? 0;
+/** 지금 사려면 얼마인가 (없으면 최고 단계) */
+export function perkCost(s: GameState, pk: Perk): number | undefined {
+  const lv = perkLv(s, pk.id);
+  return pk.repeat ? Math.round(pk.cost[0] * Math.pow(1.25, lv)) : pk.cost[lv];
+}
 export function buyPerk(s: GameState, id: string): { ok: boolean; text: string } {
   const pk = PERKS.find((x) => x.id === id);
   if (!pk) return { ok: false, text: '' };
   const lv = perkLv(s, id);
-  const cost = pk.cost[lv];
+  const cost = perkCost(s, pk);
   if (cost === undefined) return { ok: false, text: '이미 최고 단계다' };
   if ((s.glory ?? 0) < cost) return { ok: false, text: `명예가 ${cost - (s.glory ?? 0)}✦ 모자란다` };
   s.glory = (s.glory ?? 0) - cost;
   (s.perks ??= {})[id] = lv + 1;
-  s.log.push({ year: s.year, text: `${pk.icon} 명예 상점: ${pk.name} ${lv + 1}단계`, kind: 'achv' });
+  s.log.push({ year: s.year, text: `${pk.icon} 명예 상점: ${pk.name} ${pk.repeat ? `${lv + 1}번째` : `${lv + 1}단계`}`, kind: 'achv' });
+  if (pk.repeat) return { ok: true, text: `${pk.icon} ${pk.repeat(s)}` };
+  if (id === 'limit') {
+    const h = s.people[s.headId];
+    h.overcap = (h.overcap ?? 0) + 3;
+    h.actual.hp = Math.max(0, h.actual.hp - 10);
+    h.happiness = Math.max(0, h.happiness - 10);
+    return { ok: true, text: `🔥 혹독한 수련 끝에 ${h.name}의 한계가 넓어졌다 (능력치 한도 +3). 몸과 마음이 많이 상했다 (건강 −10 · 행복 −10).` };
+  }
   return { ok: true, text: `${pk.icon} ${pk.name} ${lv + 1}단계! ${pk.desc}` };
+}
+
+/** 능력치는 잠재력(+한계 돌파)을 넘지 못한다: 여러 효과가 겹쳐 넘친 것은 해마다 되돌린다 */
+export function capStats(s: GameState) {
+  for (const p of Object.values(s.people)) {
+    if (p.deathYear) continue;
+    const extra = p.overcap ?? 0;
+    for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) {
+      const cap = Math.min(100, p.potential[k] + extra);
+      if (p.actual[k] > cap) p.actual[k] = cap;
+    }
+  }
 }
 
 /** 등급·상점 혜택 모음 */
@@ -112,6 +145,8 @@ export const bonusStudy = (s: GameState) => 1 + perkLv(s, 'study') * 0.15;
 export function perkYear(s: GameState, wage: number) {
   const fame = perkLv(s, 'fame') + (rankOf(s) >= 1 ? 1 : 0) + (rankOf(s) >= 4 ? 2 : 0);
   s.fame += fame;
+  const d = perkLv(s, 'doctor');
+  if (d) for (const p of famAlive(s)) p.actual.hp = Math.min(Math.min(100, p.potential.hp + (p.overcap ?? 0)), p.actual.hp + d);
   const v = perkLv(s, 'vault');
   if (v) s.people[s.headId].cash += Math.round(300 * v * wage);
 }

@@ -48,7 +48,7 @@ import { WOES, woesOf } from '../core/woes';
 import { chooseSuccessor } from '../core/estate';
 import { HONOR_JOBS, scandalLabel } from '../core/scandal';
 import { willLine, willOf } from '../core/autonomy';
-import { buyPerk, HONORS, PERKS, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
+import { buyPerk, HONORS, PERKS, perkCost, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
 import { cardBackURL, cardFrontURL, crestURL, medalURL, type Theme } from '../render/cardart';
@@ -1992,9 +1992,9 @@ function achvScreen(g: GameState): string {
     <h2>✦ 명예 상점 <small class="muted">보유 ${g.glory ?? 0}✦</small></h2>
     <div class="perks">${PERKS.map((pk) => {
       const lv = perkLv(g, pk.id);
-      const cost = pk.cost[lv];
+      const cost = perkCost(g, pk);
       const max = cost === undefined;
-      return `<div class="perk ${max ? 'max' : ''}"><span class="pk-i">${pk.icon}</span><div class="pk-m"><b>${pk.name} <small>${'★'.repeat(lv)}${'☆'.repeat(pk.cost.length - lv)}</small></b><small>${pk.desc}</small></div><button class="mini do" data-action="buy-perk" data-id="${pk.id}" ${max || (g.glory ?? 0) < cost ? 'disabled' : ''}>${max ? '완료' : `${cost}✦`}</button></div>`;
+      return `<div class="perk ${max ? 'max' : ''}"><span class="pk-i">${pk.icon}</span><div class="pk-m"><b>${pk.name} <small>${pk.repeat ? (lv ? `${lv}회` : '') : '★'.repeat(lv) + '☆'.repeat(pk.cost.length - lv)}</small></b><small>${pk.desc}</small></div><button class="mini do" data-action="buy-perk" data-id="${pk.id}" ${max || (g.glory ?? 0) < cost! ? 'disabled' : ''}>${max ? '완료' : `${cost}✦`}</button></div>`;
     }).join('')}</div>
   </section>
   <section class="card">
