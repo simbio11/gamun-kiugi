@@ -162,7 +162,7 @@ export const SYNERGIES: Synergy[] = [
   { id: 'culture_house', name: '문화 명가', icon: '🎭', desc: '글 + 무대·스크린', groups: [['bestseller', 'webtoon_ip', 'great_author'], ['best_actor', 'cannes', 'maestro', 'grammy']], eff: { fame: 3, hap: 2 } },
   { id: 'guardians', name: '호국 가문', icon: '🛡', desc: '군·정보 + 치안·소방', groups: [['general', 'chief_of_staff', 'spymaster'], ['police_chief', 'fire_chief', 'national_hero', 'profiler']], eff: { fame: 3, kid: 'str' } },
   { id: 'saints', name: '성인의 가문', icon: '🕊', desc: '종교·양심 + 나눔·구호', groups: [['cardinal', 'conscience'], ['msf', 'philanthropist', 'eco_hero']], eff: { hap: 3, kid: 'mor' } },
-  // ── 히든 직업 시너지 (히든·슈퍼 히든·히든의 히든 카드끼리, 혹은 일반 카드와) ──
+  // ── 히든 직업 시너지 (히든·슈퍼 히든 카드끼리, 혹은 일반 카드와) ──
   { id: 'hid_spirit', name: '신령의 집', icon: '🔔', desc: '무당·퇴마사 + 타로·교주', groups: [['hj_shaman', 'hj_exorcist'], ['hj_tarot', 'hj_cult']], eff: { hap: 4, fame: 2 } },
   { id: 'hid_shadow', name: '그림자 가문', icon: '🕶', desc: '스파이 + 암살자·해커', groups: [['hj_spy'], ['hj_assassin', 'hj_hacker']], eff: { fame: 4, heat: 6 } },
   { id: 'hid_sea', name: '일곱 바다', icon: '🏴‍☠️', desc: '해적 + 밀매상·모험가', groups: [['hj_pirate'], ['hj_smuggler', 'hj_adventurer']], eff: { cash: 12000, kid: 'str' } },

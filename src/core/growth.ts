@@ -127,7 +127,7 @@ export function deathChance(s: GameState, p: Person): number {
   base *= p.sex === 'M' ? 1.0 : 0.5;
   if (hasTrait(p, 'tough')) base *= 0.8;
   if (hasTrait(p, 'frail')) base *= 1.3;
-  if (p.job === 'hj_vampire') base *= 0.25; // 히든의 히든: 불사의 몸 (죽음이 잘 오지 않는다)
+  if (p.job === 'hj_vampire') base *= 0.25; // 슈퍼 히든: 불사의 몸 (죽음이 잘 오지 않는다)
   base *= deathMult(p);
   base *= eraMortality(s.year) * lifeTechMult(p); // 시대의 의료 수준 × 돈으로 산 미래 의료 (medical.ts)
   if (p.id === s.headId && a >= 60) base *= s.willWritten ? 1.4 : 0.85;

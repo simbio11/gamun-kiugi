@@ -52,7 +52,7 @@ import { buyPerk, HONORS, PERKS, perkCost, perkLv, RANKS, RARITY_NAME, rankOf, t
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
 import { hiddenCardHTML, hiddenArt } from './hidden-card';
-import { HIDDEN_BY_ID, isSuperHidden, isUltraHidden } from '../core/hidden-data';
+import { HIDDEN_BY_ID, isSuperHidden } from '../core/hidden-data';
 import { cardBackURL, cardFrontURL, crestURL, customFrames, medalURL, type Theme } from '../render/cardart';
 import { familyScore, lifeGrade, lifeParts } from '../core/score';
 import { pendingAffairs } from '../core/fate';
@@ -1421,30 +1421,29 @@ function outcomeModal(o: { title: string; text: string }): string {
 function rewardModal(r: Reward): string {
   const isHidden = !!(r.card && CARD[r.card]?.hidden);
   const isSuper = isHidden && isSuperHidden(r.card!);
-  const isUltra = isHidden && isUltraHidden(r.card!);
-  const sparks = isUltra ? 44 : isSuper ? 36 : isHidden ? 24 : r.rarity === 'common' ? 0 : r.rarity === 'rare' ? 8 : r.rarity === 'epic' ? 14 : 22;
+  const sparks = isSuper ? 36 : isHidden ? 24 : r.rarity === 'common' ? 0 : r.rarity === 'rare' ? 8 : r.rarity === 'epic' ? 14 : 22;
   const p = r.personId && g0()?.people[r.personId] ? g0()!.people[r.personId] : undefined;
   const cardSex = p?.sex ?? (g0()?.hiddenCardSex?.[r.card!] || 'F');
 
   return `
-  <div class="modal reward-bg ${r.rarity} ${isHidden ? 'is-hidden-bg' : ''} ${isUltra ? 'is-ultra-bg' : isSuper ? 'is-super-bg' : ''}" data-action="ok-reward">
-    <div class="event reward ${r.rarity} ${isHidden ? 'hid-reward-event' : ''} ${isUltra ? 'ultra-reward-event' : isSuper ? 'super-reward-event' : ''}" data-stop>
+  <div class="modal reward-bg ${r.rarity} ${isHidden ? 'is-hidden-bg' : ''} ${isSuper ? 'is-super-bg' : ''}" data-action="ok-reward">
+    <div class="event reward ${r.rarity} ${isHidden ? 'hid-reward-event' : ''} ${isSuper ? 'super-reward-event' : ''}" data-stop>
       <div class="rw-burst">${Array.from({ length: sparks }, (_, i) => `<i style="--a:${Math.round((360 / sparks) * i)}deg;--d:${(i % 5) * 60}ms"></i>`).join('')}</div>
-      ${isUltra ? '<div class="ultra-shockwave"></div><div class="ultra-shockwave sw2"></div>' : isSuper ? '<div class="super-shockwave"></div><div class="super-shockwave sw2"></div>' : isHidden ? '<div class="hid-shockwave"></div>' : ''}
-      <div class="rw-rarity ${isUltra ? 'ultra-rarity' : isSuper ? 'super-rarity' : ''}">${isUltra ? '❖ HIDDEN OF HIDDEN ❖' : isSuper ? '👑 SUPER HIDDEN 👑' : isHidden ? '✦ HIDDEN JOB ✦' : RARITY_NAME[r.rarity]}</div>
+      ${isSuper ? '<div class="super-shockwave"></div><div class="super-shockwave sw2"></div>' : isHidden ? '<div class="hid-shockwave"></div>' : ''}
+      <div class="rw-rarity ${isSuper ? 'super-rarity' : ''}">${isSuper ? '👑 SUPER HIDDEN 👑' : isHidden ? '✦ HIDDEN JOB ✦' : RARITY_NAME[r.rarity]}</div>
       ${
         isHidden
-          ? `<div class="hcard-reveal-box ${isUltra ? 'ultra-box' : isSuper ? 'super-box' : ''}">
-              <div class="hcard hidden-hc ${isUltra ? 'ultra-hc' : isSuper ? 'super-hc' : ''}">${cardImg(CARD[r.card!], false, 'hc-art', cardSex)}</div>
-              <div class="hid-shadow-veil ${isUltra ? 'veil-ultra' : isSuper ? 'veil-super' : ''}">
+          ? `<div class="hcard-reveal-box ${isSuper ? 'super-box' : ''}">
+              <div class="hcard hidden-hc ${isSuper ? 'super-hc' : ''}">${cardImg(CARD[r.card!], false, 'hc-art', cardSex)}</div>
+              <div class="hid-shadow-veil ${isSuper ? 'veil-super' : ''}">
                 <div class="veil-darkness">
-                  <div class="veil-silhouette">${isUltra ? '❖' : isSuper ? '👑' : '?'}</div>
+                  <div class="veil-silhouette">${isSuper ? '👑' : '?'}</div>
                   <div class="veil-mist"></div>
                 </div>
                 <div class="veil-blade"></div>
               </div>
             </div>
-            <div class="hc-eff">${isUltra ? '❖ 히든의 히든(최심층) 달성!' : isSuper ? '👑 초월의 히든 직업(슈퍼 히든) 달성!' : '🌑 히든 직업 달성!'} ${esc(effText(CARD[r.card!].eff))}</div>`
+            <div class="hc-eff">${isSuper ? '👑 슈퍼 히든 직업 달성!' : '🌑 히든 직업 달성!'} ${esc(effText(CARD[r.card!].eff))}</div>`
           : r.card && CARD[r.card]
           ? `<div class="hcard ${r.rarity}">${cardImg(CARD[r.card], false, 'hc-art')}<div class="hc-title">${CARD[r.card].name}</div><div class="hc-name">${r.personId && g0()?.people[r.personId] ? esc(fullName(g0()!.people[r.personId])) : ''}</div><i class="hc-shine"></i></div><div class="hc-eff">${esc(effText(CARD[r.card].eff))}</div>`
           : r.grade
@@ -1454,7 +1453,7 @@ function rewardModal(r: Reward): string {
       <h3>${esc(r.title)}</h3>
       <p class="ev-text">${nl(r.text)}</p>
       ${r.pts ? `<div class="rw-pts">+${r.pts} <b>✦</b> 명예</div>` : ''}
-      <button class="btn primary rw-take" data-action="ok-reward">${isUltra ? '히든의 히든에 각성한다!' : isSuper ? '초월의 영광을 받든다!' : r.rarity === 'legend' ? '영광을 받든다!' : '받기!'}</button>
+      <button class="btn primary rw-take" data-action="ok-reward">${isSuper ? '초월의 영광을 받든다!' : r.rarity === 'legend' ? '영광을 받든다!' : '받기!'}</button>
       ${g0()?.rewards && g0()!.rewards!.length > 1 ? `<button class="btn ghost rw-all" data-action="ok-reward-all">모두 받기 (${g0()!.rewards!.length - 1}개 더)</button>` : ''}
     </div>
   </div>`;
@@ -1473,9 +1472,6 @@ const LEGEND_FIG: Record<string, string> = Object.fromEntries(
   LEGEND_FILES.filter(([k]) => k.endsWith('.fig')).map(([k, v]) => [k.slice(0, -4), v])
 );
 const HIDDEN_CARDS = CARDS.filter((d) => d.hidden);
-/** 히든의 히든(최심층)과 그 아래 히든을 도감에서 나눠 보여 준다 */
-const ULTRA_CARDS = HIDDEN_CARDS.filter((d) => isUltraHidden(d.id));
-const PLAIN_HIDDEN_CARDS = HIDDEN_CARDS.filter((d) => !isUltraHidden(d.id));
 const NORMAL_CARDS = CARDS.filter((d) => !d.hidden);
 const cardArt = (d: CardDef, locked = false, frame = 0) => cardFrontURL(d.id, d.icon, (CARD_THEME[d.id] ?? 'power') as Theme, d.rarity, locked, cardTier(d), frame);
 /** 움직이는 카드(여러 장)는 겹쳐 놓고 번갈아 보여 준다 */
@@ -1518,7 +1514,6 @@ function cardViewer(g: GameState, id: string): string {
   const got = hs.length > 0;
   const isHidden = !!d.hidden;
   const isSuper = isHidden && isSuperHidden(id);
-  const isUltra = isHidden && isUltraHidden(id);
   const activeSex: 'M' | 'F' = ui.viewerSex ?? g.hiddenCardSex?.[id] ?? hs[hs.length - 1]?.sex ?? 'F';
   const hp = got ? g.people[hs[0].personId] : undefined;
   const hj = HIDDEN_BY_ID[id];
@@ -1529,7 +1524,7 @@ function cardViewer(g: GameState, id: string): string {
   return `
   <div class="modal cv-modal" data-action="close-card">
     <div class="cv-wrap">
-      <div class="cv-card ${d.rarity} ${got ? '' : 'locked'} ${isUltra ? 'is-ultra' : isSuper ? 'is-super' : ''}" data-stop>
+      <div class="cv-card ${d.rarity} ${got ? '' : 'locked'} ${isSuper ? 'is-super' : ''}" data-stop>
         <div class="cv-face cv-front${d.hidden ? ' cv-hidden' : ''}">
           ${cardImg(d, !got, 'cv-img', isHidden ? activeSex : undefined)}${d.hidden ? '<!--' : ''}
           <div class="cv-no">No.${String(cardNo(id)).padStart(3, '0')} · ${RARITY_NAME[d.rarity]}</div>
@@ -1543,7 +1538,7 @@ function cardViewer(g: GameState, id: string): string {
         </div>
         <div class="cv-face cv-back">
           <img class="cv-img" src="${cardBackURL(d.rarity)}" alt="">
-          <div class="cv-back-top">명예의 전당 · ${isUltra ? '히든의 히든' : isSuper ? '슈퍼 히든' : isHidden ? '히든 직업' : RARITY_NAME[d.rarity]}</div>
+          <div class="cv-back-top">명예의 전당 · ${isSuper ? '슈퍼 히든' : isHidden ? '히든 직업' : RARITY_NAME[d.rarity]}</div>
           <div class="cv-crest">${esc(g.familyName)}</div>
           <div class="cv-back-bottom">
             <b>${d.hidden && !got ? 'HIDDEN JOB' : d.name}</b>
@@ -2179,22 +2174,13 @@ function achvScreen(g: GameState): string {
     <p class="fine">서로 다른 분야의 카드 주인이 같은 시대에 함께 살아 있으면 발동한다.</p>
   </section>
   <section class="card hidden-dex">
-    <h2>🌑 히든 카드 <small class="muted">${PLAIN_HIDDEN_CARDS.filter((d) => dexGot.has(d.id)).length}/${PLAIN_HIDDEN_CARDS.length}종</small></h2>
-    <div class="cdex">${[...PLAIN_HIDDEN_CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.hdex ? 999 : 6).map((d) => {
+    <h2>🌑 히든 카드 <small class="muted">${HIDDEN_CARDS.filter((d) => dexGot.has(d.id)).length}/${HIDDEN_CARDS.length}종</small></h2>
+    <div class="cdex">${[...HIDDEN_CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.hdex ? 999 : 6).map((d) => {
       const who = dexGot.get(d.id);
       return `<button class="dx ${who ? 'hid' : 'locked'}" data-action="card-view" data-id="${d.id}"><span class="dx-c">${cardImg(d, !who, 'dx-art')}</span><small>${who ? esc(who.join(', ')) : '???'}</small></button>`;
     }).join('')}</div>
-    <button class="more-btn" data-action="more" data-v="hdex">${ui.open?.hdex ? '▲ 접기' : `▼ 더보기 (${PLAIN_HIDDEN_CARDS.length - 6}종 더)`}</button>
+    <button class="more-btn" data-action="more" data-v="hdex">${ui.open?.hdex ? '▲ 접기' : `▼ 더보기 (${HIDDEN_CARDS.length - 6}종 더)`}</button>
     <p class="fine">어떤 직업인지는 얻어야 알 수 있다. 평범한 길 위의 뜻밖의 사건, 능력과 흔적, 가족의 직업이 숨은 문을 연다. 연대기에 가끔 남는 🌑 수수께끼가 힌트.</p>
-  </section>
-  <section class="card hidden-dex ultra-dex">
-    <h2>❖ 히든의 히든 <small class="muted">${ULTRA_CARDS.filter((d) => dexGot.has(d.id)).length}/${ULTRA_CARDS.length}종</small></h2>
-    <div class="cdex">${[...ULTRA_CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.udex ? 999 : 6).map((d) => {
-      const who = dexGot.get(d.id);
-      return `<button class="dx ${who ? 'hid' : 'locked'}" data-action="card-view" data-id="${d.id}"><span class="dx-c">${cardImg(d, !who, 'dx-art')}</span><small>${who ? esc(who.join(', ')) : '???'}</small></button>`;
-    }).join('')}</div>
-    <button class="more-btn" data-action="more" data-v="udex">${ui.open?.udex ? '▲ 접기' : `▼ 더보기 (${ULTRA_CARDS.length - 6}종 더)`}</button>
-    <p class="fine">히든 위의 히든, 9종. 네 가지 문으로만 열린다 — ① 죽음의 문턱 (뱀파이어·사이보그) ② 3단계 연작 (아홉 꼬리 신부·계약서의 여주인·시간 정지의 여제·색욕의 성녀) ③ 단일 대형 이벤트 (향의 연금술사·독의 소믈리에) ④ 배우자 (글리치 메이드). 카드 뒷면에 공략법이 있다.</p>
   </section>
   <section class="card rank-card">
     <div class="rank-top"><span class="rank-ic">${cur0.icon}</span><div><b>${esc(g.familyName)}씨 가문 · ${cur0.name}</b><small>누적 명예 ${tot}✦${nxt ? ` · 다음 "${nxt.name}"까지 ${nxt.at - tot}✦` : ' · 최고 등급'}</small></div></div>
@@ -2566,17 +2552,16 @@ function handle(el: HTMLElement) {
       if (!g) break;
       const p = head(g);
       const isSuper = isSuperHidden(id);
-      const isUltra = isUltraHidden(id);
-      const tierName = isUltra ? '히든의 히든' : isSuper ? '슈퍼 히든' : '히든';
+      const tierName = isSuper ? '슈퍼 히든' : '히든';
       (g.rewards ??= []).unshift({
         id: (g.eventSeq = (g.eventSeq ?? 0) + 1),
         icon: CARD[id]?.icon ?? '✨',
-        title: `${isUltra ? '❖' : isSuper ? '👑' : '🌑'} ${tierName} 직업 달성: ${CARD[id]?.name ?? id}`,
-        text: `${fullName(p)}이(가) ${isUltra ? '최심층' : isSuper ? '초월의 슈퍼 히든' : '전설의 히든'} 직업에 올랐다!`,
-        rarity: isSuper || isUltra ? 'legend' : 'epic',
+        title: `${isSuper ? '👑' : '🌑'} ${tierName} 직업 달성: ${CARD[id]?.name ?? id}`,
+        text: `${fullName(p)}이(가) ${isSuper ? '초월의 슈퍼 히든' : '전설의 히든'} 직업에 올랐다!`,
+        rarity: isSuper ? 'legend' : 'epic',
         card: id,
         personId: p.id,
-        pts: isUltra ? 200 : isSuper ? 100 : 50,
+        pts: isSuper ? 100 : 50,
       });
       ui.cardView = undefined;
       ui.viewerSex = undefined;

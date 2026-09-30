@@ -326,7 +326,7 @@ export const ACHIEVEMENTS: Record<string, { cat: AchvCat; name: string; desc: st
   hid_legend10: A('영광', '그림자의 전설', '히든 직업으로 10년을 버티다'),
   hid_super10: A('영광', '밤을 지배한 10년', '슈퍼 히든 직업으로 10년을 버티다'),
   hid_pair: A('가문', '비밀의 가문', '살아 있는 가족 둘이 동시에 히든 직업'),
-  hid_hoh: A('영광', '히든의 히든', '히든의 히든 직업에 오르다'),
+  hid_hoh: A('영광', '슈퍼 히든의 정점', '슈퍼 히든 직업에 오르다'),
   hid_jackpot: A('인생', '일생일대', '히든 직업의 「일생일대」 기회에서 대박을 내다'),
   hid_clean: A('인생', '손을 씻다', '히든 직업에서 평범한 삶으로 돌아오다'),
 };

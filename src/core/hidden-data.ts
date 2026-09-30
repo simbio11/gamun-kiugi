@@ -20,16 +20,15 @@ export interface HiddenJob {
   strategy: string;
 }
 
-/** 히든의 히든 */
+/** 슈퍼 히든 */
 export const HOH_IDS = ['hj_vampire', 'hj_timetraveler'];
 export const isHoH = (id: string) => HOH_IDS.includes(id);
-export const isUltraHidden = isHoH;
-export const ULTRA_HIDDEN_IDS = new Set(HOH_IDS);
+export const isUltraHidden = (_id: string) => false;
+export const ULTRA_HIDDEN_IDS = new Set<string>();
 
 export const SUPER_HIDDEN_IDS = new Set([
   'hj_vtuber',
   'hj_drifter',
-  // 히든의 히든 (슈퍼 히든을 배출한 가문에만 열리는 문) — 취급은 슈퍼 히든과 같다
   ...HOH_IDS,
 ]);
 
@@ -62,7 +61,7 @@ export const HIDDEN: HiddenJob[] = [
   // ── 슈퍼 히든 (3단계 연작 미션 체인) ──
   { id: 'hj_vtuber', name: '버튜버 여제', icon: '🎧', pay: 55000, color: '#7040d0', fx: 'screen', eff: { cash: 5000, hap: 5, fame: 6, kid: 'int' }, hint: '모니터 속 귀여운 아바타, 그리고 책상 위 마이크.', strategy: '20~27세 여성, PC 보유, 매력 68+, 지능 60+ → 3단계 미션: 첫 노래 방송 → 대형 브랜드 콜라보 → 3D 단독 콘서트' },
   { id: 'hj_drifter', name: '드리프트 퀸', icon: '🏎️', pay: 52000, color: '#d03020', fx: 'fire', eff: { fame: 8, cash: 4000, hp: 5, hap: 4 }, hint: '서킷 위 붉은 경주차, 타이어 연기 속의 우승 트로피.', strategy: '선천 희귀 특성 [질주본능](출생 시 2%)을 타고난 여성이 중형 세단 이상의 차를 가지면 → 3단계: 아마추어 대회 → 프로 입단 → 국제 챔피언십' },
-  // ── 히든의 히든 (슈퍼 히든을 배출한 가문에만, 3단계 미션) ──
+  // ── 슈퍼 히든 (핏빛 후작부인 · 시간 정지의 여제) ──
   { id: 'hj_vampire', name: '핏빛 후작부인', icon: '🌹', pay: 65000, color: '#6a0a1a', fx: 'shadow', eff: { cash: 7000, fame: 7, hp: 6, hap: 2 }, hint: '해가 지면 깨어나는 고성의 안주인. 늙지 않는 얼굴.', strategy: '선천 1% [밤의 체질] 여성: 시름시름 앓다 밤에 기운을 되찾고, 치료를 미루면 바로 (쉬운 길) · 또는 슈퍼 히든 가문의 30세+ 여성, 매력 70+·건강 60+ → 3단계' },
   { id: 'hj_timetraveler', name: '시간 정지의 여제', icon: '⏳', pay: 72000, color: '#5a8ad0', fx: 'magic', eff: { cash: 8000, fame: 7, kid: 'int', study: 5 }, hint: '멈춘 사무실, 공중에 뜬 서류와 커피. 그녀만 움직인다.', strategy: '지능 78+ 여성이 높은 직급에 오르면 어느 날 문득 시간이 멈춘다 (확률) · 또는 슈퍼 히든 가문 → 3단계: 멈춘 시계 → 얼어붙은 1초 → 시간 정지의 여제' },
 ];

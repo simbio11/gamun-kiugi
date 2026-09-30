@@ -54,9 +54,9 @@ const hasPC = (s: GameState) => !!s.gear?.pc;
 
 type Step = [string, string, (p: Person) => boolean, number, string, number, string];
 const stepOf = (x: Step) => ({ title: x[0], text: x[1], check: x[2], rate: x[3], succText: x[4], succMoney: x[5], failText: x[6] });
-/** 가문에 슈퍼 히든 카드를 가진 사람이 있었나 (히든의 히든의 문) */
+/** 가문에 슈퍼 히든 카드를 가진 사람이 있었나 (심층 슈퍼 히든의 문) */
 export const hasSuperLineage = (s: GameState) => (s.cards ?? []).some((c) => isSuperHidden(c.id) && !isHoH(c.id));
-/** 히든의 히든: 슈퍼 히든 가문에서만 */
+/** 심층 슈퍼 히든: 슈퍼 히든 가문에서만 */
 const H = (id: string, name: string, icon: string, ready: (s: GameState, p: Person) => boolean, a: Step, b: Step, c: Step): SuperRoute => ({
   id, name, icon, ready: (s, p) => hasSuperLineage(s) && ready(s, p), step1: stepOf(a), step2: stepOf(b), step3: stepOf(c),
 });
@@ -132,7 +132,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     },
   },
 
-  // ───── 히든의 히든: 슈퍼 히든을 배출한 가문에만 열리는 문 ─────
+  // ───── 심층 슈퍼 히든: 슈퍼 히든을 배출한 가문에만 열리는 문 ─────
   H('hj_vampire', '핏빛 후작부인', '🌹', (s, p) => p.sex === 'F' && A(s, p) >= 30 && ST(p).cha >= 70 && ST(p).hp >= 60,
     ['🌹 붉은 초대장', '밀랍으로 봉한 붉은 초대장. "자정, 고성의 무도회에 오십시오."', (p) => ST(p).cha >= 70, 0.85, '무도회의 주인공이 됐다. 창백한 귀족들이 {n}에게 고개를 숙인다.', 5000, '자정 전에 발길을 돌렸다.'],
     ['🌒 영원의 계약', '늙은 후작이 오래된 계약서를 내민다. "서명하면 늙지 않는다. 대신 햇빛과는 작별이지."', (p) => ST(p).hp >= 60 && ST(p).cha >= 72, 0.82, '서명했다. 거울 속 얼굴이 멈췄다. 영원이 시작됐다.', 10000, '펜을 내려놓았다.'],
