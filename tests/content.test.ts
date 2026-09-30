@@ -8,6 +8,7 @@ import { currentEvent, newGame, resolveChoice, simulateYear } from '../src/core/
 import { EVENTS } from '../src/core/registry';
 import { STORY_COUNT } from '../src/core/stories';
 import { makeDate } from '../src/core/events';
+import { inlawYear, kinDrift, kinGap, kinOf } from '../src/core/inlaws';
 import { breakUp, startDating } from '../src/core/romance';
 import { chooseSuccessor } from '../src/core/estate';
 import { ACTIONS, apLeft, apMax, doAction, forHead, stageOf } from '../src/core/actions';
@@ -30,6 +31,9 @@ import { awardCard, cardYear, CARDS, SUMMITS, SYNERGIES, activeSynergies } from 
 import { familyScore, lifeReport } from '../src/core/score';
 import { WORK_STORIES } from '../src/core/stories-work';
 import { WORK2_STORIES } from '../src/core/stories-work2';
+import { WORK3_STORIES } from '../src/core/stories-work3';
+import { WORK4_STORIES } from '../src/core/stories-work4';
+import { WORK5_STORIES } from '../src/core/stories-work5';
 import { JOB_ACTS } from '../src/core/job-acts';
 import { _quest, eligible, lowly, QUEST_IDS } from '../src/core/hidden-quest';
 import { obeys, willOf } from '../src/core/autonomy';
@@ -1070,5 +1074,61 @@ describe('부모님 유산', () => {
     const lo = lowly(h);
     h.job = 'judge';
     expect(lo).toBeGreaterThan(lowly(h) * 5);
+  });
+
+  it('사돈댁: 배우자마다 집안이 있고, 형편 차이·사돈 사건·배우자 건강이 굴러간다', () => {
+    const s = newGame({ seed: 21, familyName: '서', sex: 'M' });
+    const h = head(s);
+    s.year += 30;
+    const kins = new Set<string>();
+    for (let i = 0; i < 60; i++) kins.add(kinOf(makeDate(s, h, 10))!);
+    expect([...kins].sort()).toEqual(['elite', 'middle', 'poor', 'rich']);
+    const sp = makeDate(s, h);
+    sp.flags = sp.flags.filter((f) => !f.startsWith('kin:'));
+    sp.flags.push('kin:elite');
+    s.people[sp.id] = sp;
+    h.spouseId = sp.id;
+    sp.spouseId = h.id;
+    h.bond = sp.bond = 70;
+    expect(kinGap(s, sp)).toBeGreaterThanOrEqual(2);
+    expect(kinDrift(s, h, sp)).toBeLessThan(0); // 기울어진 결혼은 더 빨리 식는다
+    const seen = new Set<string>();
+    for (let y = 0; y < 40; y++) {
+      s.storySeen = {};
+      inlawYear(s);
+      let guard = 0;
+      while (s.events.length && guard++ < 50) {
+        const cur = currentEvent(s);
+        if (!cur) break;
+        seen.add(s.events[0].defId);
+        const ok = cur.choices.findIndex((c) => !c.disabled);
+        resolveChoice(s, ok < 0 ? 0 : ok);
+      }
+    }
+    expect([...seen].some((id) => id.startsWith('il_'))).toBe(true);
+    // 행동: 선물·사돈 챙기기·건강 챙기기
+    s.ap = 5;
+    h.cash = 1e5;
+    for (const id of ['sp_gift', 'sp_care_kin', 'sp_health']) expect(doAction(s, id).ok).toBe(true);
+  });
+
+  it('직장 이야기 ③~⑤: 모든 직업 id가 실제 직업이고, 일반 직업마다 이야기가 3개 이상', () => {
+    const more = [...WORK3_STORIES, ...WORK4_STORIES, ...WORK5_STORIES];
+    const s = newGame({ seed: 2, familyName: '하', sex: 'F' });
+    const h = head(s);
+    const ids = new Set(more.map((st) => st.id));
+    expect(ids.size).toBe(more.length);
+    for (const st of more) expect(JOB_IDS.some((j) => ((h.job = j), st.cond!(s, h)))).toBe(true);
+    const skip = ['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'mayor', 'landlord', 'professor'];
+    const thin: string[] = [];
+    for (const id of JOB_IDS) {
+      if (skip.includes(id) || id.startsWith('hj_')) continue;
+      h.job = id;
+      h.jobLevel = 2;
+      const n = [...WORK_STORIES, ...WORK2_STORIES, ...more].filter((st) => !st.id.startsWith('wk_any') && (!st.cond || st.cond(s, h))).length;
+      if (n < 3) thin.push(`${id}:${n}`);
+    }
+    expect(thin).toEqual([]);
+    expect(more.length).toBeGreaterThan(250);
   });
 });

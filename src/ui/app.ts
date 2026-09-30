@@ -1,5 +1,6 @@
 import { standingLabel } from '../core/school';
 import { sideJobOf, sideTrackOf, TRACK_NAMES, trackOf } from '../core/tracks';
+import { KIN_NAME, kinGap, kinOf } from '../core/inlaws';
 import { HOME_TYPE, buyCurrentHome, homeBuyQuote, moveInQuote, moveInto, moveIntoOwned, moveQuote, moveTo, ownedHomes, residence, tierOf, tiers } from '../core/housing';
 import { creditGrade, debtRate, inRehab, walletNet } from '../core/debt';
 import { fixJosa, iga } from '../core/ev-util';
@@ -1076,6 +1077,12 @@ function lifeRows(g: GameState, p: Person): string {
   if (p.spouseId && alive(p) && alive(g.people[p.spouseId]) && p.bond !== undefined) {
     const b = p.bond;
     rows.push(`<div class="sh-row"><span>금슬</span><span>${b >= 75 ? '💞 잉꼬부부' : b >= 50 ? '❤ 화목' : b >= 30 ? '😶 데면데면' : '💢 위기'} (${b})</span></div>`);
+    // 사돈댁: 배우자 집안 형편과 우리 집과의 차이
+    const inl = p.inLaw ? p : g.people[p.spouseId];
+    if (inl && kinOf(inl)) {
+      const gap = kinGap(g, inl);
+      rows.push(`<div class="sh-row"><span>${p.inLaw ? '친정·본가' : '사돈댁'}</span><span>${KIN_NAME[kinOf(inl)!]}${Math.abs(gap) >= 2 ? ' ⚠ 형편 차이 큼 (금슬이 빨리 식는다)' : gap === 0 ? ' · 형편 비슷' : ''}</span></div>`);
+    }
   }
   const tries = Number(p.flags.find((f) => f.startsWith('tries:'))?.slice(6) ?? 0);
   if (tries >= 2) rows.push(`<div class="sh-row"><span>수험</span><span>${tries}번 낙방</span></div>`);

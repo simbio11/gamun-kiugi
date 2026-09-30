@@ -47,6 +47,7 @@ import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
 import { BOSS_STORIES, selfBoss } from './boss';
 import { hiddenYear } from './hidden';
+import { inlawYear, kinDrift } from './inlaws';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -416,6 +417,7 @@ export function simulateYear(s: GameState): void {
   for (const m of eggYear(s)) log(s, m, 'money');
   eggForKids(s);
   for (const m of spouseYear(s)) log(s, m, 'life');
+  inlawYear(s);
   autonomyYear(s);
   perkYear(s, wageIndex(s.year));
   capStats(s);
@@ -473,6 +475,7 @@ function lifeYear(s: GameState) {
       let d = -1.2 + normal(s, 0, 2);
       if (p.id === h.id) d += { work: -1, balance: 0, family: 1.8, self: 0, rest: 0.5 }[s.policy.lifestyle];
       for (const x of [p, sp]) d += (hasTrait(x, 'devoted') ? 1 : hasTrait(x, 'flirt') ? -1.5 : 0) + bondDrift(x);
+      d += kinDrift(s, p, sp); // 집안 차이·사돈 챙기기
       if (p.happiness > 60 && sp.happiness > 60) d += 0.5;
       setBond(p, sp, (p.bond ?? 60) + d);
       if ((p.bond ?? 60) < 28 && chance(s, 0.35) && !pending('marital_crisis')) queue(s, 'marital_crisis', p.id);
