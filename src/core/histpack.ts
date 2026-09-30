@@ -8,6 +8,7 @@ import { chance, pick } from './rng';
 import { gate, iga, type Choice, type Ctx, type EventDef } from './ev-util';
 import { addFlag, age, check, clamp, fullName, hasFlag, householder, mark, parentsOf } from './people';
 import { wageIndex } from './pay';
+import { homeOf } from './housing';
 import { formatWon, isNominal } from './economy';
 import type { GameState, Person } from './types';
 import type { Story } from './stories';
@@ -131,7 +132,7 @@ const FUTURE_WORDS: [string, string, number][] = [
   ['스마트폰', 'AR 글래스', 2050], ['PC방', 'VR방', 2040], ['유튜버', '홀로 크리에이터', 2060], ['유튜브', '홀로튜브', 2060], ['인스타', '피드', 2050],
   ['카톡', '메신저', 2045], ['단톡방', '가족 채널', 2045], ['인강', 'AI 과외', 2045], ['노트북', '공간 컴퓨터', 2055], ['배달 라이더', '배달 드론', 2050],
   ['택시', '로보택시', 2050], ['운전면허', '수동 운전 면허', 2055], ['편의점 알바', '무인점포 관리', 2055], ['키오스크', '홀로 안내원', 2060],
-  ['휴대폰', '글래스', 2055], ['문자', '뉴럴 메시지', 2070], ['영상통화', '홀로그램 통화', 2060], ['TV', '벽 스크린', 2045], ['넷플릭스', '몰입형 드라마', 2055],
+  ['휴대폰', '글래스', 2055], ['대치동 학원가', 'AI 학습 특구', 2070], ['반지하 동네', '저지대 동네', 2060], ['수능', '국가 역량 평가', 2070], ['수능까지', '역량 평가까지', 2070], ['문자', '뉴럴 메시지', 2070], ['영상통화', '홀로그램 통화', 2060], ['TV', '벽 스크린', 2045], ['넷플릭스', '몰입형 드라마', 2055],
 ];
 function futurize(year: number, text: string): string {
   let t = text;
@@ -523,7 +524,7 @@ export const HIST_STORIES: Story[] = [
     { label: '끝까지 따라간다', text: '새벽 3시에 택시를 탔다. 부장님이 어깨를 두드려 줬다.', eff: { hp: -3, cha: 1, promo: 1 } },
     { label: '1차만 하고 빠진다', text: '"요즘 젊은 사람들은…" 부장님 표정이 굳었다.', eff: { hap: 2 } },
   ] },
-  { id: 'h_rented_room', title: '주인집 눈치', age: [20, 45], w: 0.05, era: [1960, 1995], cond: (s) => s.origin !== 'rich', head: true, text: '마당 딸린 집 문간방 셋방살이. 주인집 아주머니가 "애들 좀 조용히 시키라"며 눈을 흘긴다. 수도는 한 개, 화장실은 마당에 있다.', choices: [
+  { id: 'h_rented_room', title: '주인집 눈치', age: [20, 45], w: 0.05, era: [1960, 1995], cond: (s, p) => ['jeonse', 'wolse'].includes(homeOf(s, p)?.type ?? ''), head: true, text: '마당 딸린 집 문간방 셋방살이. 주인집 아주머니가 "애들 좀 조용히 시키라"며 눈을 흘긴다. 수도는 한 개, 화장실은 마당에 있다.', choices: [
     { label: '과일 한 봉지 들고 인사 간다', cost: 2, text: '"새댁이 싹싹하네." 아주머니 표정이 풀렸다.', eff: { cha: 1, hap: 2 } },
     { label: '이사 갈 날만 손꼽는다', text: '주택부금 통장을 다시 들여다봤다.', eff: { mark: { thrift: 1 } } },
   ] },

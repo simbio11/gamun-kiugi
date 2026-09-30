@@ -90,10 +90,6 @@ export const MORE_STORIES: Story[] = [
     { label: '1천만 원 넣는다', mark: { risk: 2 }, cost: 1000, text: '', roll: ['luck', 20, [{ cash: 4000, hap: 10 }, '진짜 올랐다?! 4천만 원이 됐다. 이러면 안 되는데 자꾸 생각난다.'], [{ hap: -10 }, '다음 날 상장폐지. 리딩방은 사라졌다.']] },
     { label: '방을 나간다', mark: { honest: 1 }, text: '한 달 뒤 뉴스에 그 리딩방 사기 사건이 나왔다.', eff: { mor: 1 } },
   ] },
-  { id: 'jeonse_scam', title: '전세 사기 소문', age: [22, 40], w: 0.015, text: '{n이} 사는 빌라 집주인이 연락 두절이라는 소문이 돈다.', choices: [
-    { label: '전세보증보험을 확인한다', cost: 30, mark: { honest: 1 }, text: '다행히 보험에 가입되어 있었다. 가슴을 쓸어내렸다.', eff: { hap: 2 } },
-    { label: '설마 하고 넘긴다', text: '', roll: ['luck', 70, [{}, '헛소문이었다. 휴.'], [{ cash: -3000, hap: -15 }, '진짜였다. 보증금 일부를 날렸다. 한동안 잠을 못 잤다.']] },
-  ] },
   { id: 'side_hustle', title: '부업', age: [22, 50], w: 0.025, text: '{n}, 퇴근 후에 부업을 해 볼까?', choices: [
     { label: '스마트스토어를 연다', mark: { network: 1 }, cost: 200, text: '', roll: ['int', 50, [{ cash: 1200, hap: 6 }, '생각보다 잘 팔린다! 월 100만 원 부수입.'], [{ hap: -4 }, '재고만 창고에 쌓였다.']] },
     { label: '배달 알바', mark: { sport: 1 }, text: '주말마다 오토바이를 탔다. 통장은 불었지만 몸이 고되다.', eff: { cash: 600, hp: -2 } },

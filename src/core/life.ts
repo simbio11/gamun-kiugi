@@ -494,15 +494,15 @@ const infertility: LifeDef = {
 const fraud: LifeDef = {
   id: 'fraud',
   weight: (s, p) => (age(s, p) >= 25 && p.cash > 1000 ? (age(s, p) >= 60 ? 0.03 : 0.015) : 0),
-  title: (c) => (age(c.s, c.p) >= 60 ? '보이스피싱' : age(c.s, c.p) < 40 ? '전세사기' : '투자 리딩방'),
+  title: (c) => (age(c.s, c.p) >= 60 ? '보이스피싱' : age(c.s, c.p) < 40 ? '중고거래 사기' : '투자 리딩방'),
   text: (c) => {
     const a = age(c.s, c.p);
-    c.ev.data ??= { caught: check(c.s, c.p.actual.int, 55, 8), loss: Math.min(Math.round(c.p.cash * 0.6), a < 40 ? 20000 : 8000) };
-    if (c.ev.data.caught) return `${who(c)}에게 수상한 ${a >= 60 ? '전화' : a < 40 ? '전세 매물' : '투자 권유'}가 왔지만, 낌새를 채고 피했다.`;
+    c.ev.data ??= { caught: check(c.s, c.p.actual.int, 55, 8), loss: Math.min(Math.round(c.p.cash * 0.6), a < 40 ? 1500 : 8000) };
+    if (c.ev.data.caught) return `${who(c)}에게 수상한 ${a >= 60 ? '전화' : a < 40 ? '중고거래 판매자' : '투자 권유'}가 왔지만, 낌새를 채고 피했다.`;
     return a >= 60
       ? `"아들이 사고를 쳤다"는 전화에 속아 ${who(c)}이(가) ${formatMoney(c.ev.data.loss)}을 송금했다.`
       : a < 40
-        ? `${who(c)}의 전셋집 집주인이 잠적했다. 보증금 ${formatMoney(c.ev.data.loss)}이 날아갔다.`
+        ? `${who(c)}이(가) 시세의 반값에 올라온 전자기기를 선입금으로 샀다. 판매자가 잠적했다. ${formatMoney(c.ev.data.loss)}이 날아갔다.`
         : `리딩방 "전문가"를 믿고 넣은 ${formatMoney(c.ev.data.loss)}이 사라졌다.`;
   },
   choices: (c) => {

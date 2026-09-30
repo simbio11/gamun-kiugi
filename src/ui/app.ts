@@ -41,6 +41,7 @@ import { rivalLine, rivalMood } from '../core/rival';
 import { FOCUS_LABEL, focusOf } from '../core/spouse';
 import { govOf } from '../core/history';
 import { epochOf, newsMedium, newsStyle, type AlertMedia } from '../core/timeline';
+import { warChip } from '../core/war';
 import { anachronistic, inHistory, periodize } from '../core/histpack';
 import { jeonseRatio, LEASE_NAME, leaseOf, setLease, type Lease } from '../core/tenant';
 import { WOES, woesOf } from '../core/woes';
@@ -309,6 +310,7 @@ function render() {
   const fy = ui.game && ui.game.year >= 2040 ? ui.game.year : 0;
   root.classList.toggle('fut', !!fy);
   root.dataset.epoch = fy ? epochOf(fy).theme : '';
+  root.classList.toggle('wartime', ui.game?.war?.phase === 'war');
   root.classList.toggle('text-s', prefs.text === 's');
   root.classList.toggle('text-l', prefs.text === 'l');
   if (!g) {
@@ -623,6 +625,7 @@ function header(g: GameState): string {
       <div class="year">${g.year}년 <button class="gear" data-action="settings" title="설정" aria-label="설정">⚙</button></div>
       <div class="fam">${esc(g.familyName)}씨 ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
       ${g.era === 'history' && g.year <= 2025 ? `<div class="fam gov">🏛 ${esc(govOf(g.year))}</div>` : `<div class="fam gov">${epochOf(g.year).icon} ${esc(epochOf(g.year).name)}</div>`}
+      ${g.war ? `<div class="fam war-chip ${g.war.phase}">${esc(warChip(g))}</div>` : ''}
       <div class="fam">명성 ${Math.round(g.fame)}${(g.scandal ?? 0) >= 10 ? ` · <span class="scandal-chip" title="가문 스캔들 위험 ${Math.round(g.scandal ?? 0)}">${scandalLabel(g.scandal ?? 0)}</span>` : ''} · <button class="rank-chip" data-action="tab" data-v="achv">${RANKS[rankOf(g)].icon} ${RANKS[rankOf(g)].name} <b>${g.glory ?? 0}✦</b></button></div>
     </div>
     <button class="top-r" data-action="tab" data-v="assets" data-sub="sum" title="자산 탭에서 내년 가계부 보기">
@@ -1429,6 +1432,16 @@ function newsBlock(year: number, news: string[], trends: string[]): string {
       ${trend.length ? `<div class="pt-trend"><b>실시간 검색어</b>${trend.map((t, i) => `<span><em>${i + 1}</em>${esc(t)}</span>`).join('')}</div>` : ''}
       ${items.map((l, i) => `<div class="pt-item"><i class="pt-thumb" style="--h:${(year * 37 + i * 71) % 360}"></i><div><b>${esc(l)}</b><small>${press[(year + i) % press.length]} · ${1 + ((year * 7 + i * 5) % 11)}시간 전</small></div></div>`).join('')}
     </div>`;
+  }
+  if (m === 'shorts') {
+    // 세로 숏폼 영상 뉴스: 넘겨 보는 카드, 조회수·좋아요, 자동 자막
+    const ch = ['뉴스한입', '1분뉴스', '오늘의이슈', '팩트체크K', '세상요약'];
+    return `<div class="shorts"><div class="sh-top">▶ 숏폼 뉴스 <small>${year} · 위로 넘겨 보기</small></div><div class="sh-reel">${items
+      .map(
+        (l, i) =>
+          `<div class="sh-clip" style="--h:${(year * 53 + i * 97) % 360};animation-delay:${i * 120}ms"><div class="sh-cap">${esc(l)}</div><div class="sh-meta"><b>@${ch[(year + i) % ch.length]}</b><span>▶ ${(((year * 7 + i * 13) % 90) + 10) / 10}만 · ♥ ${((year + i * 31) % 50) + 3}천</span></div></div>`,
+      )
+      .join('')}</div></div>`;
   }
   if (m === 'feed')
     return `<div class="feed"><div class="fd-top">👓 오늘의 피드 <small>${year}</small></div>${items.map((l, i) => `<div class="fd-item" style="animation-delay:${i * 90}ms"><span class="fd-dot"></span>${esc(l)}</div>`).join('')}</div>`;

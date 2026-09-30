@@ -256,6 +256,10 @@ export interface GameState {
   era?: 'history';
   /** 우리 집이 직접 들인 전화기·컴퓨터 (devices.ts 모델 id) */
   gear?: { phone?: string; pc?: string };
+  /** 진행 중인 전쟁 (war.ts) */
+  war?: { name: string; start: number; phase: 'war' | 'truce'; truceAt?: number; dead: number };
+  /** 지난 전쟁이 끝난 해 */
+  lastWarEnd?: number;
   gameOver?: { reason: string; score: number };
   /** 올해 부동산 매물 */
   listings?: Listing[];

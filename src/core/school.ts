@@ -503,6 +503,28 @@ const FAKE_SCHOOLS: Partial<Record<Tier, string[]>> = {
 
 export const PROGRAMS: Record<string, Program> = Object.fromEntries(P.map((p) => [p.id, p]));
 
+// ───────── 시대: 그해에 없던 학교·학과는 고를 수 없다 ─────────
+/** 개교(또는 학부 신입생을 처음 뽑은) 해 */
+const SCHOOL_FROM: Record<string, number> = {
+  KAIST: 1986, POSTECH: 1987, UNIST: 2009, GIST: 2010, DGIST: 2014, '한국에너지공대 (KENTECH)': 2022, 한국예술종합학교: 1993, 서울예술대학교: 1962,
+  한국체육대학교: 1977, 한국교원대학교: 1985, 한국전통문화대학교: 2000, 청강문화산업대학교: 1996, 영진전문대: 1977, 동아방송예술대학교: 1991,
+  '우송대 솔브릿지': 2007, 한국폴리텍대학: 2006, 한국농수산대학교: 1997, '한국교통대 철도대학': 2012, 한서대: 1992, 대구한의대: 1981, 세종대: 1978,
+  '인서울 게임학과': 2001, '국민대 조형대': 1975,
+};
+/** 학과(전공)가 흔해진 해 */
+const KEY_FROM: Record<string, number> = { cs: 1975, itc: 1988, game: 2001, anim: 1996, beauty: 1993, air: 1994, hotel: 1983, welfare: 1982, fashion: 1980, design: 1968, pt: 1979, radio: 1965, clinical: 1965, emt: 1995, film: 1964, cook: 1990, heritage: 2000 };
+/** 이 해에 이 학과에 갈 수 있나 (근현대사 모드의 과거 · 해외 유학은 1981년 자유화 이후) */
+export function progOpen(s: GameState | undefined, pr: Program): boolean {
+  if (!s || s.era !== 'history' || s.year > 2025) return true;
+  const y = s.year;
+  if (pr.school && SCHOOL_FROM[pr.school] && y < SCHOOL_FROM[pr.school]) return false;
+  if (y < (KEY_FROM[pr.key] ?? 0)) return false;
+  if (pr.special === 'abroad' && y < 1981) return false;
+  if (pr.school && /^(미국|영국|일본|중국|프랑스|독일|이탈리아|스위스|캐나다|호주|싱가포르)|해외 대학/.test(pr.school) && y < 1981) return false;
+  return true;
+}
+const openP = () => P.filter((pr) => progOpen(lastState, pr));
+
 /** 전공 → 직업 분야 (관심·성향 추천용) */
 export const KEY_CAT: Record<string, string> = {
   med: 'medical', dent: 'medical', kmd: 'medical', vet: 'medical', pharm: 'medical', nurse: 'medical', pt: 'medical', radio: 'medical', clinical: 'medical', emt: 'medical',
@@ -672,7 +694,7 @@ function band(c: number): string {
 
 /** 성적에 맞는 대학·학과 추천: 상향·소신·적정·안정 골고루 */
 export function recommend(p: Person, pct: number, practical: boolean): Program[] {
-  const list = P.filter((pr) => !!pr.practical === practical && !pr.special)
+  const list = openP().filter((pr) => !!pr.practical === practical && !pr.special)
     .map((pr) => [pr, admitChance(p, pr, pct)] as const)
     .filter(([pr, c]) => c > 0.02 && !(pr.need && p.actual[pr.need.stat] < pr.need.min));
   // 한 구간에 같은 전공은 하나만 (의대·경영만 줄줄이 나오지 않게)
@@ -875,7 +897,7 @@ export function recommendSusiType(s: GameState, p: Person, type: SusiType, pct: 
   const fs = fitSet(p);
   const keys = type === 'hak' ? susiFields(p) : undefined;
   const seen = new Set<string>();
-  const all = P.filter((pr) => !keys || keys.includes(pr.key) || fitsMajor(p, pr, fs))
+  const all = openP().filter((pr) => !keys || keys.includes(pr.key) || fitsMajor(p, pr, fs))
     .map((pr) => [pr, susiChance(s, p, pr, type, pct)] as const)
     .filter(([, c]) => c >= 0.06)
     .sort((a, b) => b[0].cut - a[0].cut)
@@ -904,7 +926,7 @@ const kindLabel = (pr: Program) => (pr.special === 'military' ? '별도 지원' 
 /** 맞춤 추천: 성적·적성·형편을 함께 보고 붙을 만한 곳 중 좋은 곳 */
 export function recommendFit(s: GameState, p: Person, pct: number): Program[] {
   const fs = fitSet(p);
-  const all = P.map((pr) => [pr, chanceOf(s, p, pr, pct)] as const).filter(([pr, c]) => c >= 0.08 && (!pr.special || pr.special === 'military' || feeOf(pr) <= spendable(s)));
+  const all = openP().map((pr) => [pr, chanceOf(s, p, pr, pct)] as const).filter(([pr, c]) => c >= 0.08 && (!pr.special || pr.special === 'military' || feeOf(pr) <= spendable(s)));
   const seen = new Set<string>();
   const take = (arr: (readonly [Program, number])[], n: number) =>
     arr
@@ -919,7 +941,7 @@ export function recommendFit(s: GameState, p: Person, pct: number): Program[] {
 
 /** 분야(직업 계열)별 전체 학교 목록 */
 export function programsIn(s: GameState, p: Person, cat: string, pct: number): Program[] {
-  return P.filter((pr) => KEY_CAT[pr.key] === cat)
+  return openP().filter((pr) => KEY_CAT[pr.key] === cat)
     .map((pr) => [pr, chanceOf(s, p, pr, pct)] as const)
     .filter(([pr, c]) => c > 0.015 || (pr.special === 'sci' && sciOk(p)))
     .sort((a, b) => b[0].cut - a[0].cut)
@@ -1168,7 +1190,7 @@ const path: EventDef = {
       const passed = (d.results as [string, boolean][]).filter(([, o]) => o).map(([id]) => PROGRAMS[id]);
       const out: Choice[] = passed.map((pr) => ({ label: `등록: ${programName(pr)}`, run: (x: Ctx) => enroll(x, pr) }));
       if (!passed.length) {
-        const extra = P.filter((pr) => !pr.practical && (pr.tier === 'D' || pr.tier === 'E') && admitChance(p, pr, d.pct) > 0.5)
+        const extra = openP().filter((pr) => !pr.practical && (pr.tier === 'D' || pr.tier === 'E') && admitChance(p, pr, d.pct) > 0.5)
           .sort((a, b) => b.cut - a.cut)
           .slice(0, 2);
         for (const pr of extra) out.push({ label: `추가모집: ${programName(pr)}`, run: (x) => enroll(x, pr) });
@@ -1222,7 +1244,7 @@ const path: EventDef = {
       return [finish, ...out, back];
     }
     if (d.stage === 'mil') {
-      const out = P.filter((pr) => pr.special === 'military' && !apps.includes(rawOf(pr))).map((pr) => {
+      const out = openP().filter((pr) => pr.special === 'military' && !apps.includes(rawOf(pr))).map((pr) => {
         const ch = appChoice(pr);
         if (pr.need && p.actual[pr.need.stat] < pr.need.min) return { ...ch, disabled: true, req: [...(ch.req ?? []), pr.need.stat === 'hp' ? '신체검사 미달' : '체력 미달'] };
         return ch;
@@ -1230,12 +1252,12 @@ const path: EventDef = {
       return [finish, ...out, back];
     }
     if (d.stage === 'field') {
-      const cats = [...new Set(P.map((pr) => KEY_CAT[pr.key]))].filter(Boolean);
+      const cats = [...new Set(openP().map((pr) => KEY_CAT[pr.key]))].filter(Boolean);
       const mine = new Set<string>([...topInterests(p, 2, 2), ...fitCats(p, 2)]);
       return [
         ...cats
           .sort((a, b) => Number(mine.has(b)) - Number(mine.has(a)))
-          .map((cat) => ({ label: `${mine.has(cat) ? '💡 ' : ''}${JOB_CATS[cat as keyof typeof JOB_CATS]} (${P.filter((pr) => KEY_CAT[pr.key] === cat).length}곳)`, run: (x: Ctx) => ((x.ev.data.stage = 'field:' + cat), { text: '', keep: true as const }) })),
+          .map((cat) => ({ label: `${mine.has(cat) ? '💡 ' : ''}${JOB_CATS[cat as keyof typeof JOB_CATS]} (${openP().filter((pr) => KEY_CAT[pr.key] === cat).length}곳)`, run: (x: Ctx) => ((x.ev.data.stage = 'field:' + cat), { text: '', keep: true as const }) })),
         back,
       ];
     }
@@ -1275,7 +1297,7 @@ const path: EventDef = {
       return [finish, ...out, { label: '← 다른 전형 보기', run: (x) => ((x.ev.data.stage = 'susi'), { text: '', keep: true }) }, back];
     }
     if (d.stage === 'special') {
-      const out = P.filter((pr) => pr.special && pr.special !== 'military' && !apps.includes(rawOf(pr)) && (pr.special !== 'sci' || sciOk(p)))
+      const out = openP().filter((pr) => pr.special && pr.special !== 'military' && !apps.includes(rawOf(pr)) && (pr.special !== 'sci' || sciOk(p)))
         .sort((a, b) => Number(fitsMajor(p, b, fs)) - Number(fitsMajor(p, a, fs)) || specialChance(c.s, p, b) - specialChance(c.s, p, a))
         .map(appChoice);
       return [finish, ...out, back];

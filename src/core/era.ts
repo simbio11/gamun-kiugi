@@ -402,6 +402,7 @@ export const ERA_EVENTS: EventDef[] = [...ERAS.map(eraDef), rebound, bust];
 export function eraYear(s: GameState): string[] {
   // 근현대사 모드는 2025년까지 실제 사건이 대신한다
   if (s.era === 'history' && s.year <= 2025) return [];
+  if (s.war) return []; // 전쟁 중엔 전쟁이 곧 시대의 파도다
   const h = head(s);
   if (age(s, h) < 22) return [];
   const seen = (s.storySeen ??= {});

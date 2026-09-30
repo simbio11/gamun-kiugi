@@ -127,4 +127,25 @@ describe('시뮬레이션', () => {
     // 2025년이 지나면 평범하게 미래로
     expect(s.year).toBeGreaterThan(2026);
   }, 60000);
+
+  it('전쟁: 터지면 휴전·종전까지 10여 년 흐름이 이어지고 크래시 없음', () => {
+    const s = autoplay(5, 20);
+    s.war = { name: '세계 대전', start: s.year, phase: 'war', dead: 0 };
+    s.events.push({ uid: s.eventSeq++, defId: 'war_start', personId: s.headId });
+    const phases: string[] = [];
+    for (let y = 0; y < 30 && !s.gameOver; y++) {
+      let guard = 0;
+      while (s.events.length && guard++ < 300) {
+        const cur = currentEvent(s);
+        if (!cur) break;
+        const all = cur.choices.map((c, i) => [c, i] as const).filter(([c]) => !c.disabled);
+        resolveChoice(s, all[Math.floor(next(s) * all.length)][1]);
+      }
+      simulateYear(s);
+      phases.push(s.war?.phase ?? 'peace');
+      for (const p of Object.values(s.people)) expect(Number.isFinite(p.cash)).toBe(true);
+    }
+    expect(phases).toContain('peace');
+    expect(s.log.some((l) => l.text.includes('종전'))).toBe(true);
+  }, 60000);
 });

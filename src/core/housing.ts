@@ -17,14 +17,17 @@ export function tiers(s: GameState): Tier[] {
   const L = s.market.apt_local;
   const S = s.market.apt_seoul;
   const t = (id: string, name: string, kind: Tier['kind'], rank: number, price: number): Tier => ({ id, name, kind, rank, price: Math.round(price / 100) * 100 });
+  // 이름은 시대를 탄다: 1960년대 판잣집 셋방·도시 한옥 → 오늘의 원룸·아파트 → 먼 미래의 주거 모듈·해상 도시
+  const y = s.year;
+  const n = (list: [number, string][]) => list.filter(([from]) => y >= from).pop()![1];
   return [
-    t('room', '원룸 (반지하)', 'apt_local', 0, L * 0.18),
-    t('oneroom', '원룸 오피스텔', 'apt_local', 1, L * 0.35),
-    t('villa', '빌라 투룸', 'apt_local', 2, L * 0.6),
-    t('local', '지방 아파트 32평', 'apt_local', 3, L),
-    t('metro', '수도권 아파트 25평', 'apt_seoul', 4, S * 0.25),
-    t('seoul', '서울 아파트 34평', 'apt_seoul', 5, S * 0.55),
-    t('gangnam', '강남 아파트 34평', 'apt_seoul', 6, S),
+    t('room', n([[0, '판잣집 셋방'], [1976, '단칸 셋방'], [1990, '원룸 (반지하)'], [2045, '소형 주거 모듈'], [2110, '궤도 도시 기본 모듈']]), 'apt_local', 0, L * 0.18),
+    t('oneroom', n([[0, '문간방 두 칸'], [1985, '원룸 오피스텔'], [2050, 'AI 스마트 원룸'], [2110, '궤도 도시 1인 주거']]), 'apt_local', 1, L * 0.35),
+    t('villa', n([[0, '도시 한옥'], [1980, '연립주택'], [1990, '빌라 투룸'], [2060, '로봇 관리 타운하우스'], [2100, '해상 도시 투룸']]), 'apt_local', 2, L * 0.6),
+    t('local', n([[0, '지방 단독주택'], [1978, '지방 아파트 32평'], [2080, '지방 생태 주택 단지']]), 'apt_local', 3, L),
+    t('metro', n([[0, '서울 변두리 단독주택'], [1978, '수도권 주공아파트'], [1991, '수도권 아파트 25평'], [2100, '수도권 숲속 아파트']]), 'apt_seoul', 4, S * 0.25),
+    t('seoul', n([[0, '서울 양옥'], [1970, '서울 아파트 31평'], [1995, '서울 아파트 34평'], [2100, '서울 숲 전망 아파트']]), 'apt_seoul', 5, S * 0.55),
+    t('gangnam', n([[0, '성북동 한옥 대저택'], [1976, '영동(강남) 신축 아파트'], [1990, '강남 아파트 34평'], [2080, '강남 수직 정원 타워']]), 'apt_seoul', 6, S),
   ];
 }
 export const tierOf = (s: GameState, id: string) => tiers(s).find((t) => t.id === id) ?? tiers(s)[2];

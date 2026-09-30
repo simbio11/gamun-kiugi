@@ -4,6 +4,7 @@
 import { HIST_STORIES, inHistory } from './histpack';
 import { DEVICE_STORIES, latest, PCS, PHONES } from './devices';
 import { ERA_STORIES } from './stories-era';
+import { AGE_STORIES } from './stories-ages';
 import { wageIndex } from './pay';
 import { chance, int } from './rng';
 import { eul, eun, gate, iga, schedule, type Choice, type Ctx } from './ev-util';
@@ -470,9 +471,9 @@ const S: Story[] = [
     { label: '진심을 담은 편지', mark: { family: 1 }, text: '', roll: ['cha', 40, [{ bond: 10 }, '배우자가 편지를 읽고 울었다.'], [{ bond: -3 }, '"편지로 때우려고?"']] },
     { label: '모른 척한다', mark: { hurt: 0 }, text: '냉전이 일주일 갔다.', eff: { bond: -10 } },
   ] },
-  { id: 'move', title: '이사', age: [28, 70], w: 0.03, head: true, text: '아이들 학교 때문에 이사를 고민한다. 학군지는 집값이 비싸다.', choices: [
-    { label: '학군지로 전세 이사', cost: 2000, text: '대치동 학원가 근처로 옮겼다.', eff: { hap: -2 } },
-    { label: '지금 동네가 좋다', text: '', eff: { hap: 2 } },
+  { id: 'move', title: '이사', age: [28, 70], w: 0.03, head: true, cond: hasKids, text: '아이들 학교 때문에 이사를 고민한다. 학군지는 집값이 비싸다.', choices: [
+    { label: '학군지 매물을 알아본다', text: '주말마다 학군지 매물을 보러 다녔다. 마음에 드는 곳이 있으면 자산 탭에서 옮길 수 있다.', eff: { int: 1 } },
+    { label: '지금 동네가 좋다', text: '아이들 친구가 다 여기 있다.', eff: { hap: 2 } },
   ] },
   { id: 'interior', title: '리모델링', age: [30, 75], w: 0.02, head: true, text: '집이 낡아 수리할 곳투성이다.', choices: [
     { label: '올수리', mark: { spend: 1 }, cost: 5000, text: '새집 같다. 매일 기분이 좋다.', eff: { hap: 10, bond: 4 } },
@@ -618,5 +619,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES, ...HIST_STORIES, ...DEVICE_STORIES, ...ERA_STORIES].map(toLife);
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES, ...HIST_STORIES, ...DEVICE_STORIES, ...ERA_STORIES, ...AGE_STORIES].map(toLife);
 export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length + SUDDEN_STORIES.length + INTEREST_STORIES.length + LIFE3_STORIES.length + TEMPER_STORIES.length + SPECIAL_STORIES.length + SAGA_STORIES.length + WORK_STORIES.length;

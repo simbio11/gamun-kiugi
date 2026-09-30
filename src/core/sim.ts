@@ -38,6 +38,9 @@ import { spouseYear } from './spouse';
 import { anachronistic, histOverride, inHistory, periodize, TIMELESS } from './histpack';
 import { HIST_PARENT_JOBS, HIST_START, histOrigins, histYear } from './history';
 import { timelineYear } from './timeline';
+import { chainYear } from './chains';
+import { warYear } from './war';
+import { medicalYear } from './medical-events';
 import { HIST_BASE, histPrice, histRel } from './histidx';
 import { autonomyYear } from './autonomy';
 import { lifeReport, trackPeak } from './score';
@@ -385,6 +388,9 @@ export function simulateYear(s: GameState): void {
   for (const m of leverageYear(s)) log(s, m, 'money');
   for (const m of histYear(s)) log(s, m, 'market');
   for (const m of timelineYear(s)) log(s, m, 'market');
+  chainYear(s);
+  for (const m of warYear(s)) log(s, m, 'market');
+  medicalYear(s);
   for (const m of eraYear(s)) log(s, m, 'market');
   for (const m of rivalYear(s, familyTotal(s))) log(s, m, 'life');
   for (const m of careerYear(s)) log(s, m, 'life');
@@ -741,6 +747,7 @@ function autoExam(s: GameState, p: Person, id: string) {
 }
 
 function causeOf(s: GameState, p: Person): string {
+  if (p.flags.includes('kia_pending')) return '전장에서';
   if (p.flags.some((f) => f.startsWith('cancer:'))) return '암 투병 끝에';
   const a = age(s, p);
   return a > 75 ? '노환으로' : p.actual.hp < 30 ? '지병으로' : a < 50 && chance(s, 0.5) ? '불의의 사고로' : '갑작스러운 병으로';

@@ -884,3 +884,17 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .fut[data-epoch="e170"] { --fut-bg: #0c0c1c; }
 .fut[data-epoch="e200"] { --fut-bg: #08081a; }
 .fut[data-epoch="e120"], .fut[data-epoch="e140"], .fut[data-epoch="e170"], .fut[data-epoch="e200"] { background-image: radial-gradient(1px 1px at 12% 22%, rgba(255,255,255,.6), transparent), radial-gradient(1px 1px at 64% 48%, rgba(255,255,255,.45), transparent), radial-gradient(1.5px 1.5px at 38% 78%, rgba(255,230,200,.5), transparent), radial-gradient(1px 1px at 86% 12%, rgba(255,255,255,.5), transparent), radial-gradient(ellipse at 50% -10%, rgba(255,200,140,.12), transparent 60%); }
+/* 전쟁 */
+.war-chip { font-size: .74em; font-weight: bold; color: #ff8a7a; letter-spacing: .5px; }
+.war-chip.truce { color: #b8d8ff; }
+.wartime { background-image: linear-gradient(rgba(90,10,10,.25), rgba(20,5,5,.35)) !important; }
+/* 숏폼 뉴스 (2025~2049): 세로 영상 카드를 옆으로 넘겨 본다 */
+.shorts { margin: 6px 0 10px; background: #0c0c10; color: #fff; border-radius: 14px; padding: 10px; }
+.sh-top { display: flex; justify-content: space-between; align-items: baseline; font-weight: 800; margin-bottom: 8px; }
+.sh-top small { font-weight: 400; opacity: .6; font-size: .7em; }
+.sh-reel { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; }
+.sh-clip { flex: none; width: 46%; min-width: 132px; aspect-ratio: 9 / 14; max-width: 100%; border-radius: 10px; scroll-snap-align: start; position: relative; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px; background: linear-gradient(180deg, hsl(var(--h) 45% 35%), hsl(calc(var(--h) + 50) 40% 16%)); animation: cm-in .45s both; overflow: hidden; }
+.sh-clip::before { content: '▶'; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 1.6em; opacity: .55; }
+.sh-cap { font-size: .8em; font-weight: 800; line-height: 1.35; text-shadow: 0 1px 3px rgba(0,0,0,.8); background: rgba(0,0,0,.35); padding: 4px 6px; border-radius: 6px; }
+.sh-meta { display: flex; flex-direction: column; gap: 1px; margin-top: 5px; font-size: .64em; opacity: .85; }
+.calm .sh-clip { animation: none; }

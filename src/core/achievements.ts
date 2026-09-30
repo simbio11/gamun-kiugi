@@ -124,6 +124,7 @@ export function checkAchievements(s: GameState) {
     if (hasFlag(p, 'ivf') && p.childIds.length) unlock(s, 'ivf');
     const ageNow = (p.deathYear ?? s.year) - p.birthYear;
     if (ageNow >= 100) unlock(s, 'centenarian');
+    if (ageNow >= 120) unlock(s, 'centenarian_120');
     const kids = p.childIds.map((id) => s.people[id]);
     if (kids.length >= 5) unlock(s, 'big_family');
     if (kids.length >= 3 && kids.every((k) => k.sex === 'M')) unlock(s, 'sons3');

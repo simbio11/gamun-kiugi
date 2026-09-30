@@ -415,7 +415,16 @@ export function householdItems(s: GameState, incomes: Map<string, number>) {
 }
 
 /** 운에 기대지 않은 평균 연 수입 (내년 예상용) */
+/** 시대 사건(전쟁 등)이 직업 수입에 거는 배수 — war.ts가 등록한다 (순환 참조를 피하려고 주입) */
+let INCOME_MUL: (s: GameState, p: Person) => number = () => 1;
+export const setIncomeMul = (f: (s: GameState, p: Person) => number) => (INCOME_MUL = f);
+
 export function expectedIncome(s: GameState, p: Person): number {
+  const v = baseIncome(s, p);
+  return v > 0 && !p.flags.some((f) => f.startsWith('serving:')) ? Math.round(v * INCOME_MUL(s, p)) : v;
+}
+
+function baseIncome(s: GameState, p: Person): number {
   if (!alive(p)) return 0;
   if (p.flags.some((f) => f.startsWith('serving:'))) return Number(p.flags.find((f) => f.startsWith('serve_pay:'))?.slice(10) ?? 1200);
   if (p.flags.includes('student')) return p.flags.includes('track:grad_school') ? Math.round(GRAD_STIPEND * wageIndex(s.year)) : 0;

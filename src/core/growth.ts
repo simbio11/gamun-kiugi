@@ -1,3 +1,4 @@
+import { eraMortality, lifeTechMult } from './medical';
 import { chance } from './rng';
 import { STAT_KEYS, TALENTS } from './data';
 import { age, alive, clamp, discoverTalent, fullName, hasFlag, hasTrait, head, isDescendantOf } from './people';
@@ -118,6 +119,7 @@ export function growthYear(s: GameState): string[] {
  * 유언장을 쓰면 마음이 놓여 기력이 쇠하고(×1.4), 안 쓰고 버티면 조금 더 산다(×0.85).
  */
 export function deathChance(s: GameState, p: Person): number {
+  if (p.flags.includes('kia_pending')) return 1; // 전사 통지 (war.ts)
   const a = age(s, p);
   const hpFactor = 1.3 - p.actual.hp / 100;
   let base = a < 5 ? 0.002 : a < 40 ? 0.0008 : 0.0006 * Math.exp(0.085 * (a - 30));
@@ -125,6 +127,7 @@ export function deathChance(s: GameState, p: Person): number {
   if (hasTrait(p, 'tough')) base *= 0.8;
   if (hasTrait(p, 'frail')) base *= 1.3;
   base *= deathMult(p);
+  base *= eraMortality(s.year) * lifeTechMult(p); // 시대의 의료 수준 × 돈으로 산 미래 의료 (medical.ts)
   if (p.id === s.headId && a >= 60) base *= s.willWritten ? 1.4 : 0.85;
   let d = clamp(base * Math.max(0.3, hpFactor), 0, 0.6);
   // 암: 5년 생존율을 연간 위험으로

@@ -3,6 +3,7 @@
 import type { Story } from './stories';
 import type { GameState, Person } from './types';
 import { age, alive, hasFlag, parentsOf } from './people';
+import { homeOf } from './housing';
 
 const kid = (s: GameState, p: Person) => p.id !== s.headId && age(s, p) < 20;
 const poor = (s: GameState) => s.origin === 'poor';
@@ -110,7 +111,7 @@ export const ERA_STORIES: Story[] = [
     { label: '새벽부터 줄 선다', text: '공적 마스크 2장. 부모님 몫까지 챙겼다.', eff: { aff: 3, hp: 1 } },
     { label: '천 마스크를 만들어 쓴다', text: '재봉틀을 꺼냈다. 이웃에게도 나눠 줬다.', eff: { mor: 2, cha: 1 } },
   ] },
-  { id: 'h_youngkkeul', title: '영끌', age: [28, 45], w: 0.06, once: true, era: [2020, 2021], head: true, cond: (s) => s.origin !== 'rich', text: '집값이 한 달에 수천만 원씩 오른다. 친구는 "영혼까지 끌어모아" 집을 샀단다. 지금이 마지막 기회일까?', choices: [
+  { id: 'h_youngkkeul', title: '영끌', age: [28, 45], w: 0.06, once: true, era: [2020, 2021], head: true, cond: (s, p) => s.origin !== 'rich' && homeOf(s, p)?.type !== 'own', text: '집값이 한 달에 수천만 원씩 오른다. 친구는 "영혼까지 끌어모아" 집을 샀단다. 지금이 마지막 기회일까?', choices: [
     { label: '대출을 최대로 받아 산다', cost: 300, mark: { risk: 1 }, text: '', roll: ['luck', 50, [{ cash: 500, hap: 6 }, '이듬해에도 올랐다. 등기를 보며 안도했다.'], [{ cash: -200, hap: -12 }, '금리가 치솟았다. 이자 내느라 허리가 휜다.']] },
     { label: '기다린다', text: '"벼락거지" 소리에 속이 쓰렸다. 2022년 집값이 떨어지기 전까지는.', eff: { hap: -3 } },
   ] },
@@ -120,10 +121,6 @@ export const ERA_STORIES: Story[] = [
     { label: 'AI와 함께 쓰는 법을 가르친다', text: '"질문은 네가, 초안은 AI가, 생각은 다시 네가." 아이의 글이 달라졌다.', eff: { int: 2, study: 2 } },
     { label: '손으로 다시 쓰게 한다', text: '투덜대며 원고지 다섯 장을 채웠다.', eff: { mor: 1, study: 1, aff: -2 } },
     { label: '모른 척한다', text: '다음 학기, AI 사용 적발로 0점을 받았다.', eff: { study: -3 } },
-  ] },
-  { id: 'now_jeonse_fraud', title: '전세 사기 경보', age: [24, 45], w: 0.05, years: [2025, 2032], cond: (s) => s.origin !== 'rich', text: '{n}이(가) 계약하려는 빌라, 집주인이 수십 채를 가진 "갭투자자"라는 소문이 있다. 전세가율 90%.', choices: [
-    { label: '보증보험 되는 집만 고른다', text: '조금 멀어도 안전한 집으로 갔다. 등기부를 세 번 떼 봤다.', eff: { int: 1, mark: { thrift: 1 } } },
-    { label: '싸니까 계약한다', mark: { risk: 1 }, text: '', roll: ['luck', 55, [{ hap: 3 }, '2년 뒤 무사히 보증금을 돌려받았다.'], [{ cash: -3000, hap: -15 }, '집주인이 잠적했다. 보증금이 경매에 묶였다.']] },
   ] },
   { id: 'now_quiet_quit', title: '조용한 퇴사', age: [24, 40], w: 0.04, years: [2025, 2035], cond: (_s, p) => !!p.job && !['none', 'pension'].includes(p.job), text: '회사에서 딱 월급만큼만 일하기로 했다는 동기들. {n}도 흔들린다.', choices: [
     { label: '나도 칼퇴한다', text: '저녁이 있는 삶. 운동을 시작했다.', eff: { hap: 5, hp: 2 } },

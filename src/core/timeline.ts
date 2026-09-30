@@ -1,7 +1,7 @@
 // 큰 시간선: 1960년에서 22세기까지 한 줄로 이어진다.
 //
 // · 시대(Epoch)마다 이름·분위기가 있고, 뉴스가 오는 매체가 바뀐다.
-//     연말 뉴스: 종이 신문(~2004) → 포털 뉴스(2005~) → AR 피드(2050~) → AI 브리핑(2080~) → 뉴럴 뉴스(2140~)
+//     연말 뉴스: 종이 신문(~2004) → 포털 뉴스(2005~2024) → 숏폼 영상 뉴스(2025~2049) → AR 피드(2050~) → AI 브리핑(2080~) → 뉴럴 뉴스(2140~)
 //     큰 사건 속보: 호외(~1989) → TV 속보(~2009) → 휴대폰 알림(~2039) → 홀로그램 속보(~2069) → AI 비서(2070~) → 뉴럴 속보(2140~)
 // · 2025년까지는 실제 기록(history.ts), 그 뒤는 게임 속 상상이다. 실존 인물 이름은 쓰지 않는다.
 // · 2026년부터는 모드와 상관없이 같은 미래가 온다: 근현대사에서 넘어온 가문도, 현대에서 시작한 가문도.
@@ -17,6 +17,7 @@ import { gate, type Choice, type Ctx, type EventDef } from './ev-util';
 import { histStyle, inHist, NEWS } from './history';
 import { NEWS_MORE } from './news-more';
 import { FILLER, futurePool, MILESTONES } from './future-news';
+import { isWitness } from './stories-ages';
 import type { GameState, Person } from './types';
 
 // ───────────────────────── 시대 ─────────────────────────
@@ -53,9 +54,9 @@ export function epochOf(y: number): Epoch {
   return e;
 }
 
-export type NewsMedium = 'paper' | 'portal' | 'feed' | 'ai' | 'neural';
+export type NewsMedium = 'paper' | 'portal' | 'shorts' | 'feed' | 'ai' | 'neural';
 /** 연말 뉴스를 어디서 보나 */
-export const newsMedium = (y: number): NewsMedium => (y < 2005 ? 'paper' : y < 2050 ? 'portal' : y < 2080 ? 'feed' : y < 2140 ? 'ai' : 'neural');
+export const newsMedium = (y: number): NewsMedium => (y < 2005 ? 'paper' : y < 2025 ? 'portal' : y < 2050 ? 'shorts' : y < 2080 ? 'feed' : y < 2140 ? 'ai' : 'neural');
 export type AlertMedia = 'extra' | 'tv' | 'push' | 'holo' | 'ai' | 'neural';
 /** 큰 사건 속보가 어떻게 들이닥치나 */
 export const alertMedia = (y: number): AlertMedia => (y < 1990 ? 'extra' : y < 2010 ? 'tv' : y < 2040 ? 'push' : y < 2070 ? 'holo' : y < 2140 ? 'ai' : 'neural');
@@ -132,6 +133,15 @@ export function timelineYear(s: GameState): string[] {
   if (s.era === 'history' && y >= 2080) unlock(s, 'paper_to_ai');
   if (y >= 2100) unlock(s, 'century_22');
   if (y >= 2200) unlock(s, 'century_23');
+  if (s.era === 'history' && y >= 2100) unlock(s, 'three_centuries');
+  for (const p of family(s)) {
+    if (isWitness(s, p)) addFlag(p, 'witness');
+    if (hasFlag(p, 'orbital_home')) unlock(s, 'orbital_family');
+    if (hasFlag(p, 'uploaded')) unlock(s, 'uploaded_ancestor');
+    if (hasFlag(p, 'starship_crew')) unlock(s, 'starship_family');
+    if (hasFlag(p, 'signal_answer')) unlock(s, 'signal_family');
+    if (age(s, p) >= 150) unlock(s, 'witness_150');
+  }
   if (family(s).some((p) => hasFlag(p, 'moon_worker'))) unlock(s, 'moon_family');
   if (family(s).some((p) => hasFlag(p, 'mars_settler'))) unlock(s, 'mars_family');
   if (family(s).some((p) => hasFlag(p, 'space_trip'))) unlock(s, 'space_tourist');
