@@ -1384,3 +1384,7 @@ body:has(.cv-modal) .cdex * { animation-play-state: paused !important; }
 .hid-dots i::after { content: ''; position: absolute; inset: -1px; border-radius: 50%; background: #fff; box-shadow: 0 0 5px rgba(255, 230, 160, .9); opacity: 0;
   animation: hid-slide calc(var(--n) * 5.5s) linear infinite; animation-delay: calc(var(--i) * 5.5s - 1.5s); }
 .hid-card.vid-on .hid-dots { opacity: 0; }
+
+/* 인물 창 큰 초상화: 192×192 매끈한 확대본을 크게 */
+.bust-wrap { width: 168px; height: 168px; }
+img.px.big.bust { width: 168px; height: 168px; image-rendering: auto; }

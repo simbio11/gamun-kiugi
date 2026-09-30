@@ -848,6 +848,34 @@ function toURL(gr: Grid): string {
   return c.toDataURL();
 }
 
+/** 도트 확대 Scale2x(EPX): 칸을 넷으로 나누며 대각선 계단을 둥글게 다듬는다. 두 번 돌리면 48 → 192 */
+function scale2x(src: Px[][]): Px[][] {
+  const n = src.length;
+  const at = (x: number, y: number) => (x < 0 || y < 0 || x >= n || y >= n ? null : src[y][x]);
+  const out: Px[][] = Array.from({ length: n * 2 }, () => Array(n * 2).fill(null));
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++) {
+      const P = src[y][x], A = at(x, y - 1), B = at(x + 1, y), C = at(x - 1, y), D = at(x, y + 1);
+      let e0 = P, e1 = P, e2 = P, e3 = P;
+      if (C === A && C !== D && A !== B) e0 = A;
+      if (A === B && A !== C && B !== D) e1 = B;
+      if (D === C && D !== B && C !== A) e2 = C;
+      if (B === D && B !== A && D !== C) e3 = D;
+      out[y * 2][x * 2] = e0;
+      out[y * 2][x * 2 + 1] = e1;
+      out[y * 2 + 1][x * 2] = e2;
+      out[y * 2 + 1][x * 2 + 1] = e3;
+    }
+  return out;
+}
+function rowsURL(rows: Px[][]): string {
+  const c = document.createElement('canvas');
+  c.width = c.height = rows.length;
+  const ctx = c.getContext('2d')!;
+  rows.forEach((r, y) => r.forEach((col, x) => col && ((ctx.fillStyle = col), ctx.fillRect(x, y, 1, 1))));
+  return c.toDataURL();
+}
+
 const cache = new Map<string, string>();
 const keyOf = (p: Person, age: number, year: number) => `${p.id}:${stageOf(age)}:${p.job}:${eraOf(year)}:${p.sex}:${stageOf(age) === 'adult' && age >= 50 ? 'o' : ''}`;
 
@@ -856,6 +884,14 @@ export function bustURL(p: Person, age: number, year: number, face: Face = 'norm
   const key = keyOf(p, age, year) + face + (blink ? 'b' : '');
   let u = cache.get(key);
   if (!u) cache.set(key, (u = toURL(paint(p, age, year, face, blink))));
+  return u;
+}
+
+/** 인물 창 큰 초상화: 같은 그림을 Scale2x 두 번(192×192)으로 매끈하게 */
+export function bustHiURL(p: Person, age: number, year: number, face: Face = 'normal', blink = false): string {
+  const key = 'hi' + keyOf(p, age, year) + face + (blink ? 'b' : '');
+  let u = cache.get(key);
+  if (!u) cache.set(key, (u = rowsURL(scale2x(scale2x(paint(p, age, year, face, blink).c)))));
   return u;
 }
 

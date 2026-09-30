@@ -85,7 +85,7 @@ import type { Difficulty } from '../core/sim';
 import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, MarketKey, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
 import { sceneArtURL, sceneFor } from '../render/scene';
-import { bustURL } from '../render/bust';
+import { bustHiURL } from '../render/bust';
 import { commEvent, pcOf, phoneOf, type CommKind } from '../core/devices';
 
 type Tab = 'tree' | 'act' | 'policy' | 'assets' | 'log' | 'achv';
@@ -1228,7 +1228,7 @@ function personSheet(g: GameState, p: Person): string {
   <div class="modal" data-action="close-sheet">
     <div class="sheet" data-stop>
       <div class="sheet-head">
-        <span class="bust-wrap anim2 ${dead ? 'dead' : ''}"><img class="px big bust" src="${bustURL(p, a, g.year)}">${dead ? '' : `<img class="px big bust blink" src="${bustURL(p, a, g.year, 'normal', true)}">`}</span>
+        <span class="bust-wrap anim2 ${dead ? 'dead' : ''}"><img class="px big bust" src="${bustHiURL(p, a, g.year)}">${dead ? '' : `<img class="px big bust blink" src="${bustHiURL(p, a, g.year, 'normal', true)}">`}</span>
         <div>
           <div class="sh-name">${esc(fullName(p))} ${p.id === g.headId ? '👑' : ''}</div>
           <div class="sh-sub">${esc(relationLabel(g, p))} · ${dead ? `${p.birthYear}–${p.deathYear} (향년 ${a}세)` : `${a}세 (${p.birthYear}년생)`}</div>
