@@ -2017,15 +2017,6 @@ function achvScreen(g: GameState): string {
     <div class="sc-parts">${fsc.parts.map((x) => `<span>${x.label} <b>${x.v.toLocaleString()}</b></span>`).join('')}</div>
     <p class="fine">가족이 세상을 떠날 때 「인생 성적표」를 받고, 그 점수가 가문 총점에 영원히 쌓인다. 가계도에서 사람을 누르면 지금까지의 인생 점수를 볼 수 있다.</p>
   </section>
-  <section class="card hidden-dex">
-    <h2>🌑 히든 카드 <small class="muted">${HIDDEN_CARDS.filter((d) => dexGot.has(d.id)).length}/${HIDDEN_CARDS.length}종</small></h2>
-    <div class="cdex">${[...HIDDEN_CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.hdex ? 999 : 6).map((d) => {
-      const who = dexGot.get(d.id);
-      return `<button class="dx ${who ? 'hid' : 'locked'}" data-action="card-view" data-id="${d.id}"><span class="dx-c">${cardImg(d, !who, 'dx-art')}</span><small>${who ? esc(who.join(', ')) : '???'}</small></button>`;
-    }).join('')}</div>
-    <button class="more-btn" data-action="more" data-v="hdex">${ui.open?.hdex ? '▲ 접기' : `▼ 더보기 (${HIDDEN_CARDS.length - 6}종 더)`}</button>
-    <p class="fine">어떤 직업인지는 얻어야 알 수 있다. 평범한 길 위의 뜻밖의 사건, 능력과 흔적, 가족의 직업이 숨은 문을 연다. 연대기에 가끔 남는 🌑 수수께끼가 힌트.</p>
-  </section>
   <section class="card">
     <h2>🃏 명예의 전당 카드 <small class="muted">${[...dexGot.keys()].filter((id) => !CARD[id]?.hidden).length}/${NORMAL_CARDS.length}종</small></h2>
     <div class="cdex">${[...NORMAL_CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.dex ? 999 : 6).map((d) => {
@@ -2044,6 +2035,15 @@ function achvScreen(g: GameState): string {
     }).join('')}</div>
     <button class="more-btn" data-action="more" data-v="syn">${ui.open?.syn ? '▲ 접기' : `▼ 더보기 (${SYNERGIES.length - 3}개 더)`}</button>
     <p class="fine">서로 다른 분야의 카드 주인이 같은 시대에 함께 살아 있으면 발동한다.</p>
+  </section>
+  <section class="card hidden-dex">
+    <h2>🌑 히든 카드 <small class="muted">${HIDDEN_CARDS.filter((d) => dexGot.has(d.id)).length}/${HIDDEN_CARDS.length}종</small></h2>
+    <div class="cdex">${[...HIDDEN_CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.hdex ? 999 : 6).map((d) => {
+      const who = dexGot.get(d.id);
+      return `<button class="dx ${who ? 'hid' : 'locked'}" data-action="card-view" data-id="${d.id}"><span class="dx-c">${cardImg(d, !who, 'dx-art')}</span><small>${who ? esc(who.join(', ')) : '???'}</small></button>`;
+    }).join('')}</div>
+    <button class="more-btn" data-action="more" data-v="hdex">${ui.open?.hdex ? '▲ 접기' : `▼ 더보기 (${HIDDEN_CARDS.length - 6}종 더)`}</button>
+    <p class="fine">어떤 직업인지는 얻어야 알 수 있다. 평범한 길 위의 뜻밖의 사건, 능력과 흔적, 가족의 직업이 숨은 문을 연다. 연대기에 가끔 남는 🌑 수수께끼가 힌트.</p>
   </section>
   <section class="card rank-card">
     <div class="rank-top"><span class="rank-ic">${cur0.icon}</span><div><b>${esc(g.familyName)}씨 가문 · ${cur0.name}</b><small>누적 명예 ${tot}✦${nxt ? ` · 다음 "${nxt.name}"까지 ${nxt.at - tot}✦` : ' · 최고 등급'}</small></div></div>

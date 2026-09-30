@@ -635,12 +635,6 @@ ${Qt(e.s,n)}: "약속했던 집, 이제 마련해 주마."
     <div class="sc-parts">${f.parts.map(e=>`<span>${e.label} <b>${e.v.toLocaleString()}</b></span>`).join(``)}</div>
     <p class="fine">가족이 세상을 떠날 때 「인생 성적표」를 받고, 그 점수가 가문 총점에 영원히 쌓인다. 가계도에서 사람을 누르면 지금까지의 인생 점수를 볼 수 있다.</p>
   </section>
-  <section class="card hidden-dex">
-    <h2>🌑 히든 카드 <small class="muted">${rA.filter(e=>m.has(e.id)).length}/${rA.length}종</small></h2>
-    <div class="cdex">${[...rA].sort((e,t)=>Number(m.has(t.id))-Number(m.has(e.id))).slice(0,Q.open?.hdex?999:6).map(e=>{let t=m.get(e.id);return`<button class="dx ${t?`hid`:`locked`}" data-action="card-view" data-id="${e.id}"><span class="dx-c">${oA(e,!t,`dx-art`)}</span><small>${t?$(t.join(`, `)):`???`}</small></button>`}).join(``)}</div>
-    <button class="more-btn" data-action="more" data-v="hdex">${Q.open?.hdex?`▲ 접기`:`▼ 더보기 (${rA.length-6}종 더)`}</button>
-    <p class="fine">어떤 직업인지는 얻어야 알 수 있다. 평범한 길 위의 뜻밖의 사건, 능력과 흔적, 가족의 직업이 숨은 문을 연다. 연대기에 가끔 남는 🌑 수수께끼가 힌트.</p>
-  </section>
   <section class="card">
     <h2>🃏 명예의 전당 카드 <small class="muted">${[...m.keys()].filter(e=>!ov[e]?.hidden).length}/${iA.length}종</small></h2>
     <div class="cdex">${[...iA].sort((e,t)=>Number(m.has(t.id))-Number(m.has(e.id))).slice(0,Q.open?.dex?999:6).map(e=>{let t=m.get(e.id);return`<button class="dx ${t?e.rarity:`locked`}" data-action="card-view" data-id="${e.id}"><span class="dx-c">${oA(e,!t,`dx-art`)}<i class="dx-nm">${t?e.name:`???`}</i></span><small>${t?$(t.join(`, `)):`미획득`}</small></button>`}).join(``)}</div>
@@ -653,6 +647,12 @@ ${Qt(e.s,n)}: "약속했던 집, 이제 마련해 주마."
     <div class="syn">${[...dv].sort((t,n)=>Number(fv(e).includes(n))-Number(fv(e).includes(t))).slice(0,Q.open?.syn?99:3).map(t=>{let n=fv(e).includes(t);return`<div class="sy ${n?`on`:``}"><img class="sy-crest" src="${ux(t.id,[ov[t.groups[0][0]].icon,ov[t.groups[1][0]].icon],yv[t.id]??`power`,n)}" alt=""><div><b>${t.name}</b> <small>${$(t.desc)}</small><em>${t.groups.map(e=>`[`+e.map(e=>m.has(e)?`✅${ov[e].name}`:ov[e].name).join(` / `)+`]`).join(` + `)}</em><em class="sy-eff">→ ${$(cv(t.eff))}</em></div></div>`}).join(``)}</div>
     <button class="more-btn" data-action="more" data-v="syn">${Q.open?.syn?`▲ 접기`:`▼ 더보기 (${dv.length-3}개 더)`}</button>
     <p class="fine">서로 다른 분야의 카드 주인이 같은 시대에 함께 살아 있으면 발동한다.</p>
+  </section>
+  <section class="card hidden-dex">
+    <h2>🌑 히든 카드 <small class="muted">${rA.filter(e=>m.has(e.id)).length}/${rA.length}종</small></h2>
+    <div class="cdex">${[...rA].sort((e,t)=>Number(m.has(t.id))-Number(m.has(e.id))).slice(0,Q.open?.hdex?999:6).map(e=>{let t=m.get(e.id);return`<button class="dx ${t?`hid`:`locked`}" data-action="card-view" data-id="${e.id}"><span class="dx-c">${oA(e,!t,`dx-art`)}</span><small>${t?$(t.join(`, `)):`???`}</small></button>`}).join(``)}</div>
+    <button class="more-btn" data-action="more" data-v="hdex">${Q.open?.hdex?`▲ 접기`:`▼ 더보기 (${rA.length-6}종 더)`}</button>
+    <p class="fine">어떤 직업인지는 얻어야 알 수 있다. 평범한 길 위의 뜻밖의 사건, 능력과 흔적, 가족의 직업이 숨은 문을 연다. 연대기에 가끔 남는 🌑 수수께끼가 힌트.</p>
   </section>
   <section class="card rank-card">
     <div class="rank-top"><span class="rank-ic">${s.icon}</span><div><b>${$(e.familyName)}씨 가문 · ${s.name}</b><small>누적 명예 ${l}✦${c?` · 다음 "${c.name}"까지 ${c.at-l}✦`:` · 최고 등급`}</small></div></div>
