@@ -2282,6 +2282,7 @@ const spinOf = (c: HTMLElement) => parseFloat(c.style.getPropertyValue('--spin')
 function spinStart(e: PointerEvent) {
   const c = (e.target as HTMLElement)?.closest?.<HTMLElement>('.cv-card');
   if (!c) return;
+  if (coast) cancelAnimationFrame(coast), (coast = 0); // 돌고 있는 카드를 잡으면 그 자리에서 멈춘다
   spin = { c, x0: e.clientX, base: spinOf(c), last: e.clientX, t: e.timeStamp, v: 0, moved: false };
   c.classList.add('drag');
   c.setPointerCapture?.(e.pointerId);
@@ -2297,17 +2298,50 @@ function spinMove(e: PointerEvent) {
   spin.c.style.setProperty('--spin', `${(spin.base + dx * 0.75).toFixed(1)}deg`);
   spin.c.style.setProperty('--ry', '0deg');
 }
+/** 세게 튕기면 관성으로 빙글빙글: 마찰로 서서히 느려지다가, 거의 멈추면 가까운 면(앞/뒤)에 살짝 튕기듯 붙는다 */
+let coast = 0;
 function spinEnd() {
   if (!spin) return;
   const { c, base, moved, v } = spin;
   spin = null;
-  c.classList.remove('drag');
   const cur = spinOf(c);
-  let k = Math.round(cur / 180);
-  if (!moved) k = Math.round(base / 180) + 1;
-  else if (Math.abs(v) > 0.5 && k === Math.round(base / 180)) k += Math.sign(v);
-  if (k * 180 !== Math.round(base / 180) * 180) sfx('choose');
-  c.style.setProperty('--spin', `${k * 180}deg`);
+  if (!moved) {
+    c.classList.remove('drag');
+    sfx('choose');
+    c.style.setProperty('--spin', `${(Math.round(base / 180) + 1) * 180}deg`);
+    return;
+  }
+  // 손을 뗄 때 속도(px/ms) → 회전 속도(도/ms). 너무 빠르면 상한
+  let w = Math.max(-4.5, Math.min(4.5, v * 0.75));
+  if (Math.abs(w) < 0.35) {
+    // 살살 놓으면 예전처럼: 가까운 면으로 (조금 튕겼으면 다음 면)
+    c.classList.remove('drag');
+    let k = Math.round(cur / 180);
+    if (Math.abs(v) > 0.5 && k === Math.round(base / 180)) k += Math.sign(v);
+    if (k !== Math.round(base / 180)) sfx('choose');
+    c.style.setProperty('--spin', `${k * 180}deg`);
+    return;
+  }
+  let a = cur;
+  let t0 = performance.now();
+  const step = (t: number) => {
+    const dt = Math.min(40, t - t0);
+    t0 = t;
+    a += w * dt;
+    w *= Math.exp(-0.0022 * dt); // 공기 저항 같은 마찰: 세게 돌릴수록 오래·많이 돈다
+    c.style.setProperty('--spin', `${a.toFixed(1)}deg`);
+    if (Math.abs(w) > 0.25 && c.isConnected) {
+      coast = requestAnimationFrame(step);
+      return;
+    }
+    // 거의 멈췄다: 돌던 방향으로 다음 면에 붙는다 (CSS 전환이 살짝 넘쳤다 돌아오는 느낌을 준다)
+    coast = 0;
+    c.classList.remove('drag');
+    const k = w > 0 ? Math.ceil(a / 180) : Math.floor(a / 180);
+    sfx('choose');
+    c.style.setProperty('--spin', `${k * 180}deg`);
+  };
+  coast = requestAnimationFrame(step);
 }
 
 /** 카드 기울이기: 손가락·마우스 위치에 따라 3D로 기울고 홀로그램이 흐른다 */
