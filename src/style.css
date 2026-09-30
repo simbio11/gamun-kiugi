@@ -1030,3 +1030,13 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 .hid-card.locked .hid-pl-in { border-color: #6a4aa0; box-shadow: inset 0 0 10px rgba(160, 110, 255, .2); background: linear-gradient(180deg, #1c1228, #0a0610); }
 .hid-card .hid-q { inset: 0 0 15% 0; }
 .cv-card:has(.cv-hidden) { aspect-ratio: 63 / 88; }
+
+/* 전설 직업 카드: 명예의 전당 카드 틀 + 그림 창 (ART 6,6 ~ 89,85 / 96×132) */
+.lg-card { position: relative; display: block; overflow: hidden; }
+.lg-card > img { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.lg-art { position: absolute; left: 6.25%; top: 4.55%; width: 87.5%; height: 60.6%; background-size: cover; background-position: 50% 0%; border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.6), inset 0 0 12px rgba(0,0,0,.45); animation: lg-pan 16s ease-in-out infinite alternate; }
+@keyframes lg-pan { 0%, 12% { background-position: 50% 0%; } 88%, 100% { background-position: 50% 100%; } }
+.lg-shine { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, transparent 35%, rgba(255,240,180,.35) 48%, transparent 60%); background-size: 300% 100%; animation: lg-shine 5s linear infinite; mix-blend-mode: screen; }
+@keyframes lg-shine { from { background-position: 150% 0; } to { background-position: -150% 0; } }
+.calm .lg-art, .calm .lg-shine { animation: none; }

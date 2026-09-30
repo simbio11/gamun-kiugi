@@ -18,31 +18,31 @@ interface Lean {
   stat: StatKey;
 }
 const LEAN: Record<string, Lean> = {
-  hj_av: { a: [20, 34], need: ['cha', 55], from: 1995, stat: 'cha' },
+  hj_av: { a: [20, 34], need: ['cha', 52], from: 1995, stat: 'cha' },
   hj_adventurer: { a: [20, 50], need: ['hp', 50], stat: 'hp' },
-  hj_magician: { a: [18, 50], need: ['cha', 50], stat: 'cha' },
+  hj_magician: { a: [18, 50], need: ['cha', 48], stat: 'cha' },
   hj_shaman: { a: [20, 60], stat: 'mor' },
-  hj_cult: { a: [28, 70], need: ['cha', 55], stat: 'cha' },
+  hj_cult: { a: [28, 70], need: ['cha', 52], stat: 'cha' },
   hj_memecoin: { a: [18, 60], from: 2013, stat: 'int' },
   hj_gambler: { a: [20, 65], stat: 'cha' },
   hj_natural: { a: [38, 75], stat: 'hp' },
   hj_hermit: { a: [20, 40], stat: 'int' },
-  hj_assassin: { a: [22, 50], need: ['str', 58], stat: 'str' },
-  hj_hacker: { a: [16, 50], need: ['int', 60], from: 1995, stat: 'int' },
-  hj_spy: { a: [24, 50], need: ['int', 55], stat: 'int' },
+  hj_assassin: { a: [22, 50], need: ['str', 55], stat: 'str' },
+  hj_hacker: { a: [16, 50], need: ['int', 58], from: 1995, stat: 'int' },
+  hj_spy: { a: [24, 50], need: ['int', 52], stat: 'int' },
   hj_smuggler: { a: [25, 60], stat: 'int' },
-  hj_pirate: { a: [20, 50], need: ['str', 52], stat: 'str' },
-  hj_mercenary: { a: [22, 50], need: ['str', 58], stat: 'str' },
-  hj_mafia: { a: [28, 65], need: ['cha', 55], stat: 'cha' },
-  hj_trader: { a: [25, 50], need: ['int', 62], from: 1985, stat: 'int' },
-  hj_massage: { a: [22, 50], need: ['cha', 52], stat: 'cha' },
-  hj_bounty: { a: [28, 55], need: ['str', 55], stat: 'str' },
+  hj_pirate: { a: [20, 50], need: ['str', 50], stat: 'str' },
+  hj_mercenary: { a: [22, 50], need: ['str', 55], stat: 'str' },
+  hj_mafia: { a: [28, 65], need: ['cha', 52], stat: 'cha' },
+  hj_trader: { a: [25, 50], need: ['int', 58], from: 1985, stat: 'int' },
+  hj_massage: { a: [22, 50], need: ['cha', 50], stat: 'cha' },
+  hj_bounty: { a: [28, 55], need: ['str', 52], stat: 'str' },
   hj_tarot: { a: [20, 75], stat: 'cha' },
-  hj_thief: { a: [20, 45], need: ['int', 60], stat: 'int' },
-  hj_exorcist: { a: [28, 75], need: ['mor', 55], stat: 'mor' },
+  hj_thief: { a: [20, 45], need: ['int', 56], stat: 'int' },
+  hj_exorcist: { a: [28, 75], need: ['mor', 52], stat: 'mor' },
   hj_nomad: { a: [22, 55], stat: 'hp' },
-  hj_fighter: { a: [19, 38], need: ['str', 60], stat: 'str' },
-  hj_forger: { a: [25, 70], need: ['cha', 52], stat: 'cha' },
+  hj_fighter: { a: [19, 38], need: ['str', 56], stat: 'str' },
+  hj_forger: { a: [25, 70], need: ['cha', 50], stat: 'cha' },
 };
 export const QUEST_IDS = Object.keys(LEAN);
 const STEPS = ['단서 모으기', '시험 통과하기', '문 두드리기'];
@@ -76,6 +76,7 @@ export function eligible(s: GameState, p: Person): string[] {
     if (a < l.a[0] || a > l.a[1]) return false;
     if (l.from && s.year < l.from) return false;
     if (id === 'hj_hermit' && !['none', 'parttime'].includes(p.job)) return false;
+    if (id === 'hj_av' && p.sex !== 'F') return false; // 여성만
     return !l.need || p.actual[l.need[0]] >= l.need[1];
   });
 }

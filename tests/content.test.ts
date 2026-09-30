@@ -1048,6 +1048,7 @@ describe('부모님 유산', () => {
       h.birthYear = s.year - Math.round((l.a[0] + l.a[1]) / 2);
       h.job = 'parttime';
       h.flags = h.flags.filter((f) => f !== 'student');
+      if (id === 'hj_av') h.sex = 'F';
       for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) h.actual[k] = h.potential[k] = 75;
       expect(eligible(s, h)).toContain(id);
       _quest.startQuest(s, h, id);

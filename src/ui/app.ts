@@ -1398,6 +1398,9 @@ function rewardModal(r: Reward): string {
   </div>`;
 }
 const g0 = () => ui.game;
+const LEGEND_ART: Record<string, string> = Object.fromEntries(
+  Object.entries(import.meta.glob('../assets/legend/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>).map(([k, v]) => [k.split('/').pop()!.replace('.webp', ''), v]),
+);
 const HIDDEN_CARDS = CARDS.filter((d) => d.hidden);
 const NORMAL_CARDS = CARDS.filter((d) => !d.hidden);
 const cardArt = (d: CardDef, locked = false, frame = 0) => cardFrontURL(d.id, d.icon, (CARD_THEME[d.id] ?? 'power') as Theme, d.rarity, locked, cardTier(d), frame);
@@ -1410,6 +1413,9 @@ const cardImg = (d: CardDef, locked: boolean, cls: string) => {
     const p = c ? gg!.people[c.personId] : undefined;
     return hiddenCardHTML(d.id, { sex: p?.sex, seed: p ? p.birthYear : 0, locked, cls: `${cls}-h` });
   }
+  // 전설 직업 카드: 플레이어가 준 그림을 명예의 전당 카드 틀 안에 (천천히 위아래로 훑으며 전신을 보여 준다)
+  const la = LEGEND_ART[d.id];
+  if (la && !locked) return `<span class="lg-card ${cls}"><img src="${cardArt(d, false)}" alt=""><span class="lg-art" style="background-image:url('${la}')"></span><i class="lg-shine"></i></span>`;
   const n = locked ? 1 : customFrames(d.id);
   if (n <= 1) return `<img class="${cls}" src="${cardArt(d, locked)}" alt="">`;
   return `<span class="gif3">${Array.from({ length: n }, (_, i) => `<img class="${cls}${i ? ` gf gf${i}` : ''}" src="${cardArt(d, false, i)}" alt="">`).join('')}</span>`;
