@@ -10,7 +10,7 @@ const NAMED = Object.entries(FILES).map(([k, v]) => [k.split('/').pop()!.replace
 /** 전체 그림 / 인물만 오려 낸 그림 (배경 투명) */
 const ART: Record<string, string> = Object.fromEntries(NAMED.filter(([n]) => !n.endsWith('.fig')));
 /** 카드 영상 (지금은 슈퍼 히든 일부): <직업>_<m|f>.mp4 — 카드 그림에서 이어지고, 끝나면 그림으로 돌아온다 */
-// webm(VP9)과 mp4(H.264)를 함께: 브라우저가 되는 쪽을 고른다
+// mp4(원본 화질 그대로)를 먼저, 못 트는 브라우저는 webm(VP9)으로
 const VIDEO: Record<string, { webm?: string; mp4?: string }> = {};
 for (const [k, v] of Object.entries(import.meta.glob('../assets/hidden/video/*.{mp4,webm}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>)) {
   const f = k.split('/').pop()!;
@@ -85,7 +85,7 @@ export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; 
       a ? `<img class="hid-back" src="${a.src}" alt=""><img class="hid-img hid-blur" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-sil" src="${a.fig}" alt="">` : ''}` : ''
     }<div class="hid-q">?</div></div><div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in only"><b>${superJob ? 'SUPER HIDDEN' : 'HIDDEN JOB'}</b></div><i class="hid-orn r"></i><em class="hid-medal">${superJob ? '👑' : '?'}</em></div></div>`;
   const art = a
-    ? `<img class="hid-back" src="${a.src}" alt=""><div class="hid-pan"><img class="hid-img hid-bg" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-fig" src="${a.fig}" alt="">` : ''}${a.vid ? `<video class="hid-img hid-vid" muted playsinline preload="auto" poster="${a.src}">${a.vid.webm ? `<source src="${a.vid.webm}" type="video/webm">` : ''}${a.vid.mp4 ? `<source src="${a.vid.mp4}" type="video/mp4">` : ''}</video>` : ''}</div>`
+    ? `<img class="hid-back" src="${a.src}" alt=""><div class="hid-pan"><img class="hid-img hid-bg" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-fig" src="${a.fig}" alt="">` : ''}${a.vid ? `<video class="hid-img hid-vid" muted playsinline preload="auto" poster="${a.src}">${a.vid.mp4 ? `<source src="${a.vid.mp4}" type="video/mp4">` : ''}${a.vid.webm ? `<source src="${a.vid.webm}" type="video/webm">` : ''}</video>` : ''}</div>`
     : `<div class="hid-q">${h.icon}<small>그림 준비 중</small></div>`;
   return `<div class="hid-card fx-${h.fx} ${superJob ? 'is-super' : ''} ${o.cls ?? ''}" style="--hc:${h.color}">
     <div class="hid-stage">${art}<div class="hid-fx">${particles(h.fx)}</div><i class="hid-shine"></i></div>
