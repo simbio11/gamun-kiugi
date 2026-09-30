@@ -39,10 +39,12 @@ def grid(a, top):
     return cols, rows
 
 
-def cut(a, x0, y0, x1, y1, tol, bg=None):
+def cut(a, x0, y0, x1, y1, tol, bg=None, top_bg=False):
     c = a[y0:y1, x0:x1].copy()
     h, w, _ = c.shape
     edge = np.concatenate([c[0], c[-1], c[:, 0], c[:, -1]])
+    if top_bg:  # 상반신이 칸 아래를 꽉 채우는 시트: 배경색은 윗변·옆변 위쪽에서만 잰다
+        edge = np.concatenate([c[4], c[:h // 3, 4], c[:h // 3, -5]])  # 격자선 잔여를 피해 4픽셀 안쪽
     if bg is None: bg = np.median(edge, 0)
     near = np.sqrt(((c - bg) ** 2).sum(2)) < tol
     alpha = np.full((h, w), 255, np.uint8)
@@ -169,9 +171,12 @@ def sheet_cells(kind, a):
     elif kind == 'mouths':
         cols, rows = lines_gray(a, 512, W, 120)
     elif kind.startswith('outfit'):
-        d = a.sum(2) < 120  # 검은 헤더 끝 찾기
-        x0 = next(x for x in range(W) if d[100:, x].mean() < 0.3)
-        y0 = next(y for y in range(40, H) if d[y, 40:].mean() < 0.3 and d[y + 3, 40:].mean() < 0.3)
+        if kind in WHITE_SHEETS or kind in HAS_HEAD:  # 헤더가 검지 않은 시트 — 칸 위치는 다른 복장 시트와 같다
+            x0, y0 = 27, 72
+        else:
+            d = a.sum(2) < 120  # 검은 헤더 끝 찾기
+            x0 = next(x for x in range(W) if d[100:, x].mean() < 0.3)
+            y0 = next(y for y in range(40, H) if d[y, 40:].mean() < 0.3 and d[y + 3, 40:].mean() < 0.3)
         cols, rows = even(x0, W, 10), even(y0, H, 10)
         cols = [[c0 - 2, c1 + 2] for c0, c1 in cols]  # 검은 격자선 잔여를 피해 안쪽으로
         rows = [[r0 - 2, r1 + 3] for r0, r1 in rows]
@@ -182,10 +187,32 @@ def sheet_cells(kind, a):
             for r in range(len(rows) - 1) for c in range(len(cols) - 1)]
 
 
+WHITE_SHEETS = ('outfit-f-special', 'outfit-f-uniform')
+ALT_OF = {'outfit-f-alt': 'outfit-f', 'outfit-f-ya-alt': 'outfit-f-ya'}  # 거의 같은 시트 — 다른 칸만 남긴다
+HAS_HEAD = ('outfit-f-ya', 'outfit-f-ya-alt')  # 얼굴·머리까지 그려진 전신(상반신) 초상 시트
+
+# 얼굴이 같이 그려진 시트는 모자만 바뀐 칸도 차이가 커서, 옷이 실제로 다른 칸을 눈으로 골라 적었다.
+ALT_KEEP = {
+    'outfit-f-ya-alt': {(0, 0), (0, 1), (0, 3), (0, 4), (0, 5), (0, 8),
+                        (1, 0), (1, 1), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8),
+                        (2, 0), (2, 4), (2, 5), (2, 6), (2, 7), (2, 8),
+                        (3, 6), (4, 2), (4, 7), (5, 2), (7, 7), (8, 7), (9, 6)},
+}
+
+# 15세 이용가 기준으로 노출이 심한 칸은 뺀다 (가슴골 강조·깊은 V넥·가슴 트임·수영복/비키니).
+# (행, 열) — 0부터. 배꼽이 살짝 보이는 크롭티 정도는 둔다.
+EXCLUDE = {
+    'outfit-f-ya': {(0, 1), (0, 8), (0, 9), (1, 1), (1, 6), (1, 9), (2, 9), (4, 6), (5, 6), (5, 9), (7, 3), (9, 7), (9, 8)},
+    'outfit-f-ya-alt': {(0, 9), (1, 9), (2, 1), (2, 9), (4, 6), (5, 6), (5, 9), (7, 3), (9, 7), (9, 8)},
+    'outfit-f-special': {(0, c) for c in range(10)} | {(1, c) for c in range(6)},
+}
+
 OUTFIT_COLS = ['agriculture', 'business', 'medical', 'craft', 'commerce', 'arts', 'hospitality', 'combat', 'classic', 'formal']
 OUTFIT_ROWS = {
     'outfit-f': ['baby', 'toddler', 'child', 'preteen', 'teen', 'young-adult', 'adult', 'middle-aged', 'senior', 'elder'],
     'outfit-f-kid': ['1-2', '3', '4', '5', '6-7', '8', '9-10', '11-12', '13-14', '15'],
+    'outfit-f-ya': ['young-adult'] * 10,
+    'outfit-f-ya-alt': ['young-adult'] * 10,
 }
 
 
@@ -201,39 +228,47 @@ def main(src):
         ('outfit-f', 'outfit-f.webp'),
         ('outfit-f-alt', 'outfit-f-alt.webp'),
         ('outfit-f-kid', 'outfit-f-kid.webp'),
+        ('outfit-f-ya', 'outfit-f-ya.webp'),
+        ('outfit-f-ya-alt', 'outfit-f-ya-alt.webp'),
+        ('outfit-f-special', 'outfit-f-special.webp'),
+        ('outfit-f-uniform', 'outfit-f-uniform.webp'),
     ]
     manifest = {}
     ear_cells = set()
-    base_outfit = None
+    base = {}
     for kind, fn in sheets:
         a = np.asarray(Image.open(os.path.join(src, fn)).convert('RGB')).astype(int)
         cells = sheet_cells(kind, a)
         if kind == 'eyes':
             ear_cells = {(r, c) for r, c, *box in cells if ear_score(a, *box) > 0.05}
-        if kind == 'outfit-f':
-            base_outfit = (a, cells)
+        base[kind] = (a, cells)
         groups = {}
         for n, (r, c, *box) in enumerate(cells):
             k = kind
             if kind in ('eyes', 'eyes-makeup') and (r, c) in ear_cells:
                 k = 'ears' if kind == 'eyes' else 'ears-2'
-            if kind == 'outfit-f-alt':
-                # outfit-f 와 거의 같은 시트 — 다른 칸만 따로 남긴다
-                ba, bc = base_outfit
+            if (r, c) in EXCLUDE.get(kind, ()): continue
+            if kind in ALT_KEEP:
+                if (r, c) not in ALT_KEEP[kind]: continue
+            elif kind in ALT_OF:
+                ba, bc = base[ALT_OF[kind]]
                 x0, y0, x1, y1 = bc[n][2:]
                 w, h = min(x1 - x0, box[2] - box[0]), min(y1 - y0, box[3] - box[1])
                 diff = np.abs(ba[y0:y0 + h, x0:x0 + w] - a[box[1]:box[1] + h, box[0]:box[0] + w]).sum(2) > 90
                 if diff.mean() < 0.3: continue  # 압축 잡음은 ≤0.16, 실제로 다른 칸은 0.4 이상
-            bgtol = 34 if not kind.startswith('outfit') else 20
-            if kind in ('noses', 'mouths'):  # 흰 바탕, 회색 격자선 잔여를 피해 안쪽으로
+            bgtol = 34 if not kind.startswith('outfit') else 25 if kind in HAS_HEAD else 20
+            if kind in WHITE_SHEETS:
+                bx = (box[0] + 2, box[1] + 2, box[2] - 2, box[3] - 5)  # 아래 검은 격자선이 몇 픽셀 두껍다
+                rgba, bbox = cut(a, *bx, tol=40, bg=np.array([255, 255, 255]))
+            elif kind in ('noses', 'mouths'):  # 흰 바탕, 회색 격자선 잔여를 피해 안쪽으로
                 bx = (box[0] + 2, box[1] + 2, box[2] - 2, box[3] - 2)
                 rgba, bbox = cut(a, *bx, tol=40, bg=np.array([255, 255, 255]))
             else:
-                rgba, bbox = cut(a, *box, tol=bgtol)
+                rgba, bbox = cut(a, *box, tol=bgtol, top_bg=kind in HAS_HEAD)
             if kind.startswith('hair'):
                 rgba, _ = drop_face(rgba, retry=kind == 'hair-m')
             if kind.startswith('outfit'):
-                rgba = drop_gray_head(rgba)
+                if kind not in HAS_HEAD and kind not in WHITE_SHEETS: rgba = drop_gray_head(rgba)
                 # 칸 가장자리 6픽셀 안의 검은 격자선 줄 지우기
                 dark = (rgba[..., :3].astype(int).sum(2) < 150) & (rgba[..., 3] > 0)
                 hh, ww = dark.shape
@@ -253,9 +288,11 @@ def main(src):
                 name = f'{i:03d}.png'
                 Image.fromarray(rgba, 'RGBA').save(os.path.join(d, name), optimize=True)
                 m = {'file': f'{k}/{name}', 'row': r, 'col': c, 'w': rgba.shape[1], 'h': rgba.shape[0], 'bbox': bbox}
-                if k.startswith('outfit'):
+                if k in OUTFIT_ROWS or k == 'outfit-f-alt':
                     m['job'] = OUTFIT_COLS[c]
                     m['age'] = OUTFIT_ROWS.get(k, OUTFIT_ROWS['outfit-f'])[r]
+                if k in HAS_HEAD:
+                    m['hasHead'] = True
                 meta.append(m)
             manifest[k] = meta
             print('  →', k, len(items))
