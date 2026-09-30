@@ -11,14 +11,26 @@ import type { GameState, Person, StatKey } from './types';
 import { JA1 } from './job-acts-1';
 import { JA2 } from './job-acts-2';
 import { JA3 } from './job-acts-3';
-import { JA_HIDDEN } from './job-acts-hidden';
+import { JA4 } from './job-acts-4';
+import { JA5 } from './job-acts-5';
+import { JA6 } from './job-acts-6';
+import { hiddenActs } from './job-acts-hidden';
+import { jobDoor } from './hidden-quest';
 
-/** cash 수입 · fame 명성 · promo 승진 · skill 능력치 · net 인맥 · care 보람 · risk 한탕 · hp 체력 */
-export type JaKind = 'cash' | 'fame' | 'promo' | 'skill' | 'net' | 'care' | 'risk' | 'hp';
-/** [아이콘, 이름, 설명, 판정 능력치, 종류, '대박|보람|제자리|역효과'] */
-export type JA = [string, string, string, StatKey, JaKind, string];
+/** cash 수입 · fame 명성 · promo 승진 · skill 능력치 · net 인맥 · care 보람 · risk 한탕 · hp 체력 · (히든) dark 큰 판 · legend 전설 · rest 숨 고르기 · jackpot 일생일대 */
+export type JaKind = 'cash' | 'fame' | 'promo' | 'skill' | 'net' | 'care' | 'risk' | 'hp' | 'dark' | 'legend' | 'rest' | 'jackpot';
+/** lo 신참 때만 · hi 고참 때만 · opp 올해의 기회 (없으면 늘) */
+export type Band = 'lo' | 'hi' | 'opp';
+/** [아이콘, 이름, 설명, 판정 능력치, 종류, '대박|보람|제자리|역효과', 직급 구간] */
+export type JA = [string, string, string, StatKey, JaKind, string, Band?];
 
-export const JOB_ACTS: Record<string, JA[]> = { ...JA1, ...JA2, ...JA3, ...JA_HIDDEN };
+const BASE: Record<string, JA[]> = { ...JA1, ...JA2, ...JA3 };
+const MORE: Record<string, JA[]> = { ...JA4, ...JA5, ...JA6 };
+/** 직업마다: 기본 둘 + 올해의 기회 + 신참·고참 전용 + 올해의 기회 하나 더. 히든은 따로 */
+export const JOB_ACTS: Record<string, JA[]> = Object.fromEntries(
+  Object.entries(BASE).map(([id, l]) => [id, [...l.map((a, k): JA => (k === 2 ? [a[0], a[1], a[2], a[3], a[4], a[5], 'opp'] : a)), ...(MORE[id] ?? [])]]),
+);
+Object.assign(JOB_ACTS, hiddenActs());
 
 const HINT: Record<JaKind, (st: StatKey) => string> = {
   cash: () => '수입↑',
@@ -29,6 +41,10 @@ const HINT: Record<JaKind, (st: StatKey) => string> = {
   care: () => '성품·행복↑',
   risk: () => '크게 벌거나 크게 잃는다',
   hp: () => '체력·근력↑',
+  dark: () => '큰 대가, 큰 보상 · 삐끗하면 위기',
+  legend: () => '명성↑↑ · 가끔 뒤탈',
+  rest: () => '건강·행복 회복 · 안전',
+  jackpot: () => '일생일대의 한 판: 인생이 바뀌거나 크게 다친다',
 };
 
 const IDX: Record<Tier, number> = { great: 0, good: 1, meh: 2, bad: 3 };
@@ -42,6 +58,10 @@ const TAB: Record<JaKind, { cash?: T4; fame?: T4; hap: T4; hp?: T4 }> = {
   care: { fame: [1, 0, 0, 0], hap: [10, 6, 1, -2] },
   risk: { cash: [0.45, 0.12, -0.06, -0.2], hap: [10, 3, -3, -8] },
   hp: { hp: [0, 0, 0, -4], hap: [6, 3, 0, -4] },
+  dark: { cash: [0.9, 0.3, -0.1, -0.4], fame: [2, 1, 0, -1], hap: [10, 4, -2, -6], hp: [0, 0, -2, -6] },
+  legend: { fame: [5, 2, 0, -2], hap: [10, 4, 0, -4] },
+  rest: { hap: [10, 6, 3, 0], hp: [6, 4, 2, 0] },
+  jackpot: { cash: [2.2, 0.7, -0.3, -0.9], fame: [6, 2, 0, -3], hap: [15, 5, -4, -10], hp: [0, 0, -4, -10] },
 };
 
 /** 이 사람 일의 한 해 벌이 규모 (만원) */
@@ -97,6 +117,14 @@ function runJa(s: GameState, p: Person, job: string, a: JA, boost: number): stri
     p.jobYears = 0;
     tail += `\n→ ${jobTitle(p)}(으)로 승진!`;
   }
+  // 히든 일의 대가: 삐끗하면 위기가 찾아온다
+  const riskP = { dark: 0.4, jackpot: 0.6, legend: 0.2 }[kind as 'dark'] ?? 0;
+  if (riskP && t === 'bad' && chance(s, riskP)) {
+    s.events.push({ uid: s.eventSeq++, defId: 'hid_risk', personId: p.id, data: { id: p.job } });
+    tail += '\n⚠ 뒤탈이 났다…';
+  }
+  // 일 속에서 숨은 길의 단서를 만나기도 한다
+  if (t === 'great') tail += jobDoor(s, p);
   const ls = lines.split('|');
   return TIER_MARK[t] + (ls[i] ?? ls[0]) + fmt(out) + tail;
 }
@@ -110,24 +138,36 @@ function hnum(key: string): number {
   return Math.abs(x);
 }
 
-/** 행동 탭 전용 행동 (본업 둘) + 올해의 기회 (한 해 걸러 열 번에 일곱 번꼴) */
+/** 직급 구간: 직급 사다리의 아래 절반은 신참, 위 절반은 고참 */
+function inBand(p: Person, job: string, band?: Band): boolean {
+  if (!band || band === 'opp') return true;
+  const max = JOBS[job]?.maxLevel ?? 0;
+  const mid = Math.max(1, Math.ceil(max / 2));
+  return band === 'lo' ? p.jobLevel < mid : p.jobLevel >= mid;
+}
+
+/** 행동 탭 전용 행동 + 올해의 기회 (열 해에 일곱 번꼴) */
 export function jobActions(): ActionDef[] {
   const out: ActionDef[] = [];
   for (const [job, list] of Object.entries(JOB_ACTS)) {
     list.forEach((a, k) => {
-      const opp = k === 2;
+      const band = a[6];
+      const opp = band === 'opp';
       const id = `ja_${job}_${k}`;
+      const pay = JOBS[job]?.base || 3500;
+      const cost = a[4] === 'dark' ? Math.round(pay * 0.06) : a[4] === 'jackpot' ? Math.round(pay * 0.15) : undefined;
       out.push({
         id,
         cat: opp ? '올해의 기회' : '내 직업',
         icon: a[0],
-        name: a[1],
-        desc: `${a[2] ? a[2] + ' · ' : ''}${HINT[a[4]](a[3])} (${STAT_NAMES[a[3]]})${opp ? ' · 올해만' : ''}`,
-        ap: 1,
+        name: a[1] + (band === 'lo' ? ' 🌱' : band === 'hi' ? ' 🎖' : ''),
+        desc: `${a[2] ? a[2] + ' · ' : ''}${HINT[a[4]](a[3])} (${STAT_NAMES[a[3]]})${band === 'lo' ? ' · 신참 때만' : band === 'hi' ? ' · 고참만' : ''}${opp ? ' · 올해만' : ''}`,
+        ap: a[4] === 'jackpot' ? 2 : 1,
+        cost,
         stages: ['univ', 'prep', 'adult', 'senior'],
         show: (s) => {
           const p = head(s);
-          if (!holds(p, job)) return false;
+          if (!holds(p, job) || !inBand(p, job, band)) return false;
           return !opp || hnum(s.year + id) % 10 < 7;
         },
         blocked: opp ? (s) => (s.actUsed?.[id] ? '올해 이미 했다' : undefined) : undefined,

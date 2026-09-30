@@ -31,6 +31,7 @@ import { familyScore, lifeReport } from '../src/core/score';
 import { WORK_STORIES } from '../src/core/stories-work';
 import { WORK2_STORIES } from '../src/core/stories-work2';
 import { JOB_ACTS } from '../src/core/job-acts';
+import { _quest, eligible, lowly, QUEST_IDS } from '../src/core/hidden-quest';
 import { obeys, willOf } from '../src/core/autonomy';
 
 describe('콘텐츠 무결성', () => {
@@ -1012,7 +1013,7 @@ describe('부모님 유산', () => {
 
   it('직업 전용 행동: 모든 일반 직업마다 전용 행동 둘 + 올해의 기회 하나', () => {
     const skip = ['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'mayor', 'landlord'];
-    const missing = JOB_IDS.filter((id) => !skip.includes(id) && !id.startsWith('hj_') && (JOB_ACTS[id]?.length ?? 0) < 3);
+    const missing = JOB_IDS.filter((id) => !skip.includes(id) && (JOB_ACTS[id]?.length ?? 0) < (id.startsWith('hj_') ? 4 : 6));
     expect(missing).toEqual([]);
     for (const [id, list] of Object.entries(JOB_ACTS)) {
       expect(JOB_IDS).toContain(id);
@@ -1023,10 +1024,50 @@ describe('부모님 유산', () => {
     s.year += 30;
     h.job = 'film_director';
     h.jobLevel = 1;
-    const mine = ACTIONS.filter((a) => a.id.startsWith('ja_film_director_') && a.cat === '내 직업');
-    expect(mine.length).toBe(2);
-    expect(mine.every((a) => a.show!(s))).toBe(true);
-    const r = doAction(s, mine[0].id);
-    expect(r.ok).toBe(true);
+    const mine = () => ACTIONS.filter((a) => a.id.startsWith('ja_film_director_') && a.cat === '내 직업' && a.show!(s));
+    expect(mine().map((a) => a.name).some((n) => n.includes('🌱'))).toBe(true); // 신참 전용
+    expect(mine().some((a) => a.name.includes('🎖'))).toBe(false);
+    expect(doAction(s, mine()[0].id).ok).toBe(true);
+    h.jobLevel = 5;
+    expect(mine().some((a) => a.name.includes('🎖'))).toBe(true); // 고참 전용
+    // 히든 직업은 「내 직업」에서 전용 행동을 한다
+    h.job = 'hj_magician';
+    const hid = ACTIONS.filter((a) => a.id.startsWith('ja_hj_magician_') && a.show!(s));
+    expect(hid.filter((a) => a.cat === '내 직업').length).toBe(3);
+    s.ap = 5;
+    h.cash = 1e6;
+    expect(doAction(s, hid.find((a) => a.cat === '내 직업')!.id).ok).toBe(true);
+  });
+
+  it('숨은 길: 25개 히든 직업 모두 단서 → 세 단계 → 제안까지 갈 수 있다', () => {
+    for (const id of QUEST_IDS) {
+      const s = newGame({ seed: 5, familyName: '윤', sex: 'M' });
+      const h = head(s);
+      const l = _quest.LEAN[id];
+      s.year = Math.max(s.year, (l.from ?? 0) + 1);
+      h.birthYear = s.year - Math.round((l.a[0] + l.a[1]) / 2);
+      h.job = 'parttime';
+      h.flags = h.flags.filter((f) => f !== 'student');
+      for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) h.actual[k] = h.potential[k] = 75;
+      expect(eligible(s, h)).toContain(id);
+      _quest.startQuest(s, h, id);
+      let tries = 0;
+      while (!s.events.some((e) => e.defId === 'hid_offer' && e.data.id === id) && tries++ < 40) {
+        if (!_quest.questOf(h)) _quest.startQuest(s, h, id);
+        s.ap = 3;
+        s.actUsed = {};
+        doAction(s, 'hq_step');
+      }
+      expect(tries).toBeLessThan(40);
+    }
+  });
+
+  it('숨은 길: 번듯한 직업이 없으면 단서가 훨씬 잘 온다', () => {
+    const s = newGame({ seed: 8, familyName: '문', sex: 'F' });
+    const h = head(s);
+    h.job = 'none';
+    const lo = lowly(h);
+    h.job = 'judge';
+    expect(lo).toBeGreaterThan(lowly(h) * 5);
   });
 });

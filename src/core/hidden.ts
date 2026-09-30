@@ -6,6 +6,7 @@ import { gate, type EventDef } from './ev-util';
 import { addFlag, age, alive, clamp, fullName, isMainline, markOf, parentsOf, siblingsOf, spouseOf } from './people';
 import { chance, pick } from './rng';
 import type { GameState, Person } from './types';
+import { lowly, QUEST_EVENTS, questYear } from './hidden-quest';
 
 interface Route {
   id: string;
@@ -121,6 +122,7 @@ const fill = (t: string, p: Person) => t.replaceAll('{n}', fullName(p));
 /** 해마다: 조건이 맞는 가족에게 드물게 히든 제안이 온다 (가족 전체에서 한 해 한 건). 못 받은 사람에겐 가끔 힌트 */
 export function hiddenYear(s: GameState): string[] {
   const msgs: string[] = [];
+  questYear(s);
   const seen = (s.storySeen ??= {});
   const people = Object.values(s.people).filter((p) => alive(p) && isMainline(s, p) && !p.job.startsWith('hj_'));
   const cands: [Route, Person][] = [];
@@ -130,7 +132,7 @@ export function hiddenYear(s: GameState): string[] {
       if ((seen[`hid:${p.id}:${r.id}`] ?? -99) > s.year - 6) continue; // 거절하면 6년은 다시 안 온다
       if (!r.when(s, p)) continue;
       const boost = r.kin && kinOf(s, p).some(r.kin) ? 2.5 : 1;
-      if (chance(s, r.p * boost)) cands.push([r, p]);
+      if (chance(s, r.p * boost * lowly(p))) cands.push([r, p]);
       else if (chance(s, 0.04)) msgs.push(`🌑 ${fullName(p)}: ${HIDDEN_BY_ID[r.id].hint}`); // 수수께끼 힌트
     }
   if (cands.length) {
@@ -192,4 +194,4 @@ const risk: EventDef = {
     ]),
 };
 
-export const HIDDEN_EVENTS: EventDef[] = [offer, risk];
+export const HIDDEN_EVENTS: EventDef[] = [offer, risk, ...QUEST_EVENTS];
