@@ -7,7 +7,7 @@ const OWN = new Set([
   'politician', 'president', 'minister', 'mayor',
   'founder', 'shopkeeper', 'cafe_owner', 'cvs_owner', 'online_shop', 'restaurant', 'realtor', 'landlord', 'ceo',
   'farmer', 'smart_farmer', 'fisher', 'rancher', 'sea_farmer',
-  'youtuber', 'hj_av', 'writer', 'novelist', 'painter', 'musician', 'photographer', 'entertainer', 'gamer',
+  'youtuber', 'writer', 'novelist', 'painter', 'musician', 'photographer', 'entertainer', 'gamer',
   'clergy', 'tutor', 'scrivener', 'labor_attorney', 'tax_accountant', 'patent_attorney', 'customs_broker', 'appraiser',
 ]);
 /** 선출직: 승진이 아니라 선거로 오르내린다 */

@@ -34,9 +34,6 @@ const job = (...ids: string[]) => (q: Person) => ids.includes(q.job);
 const was = (...fl: string[]) => (q: Person) => fl.some((f) => q.flags.includes(f));
 
 const ROUTES: Route[] = [
-  { id: 'hj_av', years: [1995, 2200], when: (s, p) => p.sex === 'F' && A(s, p) >= 20 && A(s, p) <= 33 && st(p).cha >= 58, p: 0.03, title: '📱 수상한 캐스팅 제의',
-    offer: '"모델 에이전시입니다. {n}님 사진을 보고 연락드렸어요." 만나 보니 일본 성인 영상 업계 캐스팅. 계약금만 수천만 원. 한번 알려지면 되돌릴 수 없다.',
-    yes: '계약한다', yesText: '도쿄행 비행기에 올랐다. 가족에게는 "해외 모델 일"이라고만 했다.', noText: '명함을 찢어 버렸다.' },
   { id: 'hj_adventurer', years: [1970, 2200], when: (s, p) => A(s, p) >= 22 && A(s, p) <= 45 && st(p).str >= 62 && st(p).hp >= 60 && markOf(p, 'risk') >= 1, kin: was('saga_hidden'), p: 0.03, title: '🧭 낡은 지도',
     offer: '벼룩시장에서 산 고서 사이에서 손으로 그린 지도가 떨어졌다. 정글 한가운데 X 표시. 탐험대가 대원을 모집한다는 광고가 같은 날 신문에 났다.',
     yes: '탐험대에 합류한다', yesText: '배낭 하나 메고 비행기에 올랐다. 인생이 영화가 됐다.', noText: '지도는 서랍 속으로.', risk: 0.05, riskText: '정글에서 크게 다쳤다.' },
@@ -85,9 +82,6 @@ const ROUTES: Route[] = [
   { id: 'hj_trader', years: [1985, 2200], when: (s, p) => A(s, p) >= 26 && st(p).int >= 62 && ['banker', 'analyst', 'trader', 'corp', 'fund_manager', 'consultant', 'actuary'].includes(p.job), p: 0.05, title: '📈 뉴욕에서 온 전화',
     offer: '{n}의 공매도 리포트가 월가에 퍼졌다. 헤지펀드 매니징 디렉터가 직접 전화했다. "뉴욕으로 오시죠. 연봉은 원하시는 대로."',
     yes: '월스트리트로 간다', yesText: '맨해튼의 유리창 너머로 모니터 여섯 대. 하루에 수백억이 움직인다.', noText: '"가족이 여기 있어서요."', risk: 0.05, riskText: '큰 손실을 내고 책임을 졌다.' },
-  { id: 'hj_massage', when: (s, p) => A(s, p) >= 22 && A(s, p) <= 45 && st(p).cha >= 58 && ['pt', 'nail_artist', 'hairdresser', 'caregiver', 'nurse_aide', 'trainer', 'makeup_artist', 'dental_hygienist', 'none', 'parttime'].includes(p.job), p: 0.035, title: '💆 VIP 전용 살롱',
-    offer: '"손이 약손이라던데." 청담동 VIP 살롱 원장이 {n}을 스카우트하러 왔다. 손님은 재벌가 사모님과 연예인들. 조건은 파격적이다.',
-    yes: '살롱으로 옮긴다', yesText: '은은한 향초, 따뜻한 오일. 예약이 석 달 밀렸다.', noText: '지금 일에 만족한다.' },
   { id: 'hj_bounty', when: (s, p) => A(s, p) >= 28 && st(p).str >= 58 && (p.flags.includes('was_police') || ['police', 'officer', 'coast_guard', 'nco', 'security_guard'].includes(p.job)), p: 0.045, title: '🎯 수배 전단',
     offer: '해외로 도주한 사기범 수배 전단. 피해자 모임이 사비로 건 현상금이 {n}의 연봉보다 많다.',
     yes: '사냥을 시작한다', yesText: '동남아 뒷골목을 누빈다. 잡을 때마다 이름이 알려진다.', noText: '전단을 접어 두었다.', risk: 0.05, riskText: '추적 중 습격을 받았다.' },
@@ -160,11 +154,11 @@ function parentsHidden(s: GameState) {
   for (const par of [s.people[hd.fatherId ?? ''], s.people[hd.motherId ?? '']]) {
     if (!par || !alive(par) || par.job.startsWith('hj_') || age(s, par) > 60) continue;
     if (par.sex === 'F' && chance(s, 0.002)) {
-      const ids = ['hj_madam', 'hj_onlyfans', 'hj_widow', 'hj_bunny', 'hj_honeytrap', 'hj_vtuber'];
+      const ids = ['hj_vtuber', 'hj_drifter'];
       s.events.push({ uid: s.eventSeq++, defId: 'sh_step1', personId: par.id, data: { id: pick(s, ids) } });
       seen[k] = (seen[k] ?? 0) + 1;
     } else if (chance(s, 0.004)) {
-      const ids = ROUTES.filter((r) => r.id !== 'hj_hermit' && (r.id !== 'hj_av' || par.sex === 'F') && (!r.years || (s.year >= r.years[0] && s.year <= r.years[1]))).map((r) => r.id);
+      const ids = ROUTES.filter((r) => r.id !== 'hj_hermit' && (!r.years || (s.year >= r.years[0] && s.year <= r.years[1]))).map((r) => r.id);
       s.events.push({ uid: s.eventSeq++, defId: 'hid_offer', personId: par.id, data: { id: pick(s, ids) } });
       seen[k] = (seen[k] ?? 0) + 1;
     }

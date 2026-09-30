@@ -18,7 +18,6 @@ interface Lean {
   stat: StatKey;
 }
 const LEAN: Record<string, Lean> = {
-  hj_av: { a: [20, 34], need: ['cha', 52], from: 1995, stat: 'cha' },
   hj_adventurer: { a: [20, 50], need: ['hp', 50], stat: 'hp' },
   hj_magician: { a: [18, 50], need: ['cha', 48], stat: 'cha' },
   hj_shaman: { a: [20, 60], stat: 'mor' },
@@ -35,7 +34,6 @@ const LEAN: Record<string, Lean> = {
   hj_mercenary: { a: [22, 50], need: ['str', 55], stat: 'str' },
   hj_mafia: { a: [28, 65], need: ['cha', 52], stat: 'cha' },
   hj_trader: { a: [25, 50], need: ['int', 58], from: 1985, stat: 'int' },
-  hj_massage: { a: [22, 50], need: ['cha', 50], stat: 'cha' },
   hj_bounty: { a: [28, 55], need: ['str', 52], stat: 'str' },
   hj_tarot: { a: [20, 75], stat: 'cha' },
   hj_thief: { a: [20, 45], need: ['int', 56], stat: 'int' },
@@ -76,7 +74,6 @@ export function eligible(s: GameState, p: Person): string[] {
     if (a < l.a[0] || a > l.a[1]) return false;
     if (l.from && s.year < l.from) return false;
     if (id === 'hj_hermit' && !['none', 'parttime'].includes(p.job)) return false;
-    if (id === 'hj_av' && p.sex !== 'F') return false; // 여성만
     return !l.need || p.actual[l.need[0]] >= l.need[1];
   });
 }

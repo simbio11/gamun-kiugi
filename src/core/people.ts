@@ -344,7 +344,7 @@ export function randomTraits(r: RngHolder, base: string[] = []): string[] {
     const rare = pick(r, SUPER_RARE_TRAIT_IDS as unknown as string[]);
     addTrait(out, rare);
   }
-  if (chance(r, 0.01)) addTrait(out, 'blood_thirst'); // 흡혈 적성 1%
+  if (chance(r, 0.01)) addTrait(out, 'blood_thirst'); // 밤의 체질 1%
   const n = pick(r, [0, 1, 1, 1, 2, 2]);
   for (let i = 0; i < n; i++) addTrait(out, pick(r, TRAIT_IDS));
   return out.slice(0, 3);

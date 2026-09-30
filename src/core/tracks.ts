@@ -47,7 +47,7 @@ const WORK_GROUP: Record<string, string> = {
   big_factory: 'trade',
   farmer: 'farm', smart_farmer: 'farm', fisher: 'farm', rancher: 'farm',
   journalist: 'press', pd: 'press', announcer: 'press', designer: 'press', voice_actor: 'press',
-  youtuber: 'creator', hj_av: 'creator', entertainer: 'creator', actor: 'creator', model: 'creator', writer: 'creator', novelist: 'creator', musician: 'creator', painter: 'creator', photographer: 'creator',
+  youtuber: 'creator', entertainer: 'creator', actor: 'creator', model: 'creator', writer: 'creator', novelist: 'creator', musician: 'creator', painter: 'creator', photographer: 'creator',
   fashion_designer: 'press', interior_designer: 'press', curator: 'press', sme_worker: 'office', startup_emp: 'tech', consultant: 'finance', fund_manager: 'finance', actuary: 'finance', logistics: 'office',
   nco: 'uniform', court_officer: 'public', forest_ranger: 'public', aide: 'public', dental_hygienist: 'care', psychologist: 'care', nutritionist: 'care', optician: 'care', speech_therapist: 'care', pharma_sales: 'sales',
   ai_engineer: 'tech', ux_designer: 'tech', cloud_eng: 'tech', battery_eng: 'tech', civil_eng: 'tech', bio_researcher: 'tech', daycare_teacher: 'edu', sports_instructor: 'sport',

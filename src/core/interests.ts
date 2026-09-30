@@ -143,7 +143,7 @@ const TRAIT_LABEL: Record<string, string> = {
   diligent: '성실', lazy: '느긋함', cheerful: '낙천적', anxious: '꼼꼼·예민', social: '사교적', shy: '내성적', filial: '다정함',
   rebel: '자유로움', frugal: '알뜰함', spender: '통 큼', gambler: '모험심', flirt: '인기 많음', devoted: '한결같음',
   leader: '리더십', tough: '튼튼함', frail: '섬세함', ambitious: '야심',
-  speed_demon: '질주본능', hypnotic_eye: '마안(魔眼)', dark_artist: '어둠의 예술',
+  speed_demon: '질주본능', hypnotic_eye: '맑은 눈', dark_artist: '예술의 손',
 };
 
 /** "사교적·리더십 아이. 사람을 이끄는 일이 잘 맞을 것 같다" */

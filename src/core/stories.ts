@@ -140,17 +140,6 @@ function apply(x: Ctx, e: Eff | undefined) {
     const q = spouseOf(x.s, p) ?? (p.partnerId ? x.s.people[p.partnerId] : undefined);
     if (q && alive(q)) p.bond = q.bond = clamp((p.bond ?? 60) + e.bond, 0, 100);
   }
-  if (e.flag === 'av_start') {
-    p.job = 'hj_av';
-    p.jobLevel = 0;
-    p.jobYears = 0;
-  }
-  if (e.flag === 'av_quit') {
-    p.job = 'none';
-    p.jobLevel = 0;
-    p.jobYears = 0;
-    addFlag(p, 'av_retired');
-  }
   if (e.flag === 'found_half_sib') {
     const q = addHalfSibling(x.s, p);
     if (q) x.s.log.push({ year: x.s.year, text: `👥 이복형제 ${fullName(q)}이(가) 가계도에 올랐다`, kind: 'life' });

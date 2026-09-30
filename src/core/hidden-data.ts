@@ -20,41 +20,22 @@ export interface HiddenJob {
   strategy: string;
 }
 
+/** 히든의 히든 */
+export const HOH_IDS = ['hj_vampire', 'hj_timetraveler'];
+export const isHoH = (id: string) => HOH_IDS.includes(id);
+export const isUltraHidden = isHoH;
+export const ULTRA_HIDDEN_IDS = new Set(HOH_IDS);
+
 export const SUPER_HIDDEN_IDS = new Set([
-  'hj_madam',
-  'hj_onlyfans',
-  'hj_widow',
-  'hj_bunny',
-  'hj_honeytrap',
   'hj_vtuber',
-  'hj_hypnotist',
-  'hj_tattooist',
   'hj_drifter',
+  // 히든의 히든 (슈퍼 히든을 배출한 가문에만 열리는 문) — 취급은 슈퍼 히든과 같다
+  ...HOH_IDS,
 ]);
 
 export const isSuperHidden = (id: string) => SUPER_HIDDEN_IDS.has(id);
 
-/** 히든의 히든 (ULTRA HIDDEN): 슈퍼 히든 위의 최심층. 얻는 길이 직업마다 다르다 (ultra-hidden.ts) */
-export const ULTRA_HIDDEN_IDS = new Set([
-  'hj_vampire',
-  'hj_cyborg',
-  'hj_gumiho',
-  'hj_perfumer',
-  'hj_succubus',
-  'hj_sommelier',
-  'hj_glitchmaid',
-  'hj_timequeen',
-  'hj_lustsaint',
-]);
-
-export const isUltraHidden = (id: string) => ULTRA_HIDDEN_IDS.has(id);
-export const isHoH = isUltraHidden;
-/** 히든 등급: 최심층(ultra) · 슈퍼(super) · 보통(plain) — 카드 테두리와 표기가 달라진다 */
-export type HiddenTier = 'ultra' | 'super' | 'plain';
-export const hiddenTierOf = (id: string): HiddenTier => (ULTRA_HIDDEN_IDS.has(id) ? 'ultra' : SUPER_HIDDEN_IDS.has(id) ? 'super' : 'plain');
-
 export const HIDDEN: HiddenJob[] = [
-  { id: 'hj_av', name: 'AV 배우', icon: '💋', pay: 12000, color: '#a0203a', fx: 'bokeh', eff: { cash: 900, fame: 1 }, hint: '빼어난 외모의 스무 살 남짓. 낯선 명함 한 장.', strategy: '1995년 이후 여성, 20~33세, 매력 58 이상 시 낮은 확률(3%)로 일본 성인 영상 캐스팅 제의 수락' },
   { id: 'hj_adventurer', name: '모험가', icon: '🧭', pay: 5000, color: '#6a7a3a', fx: 'jungle', eff: { fame: 2, hp: 1 }, hint: '튼튼한 몸, 겁 없는 마음, 오래된 지도.', strategy: '1970년 이후 22~45세, 체력 62 이상, 건강 60 이상, 위험 감수 성향 보유 시 벼룩시장 낡은 지도 발견' },
   { id: 'hj_magician', name: '마술사', icon: '🎩', pay: 7000, color: '#6a2a6a', fx: 'magic', eff: { fame: 2, hap: 1 }, hint: '사람을 홀리는 말솜씨와 빠른 손.', strategy: '18~45세, 매력 58 이상, 지능 52 이상 시 은퇴 마술사 제자 입문 (가족 중 연예인·배우·음악가 시 확률 증가)' },
   { id: 'hj_shaman', name: '무당', icon: '🔔', pay: 6000, color: '#b03a3a', fx: 'spirit', eff: { fame: 1, hap: 2 }, hint: '이유 없이 오래 앓는 몸. 집안에 내림굿의 내력.', strategy: '22~55세, 체력 45 미만 또는 만성질환 앓음, 도덕 45 이상 시 내림굿 (가족 중 무당·신심 깊은 어머니)' },
@@ -71,7 +52,6 @@ export const HIDDEN: HiddenJob[] = [
   { id: 'hj_mercenary', name: '용병', icon: '🪖', pay: 22000, color: '#4a5a2a', fx: 'fire', eff: { cash: 1500, hp: -1 }, hint: '전쟁을 겪은 몸은 평범한 일상을 견디지 못한다.', strategy: '22~50세, 체력 64 이상, 군 복무·장교·참전 경력 시 해외 민간군사기업(PMC) 분쟁지역 용병 계약' },
   { id: 'hj_mafia', name: '마피아 보스', icon: '🥃', pay: 40000, color: '#2a1a1a', fx: 'smoke', eff: { cash: 3000, fame: 1 }, hint: '도박판·밀수판에서 이름을 날리면 누군가 찾아온다.', strategy: '28세 이상, 매력 56 이상, 위험·속임수 성향 또는 타짜·밀매상 경력 시 노보스의 부름을 받아 후계자 계승' },
   { id: 'hj_trader', name: '월스트리트 트레이더', icon: '📈', pay: 35000, color: '#2a3a5a', fx: 'screen', eff: { cash: 2500 }, hint: '숫자 천재 금융인, 한 번의 대박.', strategy: '1985년 이후 26세 이상, 지능 62 이상, 금융권 재직 중 작성한 공매도 리포트 히트로 뉴욕 헤지펀드 이직' },
-  { id: 'hj_massage', name: '매혹적인 마사지사', icon: '💆', pay: 9000, color: '#5a2a3a', fx: 'steam', eff: { hap: 2, cash: 500 }, hint: '손이 약손이라 소문난, 눈에 띄는 외모.', strategy: '22~45세, 매력 58 이상, 미용·간호·트레이너 직군 시 청담동 VVIP 전용 에스테틱 살롱 스카우트' },
   { id: 'hj_bounty', name: '현상금 사냥꾼', icon: '🎯', pay: 12000, color: '#5a3a1a', fx: 'dust', eff: { fame: 1, cash: 600 }, hint: '제복을 벗은 사냥개.', strategy: '28세 이상, 체력 58 이상, 경찰·군인·경비 경력 시 해외 도주 흉악범 거액 사비 현상금 추적 착수' },
   { id: 'hj_tarot', name: '타로 점술가', icon: '🔯', pay: 5000, color: '#3a2a5a', fx: 'magic', eff: { hap: 2 }, hint: '사람 마음을 잘 읽고, 보이지 않는 걸 믿는다.', strategy: '22세 이상, 매력 58, 지능 50, 도덕 50 이상 시 조모 유품 타로 카드로 골목길 심야 점집 개업' },
   { id: 'hj_thief', name: '괴도', icon: '🎭', pay: 18000, color: '#1a1a3a', fx: 'shadow', eff: { fame: 2 }, hint: '천재적인 머리, 날렵한 몸, 그리고 장난기.', strategy: '20~45세, 지능 66 이상, 체력 52 이상, 속임수·위험 성향 시 박물관 허점 간파 후 달빛의 예고장 발송' },
@@ -80,26 +60,11 @@ export const HIDDEN: HiddenJob[] = [
   { id: 'hj_fighter', name: '지하 격투왕', icon: '🥊', pay: 10000, color: '#6a1a1a', fx: 'smoke', eff: { fame: 1, hp: -1, cash: 600 }, hint: '가난하고, 주먹이 세다.', strategy: '18~40세, 체력 65 이상, 저소득 환경에서 어둠의 지하 철창 매치 챔피언에 등극' },
   { id: 'hj_forger', name: '명화 위조범', icon: '🖌', pay: 16000, color: '#6a4a3a', fx: 'candle', eff: { cash: 1200 }, hint: '천재적인 붓, 가벼운 양심.', strategy: '22~50세, 지능 60 이상, 예술가 계열 재직 중 암시장 거물에게 명화 모작 위조품 납품' },
   // ── 슈퍼 히든 (3단계 연작 미션 체인) ──
-  { id: 'hj_madam', name: '텐프로 에이스', icon: '🍾', pay: 50000, color: '#b02040', fx: 'neon', eff: { cash: 4500, fame: 5, hap: 3, heat: 8 }, hint: '새벽 강남의 네온사인. 거물들의 비밀이 모이는 방.', strategy: '21~32세 여성, 매력 68+, 도덕 50- → 3단계 미션: 강남 은밀한 초대 → VVIP 룸 비밀 → 밤의 여왕 등극' },
-  { id: 'hj_onlyfans', name: '사이버 사이렌', icon: '🍑', pay: 60000, color: '#e04070', fx: 'bokeh', eff: { cash: 5500, hap: 5, fame: 4 }, hint: '방 문을 잠그고 켠 분홍빛 웹캠. 전 세계의 구독자들.', strategy: '20~29세 여성, 매력 65+ → 3단계 미션: 비밀 플랫폼 채널 개설 → 오일머니 슈퍼도네 → 글로벌 1위 대관식' },
-  { id: 'hj_widow', name: '블랙 위도우', icon: '🕷️', pay: 58000, color: '#2a1a2a', fx: 'shadow', eff: { cash: 6000, fame: 5, kid: 'int' }, hint: '천사 같은 미소, 차가운 눈빛. 늙은 자산가의 유언장.', strategy: '24~36세 여성, 매력 70+, 지능 64+, 도덕 35- → 3단계 미션: 자선 경매장 유혹 → 서재 비밀 유언장 공증 → 상속 재판 승소' },
-  { id: 'hj_bunny', name: '카지노 퀸', icon: '🐰', pay: 45000, color: '#c03050', fx: 'cards', eff: { cash: 4000, hap: 4, fame: 4, kid: 'cha' }, hint: '비밀 엘리베이터 지하 3층. 나비넥타이와 칩 소리.', strategy: '20~30세 여성, 매력 65+, 지능 55+ → 3단계 미션: 지하 3층 바니 딜러 → 50억 판돈 테이블 장악 → 언더그라운드 카지노 여왕' },
-  { id: 'hj_honeytrap', name: '허니트랩 요원', icon: '💄', pay: 48000, color: '#8a1a3a', fx: 'city', eff: { cash: 4200, fame: 7, heat: 10, hp: 3 }, hint: '완벽한 미모, 유창한 외국어, 핸드백 속의 소음기 권총.', strategy: '22~34세 여성, 매력 67+, 지능 65+, 체력 55+ → 3단계 미션: 블랙 옵스 리크루팅 → 스위트룸 기밀 파일 복사 → 국제 첩보전 총지휘' },
-  { id: 'hj_vtuber', name: '버튜버 여제', icon: '💊', pay: 55000, color: '#7040d0', fx: 'screen', eff: { cash: 5000, hap: 5, fame: 6, kid: 'int' }, hint: '모니터 속 귀여운 아바타, 그리고 책상 위 벗어둔 가면.', strategy: '20~27세 여성, PC 보유, 매력 68+, 지능 60+ → 3단계 미션: 밤의 프라이빗 룸 → 회장님의 10억 의뢰 → 30만 생방송 빨간약 유출 대흥행' },
-  { id: 'hj_hypnotist', name: '마성의 최면술사', icon: '🌀', pay: 55000, color: '#502080', fx: 'magic', eff: { fame: 6, cash: 5000, hap: 4, heat: 10 }, hint: '어두운 상담실, 흔들리는 회중시계, 무장해제된 거물들.', strategy: '선천 희귀 특성 [마안(魔眼)](출생 시 2% 확률)을 타고난 여성(20세 이상) 시 100% 확정 제의 발생 → 3단계 미션 프리패스 격파' },
-  { id: 'hj_tattooist', name: '잉크의 마녀', icon: '🖤', pay: 48000, color: '#202028', fx: 'smoke', eff: { cash: 4500, fame: 6, kid: 'str', hp: 4 }, hint: '자욱한 인센스 연기, 잉크 냄새, 거친 사내들의 절대 복종.', strategy: '선천 희귀 특성 [어둠의 손](출생 시 2% 확률)을 타고난 여성(19세 이상) 시 100% 확정 제의 발생 → 3단계 미션 프리패스 격파' },
-  { id: 'hj_drifter', name: '드리프트 퀸', icon: '🏎️', pay: 52000, color: '#d03020', fx: 'fire', eff: { fame: 8, cash: 4000, hp: 5, hap: 4 }, hint: '새벽 3시 톨게이트, 붉은색 스포츠카, 차 키를 뺏긴 사내들.', strategy: '선천 희귀 특성 [질주본능](출생 시 2% 확률)을 타고난 여성(19세 이상) 시 100% 확정 제의 발생 → 3단계 미션 프리패스 격파' },
-
-  // ── 히든의 히든 (ULTRA HIDDEN) 9종: 네 가지 다른 문으로 열린다 (ultra-hidden.ts) ──
-  { id: 'hj_vampire', name: '뱀파이어', icon: '🧛', pay: 32000, color: '#5a0a18', fx: 'shadow', eff: { fame: 3, cash: 2000, hp: 6 }, hint: '거울에 비치지 않는 얼굴, 밤에만 빛나는 눈동자.', strategy: '죽음의 문턱 — 25세 이상 · 도덕 50 이하인 사람이 목숨을 잃는 순간 6% 확률로 「붉은 밤」이 찾아온다. 계약하면 죽지 않고 불사의 몸이 되지만 대가는 도덕성이다' },
-  { id: 'hj_cyborg', name: '사이보그', icon: '🦾', pay: 60000, color: '#0a4a6a', fx: 'screen', eff: { cash: 4000, hp: 8, fame: 2 }, hint: '금속 뼈대, 푸른 눈동자, 기억은 그대로.', strategy: '죽음의 문턱 — 2040년 이후, 재산 50억 이상인 사람이 사고·수명으로 죽는 순간 35% 확률로 뇌 이식 수술 제안. 수락하면 사이보그로 되살아난다 (수술비로 재산 30% 소모)' },
-  { id: 'hj_gumiho', name: '아홉 꼬리 신부', icon: '🦊', pay: 45000, color: '#b03a20', fx: 'spirit', eff: { cash: 3500, fame: 5, hap: 3, kid: 'cha' }, hint: '첫 번째 꼬리가 흔들릴 때는 웃고 계셨죠.', strategy: '20~32세 여성, 매력 74+ · 도덕 45- → 3단계: 첫 번째 꼬리 → 혼례 계약 → 아홉 번째 꼬리 (마지막에 진짜 사랑을 택하면 요기를 잃는다)' },
-  { id: 'hj_perfumer', name: '향의 연금술사', icon: '🧪', pay: 38000, color: '#7a2a8a', fx: 'steam', eff: { cash: 3000, hap: 4, kid: 'cha' }, hint: '제 향수는 인공이에요. 그런데 왜 자꾸 제 목덜미를 맡으시죠?', strategy: '22~48세 여성, 지능 66+ · 매력 62+ · 도덕 40- → 금지된 조향 의뢰 한 건 (단일 대형 이벤트)' },
-  { id: 'hj_succubus', name: '계약서의 여주인', icon: '👠', pay: 52000, color: '#4a0a3a', fx: 'neon', eff: { cash: 4500, fame: 4, heat: 6 }, hint: '한 번에 30분, 미팅은 야간만. 계약 파기 시 영혼이 담보입니다.', strategy: '24~40세 여성, 지능 70+ · 매력 66+ · 도덕 30- → 3단계: 야간 미팅 30분 → 장부에 남은 수량 → 영혼 담보 만기' },
-  { id: 'hj_sommelier', name: '독의 소믈리에', icon: '🥀', pay: 42000, color: '#3a0a2a', fx: 'smoke', eff: { cash: 3200, fame: 3, hap: 3 }, hint: '이 와인 3잔은 안전해요. 네 번째 잔, 제 손으로 따라드릴까요?', strategy: '26~48세 여성, 지능 64+ · 매력 60+ · 도덕 32- · 재산 2억+ → 재벌가 만찬의 초대 (단일 대형 이벤트)' },
-  { id: 'hj_glitchmaid', name: '글리치 메이드', icon: '🎀', pay: 30000, color: '#c05a8a', fx: 'screen', eff: { cash: 2500, hap: 6, hp: 4, kid: 'int' }, hint: '명령만 내려주세요. 다만… 제 감정 모듈은 손대지 마세요.', strategy: '여성 배우자 전용 — 40세까지 장가들지 못한 남성 가주가 41세가 되는 해 20% 확률로 안드로이드 신부가 문 앞에 선다 (그 배우자가 카드를 갖는다)' },
-  { id: 'hj_timequeen', name: '시간 정지의 여제', icon: '⏳', pay: 65000, color: '#2a2a6a', fx: 'magic', eff: { cash: 5000, fame: 7, hap: 4 }, hint: '3분 12초. 그동안 세상은 아무것도 기억하지 못한다.', strategy: '22~40세 여성, 지능 72+ · 매력 70+ · 도덕 40- → 3단계: 멈춘 시계 → 은행 금고의 3분 → 시간의 여제' },
-  { id: 'hj_lustsaint', name: '색욕의 성녀', icon: '🕯', pay: 55000, color: '#7a0a2a', fx: 'candle', eff: { cash: 4000, fame: 6, hap: 5, heat: 8 }, hint: '고해실 문 너머, 신부도 그 이름을 모른다.', strategy: '21~38세 여성, 매력 72+ · 도덕 25- → 3단계: 밤의 고해실 → 순례자의 헌금 → 성녀의 대관식 (가족 중 성직자가 있으면 문이 더 잘 열린다)' },
+  { id: 'hj_vtuber', name: '버튜버 여제', icon: '🎧', pay: 55000, color: '#7040d0', fx: 'screen', eff: { cash: 5000, hap: 5, fame: 6, kid: 'int' }, hint: '모니터 속 귀여운 아바타, 그리고 책상 위 마이크.', strategy: '20~27세 여성, PC 보유, 매력 68+, 지능 60+ → 3단계 미션: 첫 노래 방송 → 대형 브랜드 콜라보 → 3D 단독 콘서트' },
+  { id: 'hj_drifter', name: '드리프트 퀸', icon: '🏎️', pay: 52000, color: '#d03020', fx: 'fire', eff: { fame: 8, cash: 4000, hp: 5, hap: 4 }, hint: '서킷 위 붉은 경주차, 타이어 연기 속의 우승 트로피.', strategy: '선천 희귀 특성 [질주본능](출생 시 2%)을 타고난 여성이 중형 세단 이상의 차를 가지면 → 3단계: 아마추어 대회 → 프로 입단 → 국제 챔피언십' },
+  // ── 히든의 히든 (슈퍼 히든을 배출한 가문에만, 3단계 미션) ──
+  { id: 'hj_vampire', name: '핏빛 후작부인', icon: '🌹', pay: 65000, color: '#6a0a1a', fx: 'shadow', eff: { cash: 7000, fame: 7, hp: 6, hap: 2 }, hint: '해가 지면 깨어나는 고성의 안주인. 늙지 않는 얼굴.', strategy: '선천 1% [밤의 체질] 여성: 시름시름 앓다 밤에 기운을 되찾고, 치료를 미루면 바로 (쉬운 길) · 또는 슈퍼 히든 가문의 30세+ 여성, 매력 70+·건강 60+ → 3단계' },
+  { id: 'hj_timetraveler', name: '시간 정지의 여제', icon: '⏳', pay: 72000, color: '#5a8ad0', fx: 'magic', eff: { cash: 8000, fame: 7, kid: 'int', study: 5 }, hint: '멈춘 사무실, 공중에 뜬 서류와 커피. 그녀만 움직인다.', strategy: '지능 78+ 여성이 높은 직급에 오르면 어느 날 문득 시간이 멈춘다 (확률) · 또는 슈퍼 히든 가문 → 3단계: 멈춘 시계 → 얼어붙은 1초 → 시간 정지의 여제' },
 ];
 export const HIDDEN_BY_ID: Record<string, HiddenJob> = Object.fromEntries(HIDDEN.map((h) => [h.id, h]));
 export const isHiddenJob = (job: string) => job.startsWith('hj_');

@@ -47,8 +47,15 @@ import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
 import { BOSS_STORIES, selfBoss } from './boss';
 import { hiddenYear } from './hidden';
+import { inlawYear, kinDrift } from './inlaws';
 import { superHiddenYear } from './super-hidden';
-import { ultraHiddenYear, deathRescue } from './ultra-hidden';
+import { gateYear } from './super-gates';
+import { commEvent } from './devices';
+import { pathYear } from './hidden-paths';
+import { photoYear } from './photos';
+import { HIDDEN, HIDDEN_BY_ID, isHoH, isSuperHidden } from './hidden-data';
+const STARTER_SUPER = HIDDEN.filter((h) => isSuperHidden(h.id) && !isHoH(h.id)).map((h) => h.id);
+const STARTER_HIDDEN = HIDDEN.filter((h) => !isSuperHidden(h.id) && h.id !== 'hj_hermit').map((h) => h.id);
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -102,6 +109,25 @@ const BASE_START = 2025;
 const DEFAULT_MARKET: Record<MarketKey, number> = { apt_seoul: 250000, apt_local: 30000, land: 20000, building: 350000, stock: 100, coin: 100, art: 100 };
 
 /** 예전 버전 세이브를 현재 형식으로 */
+/** 게임에서 빠진 히든 직업(15세 등급 정리)의 흔적을 옛 저장에서 걷어 낸다. 여러 번 불러도 같다 */
+function dropRetiredHidden(s: GameState): void {
+  const gone = (id: unknown) => typeof id === 'string' && id.startsWith('hj_') && !HIDDEN_BY_ID[id];
+  for (const p of Object.values(s.people)) {
+    if (gone(p.job)) {
+      p.job = 'none';
+      p.jobLevel = 0;
+      p.jobYears = 0;
+    }
+    p.flags = p.flags.filter((f) => {
+      const m = /^(?:hidden:|sh:|hq:|hp:)(hj_[a-z0-9]+)/.exec(f);
+      return !(m && gone(m[1]));
+    });
+  }
+  s.cards = (s.cards ?? []).filter((c) => !gone(c.id));
+  s.events = s.events.filter((e) => !gone((e.data as { id?: unknown } | undefined)?.id));
+  if (s.jobsSeen) s.jobsSeen = s.jobsSeen.filter((j) => !gone(j));
+}
+
 export function migrate(s: GameState): GameState {
   bindState(s);
   s.achievements ??= [];
@@ -121,6 +147,7 @@ export function migrate(s: GameState): GameState {
   s.scandal ??= 0;
   s.cleanYears ??= 0;
   s.storySeen ??= {};
+  dropRetiredHidden(s);
   const v = s.version as number;
   if (v < 2) {
     s.market = { ...DEFAULT_MARKET, ...s.market };
@@ -227,6 +254,17 @@ export function newGame(o: NewGameOpts): GameState {
   // 1960년대 어머니는 대개 살림을 했다 (여성 경제활동참가율 30%대)
   if (chance(s, hist ? (origin === 'poor' ? 0.45 : 0.75) : origin === 'poor' ? 0.2 : 0.35)) mother.job = 'none';
   else giveJob(mother, hist ? (origin === 'poor' ? ['farmer', 'parttime', 'factory'] : origin === 'middle' ? ['teacher', 'shopkeeper', 'nurse'] : ['landlord', 'doctor']) : PARENT_JOBS[origin]);
+  // 아주 드물게 부모가 이미 히든 직업: 각자 0.7% 히든, 어머니는 0.5% 슈퍼 히든
+  for (const par of [father, mother]) {
+    const sup = par.sex === 'F' && chance(s, 0.005);
+    if (!sup && !chance(s, 0.007)) continue;
+    const pool = sup ? STARTER_SUPER : STARTER_HIDDEN;
+    const id = pick(s, pool);
+    par.job = id;
+    par.jobLevel = 0;
+    par.jobYears = Math.max(1, age(s, par) - 28);
+    addFlag(par, 'hidden:' + id);
+  }
   const pastLines = hist ? histOrigins(s, father, mother) : '';
 
   // 재산: 같은 형편이라도 집집마다 다르다
@@ -412,14 +450,17 @@ export function simulateYear(s: GameState): void {
   for (const m of careerYear(s)) log(s, m, 'life');
   cardYear(s);
   for (const m of hiddenYear(s)) log(s, m, 'life');
+  gateYear(s);
+  pathYear(s);
+  photoYear(s);
   for (const m of superHiddenYear(s)) log(s, m, 'life');
-  for (const m of ultraHiddenYear(s)) log(s, m, 'life');
   trackPeak(s);
   scandalYear(s);
   woeYear(s);
   for (const m of eggYear(s)) log(s, m, 'money');
   eggForKids(s);
   for (const m of spouseYear(s)) log(s, m, 'life');
+  inlawYear(s);
   autonomyYear(s);
   perkYear(s, wageIndex(s.year));
   capStats(s);
@@ -477,6 +518,7 @@ function lifeYear(s: GameState) {
       let d = -1.2 + normal(s, 0, 2);
       if (p.id === h.id) d += { work: -1, balance: 0, family: 1.8, self: 0, rest: 0.5 }[s.policy.lifestyle];
       for (const x of [p, sp]) d += (hasTrait(x, 'devoted') ? 1 : hasTrait(x, 'flirt') ? -1.5 : 0) + bondDrift(x);
+      d += kinDrift(s, p, sp); // 집안 차이·사돈 챙기기
       if (p.happiness > 60 && sp.happiness > 60) d += 0.5;
       setBond(p, sp, (p.bond ?? 60) + d);
       if ((p.bond ?? 60) < 28 && chance(s, 0.35) && !pending('marital_crisis')) queue(s, 'marital_crisis', p.id);
@@ -535,6 +577,15 @@ function lifeYear(s: GameState) {
     if (histNow && s.year < 2000 && !d.id.startsWith('st_h_') && !d.id.startsWith('st_dev_') && !TIMELESS.has(d.id.slice(3))) continue; // 2000년 전엔 그 시절 이야기와 어느 시대에나 있을 이야기만
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) stories.push([d, p, w]);
+  }
+  // 휴대폰(연락 수단)으로 오는 이야기는 따로 한 번 더: 해마다 2/3쯤은 폰이 울린다
+  const calls = stories.filter(([d]) => commEvent(d.id, d.title({} as never)));
+  if (calls.length && chance(s, 0.65)) {
+    const total = calls.reduce((t, [, , w]) => t + w, 0);
+    let r = next(s) * total;
+    const hit = calls.find(([, , w]) => (r -= w) <= 0) ?? calls[calls.length - 1];
+    queue(s, hit[0].id, hit[1].id);
+    stories.splice(stories.indexOf(hit), 1);
   }
   for (let i = 0; i < 2 && stories.length && chance(s, i === 0 ? 0.85 : 0.35); i++) {
     const total = stories.reduce((t, [, , w]) => t + w, 0);
@@ -782,11 +833,7 @@ function causeOf(s: GameState, p: Person): string {
 function deaths(s: GameState) {
   const living = Object.values(s.people).filter(alive);
   for (const p of living) {
-    if (!alive(p)) continue;
-    const fated = p.flags.includes('fated_death'); // 히든의 히든을 거절한 사람: 이듬해 반드시 세상을 떠난다
-    if (!fated && !chance(s, deathChance(s, p))) continue;
-    // 죽음의 문턱: 히든의 히든(뱀파이어·사이보그)이 문을 열면 그 해에는 죽지 않는다
-    if (!fated && deathRescue(s, p)) continue;
+    if (!alive(p) || !chance(s, deathChance(s, p))) continue;
     const wasHead = p.id === s.headId;
     const mainline = isMainline(s, p) || isRelevant(s, p);
     const cause = causeOf(s, p);
