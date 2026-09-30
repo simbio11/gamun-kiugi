@@ -52,7 +52,7 @@ import { willLine, willOf } from '../core/autonomy';
 import { buyPerk, HONORS, PERKS, perkCost, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
-import { hiddenCardHTML, hiddenArt } from './hidden-card';
+import { hiddenCardHTML, hiddenArt, initHiddenVideos } from './hidden-card';
 import { HIDDEN_BY_ID, isSuperHidden } from '../core/hidden-data';
 import { cardBackURL, cardFrontURL, crestURL, customFrames, medalURL, type Theme } from '../render/cardart';
 import { familyScore, lifeGrade, lifeParts } from '../core/score';
@@ -329,6 +329,7 @@ export function mount(el: HTMLElement) {
 
 /** 그리다 오류가 나면 옛 창(닫히는 중이라 투명한 창)이 화면을 덮어 클릭을 먹는다: 문제 된 창을 치우고 다시 그린다 */
 function render() {
+  initHiddenVideos(); // 히든 카드 영상 (한 번만 연결)
   try {
     renderInner();
   } catch (e) {

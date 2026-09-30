@@ -1335,3 +1335,14 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
   border-color: #ff80a0;
   font-weight: bold;
 }
+
+/* 카드 영상: 그림 위에 겹쳐 두고, 재생할 때만 스르르 나타났다가 끝나면 그림으로 돌아온다 */
+.hid-card .hid-vid { opacity: 0; transition: opacity .45s ease; pointer-events: none; image-rendering: auto; background: transparent; }
+.hid-card.vid-on .hid-vid { opacity: 1; transition: opacity .25s ease; }
+.hid-card.vid-on .hid-fig, .hid-card.vid-on .hid-fx { opacity: 0; transition: opacity .25s ease; }
+.hid-card .hid-fig, .hid-card .hid-fx { transition: opacity .6s ease; }
+.hid-card.vid-on .hid-pan { animation-play-state: paused; }
+.hid-replay { position: absolute; right: 7%; top: 5%; z-index: 6; width: clamp(18px, 13cqw, 34px); height: clamp(18px, 13cqw, 34px); border-radius: 50%; border: 1.5px solid rgba(255, 215, 106, .8);
+  background: rgba(14, 8, 20, .7); color: #ffe7a0; font-size: clamp(8px, 5.5cqw, 15px); display: grid; place-items: center; cursor: pointer; padding: 0 0 0 2px; box-shadow: 0 0 8px rgba(255, 200, 90, .5); transition: opacity .3s ease; }
+.hid-card.vid-on .hid-replay { opacity: 0; pointer-events: none; }
+.dx-c .hid-replay { display: none; }

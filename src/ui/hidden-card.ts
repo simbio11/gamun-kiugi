@@ -9,15 +9,23 @@ const FILES = import.meta.glob('../assets/hidden/*.webp', { eager: true, query: 
 const NAMED = Object.entries(FILES).map(([k, v]) => [k.split('/').pop()!.replace('.webp', ''), v] as const);
 /** 전체 그림 / 인물만 오려 낸 그림 (배경 투명) */
 const ART: Record<string, string> = Object.fromEntries(NAMED.filter(([n]) => !n.endsWith('.fig')));
+/** 카드 영상 (지금은 슈퍼 히든 일부): <직업>_<m|f>.mp4 — 카드 그림에서 이어지고, 끝나면 그림으로 돌아온다 */
+// webm(VP9)과 mp4(H.264)를 함께: 브라우저가 되는 쪽을 고른다
+const VIDEO: Record<string, { webm?: string; mp4?: string }> = {};
+for (const [k, v] of Object.entries(import.meta.glob('../assets/hidden/video/*.{mp4,webm}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>)) {
+  const f = k.split('/').pop()!;
+  const [name, ext] = [f.replace(/\.(mp4|webm)$/, ''), f.endsWith('.webm') ? 'webm' : 'mp4'];
+  (VIDEO[name] ??= {})[ext as 'webm' | 'mp4'] = v;
+}
 const FIG: Record<string, string> = Object.fromEntries(NAMED.filter(([n]) => n.endsWith('.fig')).map(([n, v]) => [n.slice(0, -4), v]));
 
 /** 이 직업·성별의 그림 (여러 장이면 seed로 고른다). 없으면 undefined */
-export function hiddenArt(id: string, sex: 'M' | 'F' = 'F', seed = 0): { src: string; fig?: string } | undefined {
+export function hiddenArt(id: string, sex: 'M' | 'F' = 'F', seed = 0): { src: string; fig?: string; vid?: { webm?: string; mp4?: string } } | undefined {
   const key = id.slice(3);
   const own = Object.keys(ART).filter((n) => n.startsWith(`${key}_${sex === 'F' ? 'f' : 'm'}`)).sort();
   if (!own.length) return undefined;
   const n = own[seed % own.length];
-  return { src: ART[n], fig: FIG[n] };
+  return { src: ART[n], fig: FIG[n], vid: VIDEO[n] };
 }
 
 /** 입자 효과: 색·모양·움직임 */
@@ -77,11 +85,55 @@ export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; 
       a ? `<img class="hid-back" src="${a.src}" alt=""><img class="hid-img hid-blur" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-sil" src="${a.fig}" alt="">` : ''}` : ''
     }<div class="hid-q">?</div></div><div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in only"><b>${superJob ? 'SUPER HIDDEN' : 'HIDDEN JOB'}</b></div><i class="hid-orn r"></i><em class="hid-medal">${superJob ? '👑' : '?'}</em></div></div>`;
   const art = a
-    ? `<img class="hid-back" src="${a.src}" alt=""><div class="hid-pan"><img class="hid-img hid-bg" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-fig" src="${a.fig}" alt="">` : ''}</div>`
+    ? `<img class="hid-back" src="${a.src}" alt=""><div class="hid-pan"><img class="hid-img hid-bg" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-fig" src="${a.fig}" alt="">` : ''}${a.vid ? `<video class="hid-img hid-vid" muted playsinline preload="auto" poster="${a.src}">${a.vid.webm ? `<source src="${a.vid.webm}" type="video/webm">` : ''}${a.vid.mp4 ? `<source src="${a.vid.mp4}" type="video/mp4">` : ''}</video>` : ''}</div>`
     : `<div class="hid-q">${h.icon}<small>그림 준비 중</small></div>`;
   return `<div class="hid-card fx-${h.fx} ${superJob ? 'is-super' : ''} ${o.cls ?? ''}" style="--hc:${h.color}">
     <div class="hid-stage">${art}<div class="hid-fx">${particles(h.fx)}</div><i class="hid-shine"></i></div>
     <div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in"><b>${superJob ? '👑 SUPER HIDDEN 👑' : '✦ HIDDEN JOB ✦'}</b><span>${h.name}</span></div><i class="hid-orn r"></i><em class="hid-medal">${h.icon}</em></div>
     <i class="hid-glint g1"></i><i class="hid-glint g2"></i><i class="hid-glint g3"></i>
+    ${a?.vid ? '<button class="hid-replay" data-hid-replay title="영상 다시 보기">▶</button>' : ''}
   </div>`;
+}
+
+// ───────────────────────── 카드 영상 ─────────────────────────
+// 처음 얻을 때(보상 창): 그림자 베일이 걷히면 그림에서 영상으로 이어진다 (자동 재생은 소리 없이).
+// 끝나면 영상이 스르르 사라지며 원래 그림으로. ▶ 버튼으로 언제든 다시 (다시 볼 땐 소리와 함께).
+function playVid(v: HTMLVideoElement, sound: boolean) {
+  v.muted = !sound;
+  v.currentTime = 0;
+  v.play().catch(() => {
+    // 소리 재생이 막히면 소리 없이라도
+    v.muted = true;
+    v.play().catch(() => {});
+  });
+}
+
+let hooked = false;
+export function initHiddenVideos() {
+  if (hooked || typeof document === 'undefined') return;
+  hooked = true;
+  const card = (v: Element) => v.closest('.hid-card');
+  document.addEventListener('play', (e) => { const v = e.target as Element; if (v instanceof HTMLVideoElement && v.classList.contains('hid-vid')) card(v)?.classList.add('vid-on'); }, true);
+  const off = (e: Event) => { const v = e.target as Element; if (v instanceof HTMLVideoElement && v.classList.contains('hid-vid')) card(v)?.classList.remove('vid-on'); };
+  document.addEventListener('ended', off, true);
+  document.addEventListener('pause', off, true);
+  // ▶ 다시 보기: 카드 뒤집기·창 닫기로 새지 않게 먼저 잡는다
+  const replay = (e: Event) => {
+    const b = (e.target as Element)?.closest?.('[data-hid-replay]');
+    if (!b) return;
+    e.stopPropagation();
+    e.preventDefault();
+    if (e.type !== 'click') return;
+    const v = b.closest('.hid-card')?.querySelector<HTMLVideoElement>('video.hid-vid');
+    if (v) playVid(v, true);
+  };
+  for (const t of ['click', 'pointerdown', 'mousedown', 'touchstart']) document.addEventListener(t, replay, true);
+  // 보상 창에 새로 뜬 카드: 베일(2.4초)이 걷히면 바로 재생
+  const kick = () => {
+    for (const v of document.querySelectorAll<HTMLVideoElement>('.hidden-hc video.hid-vid:not([data-kick])')) {
+      v.dataset.kick = '1';
+      setTimeout(() => v.isConnected && playVid(v, false), 2500);
+    }
+  };
+  new MutationObserver(kick).observe(document.body, { childList: true, subtree: true });
 }
