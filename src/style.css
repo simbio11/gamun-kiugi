@@ -517,7 +517,11 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .pk-m small { opacity: .75; }
 .pk-m b small { color: #d9a400; opacity: 1; }
 .honors { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
-.honor { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 4px; border-radius: 8px; background: rgba(128,128,128,.08); }
+.honor { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 4px; border-radius: 8px; background: rgba(128,128,128,.08); border: 0; color: inherit; font: inherit; cursor: pointer; transition: transform .15s; }
+.honor:active { transform: scale(.95); }
+.hn-art { width: 48px; height: 72px; image-rendering: pixelated; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
+.honor.legend .hn-art { animation: hn-glow 2.4s ease-in-out infinite; }
+@keyframes hn-glow { 50% { filter: drop-shadow(0 0 6px rgba(255,200,60,.9)) drop-shadow(0 2px 2px rgba(0,0,0,.35)); } }
 .honor span { font-size: 28px; }
 .honor b { font-size: .8em; }
 .honor small { font-size: .7em; opacity: .7; }
@@ -682,3 +686,26 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .code-box summary { cursor: pointer; font-weight: bold; padding: 4px 0; }
 .code-box textarea { width: 100%; box-sizing: border-box; font: 11px/1.3 monospace; border-radius: 6px; padding: 6px; margin: 6px 0; word-break: break-all; }
 .save-msg { margin: 8px 0 0; padding: 6px 10px; border-radius: 6px; background: #fff4c8; color: #5a3a00; font-size: .85em; }
+
+/* 훈장 보기: 벨벳 상자 + 흔들리는 메달 */
+.hv-case { position: relative; padding: 22px 34px 26px; border-radius: 14px; background: radial-gradient(ellipse at 50% 35%, #7a1426, #3a0610 70%); box-shadow: inset 0 0 0 3px #c8a040, inset 0 0 0 6px #5a0a14, inset 0 8px 24px rgba(0,0,0,.6), 0 10px 30px rgba(0,0,0,.6); perspective: 900px; }
+.hv-case.epic { background: radial-gradient(ellipse at 50% 35%, #2a1a5a, #0e0826 70%); box-shadow: inset 0 0 0 3px #c0c0d0, inset 0 0 0 6px #1a1030, inset 0 8px 24px rgba(0,0,0,.6), 0 10px 30px rgba(0,0,0,.6); }
+.hv-case.rare, .hv-case.common { background: radial-gradient(ellipse at 50% 35%, #123a5a, #06162a 70%); box-shadow: inset 0 0 0 3px #b08040, inset 0 0 0 6px #081828, inset 0 8px 24px rgba(0,0,0,.6), 0 10px 30px rgba(0,0,0,.6); }
+.hv-case::after { content: ''; position: absolute; left: 50%; bottom: 10px; width: 60%; height: 8px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(rgba(0,0,0,.5), transparent 70%); pointer-events: none; }
+.cv-card.hv-medal { width: min(46vw, 176px); aspect-ratio: 64 / 96; transform-origin: 50% 8%; animation: hv-in 1.1s cubic-bezier(.2, 1.1, .3, 1) backwards; }
+.hv-medal .cv-face { border-radius: 0; overflow: visible; box-shadow: none !important; filter: drop-shadow(0 6px 6px rgba(0,0,0,.55)); }
+.hv-medal.legend .cv-front { filter: drop-shadow(0 0 10px rgba(255,210,80,.65)) drop-shadow(0 6px 6px rgba(0,0,0,.55)); }
+@keyframes hv-in { 0% { opacity: 0; translate: 0 -40px; rotate: z 18deg; } 45% { opacity: 1; rotate: z -10deg; translate: 0 0; } 70% { rotate: z 5deg; } 100% { rotate: z 0deg; } }
+.hv-shine { position: absolute; inset: 38% 8% 4%; pointer-events: none; background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.55) 48%, transparent 60%); background-size: 250% 100%; mix-blend-mode: overlay; animation: hv-shine 3.2s ease-in-out infinite; -webkit-mask: radial-gradient(circle at 50% 55%, #000 60%, transparent 62%); mask: radial-gradient(circle at 50% 55%, #000 60%, transparent 62%); }
+@keyframes hv-shine { 0% { background-position: 120% 0; } 60%, 100% { background-position: -80% 0; } }
+.hv-engrave { position: absolute; left: 0; right: 0; top: 67.6%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 1px; color: #3a2400; text-shadow: 0 1px 0 rgba(255,255,255,.55); font-size: 10px; line-height: 1.1; }
+.hv-engrave b { font-size: 11px; letter-spacing: 2px; }
+.hv-medal.epic .hv-engrave, .hv-medal.common .hv-engrave { color: #2a2a34; }
+.hv-cap { display: flex; flex-direction: column; align-items: center; gap: 3px; max-width: 300px; text-align: center; color: #fff4dc; text-shadow: 1px 1px 0 #000; }
+.hv-cap > b { font-size: 20px; color: #ffe08a; }
+.hv-cap > small { font-size: 12px; opacity: .85; }
+.hv-cert { margin-top: 4px; padding: 5px 10px; border-radius: 6px; font-size: 11px; background: rgba(255,240,200,.12); border: 1px solid rgba(255,220,140,.35); }
+.sh-medals { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.sh-medal { display: flex; align-items: center; gap: 6px; padding: 2px 6px 2px 2px; border: 1px solid rgba(0,0,0,.15); border-radius: 6px; background: rgba(255,255,255,.4); font: inherit; font-size: .9em; color: inherit; cursor: pointer; text-align: left; }
+.sh-medal img { width: 20px; height: 30px; image-rendering: pixelated; }
+.calm .hv-medal, .calm .hv-shine, .calm .honor .hn-art { animation: none; }

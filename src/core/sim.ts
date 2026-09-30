@@ -32,7 +32,9 @@ import { achvRarity, checkHonors, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
 import { cardYear } from './cards';
 import { scandalYear } from './scandal';
-import { assignWoes, woeYear } from './woes';
+import { assignWoes, woeYear, woesOf, WOES } from './woes';
+import { eggForKids, eggYear, scheduleEggs } from './nestegg';
+import { spouseYear } from './spouse';
 import { autonomyYear } from './autonomy';
 import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
@@ -293,12 +295,14 @@ export function newGame(o: NewGameOpts): GameState {
       `👩 어머니 ${fullName(mother)} (${age(s, mother)}세) · ${mother.job === 'none' ? '전업주부' : jobLabel(mother)}\n` +
       `🏠 ${home.length ? home.map((a) => a.name).join(', ') : '월세살이'} · 집안 재산 ${formatMoney(worth)}` +
       (father.cash < 0 ? ` (빚 ${formatMoney(-father.cash)})` : '') +
+      [father, mother].flatMap((q) => woesOf(q).map((w) => `\n⚠ ${q === father ? '아버지' : '어머니'}의 짐: ${WOES[w].icon} ${WOES[w].name} — ${WOES[w].desc}`)).join('') +
       (tycoon ? '\n💎 재벌가의 자손이다!' : '') +
       (dif ? `\n🎚 난이도: ${dif.name}` : '\n🎲 운명에 맡겼다') +
       `\n\n지금 ${START_YEAR}년, ${eun(fullName(me))} 다섯 살.\n이제부터 당신이 이 아이의 인생을, 그리고 가문을 이끈다.\n학창 시절 → 수능 → 진로 → 결혼 → 자녀·손주 → 유언과 승계.`,
     portrait: me.id,
   });
   queue(s, 'kinder', me.id);
+  scheduleEggs(s, me);
   initMissions(s);
   foldFamilyPot(s);
   for (const p of Object.values(s.people)) mortgageFromCash(s, p);
@@ -355,6 +359,9 @@ export function simulateYear(s: GameState): void {
   trackPeak(s);
   scandalYear(s);
   woeYear(s);
+  for (const m of eggYear(s)) log(s, m, 'money');
+  eggForKids(s);
+  for (const m of spouseYear(s)) log(s, m, 'life');
   autonomyYear(s);
   perkYear(s, wageIndex(s.year));
 

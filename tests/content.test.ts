@@ -92,6 +92,7 @@ describe('인생 시스템', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const s = newGame({ seed, familyName: '최', sex: 'M' });
       s.events = [];
+      s.scheduled = [];
       const h = head(s);
       s.year = h.birthYear + 35;
       h.cash = 50000;

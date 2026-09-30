@@ -38,13 +38,15 @@ import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
 import { MISSIONS } from '../core/missions';
 import { rivalLine, rivalMood } from '../core/rival';
+import { FOCUS_LABEL, focusOf } from '../core/spouse';
+import { WOES, woesOf } from '../core/woes';
 import { chooseSuccessor } from '../core/estate';
 import { HONOR_JOBS, scandalLabel } from '../core/scandal';
 import { willLine, willOf } from '../core/autonomy';
 import { buyPerk, HONORS, PERKS, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
-import { cardBackURL, cardFrontURL, crestURL, type Theme } from '../render/cardart';
+import { cardBackURL, cardFrontURL, crestURL, medalURL, type Theme } from '../render/cardart';
 import { familyScore, lifeGrade, lifeParts } from '../core/score';
 import { pendingAffairs } from '../core/fate';
 import { ACTIONS, STAGE_NAMES, apLeft, apMax, doAction, forHead, stageOf, type ActionCat } from '../core/actions';
@@ -95,6 +97,8 @@ interface UIState {
   assetSub?: string;
   /** 크게 보고 있는 명예의 전당 카드 */
   cardView?: string;
+  /** 훈장 보기: g.honors 인덱스 */
+  honorView?: number;
   /** 업적 탭에서 펼친 목록 (카드 도감·시너지) */
   open?: Record<string, boolean>;
   confirmReset?: boolean;
@@ -254,7 +258,7 @@ function back(): boolean {
   const g = ui.game;
   if (!g) return false;
   if (ui.settings || ui.sheet) return (ui.settings = ui.confirmReset = false), (ui.sheet = undefined), render(), true;
-  if (ui.cardView) return (ui.cardView = undefined), (fx.modalKey = ''), render(), true;
+  if (ui.cardView || ui.honorView !== undefined) return (ui.cardView = ui.honorView = undefined), (fx.modalKey = ''), render(), true;
   if (ui.outcome) return (ui.outcome = undefined), (fx.modalKey = ''), render(), true;
   if (ui.game?.rewards?.length) return ui.game.rewards.shift(), (fx.modalKey = ''), render(), true;
   if (ui.report) return (ui.report = undefined), (fx.modalKey = ''), render(), true;
@@ -319,6 +323,7 @@ function render() {
     }
   }
   else if (ui.cardView && CARD[ui.cardView]) (modal = cardViewer(g, ui.cardView)), (modalKey = 'card' + ui.cardView);
+  else if (ui.honorView !== undefined && g.honors?.[ui.honorView]) (modal = honorViewer(g, ui.honorView)), (modalKey = 'honor' + ui.honorView);
   else if (g.events.length) {
     modal = eventModal(g);
     const ev = g.events[0];
@@ -1011,7 +1016,7 @@ function lifeRows(g: GameState, p: Person): string {
   if (affairs.length) rows.push(`<div class="sh-row"><span>진행 중</span><span class="affairs">${affairs.map((a) => esc(a)).join('<br>')}</span></div>`);
   if (p.flags.includes('dui')) rows.push(`<div class="sh-row warn"><span>⚠</span><span>음주운전 전과</span></div>`);
   const honors = (g.honors ?? []).filter((x) => x.personId === p.id);
-  if (honors.length) rows.push(`<div class="sh-row"><span>훈장</span><span>${honors.map((x) => `${HONORS[x.id].icon} ${HONORS[x.id].name} (${x.year})`).join('<br>')}</span></div>`);
+  if (honors.length) rows.push(`<div class="sh-row"><span>훈장</span><span class="sh-medals">${honors.map((x) => `<button class="sh-medal" data-action="honor-view" data-id="${(g.honors ?? []).indexOf(x)}"><img src="${medalURL(x.id, HONORS[x.id].icon, HONORS[x.id].rarity)}" alt="">${HONORS[x.id].name} (${x.year})</button>`).join('')}</span></div>`);
   if (p.papers) rows.push(`<div class="sh-row"><span>논문</span><span>📝 ${p.papers}편${p.flags.includes('phd') ? ' · 박사' : ''}${p.job === 'professor' && p.jobLevel === 0 ? ` · 정년 심사까지 ${Math.max(0, 6 - p.jobYears)}년 (기준 약 12편)` : ''}</span></div>`);
   if (p.pol && ['politician', 'president'].includes(p.job)) {
     const pl = p.pol;
@@ -1029,6 +1034,9 @@ function lifeRows(g: GameState, p: Person): string {
     const w = willOf(p);
     rows.push(`<div class="sh-row"><span>성향</span><span>${willLine(p)}<br><small>독립심 ${w.indep} · 야망 ${w.ambition} · 충성도 ${w.loyalty} — 충성도가 낮고 독립심이 높으면 가주의 뜻을 거스르고, 야망이 크면 일을 벌인다</small></span></div>`);
   }
+  if (alive(p) && p.id === head(g).spouseId && focusOf(p)) rows.push(`<div class="sh-row"><span>요즘</span><span>${FOCUS_LABEL[focusOf(p)!]}<br><small>배우자도 제 뜻대로 움직인다. 관심사에 따라 해마다 가족에 보탬이 되고, 가끔 스스로 일을 벌인다</small></span></div>`);
+  const woes = woesOf(p);
+  if (alive(p) && woes.length) rows.push(`<div class="sh-row warn"><span>짐</span><span>${woes.map((w) => `${WOES[w].icon} ${WOES[w].name}`).join('<br>')}</span></div>`);
   if (p.flags.includes('disowned')) rows.push(`<div class="sh-row warn"><span>💔</span><span>의절한 자식</span></div>`);
   if (p.flags.includes('noble_inlaw') || p.flags.includes('rich_inlaw')) rows.push(`<div class="sh-row"><span>혼인</span><span>${p.flags.includes('noble_inlaw') ? '🏯 명문가와 정략결혼' : '💎 신흥 부유층과 정략결혼'}</span></div>`);
   if (alive(p) && !['none', 'parttime', 'pension'].includes(p.job) && age(g, p) >= 18) rows.push(`<div class="sh-row"><span>직업 성격</span><span>${HONOR_JOBS.has(p.job) ? '🎖 명예형 — 해마다 가문 명성 +0.6, 대신 품위 유지비로 수입의 6%가 나가고 스캔들에 약하다' : JOBS[p.job].fame >= 1 ? '⭐ 인기형 — 이름을 알리는 일' : '💰 실리형 — 돈을 버는 일'}</span></div>`);
@@ -1239,6 +1247,33 @@ function cardViewer(g: GameState, id: string): string {
     </div>
   </div>`;
 }
+/** 🎖 훈장 보기: 벨벳 상자에 담긴 실물 훈장. 끌어 돌리면 뒷면 새김 */
+function honorViewer(g: GameState, idx: number): string {
+  const x = g.honors![idx];
+  const d = HONORS[x.id];
+  const who = g.people[x.personId];
+  const nth = (g.honors ?? []).filter((h) => h.id === x.id).indexOf(x) + 1;
+  return `
+  <div class="modal cv-modal hv-modal" data-action="close-card">
+    <div class="cv-wrap">
+      <div class="hv-case ${d.rarity}">
+        <div class="cv-card hv-medal ${d.rarity}" data-stop>
+          <div class="cv-face cv-front"><img class="cv-img" src="${medalURL(x.id, d.icon, d.rarity)}" alt=""><i class="hv-shine"></i></div>
+          <div class="cv-face cv-back"><img class="cv-img" src="${medalURL(x.id, d.icon, d.rarity, true)}" alt="">
+            <div class="hv-engrave"><b>대한민국</b><span>${esc(fullName(who))}</span><small>${x.year}</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="hv-cap">
+        <b>${d.name}</b>
+        <small>${esc(d.desc)}</small>
+        <div class="hv-cert">수여 <b>${esc(fullName(who))}</b> · ${x.year}년${nth > 1 ? ` · 가문 ${nth}번째` : ''} · 가문 명성 +${d.fame} · ${RARITY_NAME[d.rarity]}</div>
+      </div>
+      <div class="cv-hint">↔ 훈장을 옆으로 밀어 뒷면 새김을 보세요 · 바깥을 누르면 닫혀요</div>
+    </div>
+  </div>`;
+}
+
 /** 가문별 최고 총점 (이 기기에만) */
 function bestScore(g: GameState, now: number): number {
   const key = `gamun-best-${g.seed}`;
@@ -1759,7 +1794,7 @@ function achvScreen(g: GameState): string {
   </section>
   <section class="card">
     <h2>🎖 가문의 훈장 <small class="muted">${honors.length}개</small></h2>
-    ${honors.length ? `<div class="honors">${honors.map((x) => `<div class="honor ${HONORS[x.id].rarity}"><span>${HONORS[x.id].icon}</span><b>${HONORS[x.id].name}</b><small>${esc(fullName(g.people[x.personId]))} · ${x.year}</small></div>`).join('')}</div>` : `<p class="fine">아직 없다. 공무원·교원으로 25년 넘게 봉직하고 퇴직하거나, 올림픽 금메달·노벨상·대통령·장관·기업 상장·거액 기부 등으로 받을 수 있다.</p>`}
+    ${honors.length ? `<div class="honors">${honors.map((x) => `<button class="honor ${HONORS[x.id].rarity}" data-action="honor-view" data-id="${(g.honors ?? []).indexOf(x)}"><img class="hn-art" src="${medalURL(x.id, HONORS[x.id].icon, HONORS[x.id].rarity)}" alt=""><b>${HONORS[x.id].name}</b><small>${esc(fullName(g.people[x.personId]))} · ${x.year}</small></button>`).join('')}</div>` : `<p class="fine">아직 없다. 공무원·교원으로 25년 넘게 봉직하고 퇴직하거나, 올림픽 금메달·노벨상·대통령·장관·기업 상장·거액 기부 등으로 받을 수 있다.</p>`}
   </section>
   ${
     g.rival
@@ -2053,7 +2088,10 @@ function handle(el: HTMLElement) {
       ui.cardView = id;
       break;
     case 'close-card':
-      ui.cardView = undefined;
+      ui.cardView = ui.honorView = undefined;
+      break;
+    case 'honor-view':
+      ui.honorView = Number(id);
       break;
     case 'more':
       (ui.open ??= {})[v] = !ui.open[v];

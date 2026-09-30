@@ -5,8 +5,8 @@ import { inherit, createPerson } from '../src/core/people';
 import { next } from '../src/core/rng';
 import type { GameState } from '../src/core/types';
 
-function autoplay(seed: number, years: number): GameState {
-  const s = newGame({ seed, familyName: '김', sex: 'M', origin: 'middle' });
+function autoplay(seed: number, years: number, difficulty?: 'easy' | 'normal' | 'hard' | 'hell'): GameState {
+  const s = difficulty ? newGame({ seed, familyName: '김', sex: 'M', difficulty }) : newGame({ seed, familyName: '김', sex: 'M', origin: 'middle' });
   for (let y = 0; y < years && !s.gameOver; y++) {
     let guard = 0;
     while (s.events.length && guard++ < 300) {
@@ -83,4 +83,19 @@ describe('시뮬레이션', () => {
     expect(agePenalty(40)).toBeGreaterThan(agePenalty(35));
     expect(agePenalty(46)).toBeGreaterThan(agePenalty(40) + 10);
   });
+
+  it('난이도별 60년: 부모의 짐·종잣돈·배우자 활동·약속한 집 이벤트가 크래시 없이 돈다', () => {
+    const seen = new Set<string>();
+    for (const d of ['easy', 'normal', 'hard', 'hell'] as const)
+      for (const seed of [11, 12]) {
+        const s = autoplay(seed, 60, d);
+        for (const e of s.log) for (const k of ['기초생활보장', '근로장려금', '스무 살']) if (e.text.includes(k)) seen.add(k);
+        for (const p of Object.values(s.people)) {
+          expect(Number.isFinite(p.cash)).toBe(true);
+          for (const f of p.flags) if (f.startsWith('woe')) seen.add('woe');
+        }
+        if (d === 'hell') expect(Object.values(s.people).some((p) => p.flags.some((f) => f.startsWith('woe')))).toBe(true);
+      }
+    expect(seen.has('woe')).toBe(true);
+  }, 60000);
 });

@@ -1009,3 +1009,170 @@ export function crestURL(id: string, icons: [string, string], theme: Theme, acti
   cache.set(key, u);
   return u;
 }
+
+// ───────────────────────── 훈장 (64×96): 수(綬) 리본 + 금 걸쇠 + 고리 + 각진 별 몸체 + 칠보 원판 ─────────────────────────
+
+/** 수(리본) 색: 실제 훈장 수의 색을 따랐다 (근정훈장은 청·황·홍·녹·옥조) */
+const RIBBON: Record<string, string[]> = {
+  mugunghwa: ['#c8a020', '#c01830', '#f0d060', '#c01830', '#c8a020'],
+  cheongjo: ['#e8e8f0', '#1a4aa8', '#1a4aa8', '#1a4aa8', '#e8e8f0'],
+  hwangjo: ['#e8e8f0', '#e0b020', '#e0b020', '#e0b020', '#e8e8f0'],
+  hongjo: ['#e8e8f0', '#c8283a', '#c8283a', '#c8283a', '#e8e8f0'],
+  nokjo: ['#e8e8f0', '#2a8a4a', '#2a8a4a', '#2a8a4a', '#e8e8f0'],
+  okjo: ['#2a6a8a', '#e8f0f0', '#e8f0f0', '#e8f0f0', '#2a6a8a'],
+  tongil: ['#1a5a2a', '#c8283a', '#1a5a2a', '#c8283a', '#1a5a2a'],
+  gukseon: ['#1a5a2a', '#e8e8f0', '#1a5a2a', '#e8e8f0', '#1a5a2a'],
+  taeguk: ['#1a3a9a', '#c8283a', '#f0f0f0', '#c8283a', '#1a3a9a'],
+  cheongnyong: ['#f0f0f0', '#1a5ac8', '#6aa8f0', '#1a5ac8', '#f0f0f0'],
+  geumgwan: ['#5a1a7a', '#c8a020', '#5a1a7a', '#c8a020', '#5a1a7a'],
+  eungwan: ['#5a1a7a', '#c0c0d0', '#5a1a7a', '#c0c0d0', '#5a1a7a'],
+  changjo: ['#0a2a6a', '#3aa0e0', '#e8f4ff', '#3aa0e0', '#0a2a6a'],
+  hyeoksin: ['#0a2a6a', '#3aa0e0', '#0a2a6a', '#3aa0e0', '#0a2a6a'],
+  ungbi: ['#0a1a4a', '#6a4ae0', '#e8e4ff', '#6a4ae0', '#0a1a4a'],
+  geumtap: ['#8a4a00', '#f0a020', '#fff0a0', '#f0a020', '#8a4a00'],
+  euntap: ['#6a6a78', '#f0a020', '#6a6a78', '#f0a020', '#6a6a78'],
+  moran: ['#f0e0e8', '#e05a8a', '#f0e0e8', '#e05a8a', '#f0e0e8'],
+  dongbaek: ['#1a5a2a', '#d02a3a', '#d02a3a', '#d02a3a', '#1a5a2a'],
+  mugunghwa_nat: ['#e05a8a', '#f0e0e8', '#c01830', '#f0e0e8', '#e05a8a'],
+  sugyo: ['#0a2a5a', '#e8e8f0', '#0a2a5a', '#e8e8f0', '#0a2a5a'],
+  gwanghwa: ['#0a2a5a', '#e8e8f0', '#c8a020', '#e8e8f0', '#0a2a5a'],
+};
+const METAL: Record<Rarity, RGB[]> = {
+  legend: ['#2a1600', '#8a5a00', '#d8a020', '#ffd84a', '#fff6c8'].map(hex),
+  epic: ['#1a1a24', '#6a6a7a', '#b8b8c8', '#e8e8f4', '#ffffff'].map(hex),
+  rare: ['#2a1606', '#7a4a1a', '#c08040', '#e8b070', '#fff0d8'].map(hex),
+  common: ['#1a1a24', '#5a5a6a', '#9a9aaa', '#c8c8d4', '#f0f0f8'].map(hex),
+};
+
+/** 훈장 앞면(back=false) · 뒷면(back=true: 칠보 없이 금속, 가운데는 새김 글씨 자리) */
+export function medalURL(id: string, icon: string, rar: Rarity, back = false): string {
+  const key = `m:${id}:${back}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const W = 64;
+  const H = 96;
+  const m = img(W, H);
+  const [O, D, M, L, Hh] = METAL[rar];
+  const rib = (RIBBON[id] ?? ['#e8e8f0', '#1a4aa8', '#1a4aa8', '#1a4aa8', '#e8e8f0']).map(hex);
+  // 리본: 5줄 무늬, 가운데로 모이는 주름 음영, 아래는 금 걸쇠
+  const rx0 = 19;
+  const rx1 = 44;
+  for (let y = 0; y <= 27; y++)
+    for (let x = rx0; x <= rx1; x++) {
+      const u = (x - rx0) / (rx1 - rx0 + 1);
+      const band = u < 0.14 ? 0 : u < 0.36 ? 1 : u < 0.64 ? 2 : u < 0.86 ? 3 : 4;
+      let c = rib[band];
+      // 비단 결: 세로 주름 + 위쪽이 살짝 어둡다
+      if ((x - rx0) % 5 === 4) c = mix(c, BLACK, 0.18);
+      else if ((x - rx0) % 5 === 1) c = mix(c, WHITE, 0.12);
+      if (dith(x, y, 0.35 - y / 80)) c = mix(c, BLACK, 0.2);
+      put(m, x, y, x === rx0 || x === rx1 ? mix(c, BLACK, 0.45) : c);
+    }
+  // 걸쇠 (금색 막대, 베벨)
+  const G = METAL.legend;
+  for (let x = rx0 - 2; x <= rx1 + 2; x++) {
+    put(m, x, 27, G[0]);
+    put(m, x, 28, x % 3 ? G[4] : G[3]);
+    put(m, x, 29, G[2]);
+    put(m, x, 30, G[1]);
+    put(m, x, 31, G[0]);
+  }
+  for (const ex of [rx0 - 3, rx1 + 3]) for (let y = 28; y <= 30; y++) put(m, ex, y, G[0]);
+  // 고리
+  for (let a = 0; a < Math.PI * 2; a += 0.05) {
+    const x = 31.5 + Math.cos(a) * 3;
+    const y = 35 + Math.sin(a) * 3;
+    put(m, x, y, Math.sin(a) < 0 ? G[3] : G[1]);
+  }
+  put(m, 31, 38, G[0]);
+  put(m, 32, 38, G[0]);
+  // 몸체: 전설은 8각 광휘 별, 영웅은 6각 별, 희귀는 5잎 꽃, 일반은 둥근 메달
+  const cx = 31.5;
+  const cy = 64.5;
+  const n = rar === 'legend' ? 8 : rar === 'epic' ? 6 : rar === 'rare' ? 5 : 0;
+  const Ro = 26;
+  const Ri = rar === 'legend' ? 14 : rar === 'epic' ? 15 : 19;
+  const radius = (ang: number) => {
+    if (!n) return 22;
+    const t = (((ang + Math.PI / 2) / ((Math.PI * 2) / n)) % 1 + 1) % 1;
+    if (rar === 'rare') return Ri + (Ro - Ri) * Math.sin(t * Math.PI) ** 0.6; // 둥근 꽃잎
+    return Ri + (Ro - Ri) * Math.abs(1 - 2 * t);
+  };
+  const facet = (ang: number) => {
+    if (!n) return 0.5;
+    return (((ang + Math.PI / 2) / ((Math.PI * 2) / n)) % 1 + 1) % 1;
+  };
+  const inBody = (x: number, y: number) => {
+    const d = Math.hypot(x + 0.5 - cx - 0.5, y + 0.5 - cy - 0.5);
+    return d <= radius(Math.atan2(y + 0.5 - cy - 0.5, x + 0.5 - cx - 0.5));
+  };
+  // 광휘 (전설): 몸체 뒤로 가는 햇살
+  if (rar === 'legend')
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2 + Math.PI / 16;
+      for (let r = 12; r < 30; r++) put(m, cx + 0.5 + Math.cos(a) * r, cy + 0.5 + Math.sin(a) * r, r > 27 ? G[1] : G[2]);
+    }
+  for (let y = 36; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (!inBody(x, y)) {
+        if (inBody(x + 1, y) || inBody(x - 1, y) || inBody(x, y + 1) || inBody(x, y - 1)) put(m, x, y, O);
+        continue;
+      }
+      const ang = Math.atan2(y + 0.5 - cy - 0.5, x + 0.5 - cx - 0.5);
+      const d = Math.hypot(x + 0.5 - cx - 0.5, y + 0.5 - cy - 0.5);
+      const t = facet(ang);
+      // 각진 면: 한쪽은 빛, 한쪽은 그늘. 빛은 왼쪽 위에서
+      const lightSide = Math.cos(ang + Math.PI * 0.75) > 0;
+      let c = n && rar !== 'rare' ? (t < 0.5 === lightSide ? L : M) : ramp([L, M, D], (x - y + 40) / 110, x, y);
+      if (n && rar !== 'rare' && Math.abs(t - 0.5) < 0.05) c = Hh; // 능선
+      if (d > radius(ang) - 1.2) c = D;
+      put(m, x, y, c);
+    }
+  if (!back) {
+    // 칠보 원판: 바깥 금테 → 색 에나멜 고리 → 안쪽 원판 → 문장
+    const ring = rib[1];
+    for (let y = -14; y <= 14; y++)
+      for (let x = -14; x <= 14; x++) {
+        const d = Math.hypot(x, y);
+        if (d > 13.5) continue;
+        const X = Math.round(cx + x);
+        const Y = Math.round(cy + y);
+        if (d > 12.5) put(m, X, Y, O);
+        else if (d > 11.3) put(m, X, Y, x + y < 0 ? Hh : D);
+        else if (d > 8.2) put(m, X, Y, ramp([mix(ring, WHITE, 0.35), ring, mix(ring, BLACK, 0.35)], (x + y + 12) / 24, X, Y));
+        else if (d > 7.4) put(m, X, Y, G[3]);
+        else put(m, X, Y, ramp([hex('#fffaf0'), hex('#f0e4c8')], (x + y + 8) / 16, X, Y));
+      }
+    // 에나멜 고리의 점무늬
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      put(m, cx + Math.cos(a) * 9.8, cy + Math.sin(a) * 9.8, G[4]);
+    }
+    stamp(m, icon, cx + 0.5, cy + 0.5, 13, 1, { rim: hex('#fff4c0') });
+    if (rar === 'legend' || rar === 'epic') {
+      sparkle(m, 12, 48, WHITE, 2);
+      sparkle(m, 52, 78, mix(Hh, WHITE, 0.5), 1);
+    }
+  } else {
+    // 뒷면: 가운데를 평평하게 갈아 새김 글씨 자리를 만든다
+    for (let y = -14; y <= 14; y++)
+      for (let x = -14; x <= 14; x++) {
+        const d = Math.hypot(x, y);
+        if (d > 13.5) continue;
+        const X = Math.round(cx + x);
+        const Y = Math.round(cy + y);
+        put(m, X, Y, d > 12.5 ? D : d > 11.5 ? (x + y > 0 ? L : D) : ramp([L, M], (x + y + 12) / 24, X, Y));
+      }
+    // 핀 (뒷면 고정 핀)
+    for (let x = 20; x <= 43; x++) {
+      put(m, x, 45, G[2]);
+      put(m, x, 46, O);
+    }
+    rect(m, 17, 43, 20, 47, G[0]);
+    rect(m, 18, 44, 19, 46, G[3]);
+    rect(m, 43, 44, 45, 46, G[0]);
+  }
+  const u = toURL(m);
+  cache.set(key, u);
+  return u;
+}
