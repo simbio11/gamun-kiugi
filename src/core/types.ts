@@ -264,6 +264,10 @@ export interface GameState {
   cards?: { id: string; personId: string; year: number }[];
   /** 가문이 받은 훈장 */
   honors?: { id: string; personId: string; year: number }[];
+  /** 가문 스캔들 위험 (0~100): 돈 되는 지름길을 쓸수록 쌓인다 */
+  scandal?: number;
+  /** 스캔들 없이 지낸 햇수 */
+  cleanYears?: number;
   /** 라이벌 가문 */
   rival?: import('./rival').Rival;
 }

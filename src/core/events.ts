@@ -583,7 +583,7 @@ function specialChoices(c: Ctx, cat: string): Choice[] {
   if (cat === 'edu' || cat === 'tech' || cat === 'rec')
     out.push({
       label: '대학원 진학 (→ 교수·연구원)',
-      cost: 3000,
+      cost: 4500,
       req: [req('int', 70), '대학 졸업', '수재 유리'],
       tag: 'study',
       disabled: !univ,

@@ -29,6 +29,7 @@ import { profScore } from '../src/core/career';
 import { awardCard, cardYear, CARDS, SUMMITS, SYNERGIES, activeSynergies } from '../src/core/cards';
 import { familyScore, lifeReport } from '../src/core/score';
 import { WORK_STORIES } from '../src/core/stories-work';
+import { obeys, willOf } from '../src/core/autonomy';
 
 describe('콘텐츠 무결성', () => {
   it('직업 100개 이상, 모든 참조가 유효', () => {
@@ -934,5 +935,58 @@ describe('부모님 유산', () => {
       if (!ok) none.push(id);
     }
     expect(none).toEqual([]);
+  });
+
+  it('자율성: 충성도 높은 자식은 대체로 따르고, 반항적인 자식은 자주 거역한다', () => {
+    const s = newGame({ seed: 93, familyName: '최', sex: 'M' });
+    const k = head(s);
+    k.traits = ['filial'];
+    k.affinity = 80;
+    let yes = 0;
+    for (let i = 0; i < 200; i++) if (obeys(s, k)) yes++;
+    k.traits = ['rebel'];
+    k.affinity = -60;
+    let yes2 = 0;
+    for (let i = 0; i < 200; i++) if (obeys(s, k)) yes2++;
+    expect(yes).toBeGreaterThan(130);
+    expect(yes2).toBeLessThan(70);
+    expect(willOf(k).loyalty).toBeLessThan(40);
+  });
+
+  it('정략결혼: 따르는 자식은 혼례로, 명문가는 명성·신흥 부자는 돈', () => {
+    const s = newGame({ seed: 94, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year += 30;
+    h.traits = ['filial'];
+    h.affinity = 100;
+    s.events = [{ uid: s.eventSeq++, defId: 'arranged_offer', personId: h.id }];
+    const fame = s.fame;
+    let tries = 0;
+    while (!h.partnerId && tries++ < 20) {
+      s.events = [{ uid: s.eventSeq++, defId: 'arranged_offer', personId: h.id }];
+      resolveChoice(s, 0);
+    }
+    expect(h.partnerId).toBeTruthy();
+    expect(s.fame).toBeGreaterThan(fame);
+    expect(s.events.some((e) => e.defId === 'kid_wedding')).toBe(true);
+  });
+
+  it('명예 vs 실리: 사채·투기는 스캔들 위험을 쌓고, 폭로되면 명예 직업 가족이 다친다', () => {
+    const s = newGame({ seed: 95, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year += 35;
+    s.events = [];
+    h.cash = 100000;
+    h.job = 'judge';
+    h.jobLevel = 3;
+    s.ap = 5;
+    const r = doAction(s, 'm_loanshark');
+    expect(r).toBeTruthy();
+    expect(s.scandal ?? 0).toBeGreaterThanOrEqual(12);
+    s.scandal = 80;
+    s.fame = 50;
+    s.events = [{ uid: s.eventSeq++, defId: 'scandal_break', personId: h.id }];
+    resolveChoice(s, 2); // 모르쇠
+    expect(s.fame).toBeLessThan(50);
   });
 });

@@ -31,6 +31,8 @@ import { careerYear, ministerLeaves, presidentLeaves } from './career';
 import { achvRarity, checkHonors, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
 import { cardYear } from './cards';
+import { scandalYear } from './scandal';
+import { autonomyYear } from './autonomy';
 import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
 import { eun, iga } from './ev-util';
@@ -345,6 +347,8 @@ export function simulateYear(s: GameState): void {
   for (const m of careerYear(s)) log(s, m, 'life');
   cardYear(s);
   trackPeak(s);
+  scandalYear(s);
+  autonomyYear(s);
   perkYear(s, wageIndex(s.year));
 
   retirementAndGraduation(s);

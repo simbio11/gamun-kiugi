@@ -897,7 +897,9 @@ function enroll(x: Ctx, pr: Program): string {
   addFlag(p, t.flag);
   addFlag(p, 'major:' + pr.key);
   setStudy(x.s, p, pr.years, pr.track ?? t.flag);
-  p.flags.push('tuition:' + (pr.tuition ?? t.tuition));
+  // 명예로 가는 길(의·치·한·약·수의·교원)은 학비가 더 든다
+  const honorTrack = ['med_school', 'dent_school', 'kmd_school', 'pharm_school', 'vet_school', 'edu_school', 'edu_elem'].includes(pr.track ?? '');
+  p.flags.push('tuition:' + Math.round((pr.tuition ?? t.tuition) * (honorTrack ? 1.25 : 1)));
   p.flags.push('school:' + programName(pr));
   if (pr.elite) addFlag(p, 'elite:' + pr.elite);
   if (pr.special === 'abroad' || pr.special === 'voc') addFlag(p, 'abroad_grad');

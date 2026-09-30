@@ -144,6 +144,8 @@ function toChoice(sc: SC): Choice {
     run: (x) => {
       apply(x, sc.eff);
       if (sc.mark) for (const [k, n] of Object.entries(sc.mark)) mark(x.p, k, n);
+      // 부정한 선택은 가문의 스캔들 위험으로 남는다
+      if (sc.mark?.cheat && sc.mark.cheat > 0) x.s.scandal = Math.min(100, (x.s.scandal ?? 0) + sc.mark.cheat * 5);
       if (sc.roll) {
         const [k, need, win, lose] = sc.roll;
         const okk = k === 'luck' ? chance(x.s, need / 100) : check(x.s, x.p.actual[k], need, 8);

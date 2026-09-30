@@ -18,7 +18,9 @@ import { RIVAL_EVENTS } from './rival';
 import { ERA_EVENTS } from './era';
 import { CAREER_EVENTS } from './career';
 import { CARD_EVENTS } from './cards';
+import { SCANDAL_EVENTS } from './scandal';
+import { AUTONOMY_EVENTS } from './autonomy';
 import type { EventDef } from './ev-util';
 
-export const EVENTS: Record<string, EventDef> = { ...CORE, ...Object.fromEntries([...SCHOOL_EVENTS, ...FAMILY_EVENTS, ...LIFE_EVENTS, ...FATE_EVENTS, ...FATE_RANDOM, ...ROMANCE_EVENTS, ...ROMANCE_RANDOM, ...STORIES, ...SEED_EVENTS, ...NEST_EVENTS, ...DEBT_EVENTS, ...LEVERAGE_EVENTS, ...LIFECOST_EVENTS, ...DECEPTION_EVENTS, HOBBY_EVENT, ...WELFARE_EVENTS, ...RIVAL_EVENTS, ...ERA_EVENTS, ...CAREER_EVENTS, ...CARD_EVENTS].map((e) => [e.id, e])) };
+export const EVENTS: Record<string, EventDef> = { ...CORE, ...Object.fromEntries([...SCHOOL_EVENTS, ...FAMILY_EVENTS, ...LIFE_EVENTS, ...FATE_EVENTS, ...FATE_RANDOM, ...ROMANCE_EVENTS, ...ROMANCE_RANDOM, ...STORIES, ...SEED_EVENTS, ...NEST_EVENTS, ...DEBT_EVENTS, ...LEVERAGE_EVENTS, ...LIFECOST_EVENTS, ...DECEPTION_EVENTS, HOBBY_EVENT, ...WELFARE_EVENTS, ...RIVAL_EVENTS, ...ERA_EVENTS, ...CAREER_EVENTS, ...CARD_EVENTS, ...SCANDAL_EVENTS, ...AUTONOMY_EVENTS].map((e) => [e.id, e])) };
 export { RANDOM_EVENTS };

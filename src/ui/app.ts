@@ -38,6 +38,9 @@ import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
 import { MISSIONS } from '../core/missions';
 import { rivalLine, rivalMood } from '../core/rival';
+import { chooseSuccessor } from '../core/estate';
+import { HONOR_JOBS, scandalLabel } from '../core/scandal';
+import { willLine, willOf } from '../core/autonomy';
 import { buyPerk, HONORS, PERKS, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARDS, effText, SYNERGIES, tierOf as cardTier } from '../core/cards';
@@ -315,7 +318,7 @@ function track(name: string, title = name) {
 }
 
 /** 직전 화면 상태 (애니메이션을 새로 생긴 것에만 주려고) */
-const fx: { modalKey: string; chips: { id: number; text: string; pts: number }[]; rewardShown?: number; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number; assetSub?: string } = { modalKey: '', chips: [] };
+const fx: { modalKey: string; likelyHeir?: string; chips: { id: number; text: string; pts: number }[]; rewardShown?: number; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number; assetSub?: string } = { modalKey: '', chips: [] };
 const TAB_ORDER: Tab[] = ['tree', 'act', 'policy', 'assets', 'log', 'achv'];
 
 function titleScreen(): string {
@@ -497,7 +500,7 @@ function header(g: GameState): string {
     <div class="top-l">
       <div class="year">${g.year}년 <button class="gear" data-action="settings" title="설정" aria-label="설정">⚙</button></div>
       <div class="fam">${esc(g.familyName)}씨 ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
-      <div class="fam">명성 ${Math.round(g.fame)} · <button class="rank-chip" data-action="tab" data-v="achv">${RANKS[rankOf(g)].icon} ${RANKS[rankOf(g)].name} <b>${g.glory ?? 0}✦</b></button></div>
+      <div class="fam">명성 ${Math.round(g.fame)}${(g.scandal ?? 0) >= 10 ? ` · <span class="scandal-chip" title="가문 스캔들 위험 ${Math.round(g.scandal ?? 0)}">${scandalLabel(g.scandal ?? 0)}</span>` : ''} · <button class="rank-chip" data-action="tab" data-v="achv">${RANKS[rankOf(g)].icon} ${RANKS[rankOf(g)].name} <b>${g.glory ?? 0}✦</b></button></div>
     </div>
     <button class="top-r" data-action="tab" data-v="assets" data-sub="sum" title="자산 탭에서 내년 가계부 보기">
       <div class="money">${w.label} <span class="amt">${formatMoney(fx.wallet !== undefined && fx.walletLabel === w.label ? fx.wallet : w.amount)}</span></div>
@@ -599,7 +602,12 @@ function card(g: GameState, p: Person, extra = ''): string {
   const heir = p.id === g.heirId;
   const pending = g.events.some((e) => e.personId === p.id);
   const small = ui.zoom === 'small';
+  const likely = !isHead && !g.heirId && !dead && fx.likelyHeir === p.id;
+  const jb = jobBadge(g, p);
+  const nCards = (g.cards ?? []).filter((c) => c.personId === p.id).length;
+  const badges = [jb ? `<i title="${jb[1]}">${jb[0]}</i>` : '', likely ? '<i title="후계자 유력">⚡</i>' : '', nCards ? `<i title="명예의 전당 카드 ${nCards}장">🃏${nCards > 1 ? nCards : ''}</i>` : ''].join('');
   return `<button class="pc ${dead ? 'dead' : ''} ${isHead ? 'head' : ''} ${p.inLaw ? 'inlaw' : ''} ${extra}" data-action="person" data-id="${p.id}">
+    ${badges ? `<span class="pc-badges">${badges}</span>` : ''}
     ${isHead ? '<span class="crown">👑</span>' : heir ? '<span class="crown">★</span>' : ''}
     ${pending ? '<span class="bang">!</span>' : ''}
     <img class="px" src="${portraitURL(p, a)}" alt="">
@@ -607,6 +615,26 @@ function card(g: GameState, p: Person, extra = ''): string {
     <span class="ag">${dead ? '†' + a : a + (small ? '' : '세')}</span>
     ${small ? '' : `<span class="rl">${esc(jobShort(g, p))}</span>`}
   </button>`;
+}
+
+/** 직업 분야 뱃지: 클릭하지 않아도 가문의 직업 분포가 보이게 */
+const CAT_BADGE: Record<string, [string, string]> = {
+  medical: ['🩺', '의료'], legal: ['📑', '전문직'], public: ['🏛', '공직'], office: ['💼', '회사'], tech: ['💻', 'IT·공학'], edu: ['📚', '교육'],
+  service: ['🍳', '서비스'], trade: ['🔧', '기술'], transport: ['🚚', '운송'], media: ['🎬', '미디어'], sport: ['⚽', '스포츠'], biz: ['💰', '사업'], farm: ['🌾', '농어업'],
+};
+const JOB_BADGE: Record<string, [string, string]> = {
+  judge: ['⚖️', '법조'], prosecutor: ['⚖️', '법조'], lawyer: ['⚖️', '법조'], police: ['🚓', '경찰'], coast_guard: ['🚓', '경찰'], firefighter: ['🚒', '소방'], officer: ['🎖', '군'],
+  professor: ['🎓', '학계'], researcher: ['🔬', '연구'], politician: ['🗳', '정치'], minister: ['🏛', '장관'], president: ['🇰🇷', '대통령'], clergy: ['⛪', '종교'], social_worker: ['🤝', '복지'],
+  landlord: ['🏢', '건물주'], founder: ['🚀', '사업가'],
+};
+function jobBadge(g: GameState, p: Person): [string, string] | undefined {
+  if (!alive(p)) return;
+  const a = age(g, p);
+  if (p.flags.includes('student')) return ['🎓', '대학생'];
+  if (p.flags.some((f) => f.startsWith('prep:'))) return ['📖', '수험생'];
+  if (a < 20 || ['none', 'parttime'].includes(p.job)) return;
+  if (p.job === 'pension') return ['🌿', '은퇴'];
+  return JOB_BADGE[p.job] ?? CAT_BADGE[JOBS[p.job]?.cat ?? ''];
 }
 
 /** 카드 아래 한 줄: 학생/수험생/직업 */
@@ -653,8 +681,23 @@ function familyStats(g: GameState) {
   };
 }
 
+/** 가문 직업 분포 한 줄 */
+function jobMix(g: GameState): string {
+  const count = new Map<string, [string, number]>();
+  for (const p of Object.values(g.people)) {
+    if (!alive(p) || p.inLaw || !(isMainline(g, p) || isDescendantOf(g, head(g), p))) continue;
+    const b = jobBadge(g, p);
+    if (!b || ['🎓', '📖', '🌿'].includes(b[0])) continue;
+    const c = count.get(b[1]);
+    count.set(b[1], [b[0], (c?.[1] ?? 0) + 1]);
+  }
+  if (!count.size) return '';
+  return `<div class="job-mix">${[...count.entries()].sort((a, b) => b[1][1] - a[1][1]).map(([name, [ic, n]]) => `<span title="${name}">${ic} ${name} ${n}</span>`).join('')}</div>`;
+}
+
 function treeScreen(g: GameState): string {
   const h = head(g);
+  fx.likelyHeir = g.heirId ? undefined : chooseSuccessor(g, h)?.id;
   const st = familyStats(g);
   const heir = g.heirId && alive(g.people[g.heirId]) ? g.people[g.heirId] : undefined;
   const toolbar = `
@@ -665,8 +708,9 @@ function treeScreen(g: GameState): string {
     <div class="fam-stats">
       <span>👥 ${st.living}명</span><span>직계 ${st.main}</span><span>자손 ${st.desc}</span>
       ${st.minors ? `<span>🧒 ${st.minors}</span>` : ''}${st.single ? `<span>💌 미혼 ${st.single}</span>` : ''}${st.exam ? `<span>📖 수험생 ${st.exam}</span>` : ''}
-      <span>★ ${heir ? esc(heir.name) : '후계자 미정'}</span>
-    </div>`;
+      <span>★ ${heir ? esc(heir.name) : fx.likelyHeir && g.people[fx.likelyHeir] ? `⚡ ${esc(g.people[fx.likelyHeir].name)} 유력` : '후계자 미정'}</span>
+    </div>
+    ${jobMix(g)}`;
   if (ui.view === 'list') return toolbar + rosterScreen(g) + rivalStrip(g) + propertyStrip(g);
 
   const parents = parentsOf(g, h);
@@ -866,6 +910,13 @@ function lifeRows(g: GameState, p: Person): string {
   }
   const myCards = (g.cards ?? []).filter((c) => c.personId === p.id);
   if (myCards.length) rows.push(`<div class="sh-row"><span>카드</span><span>${myCards.map((c) => `${CARD[c.id].icon} ${CARD[c.id].name}`).join('<br>')}</span></div>`);
+  if (alive(p) && !p.inLaw && p.id !== g.headId && age(g, p) >= 13 && isDescendantOf(g, p, head(g))) {
+    const w = willOf(p);
+    rows.push(`<div class="sh-row"><span>성향</span><span>${willLine(p)}<br><small>독립심 ${w.indep} · 야망 ${w.ambition} · 충성도 ${w.loyalty} — 충성도가 낮고 독립심이 높으면 가주의 뜻을 거스르고, 야망이 크면 일을 벌인다</small></span></div>`);
+  }
+  if (p.flags.includes('disowned')) rows.push(`<div class="sh-row warn"><span>💔</span><span>의절한 자식</span></div>`);
+  if (p.flags.includes('noble_inlaw') || p.flags.includes('rich_inlaw')) rows.push(`<div class="sh-row"><span>혼인</span><span>${p.flags.includes('noble_inlaw') ? '🏯 명문가와 정략결혼' : '💎 신흥 부유층과 정략결혼'}</span></div>`);
+  if (alive(p) && !['none', 'parttime', 'pension'].includes(p.job) && age(g, p) >= 18) rows.push(`<div class="sh-row"><span>직업 성격</span><span>${HONOR_JOBS.has(p.job) ? '🎖 명예형 — 해마다 가문 명성 +0.6, 대신 품위 유지비로 수입의 6%가 나가고 스캔들에 약하다' : JOBS[p.job].fame >= 1 ? '⭐ 인기형 — 이름을 알리는 일' : '💰 실리형 — 돈을 버는 일'}</span></div>`);
   if (p.flags.includes('convicted_politician')) rows.push(`<div class="sh-row warn"><span>⚖</span><span>정치자금법 위반 전과</span></div>`);
   return rows.join('');
 }

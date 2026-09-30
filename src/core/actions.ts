@@ -11,6 +11,8 @@ import { oppActions } from './opportunities';
 import { bonusAP } from './rewards';
 import { CAREER_ACTIONS } from './career';
 import { RIVAL_ACTIONS } from './rival';
+import { MONEY_ACTIONS } from './scandal';
+import { AUTONOMY_ACTIONS, obeys } from './autonomy';
 import { STUDENT_ACTIONS } from './student-actions';
 import { fitCats } from './interests';
 import { JOB_CATS } from './jobs';
@@ -388,7 +390,7 @@ export const ACTIONS: ActionDef[] = [
     targets: (s) => adultsOfLine(s).filter((p) => p.id !== s.headId && p.partnerId),
     run: (s, t) => {
       const p = t!;
-      if (chance(s, 0.55 + (p.bond ?? 50) / 300)) {
+      if (chance(s, 0.3 + (p.bond ?? 50) / 300) && obeys(s, p)) {
         queueEv(s, 'kid_wedding', p.id);
         return `"그래요, 이참에 날 잡을게요." ${iga(fullName(p))} 결혼을 결심했다.`;
       }
@@ -1263,7 +1265,7 @@ const STAGE_ACTIONS: ActionDef[] = [
 ];
 // 올해의 기회: 목록 맨 앞 (분류 칩도 맨 앞에 선다)
 ACTIONS.unshift(...oppActions((s) => stageOf(s, h(s))));
-ACTIONS.push(...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, {
+ACTIONS.push(...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, ...MONEY_ACTIONS, ...AUTONOMY_ACTIONS, {
   id: 'license',
   cat: '진로·자기계발',
   icon: '🚦',

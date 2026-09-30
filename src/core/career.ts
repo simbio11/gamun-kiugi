@@ -129,6 +129,7 @@ const ACADEMIA: { id: string; title: string; text: (c: Ctx) => string; ok: (s: G
       { label: '인건비를 회수한다 (비자금)', run: (x) => {
         x.p.cash += 3000;
         x.p.actual.mor = clamp(x.p.actual.mor - 6, 0, 100);
+        x.s.scandal = Math.min(100, (x.s.scandal ?? 0) + 12);
         if (chance(x.s, 0.35)) {
           x.p.job = 'none';
           x.p.jobLevel = 0;
@@ -200,6 +201,7 @@ const POLITICS: { id: string; title: string; text: (c: Ctx) => string; ok: (s: G
         const pl = polOf(x.p);
         pl.slush += 50000;
         pl.heat += 25;
+        x.s.scandal = Math.min(100, (x.s.scandal ?? 0) + 15);
         x.p.actual.mor = clamp(x.p.actual.mor - 5, 0, 100);
         return '금고가 두둑해졌다. 선거 조직을 돌릴 돈이다. …이 돈에는 꼬리표가 붙어 있다.';
       } },
