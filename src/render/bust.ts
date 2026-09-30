@@ -53,6 +53,87 @@ export function bustURL(p: Person, age: number, year: number): string {
   return url;
 }
 
+const lum = (c: string) => {
+  const n = parseInt(c.slice(1, 7), 16);
+  return 0.3 * (n >>> 16) + 0.59 * ((n >>> 8) & 255) + 0.11 * (n & 255);
+};
+
+/** 2×2 칸을 한 칸으로: 눈·눈썹·외곽선 같은 어두운 선은 살리고, 나머지는 많은 색 */
+function shrink(g: Px[][]): Px[][] {
+  const M = N / 2;
+  const out: Px[][] = Array.from({ length: M }, () => Array(M).fill(null));
+  for (let y = 0; y < M; y++)
+    for (let x = 0; x < M; x++) {
+      const b = [g[y * 2][x * 2], g[y * 2][x * 2 + 1], g[y * 2 + 1][x * 2], g[y * 2 + 1][x * 2 + 1]].filter((c): c is string => !!c);
+      if (b.length < 2) continue;
+      const cnt = new Map<string, number>();
+      for (const c of b) cnt.set(c, (cnt.get(c) ?? 0) + 1);
+      let best = b[0];
+      for (const [c, n] of cnt) if (n > cnt.get(best)!) best = c;
+      const dark = b.reduce((a, c) => (lum(c) < lum(a) ? c : a));
+      out[y][x] = lum(dark) < lum(best) * 0.55 ? dark : best;
+    }
+  return out;
+}
+
+const small = new Map<string, string>();
+
+/** 가계도용 16×16 — 상세 초상화를 그대로 줄인 것 */
+export function bustSmallURL(p: Person, age: number, year: number): string {
+  const st = stageOf(age);
+  const eraBand = year < 1983 ? 0 : year < 2040 ? 1 : 2;
+  const key = `${p.id}:${st}:${p.job}:${eraBand}`;
+  const hit = small.get(key);
+  if (hit) return hit;
+  bare = true;
+  const g = shrink(draw(p, st, hash(p.id), eraBand, age));
+  bare = false;
+  // 16칸 이목구비 — 상세판과 같은 자리·같은 성격
+  const F = lastFace;
+  const put = (x: number, y: number, c: string) => y >= 0 && y < 16 && x >= 0 && x < 16 && (g[y][x] = c);
+  const ey = F.eyeY >> 1;
+  const lx = (F.cx >> 1) - 2;
+  const rx = (F.cx >> 1) + 1;
+  const EYE = '#2a1a14';
+  if (F.mark === 5 && F.st === 'adult') for (let x = lx - 1; x <= rx + 1; x++) put(x, ey, '#15151c');
+  else {
+    put(lx, ey, EYE), put(rx, ey, EYE);
+    if (F.f && F.st !== 'baby') put(lx - 1, ey - 1, EYE), put(rx + 1, ey - 1, EYE); // 속눈썹
+    else if (F.st !== 'baby' && g[ey - 1]?.[lx] === F.sk) put(lx, ey - 1, F.bc), put(lx - 1, ey - 1, F.bc), put(rx, ey - 1, F.bc), put(rx + 1, ey - 1, F.bc); // 눈썹
+    if (F.mark === 1 && F.st !== 'baby') put(lx - 1, ey, '#5a5a6e'), put(rx + 1, ey, '#5a5a6e'), put(lx + 1, ey, '#5a5a6e'), put(rx - 1, ey, '#5a5a6e');
+  }
+  if (F.f || F.st === 'baby' || F.st === 'child') put(lx - 1, ey + 1, '#f4a0a8'), put(rx + 1, ey + 1, '#f4a0a8');
+  const my = F.mouthY >> 1;
+  const lip = F.f && (F.st === 'adult' || F.st === 'teen') ? '#c84a5a' : '#b86a6a';
+  put(lx + 1, my, lip), put(rx - 1, my, lip);
+  if (!F.f && F.st === 'elder') put(lx + 1, my - 1, '#c9c4bd'), put(rx - 1, my - 1, '#c9c4bd');
+  if (F.st === 'elder') put(lx - 1, ey + 1, F.skD), put(rx + 1, ey + 1, F.skD);
+  const c = document.createElement('canvas');
+  c.width = c.height = N / 2;
+  const ctx = c.getContext('2d')!;
+  g.forEach((r, y) =>
+    r.forEach((col, x) => {
+      if (col) {
+        ctx.fillStyle = col;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }),
+  );
+  const url = c.toDataURL();
+  small.set(key, url);
+  return url;
+}
+
+let bare = false;
+let lastFace = { cx: 16, eyeY: 12, mouthY: 18, f: false, st: 'adult' as Stage, mark: 0, sk: '#f1c9a5', skD: '#d9a577', bc: '#2a2420' };
+let lastLooks = { hair: '#2a2420', skin: '#f1c9a5', cloth: '#34506e' };
+
+/** 장면 그림용 색 — 상세 초상화와 같은 머리·피부·옷 색 */
+export function bustColors(p: Person, age: number, year: number): { hair: string; skin: string; cloth: string } {
+  draw(p, stageOf(age), hash(p.id), year < 1983 ? 0 : year < 2040 ? 1 : 2, age);
+  return { ...lastLooks };
+}
+
 function draw(p: Person, st: Stage, h: number, era: number, age: number): Px[][] {
   const g: Px[][] = Array.from({ length: N }, () => Array(N).fill(null));
   const set = (x: number, y: number, c: Px) => {
@@ -86,17 +167,17 @@ function draw(p: Person, st: Stage, h: number, era: number, age: number): Px[][]
   const faceBottom = top + shape.length - 1;
 
   // ── 머리 모양 (개인 선택: 사람마다 · 시대마다) ──
-  const MALE = era === 0 ? ['buzz', 'side', 'side', 'slick', 'short', 'buzz', 'bowl', 'short', 'side', 'curly'] : era === 1 ? ['side', 'bowl', 'spiky', 'short', 'curly', 'messy', 'slick', 'twoblock', 'buzz', 'long'] : ['twoblock', 'spiky', 'messy', 'long', 'mohawk', 'side', 'curly', 'bowl', 'short', 'slick'];
-  const FEMALE = era === 0 ? ['perm', 'bob', 'braid', 'bun', 'long', 'bob', 'perm', 'ponytail', 'bangs', 'long'] : era === 1 ? ['long', 'bob', 'ponytail', 'bangs', 'twin', 'wavy', 'bun', 'pixie', 'perm', 'long'] : ['pixie', 'wavy', 'twin', 'bob', 'ponytail', 'long', 'bun', 'bangs', 'braid', 'pixie'];
+  const MALE = era === 0 ? ['buzz', 'side', 'side', 'slick', 'short', 'buzz', 'bowl', 'short', 'side', 'curly'] : era === 1 ? ['side', 'bowl', 'spiky', 'short', 'curly', 'messy', 'slick', 'twoblock', 'buzz', 'short'] : ['twoblock', 'spiky', 'messy', 'short', 'mohawk', 'side', 'curly', 'bowl', 'short', 'slick'];
+  const FEMALE = era === 0 ? ['perm', 'bob', 'braid', 'bun', 'long', 'bob', 'perm', 'ponytail', 'bangs', 'long'] : era === 1 ? ['long', 'bob', 'ponytail', 'bangs', 'twin', 'wavy', 'bun', 'long', 'perm', 'long'] : ['wavy', 'long', 'twin', 'bob', 'ponytail', 'long', 'bun', 'bangs', 'braid', 'wavy'];
   let style = (f ? FEMALE : MALE)[(gn.hairStyle * 7 + (h >>> 4)) % 10];
   if (st === 'elder') style = f ? (h % 2 ? 'perm' : 'bun') : h % 3 === 0 ? 'bald' : h % 3 === 1 ? 'side' : 'short';
   if (st === 'baby') style = 'baby';
   if (st === 'child' && f && style === 'bun') style = 'twin';
 
   // 1) 뒷머리 (긴 머리는 얼굴 뒤로)
-  const back = ['long', 'wavy', 'braid', 'bob', 'perm'].includes(style);
+  const back = ['long', 'wavy', 'braid', 'bob', 'perm', 'bangs'].includes(style);
   if (back) {
-    const len = style === 'bob' ? faceBottom - 1 : style === 'perm' ? faceBottom - 3 : 28;
+    const len = style === 'bob' || style === 'perm' ? faceBottom + 2 : 29;
     for (let y = top + 2; y <= len; y++) row(y, cx - 9, cx + 8, hc);
     if (style === 'wavy') for (let y = top + 6; y <= len; y += 3) set(cx - 10, y, hc), set(cx + 9, y + 1, hc);
   }
@@ -322,6 +403,13 @@ function draw(p: Person, st: Stage, h: number, era: number, age: number): Px[][]
 
   // 5) 눈썹 (유전) · 눈 (유전) · 코 · 입
   const eyeY = top + 6;
+  const mark = gn.mark ?? 0;
+  if (bare) {
+    // 축소판용: 이목구비는 16칸에 맞춰 따로 찍는다
+    lastFace = { cx, eyeY, mouthY: eyeY + (st === 'baby' ? 4 : 6), f, st, mark, sk, skD, bc: shade(hc === '#d8d0c0' || st === 'elder' ? '#8a847e' : hc, 0.9) };
+    lastLooks = { hair: hc, skin: sk, cloth: base };
+    return outline(g);
+  }
   const bc = shade(hc === '#d8d0c0' || st === 'elder' ? '#8a847e' : hc, 0.9);
   const BROWS = [['xxx'], ['xxxx'], ['.xx', 'x..'], ['xxx', '...'], ['x..', '.xx']];
   const brow = BROWS[(gn.brows ?? 0) % BROWS.length];
@@ -356,7 +444,6 @@ function draw(p: Person, st: Stage, h: number, era: number, age: number): Px[][]
   stamp(cx - Math.floor(mouth[0].length / 2), mouthY, mouth, { m: lip, w: '#ffffff' });
 
   // 6) 개인 특징·나이
-  const mark = gn.mark ?? 0;
   if (f || kidish || mark === 4) set(cx - 5, eyeY + 3, '#f4a0a8'), set(cx + 4, eyeY + 3, '#f4a0a8');
   if (mark === 1 && st !== 'baby') {
     const G2 = '#3a3a4a';
@@ -372,7 +459,12 @@ function draw(p: Person, st: Stage, h: number, era: number, age: number): Px[][]
   if (st === 'elder') set(cx - 6, eyeY + 2, skD), set(cx + 5, eyeY + 2, skD), row(top + 3, cx - 3, cx + 2, skD); // 주름
   if (f && st === 'adult' && (h >>> 10) % 2 === 0) set(cx - ew - 1, earY + 3, '#f0c040'), set(cx + ew, earY + 3, '#f0c040'); // 귀걸이
 
-  // 7) 외곽선
+  lastLooks = { hair: hc, skin: sk, cloth: base };
+  return outline(g);
+}
+
+// 7) 외곽선
+function outline(g: Px[][]): Px[][] {
   const out: Px[][] = g.map((r) => [...r]);
   for (let y = 0; y < N; y++)
     for (let x = 0; x < N; x++) {
