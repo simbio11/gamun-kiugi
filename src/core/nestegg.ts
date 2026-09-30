@@ -9,6 +9,8 @@ import { age, alive, fullName, head, parentsOf, relationLabel } from './people';
 import type { GameState, Person } from './types';
 
 type EggKind = 'save' | 'etf';
+/** 국내 ETF는 2002년 상장. 그 전엔 증권사 창구의 적립식 주식 통장 */
+const etfName = (s: GameState) => (s.era === 'history' && s.year < 2002 ? '주식 적립 통장' : 'ETF');
 const EGG_NAMES: Record<EggKind, string> = { save: '청약·적금 통장', etf: '적립식 ETF 계좌' };
 
 const liquid = (s: GameState, pars: Person[]) => pars.reduce((t, p) => t + Math.max(0, p.cash), 0) + (pars.some((p) => p.id === s.headId) ? 0 : Math.max(0, s.familyCash));
@@ -43,7 +45,7 @@ const eggEv: EventDef = {
     const start = (kind: EggKind, yearly: number, text: string) => (): string => {
       kid.flags = kid.flags.filter((f) => !f.startsWith('egg:'));
       kid.flags.push(`egg:${kind}:${yearly}:${payer.id}`);
-      if (kind === 'etf') addHolding(c.s, 'stock', kid.id, 0).name = `${kid.name} 명의 ETF`;
+      if (kind === 'etf') addHolding(c.s, 'stock', kid.id, 0).name = `${kid.name} 명의 ${etfName(c.s)}`;
       return text;
     };
     const out: Choice[] = [];
@@ -57,7 +59,7 @@ const eggEv: EventDef = {
         run: (x) => {
           if (payer.id !== x.s.headId) payer.cash -= 2000;
           const a = addHolding(x.s, 'stock', kid.id, 2000);
-          a.name = `${kid.name} 명의 ETF`;
+          a.name = `${kid.name} 명의 ${etfName(x.s)}`;
           x.s.gifts.push({ fromId: payer.id, toId: kid.id, amount: 2000, tax: 0, year: x.s.year });
           return `증여 신고까지 마쳤다. 2,000만 원이 ${kid.name} 명의 계좌에서 굴러간다. (10년 뒤 또 2,000만 원까지 비과세)`;
         },

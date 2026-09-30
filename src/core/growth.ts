@@ -27,6 +27,7 @@ const FOCUS_STAT: Record<Focus, StatKey | null> = { study: 'int', sport: 'str', 
 /** 학교·진로 플래그가 주는 연간 추가 성장 (미성년 기간) */
 const FLAG_GROWTH: Record<string, Partial<Stats>> = {
   kinder_eng: { int: 1 },
+  kinder_church: { cha: 1 },
   elem_private: { int: 1.5, cha: 0.5 },
   elem_intl: { int: 1.5, cha: 1.5 },
   elem_alt: { mor: 1.5, cha: 0.5 },

@@ -18,6 +18,19 @@ export function stageOf(age: number): Stage {
   return age < 3 ? 'baby' : age < 13 ? 'child' : age < 20 ? 'teen' : age < 60 ? 'adult' : 'elder';
 }
 
+/** 장면 그림(scene.ts)에서 그 사람처럼 그리려고: 머리·피부·옷 색 */
+export function looksOf(p: Person, age: number): { hair: string; skin: string; cloth: string; female: boolean; kid: boolean; old: boolean } {
+  const st = stageOf(age);
+  return {
+    hair: st === 'elder' ? GRAY : HAIR[p.genes.hairColor % HAIR.length],
+    skin: SKIN[p.genes.skin % SKIN.length],
+    cloth: st === 'child' || st === 'baby' ? '#e2b93b' : st === 'teen' ? '#3f6fb5' : JOBS[p.job]?.color ?? '#34506e',
+    female: p.sex === 'F',
+    kid: st === 'child' || st === 'baby',
+    old: st === 'elder',
+  };
+}
+
 const cache = new Map<string, string>();
 
 export function portraitURL(p: Person, age: number): string {

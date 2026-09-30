@@ -898,3 +898,11 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .sh-cap { font-size: .8em; font-weight: 800; line-height: 1.35; text-shadow: 0 1px 3px rgba(0,0,0,.8); background: rgba(0,0,0,.35); padding: 4px 6px; border-radius: 6px; }
 .sh-meta { display: flex; flex-direction: column; gap: 1px; margin-top: 5px; font-size: .64em; opacity: .85; }
 .calm .sh-clip { animation: none; }
+/* 사건 한 장면 (render/scene.ts): 도트 배경 위에 인물 */
+.ev-scene { position: relative; margin: 4px 0 8px; border-radius: 6px; overflow: hidden; border: 2px solid rgba(0,0,0,.35); box-shadow: 0 3px 0 rgba(0,0,0,.2); }
+.scene-img { display: block; width: 100%; max-width: 100%; aspect-ratio: 80 / 40; image-rendering: pixelated; animation: scene-in .5s ease-out both; }
+.ev-ports.on-scene { position: absolute; left: 6px; bottom: 4px; margin: 0; gap: 2px; }
+.ev-ports.on-scene img { filter: drop-shadow(0 2px 0 rgba(0,0,0,.45)); }
+@keyframes scene-in { 0% { opacity: 0; transform: scale(1.04); } 100% { opacity: 1; transform: none; } }
+.calm .scene-img { animation: none; }
+img.px.big.bust { width: 112px; height: 112px; background: #f4ead6; border-radius: 6px; }

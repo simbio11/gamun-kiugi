@@ -12,6 +12,35 @@ const renter = (s: GameState, p: Person) => ['jeonse', 'wolse'].includes(homeOf(
 const working = (_s: GameState, p: Person) => !!p.job && !['none', 'pension', 'parttime'].includes(p.job);
 
 export const AGE_STORIES: Story[] = [
+  // ═══════ 어린 시절의 자연 (어느 시대든: 근현대사 2000년 전엔 h_ 판) ═══════
+  { id: 'h_kid_stagbeetle', title: '사슴벌레', age: [7, 13], w: 0.06, cooldown: 4, era: [1960, 1999], cond: kid, text: '여름방학, 뒷산 참나무에 설탕물을 발라 두었다. 새벽에 가 보니 커다란 사슴벌레가 붙어 있다!', choices: [
+    { label: '잡아서 키운다', text: '', roll: ['luck', 60, [{ hap: 8 }, '넓적사슴벌레 수컷! 동네 아이들이 구경하러 몰려왔다.'], [{ hap: 3 }, '집게에 손가락을 물렸다. 그래도 잡았다!']] },
+    { label: '보고만 놓아준다', text: '나무 위로 천천히 올라가는 걸 한참 지켜봤다.', eff: { mor: 1, hap: 4 } },
+  ] },
+  { id: 'kid_stagbeetle', title: '사슴벌레', age: [7, 13], w: 0.05, cooldown: 4, cond: kid, text: '캠핑장 가로등 아래 사슴벌레가 떨어져 있다. {n}의 눈이 반짝인다.', choices: [
+    { label: '채집통에 넣어 관찰한다', text: '관찰 일기를 써서 방학 숙제 최우수상을 받았다.', eff: { int: 1, hap: 6 } },
+    { label: '숲으로 돌려보낸다', text: '"잘 가!" 아이가 손을 흔들었다.', eff: { mor: 1, hap: 4 } },
+  ] },
+  { id: 'h_kid_cicada', title: '매미채', age: [6, 12], w: 0.05, cooldown: 4, era: [1960, 1999], cond: kid, text: '철사 옷걸이에 양파망을 달아 매미채를 만들었다. 느티나무 위에서 매미가 요란하게 운다.', choices: [
+    { label: '나무에 올라간다', text: '', roll: ['str', 45, [{ hap: 7, str: 1 }, '참매미 세 마리! 의기양양하게 집에 왔다.'], [{ hp: -3, hap: -1 }, '가지가 부러져 무릎이 까졌다.']] },
+    { label: '밑에서 기다린다', text: '결국 한 마리도 못 잡았지만, 해 질 때까지 웃었다.', eff: { hap: 3 } },
+  ] },
+  { id: 'kid_fireflies', title: '반딧불이', age: [6, 14], w: 0.04, cooldown: 6, cond: kid, text: '시골 할머니 댁 개울가에 반딧불이가 떠다닌다. 도시에선 본 적 없는 풍경이다.', choices: [
+    { label: '두 손에 한 마리 담아 본다', text: '손 안에서 초록빛이 깜빡였다. 평생 잊지 못할 밤.', eff: { hap: 8 } },
+    { label: '누워서 별과 함께 본다', text: '별인지 반딧불인지 모를 빛 사이에서 잠들었다.', eff: { hap: 6, mor: 1 } },
+  ] },
+  { id: 'kid_tadpole', title: '올챙이', age: [6, 11], w: 0.04, cooldown: 6, cond: kid, text: '논두렁에서 올챙이를 떠 왔다. 어항에 넣고 개구리가 될 때까지 키우겠단다.', choices: [
+    { label: '같이 관찰 일기를 쓴다', text: '뒷다리가 나온 날, 아이가 소리를 질렀다. 다 자라서 논에 놓아줬다.', eff: { int: 1, aff: 4 } },
+    { label: '며칠 보고 돌려보내게 한다', text: '"집이 제일 좋대." 아이가 수긍했다.', eff: { mor: 1 } },
+  ] },
+  { id: 'kid_snowman', title: '첫눈', age: [5, 12], w: 0.04, cooldown: 5, cond: kid, text: '밤새 첫눈이 소복이 쌓였다. {n}이(가) 아침부터 장갑을 찾는다.', choices: [
+    { label: '같이 눈사람을 만든다', text: '당근 코에 목도리까지. 사진을 찍어 가족 앨범에 넣었다.', eff: { hap: 7, aff: 3 } },
+    { label: '눈싸움을 한다', text: '온 동네 아이들이 편을 갈라 눈싸움을 했다. 볼이 빨개졌다.', eff: { hap: 6, str: 1 } },
+  ] },
+  { id: 'kid_sparrow', title: '다친 참새', age: [6, 13], w: 0.04, cooldown: 6, cond: kid, text: '학교 가는 길, 날개를 다친 참새가 퍼덕인다. {n}이(가) 두 손으로 감싸 안고 왔다.', choices: [
+    { label: '상자에 넣고 돌봐 준다', text: '', roll: ['luck', 55, [{ mor: 2, hap: 6 }, '일주일 뒤, 참새가 창밖으로 날아갔다. 아이가 울면서 웃었다.'], [{ mor: 2, hap: -3 }, '사흘 뒤 조용히 숨을 거뒀다. 마당에 묻어 줬다.']] },
+    { label: '동물병원(야생동물 센터)에 데려간다', cost: 5, text: '"잘 데려왔네." 수의사가 칭찬했다.', eff: { mor: 2 } },
+  ] },
   // ═══════ 1960~70년대 ═══════
   { id: 'h_kid_gomu', title: '고무줄놀이', age: [6, 12], w: 0.05, era: [1960, 1985], cond: kid, text: '골목에서 "무찌르자 오랑캐~" 고무줄놀이가 한창이다. 짓궂은 남자애가 고무줄을 끊고 달아났다.', choices: [
     { label: '쫓아가서 따진다', text: '', roll: ['str', 45, [{ hap: 4, cha: 1 }, '잡았다! 새 고무줄을 사 오기로 약속받았다.'], [{ hap: -2 }, '놓쳤다. 매듭을 지어 다시 놀았다.']] },

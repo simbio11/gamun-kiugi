@@ -42,7 +42,7 @@ import { FOCUS_LABEL, focusOf } from '../core/spouse';
 import { govOf } from '../core/history';
 import { epochOf, newsMedium, newsStyle, type AlertMedia } from '../core/timeline';
 import { warChip } from '../core/war';
-import { anachronistic, inHistory, periodize } from '../core/histpack';
+import { anachronistic, inHistory, periodize, setHistCur } from '../core/histpack';
 import { jeonseRatio, LEASE_NAME, leaseOf, setLease, type Lease } from '../core/tenant';
 import { WOES, woesOf } from '../core/woes';
 import { chooseSuccessor } from '../core/estate';
@@ -79,7 +79,9 @@ import {
 } from '../core/sim';
 import type { Difficulty } from '../core/sim';
 import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, MarketKey, Person, Sex, WillMode } from '../core/types';
-import { portraitURL } from '../render/portrait';
+import { portraitURL, looksOf } from '../render/portrait';
+import { sceneFor, sceneURL } from '../render/scene';
+import { bustURL } from '../render/bust';
 import { commEvent, pcOf, phoneOf, type CommKind } from '../core/devices';
 
 type Tab = 'tree' | 'act' | 'policy' | 'assets' | 'log' | 'achv';
@@ -300,7 +302,7 @@ export function mount(el: HTMLElement) {
 
 function render() {
   const g = ui.game;
-  if (g) setMoneyYear(g.year);
+  if (g) setMoneyYear(g.year), setHistCur(g); // 성향(MBTI) 표시 같은 시대 판단을 화면에도
   root.classList.toggle('calm', !!prefs.calm);
   // 근현대사 모드: 시대 분위기 (1960~70년대 신문지·1980년대·1990~2000년대)
   const hy = ui.game?.era === 'history' && ui.game.year <= 2025 ? ui.game.year : 0;
@@ -977,6 +979,7 @@ function statBars(p: Person): string {
 
 const EDU_LABELS: Record<string, string> = {
   kinder_eng: '영어유치원',
+  kinder_church: '교회 유치원',
   elem_private: '사립초',
   elem_intl: '국제학교',
   elem_alt: '대안학교',
@@ -1092,7 +1095,7 @@ function personSheet(g: GameState, p: Person): string {
   const dead = !alive(p);
   const a = dead ? p.deathYear! - p.birthYear : age(g, p);
   const h = head(g);
-  const edu = p.flags.filter((f) => EDU_LABELS[f]).map((f) => EDU_LABELS[f]);
+  const edu = p.flags.filter((f) => EDU_LABELS[f]).map((f) => periodize(g, EDU_LABELS[f]));
   const talents = p.talents.filter((t) => t.discovered);
   const job = JOBS[p.job];
   const prep = p.flags.find((f) => f.startsWith('prep:'))?.slice(5);
@@ -1143,7 +1146,7 @@ function personSheet(g: GameState, p: Person): string {
   <div class="modal" data-action="close-sheet">
     <div class="sheet" data-stop>
       <div class="sheet-head">
-        <img class="px big ${dead ? 'dead' : ''}" src="${portraitURL(p, a)}">
+        <img class="px big bust ${dead ? 'dead' : ''}" src="${bustURL(p, a, g.year)}">
         <div>
           <div class="sh-name">${esc(fullName(p))} ${p.id === g.headId ? '👑' : ''}</div>
           <div class="sh-sub">${esc(relationLabel(g, p))} · ${dead ? `${p.birthYear}–${p.deathYear} (향년 ${a}세)` : `${a}세 (${p.birthYear}년생)`}</div>
@@ -1182,6 +1185,7 @@ function eventModal(g: GameState): string {
   if (media) return newsModal(g, cur, media);
   const how = commEvent(cur.def.id, cur.title);
   if (how) return commModal(g, cur, how);
+  const lead = cur.portraits.find(Boolean);
   const ports = cur.portraits
     .filter(Boolean)
     .slice(0, 3)
@@ -1192,7 +1196,7 @@ function eventModal(g: GameState): string {
     <div class="event">
       <div class="ev-count">${g.year}년 · 남은 이벤트 ${g.events.length}</div>
       <h3>${esc(cur.title)}</h3>
-      <div class="ev-ports">${ports}</div>
+      <div class="ev-scene"><img class="scene-img" src="${sceneURL(sceneFor(cur.title, cur.text), g.year, cur.ev.uid, lead ? looksOf(lead, g.year - lead.birthYear) : undefined)}" alt=""><div class="ev-ports on-scene">${ports}</div></div>
       <p class="ev-text">${nl(cur.text)}</p>
       ${cur.choices.some((c) => c.cost) ? `<div class="ev-wallet">${wallet(g).label} <b>${formatMoney(wallet(g).amount)}</b></div>` : ''}
       <div class="choices">
