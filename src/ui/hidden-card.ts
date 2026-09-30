@@ -90,7 +90,7 @@ export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; 
     return `<div class="hid-card locked ${superJob ? 'is-super' : ''} ${o.cls ?? ''}"><div class="hid-stage">${
       a ? `<img class="hid-back" src="${a.src}" alt=""><img class="hid-img hid-blur" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-sil" src="${a.fig}" alt="">` : ''}` : ''
     }<div class="hid-q">?</div></div><div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in only"><b>${superJob ? 'SUPER HIDDEN' : 'HIDDEN JOB'}</b></div><i class="hid-orn r"></i><em class="hid-medal">${superJob ? '👑' : '?'}</em></div></div>`;
-  // 크게 보기에서만: 카드 그림 → 추가 장면 넷이 천천히 번갈아 (한 장면 6초, 1.5초에 걸쳐 스르르)
+  // 크게 보기에서만: 카드 그림 → 추가 장면 넷이 천천히 번갈아 (한 장면 4초 머물고 1.5초에 걸쳐 스르르)
   const slides = a?.alts?.length && o.cls?.includes('cv-img') ? `<div class="hid-slides" style="--n:${a.alts.length + 1}">${a.alts.map((u, i) => `<img class="hid-img" src="${u}" alt="" style="--i:${i + 1}">`).join('')}</div>` : '';
   const art = a
     ? `<img class="hid-back" src="${a.src}" alt=""><div class="hid-pan"><img class="hid-img hid-bg" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-fig" src="${a.fig}" alt="">` : ''}${slides}${a.vid ? `<video class="hid-img hid-vid" muted playsinline preload="auto" poster="${a.src}">${a.vid.mp4 ? `<source src="${a.vid.mp4}" type="video/mp4">` : ''}${a.vid.webm ? `<source src="${a.vid.webm}" type="video/webm">` : ''}</video>` : ''}</div>`

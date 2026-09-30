@@ -1352,8 +1352,7 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 /* 카드 뷰어의 영상 보기 버튼 */
 .cv-ctrl-btn.vid-btn { background: #3a1030; color: #ffd0e8; border-color: #ff5aa8; }
 
-/* 히든 카드 크게 보기: 추가 장면이 천천히 순환 (카드 그림 포함 n칸, 칸마다 6초) */
+/* 히든 카드 크게 보기: 카드 그림 + 추가 장면 넷이 천천히 순환 (한 장면 4초 머물고 1.5초에 걸쳐 바뀜, 5칸 × 5.5초) */
 .hid-slides { position: absolute; inset: 0; pointer-events: none; }
-.hid-slides img { opacity: 0; animation: hid-slide calc(var(--n) * 6s) linear infinite; animation-delay: calc(var(--i) * 6s - 1.5s); }
-@keyframes hid-slide { 0% { opacity: 0; } 5% { opacity: 1; } 20% { opacity: 1; } 25% { opacity: 0; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .hid-slides img { animation-duration: calc(var(--n) * 12s); } }
+.hid-slides img { opacity: 0; animation: hid-slide calc(var(--n) * 5.5s) linear infinite; animation-delay: calc(var(--i) * 5.5s - 1.5s); }
+@keyframes hid-slide { 0% { opacity: 0; } 5.45% { opacity: 1; } 20% { opacity: 1; } 25.45% { opacity: 0; } 100% { opacity: 0; } }
