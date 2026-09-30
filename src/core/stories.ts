@@ -8,6 +8,7 @@ import { AGE_STORIES } from './stories-ages';
 import { OWNED_STORIES } from './stories-owned';
 import { MOM_STORIES } from './stories-mom';
 import { PHONE_STORIES } from './stories-phone';
+import { HIDDEN_STORIES } from './stories-hidden';
 import { POLITICS_STORIES, homeCity, pledgeOf } from './stories-politics';
 import { wageIndex } from './pay';
 import { chance, int } from './rng';
@@ -131,6 +132,17 @@ function apply(x: Ctx, e: Eff | undefined) {
   if (e.bond) {
     const q = spouseOf(x.s, p) ?? (p.partnerId ? x.s.people[p.partnerId] : undefined);
     if (q && alive(q)) p.bond = q.bond = clamp((p.bond ?? 60) + e.bond, 0, 100);
+  }
+  if (e.flag === 'av_start') {
+    p.job = 'av_actor';
+    p.jobLevel = 0;
+    p.jobYears = 0;
+  }
+  if (e.flag === 'av_quit') {
+    p.job = 'none';
+    p.jobLevel = 0;
+    p.jobYears = 0;
+    addFlag(p, 'av_retired');
   }
   if (e.flag === 'found_half_sib') {
     const q = addHalfSibling(x.s, p);
@@ -637,5 +649,5 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES, ...HIST_STORIES, ...DEVICE_STORIES, ...ERA_STORIES, ...AGE_STORIES, ...OWNED_STORIES, ...MOM_STORIES, ...POLITICS_STORIES, ...PHONE_STORIES].map(toLife);
+export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES, ...HIST_STORIES, ...DEVICE_STORIES, ...ERA_STORIES, ...AGE_STORIES, ...OWNED_STORIES, ...MOM_STORIES, ...POLITICS_STORIES, ...PHONE_STORIES, ...HIDDEN_STORIES].map(toLife);
 export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length + SUDDEN_STORIES.length + INTEREST_STORIES.length + LIFE3_STORIES.length + TEMPER_STORIES.length + SPECIAL_STORIES.length + SAGA_STORIES.length + WORK_STORIES.length;

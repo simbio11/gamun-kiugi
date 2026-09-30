@@ -51,7 +51,8 @@ import { willLine, willOf } from '../core/autonomy';
 import { buyPerk, HONORS, PERKS, perkCost, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
-import { cardBackURL, cardFrontURL, crestURL, medalURL, type Theme } from '../render/cardart';
+import { cardBackURL, cardFrontURL, crestURL, customFrames, medalURL, type Theme } from '../render/cardart';
+import '../render/glam';
 import { familyScore, lifeGrade, lifeParts } from '../core/score';
 import { pendingAffairs } from '../core/fate';
 import { ACTIONS, STAGE_NAMES, apLeft, apMax, doAction, forHead, stageOf, type ActionCat } from '../core/actions';
@@ -1381,7 +1382,7 @@ function rewardModal(r: Reward): string {
       <div class="rw-rarity">${RARITY_NAME[r.rarity]}</div>
       ${
         r.card && CARD[r.card]
-          ? `<div class="hcard ${r.rarity}"><img class="hc-art" src="${cardArt(CARD[r.card])}" alt=""><div class="hc-title">${CARD[r.card].name}</div><div class="hc-name">${r.personId && g0()?.people[r.personId] ? esc(fullName(g0()!.people[r.personId])) : ''}</div><i class="hc-shine"></i></div><div class="hc-eff">${esc(effText(CARD[r.card].eff))}</div>`
+          ? `<div class="hcard ${r.rarity}">${cardImg(CARD[r.card], false, 'hc-art')}<div class="hc-title">${CARD[r.card].name}</div><div class="hc-name">${r.personId && g0()?.people[r.personId] ? esc(fullName(g0()!.people[r.personId])) : ''}</div><i class="hc-shine"></i></div><div class="hc-eff">${esc(effText(CARD[r.card].eff))}</div>`
           : r.grade
             ? `<div class="grade-stamp g-${r.grade.toLowerCase()}">${r.grade}</div>`
             : `<div class="rw-icon">${r.icon}</div>`
@@ -1395,7 +1396,13 @@ function rewardModal(r: Reward): string {
   </div>`;
 }
 const g0 = () => ui.game;
-const cardArt = (d: CardDef, locked = false) => cardFrontURL(d.id, d.icon, (CARD_THEME[d.id] ?? 'power') as Theme, d.rarity, locked, cardTier(d));
+const cardArt = (d: CardDef, locked = false, frame = 0) => cardFrontURL(d.id, d.icon, (CARD_THEME[d.id] ?? 'power') as Theme, d.rarity, locked, cardTier(d), frame);
+/** 움직이는 카드(여러 장)는 겹쳐 놓고 번갈아 보여 준다 */
+const cardImg = (d: CardDef, locked: boolean, cls: string) => {
+  const n = locked ? 1 : customFrames(d.id);
+  if (n <= 1) return `<img class="${cls}" src="${cardArt(d, locked)}" alt="">`;
+  return `<span class="gif3">${Array.from({ length: n }, (_, i) => `<img class="${cls}${i ? ` gf gf${i}` : ''}" src="${cardArt(d, false, i)}" alt="">`).join('')}</span>`;
+};
 
 /** 🃏 카드 뷰어: 실물 카드처럼 크게. 기울이면 홀로그램, 누르면 뒤집힌다 */
 function cardViewer(g: GameState, id: string): string {
@@ -1408,7 +1415,7 @@ function cardViewer(g: GameState, id: string): string {
     <div class="cv-wrap">
       <div class="cv-card ${d.rarity} ${got ? '' : 'locked'}" data-stop>
         <div class="cv-face cv-front">
-          <img class="cv-img" src="${cardArt(d, !got)}" alt="">
+          ${cardImg(d, !got, 'cv-img')}
           <div class="cv-no">No.${String(cardNo(id)).padStart(3, '0')} · ${RARITY_NAME[d.rarity]}</div>
           ${hp ? `<img class="cv-portrait" src="${portraitURL(hp, alive(hp) ? age(g, hp) : hp.deathYear! - hp.birthYear)}" alt="">` : ''}
           <div class="cv-bottom">
@@ -2001,7 +2008,7 @@ function achvScreen(g: GameState): string {
     <h2>🃏 명예의 전당 카드 <small class="muted">${dexGot.size}/${CARDS.length}종</small></h2>
     <div class="cdex">${[...CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.dex ? 999 : 6).map((d) => {
       const who = dexGot.get(d.id);
-      return `<button class="dx ${who ? d.rarity : 'locked'}" data-action="card-view" data-id="${d.id}"><span class="dx-c"><img class="dx-art" src="${cardArt(d, !who)}" alt=""><i class="dx-nm">${who ? d.name : '???'}</i></span><small>${who ? esc(who.join(', ')) : '미획득'}</small></button>`;
+      return `<button class="dx ${who ? d.rarity : 'locked'}" data-action="card-view" data-id="${d.id}"><span class="dx-c">${cardImg(d, !who, 'dx-art')}<i class="dx-nm">${who ? d.name : '???'}</i></span><small>${who ? esc(who.join(', ')) : '미획득'}</small></button>`;
     }).join('')}</div>
     <button class="more-btn" data-action="more" data-v="dex">${ui.open?.dex ? '▲ 접기' : `▼ 더보기 (${CARDS.length - 6}종 더)`}</button>
     <p class="fine">★ 난이도 (★★★는 2단계 도전·선행 카드). 카드 주인이 살아 있는 동안 효과가 계속된다. 3·6·10·16·24종을 모으면 세트 보상.</p>

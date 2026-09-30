@@ -924,3 +924,12 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 .job-tabs { display: flex; gap: 6px; margin: 8px 0 4px; }
 .job-tabs button { flex: 1; padding: 8px 6px; border: 2px solid var(--line); background: var(--paper, #f4ead6); font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; }
 .job-tabs button.on { background: var(--ink); color: var(--gold); }
+
+/* 움직이는 카드: 여러 장을 겹쳐 번갈아 (깜빡임·머리칼·조명) */
+.gif3 { position: relative; display: block; }
+.gif3 > img.gf { position: absolute; left: 0; top: 0; opacity: 0; }
+.gif3 > img.gf1 { animation: gf-a 3.6s steps(1) infinite; }
+.gif3 > img.gf2 { animation: gf-b 1.8s steps(1) infinite; }
+@keyframes gf-a { 0%, 86% { opacity: 0; } 87%, 92% { opacity: 1; } 93%, 100% { opacity: 0; } }
+@keyframes gf-b { 0%, 49% { opacity: 0; } 50%, 74% { opacity: 1; } 75%, 100% { opacity: 0; } }
+.calm .gif3 > img.gf { animation: none; }

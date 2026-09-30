@@ -15,6 +15,7 @@ const setJob = (job: string, lv: number) => (_s: GameState, p: Person) => {
 };
 
 export const MORE_CARDS: CardDef[] = [
+  { id: 'av_star', name: '히든 직업: AV 배우', icon: '💋', rarity: 'epic', how: '??? 숨겨진 스카우트 제의를 받아들이고 2년 넘게 활동 (성인만)', eff: { cash: 900, fame: 1 }, auto: (s, p) => p.job === 'av_actor' && p.jobYears >= 2 && s.year - p.birthYear >= 20 },
   // 정·관계·공공
   { id: 'chief_of_staff', name: '합참의장·참모총장', icon: '🎖', rarity: 'legend', how: '「별을 단 장군」 카드 → 참모총장 임명 (2단계)', eff: { fame: 4, kid: 'str' }, honor: 'taeguk' },
   { id: 'police_chief', name: '경찰청장', icon: '🚓', rarity: 'epic', how: '총경까지 오른 경찰관 → 청장 내정', eff: { fame: 2, heat: 3 }, honor: 'hongjo' },

@@ -352,7 +352,7 @@ export function cardYear(s: GameState): void {
 
 /** 카드 그림 테마 (render/cardart.ts) */
 export const CARD_THEME: Record<string, string> = {
-  president: 'power', minister: 'power', lawmaker: 'power', mayor: 'power', model_civil: 'power',
+  av_star: 'art', president: 'power', minister: 'power', lawmaker: 'power', mayor: 'power', model_civil: 'power',
   chief_justice: 'law', prosecutor_general: 'law', constitutional: 'law', police_chief: 'law', profiler: 'law', pro_license: 'law',
   general: 'military', chief_of_staff: 'military', public_servant: 'military',
   ambassador: 'diplo', un_sg: 'diplo', captain: 'diplo',
