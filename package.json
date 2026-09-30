@@ -9,7 +9,8 @@
     "preview": "vite preview --host",
     "build:pages": "tsc --noEmit && vite build && rm -rf docs/assets && cp -r dist/. docs/ && touch docs/.nojekyll",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy:cf": "npm run build:pages && npx wrangler pages deploy docs --project-name gamun-kiugi --branch main"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
