@@ -1553,8 +1553,11 @@ function cardViewer(g: GameState, id: string): string {
             ${
               d.hidden
                 ? `<div class="cv-guide-box">
-                    <div class="cv-guide-title">📜 ${d.name} 공략법</div>
-                    <div class="cv-guide-body">${esc(hj?.strategy || d.how)}</div>
+                    ${isSuper && !got
+                      ? `<div class="cv-guide-title">🌑 수수께끼</div>
+                    <div class="cv-guide-body">${esc(hj?.hint ?? '???')}<br><small style="opacity:.7">공략법은 카드를 얻으면 공개된다</small></div>`
+                      : `<div class="cv-guide-title">📜 ${got ? d.name : 'HIDDEN JOB'} 공략법</div>
+                    <div class="cv-guide-body">${esc(hj?.strategy || d.how)}</div>`}
                     ${got && hs.length ? `<div class="cv-owners-list">달성자: ${hs.map((c) => `${c.sex === 'M' ? '♂' : '♀'} ${esc(fullName(g.people[c.personId]))} (${c.year}년)`).join(' · ')}</div>` : ''}
                   </div>`
                 : `<small>${esc(d.how)}</small>`

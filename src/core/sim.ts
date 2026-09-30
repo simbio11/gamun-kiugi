@@ -50,6 +50,7 @@ import { hiddenYear } from './hidden';
 import { inlawYear, kinDrift } from './inlaws';
 import { superHiddenYear } from './super-hidden';
 import { gateYear } from './super-gates';
+import { commEvent } from './devices';
 import { pathYear } from './hidden-paths';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
@@ -540,6 +541,15 @@ function lifeYear(s: GameState) {
     if (histNow && s.year < 2000 && !d.id.startsWith('st_h_') && !d.id.startsWith('st_dev_') && !TIMELESS.has(d.id.slice(3))) continue; // 2000년 전엔 그 시절 이야기와 어느 시대에나 있을 이야기만
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) stories.push([d, p, w]);
+  }
+  // 휴대폰(연락 수단)으로 오는 이야기는 따로 한 번 더: 해마다 2/3쯤은 폰이 울린다
+  const calls = stories.filter(([d]) => commEvent(d.id, d.title({} as never)));
+  if (calls.length && chance(s, 0.65)) {
+    const total = calls.reduce((t, [, , w]) => t + w, 0);
+    let r = next(s) * total;
+    const hit = calls.find(([, , w]) => (r -= w) <= 0) ?? calls[calls.length - 1];
+    queue(s, hit[0].id, hit[1].id);
+    stories.splice(stories.indexOf(hit), 1);
   }
   for (let i = 0; i < 2 && stories.length && chance(s, i === 0 ? 0.85 : 0.35); i++) {
     const total = stories.reduce((t, [, , w]) => t + w, 0);
