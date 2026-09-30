@@ -1,6 +1,6 @@
 import { chance, int, next, normal, pick, type RngHolder } from './rng';
 import { bonusGene } from './rewards';
-import { ERA_NAMES, NATIVE_NAMES, STAT_KEYS, TALENTS, TALENT_IDS, TRAITS, TRAIT_IDS } from './data';
+import { ERA_NAMES, NATIVE_NAMES, STAT_KEYS, SUPER_RARE_TRAIT_IDS, TALENTS, TALENT_IDS, TRAITS, TRAIT_IDS } from './data';
 import type { CareerTag, GameState, Genes, Person, Sex, Stats, Talent } from './types';
 
 export const HAIR_STYLES = 7;
@@ -337,9 +337,13 @@ function addTrait(list: string[], id: string) {
   list.push(id);
 }
 
-/** 무작위 성격 0~2개 */
+/** 무작위 성격 0~2개 (2% 확률로 슈퍼 히든 개방 희귀 선천 특성 발현) */
 export function randomTraits(r: RngHolder, base: string[] = []): string[] {
   const out = [...base];
+  if (chance(r, 0.02)) {
+    const rare = pick(r, SUPER_RARE_TRAIT_IDS as unknown as string[]);
+    addTrait(out, rare);
+  }
   const n = pick(r, [0, 1, 1, 1, 2, 2]);
   for (let i = 0; i < n; i++) addTrait(out, pick(r, TRAIT_IDS));
   return out.slice(0, 3);

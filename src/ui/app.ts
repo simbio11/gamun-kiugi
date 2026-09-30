@@ -524,14 +524,6 @@ function titleScreen(): string {
         <img class="px" src="${portraitURL(demoPerson('M', 3), 8)}">
       </div>
     </div>
-    ${hasSave ? `<button class="btn big" data-action="continue">이어하기</button>` : ''}
-    ${[1, 2, 3].some((i) => slotInfo(i)) ? `<section class="card"><h2>💾 저장한 가문</h2>${slotRows(false)}</section>` : ''}
-    <details class="card code-box"><summary>📋 저장 코드로 불러오기</summary>
-      <p class="fine">다른 기기에서 복사한 저장 코드(GAMUN1:로 시작)를 붙여넣는다.</p>
-      <textarea id="save-code" rows="3" placeholder="GAMUN1:..."></textarea>
-      <button class="btn wide" data-action="code-load">불러오기</button>
-      ${ui.saveMsg ? `<p class="fine">${esc(ui.saveMsg)}</p>` : ''}
-    </details>
     <section class="card">
       <h2>새 가문 세우기</h2>
       <label class="field">가문의 성씨
@@ -544,6 +536,14 @@ function titleScreen(): string {
       ${o.era === 'history' ? `<p class="fine hist-note">1960년 봄, 4·19 혁명의 해에 다섯 살 아이로 태어난다 (1955년생). 5·16, 산업화, 유신, 광주, 6월 항쟁, 올림픽, IMF, 월드컵, 촛불까지 — 해마다 실제 신문 기사가 오고, 큰 사건은 호외·TV 속보로 들이닥친다. 그 시절엔 없던 직업·입시 전형·복지는 열리지 않고, 집값·땅값·주가는 실제 역사대로 오르내린다. 2026년부터는 미래로 이어진다.</p>` : ''}
       <button class="btn big primary" data-action="start">가문 시작</button>
     </section>
+    ${hasSave ? `<button class="btn big" data-action="continue" style="margin-top:10px;">이어하기</button>` : ''}
+    ${[1, 2, 3].some((i) => slotInfo(i)) ? `<section class="card"><h2>💾 저장한 가문</h2>${slotRows(false)}</section>` : ''}
+    <details class="card code-box"><summary>📋 저장 코드로 불러오기</summary>
+      <p class="fine">다른 기기에서 복사한 저장 코드(GAMUN1:로 시작)를 붙여넣는다.</p>
+      <textarea id="save-code" rows="3" placeholder="GAMUN1:..."></textarea>
+      <button class="btn wide" data-action="code-load">불러오기</button>
+      ${ui.saveMsg ? `<p class="fine">${esc(ui.saveMsg)}</p>` : ''}
+    </details>
     <p class="fine">v0.3 · 다섯 살부터 · 직업 119종 · 수능과 입시 · 인생사 · 업적 70+</p>
   </div>`;
 }
@@ -1460,11 +1460,16 @@ function rewardModal(r: Reward): string {
 }
 const g0 = () => ui.game;
 // 전설 직업 카드 그림: legend/는 파일로, legend-inline/은 페이지 안에 (배포 방식 때문)
+const LEGEND_FILES = Object.entries({
+  ...(import.meta.glob('../assets/legend/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>),
+  ...(import.meta.glob('../assets/legend-inline/*.webp', { eager: true, query: '?inline', import: 'default' }) as Record<string, string>),
+}).map(([k, v]) => [k.split('/').pop()!.replace('.webp', ''), v] as const);
+
 const LEGEND_ART: Record<string, string> = Object.fromEntries(
-  Object.entries({
-    ...(import.meta.glob('../assets/legend/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>),
-    ...(import.meta.glob('../assets/legend-inline/*.webp', { eager: true, query: '?inline', import: 'default' }) as Record<string, string>),
-  }).map(([k, v]) => [k.split('/').pop()!.replace('.webp', ''), v]),
+  LEGEND_FILES.filter(([k]) => !k.endsWith('.fig'))
+);
+const LEGEND_FIG: Record<string, string> = Object.fromEntries(
+  LEGEND_FILES.filter(([k]) => k.endsWith('.fig')).map(([k, v]) => [k.slice(0, -4), v])
 );
 const HIDDEN_CARDS = CARDS.filter((d) => d.hidden);
 const NORMAL_CARDS = CARDS.filter((d) => !d.hidden);
@@ -1488,9 +1493,15 @@ const cardImg = (d: CardDef, locked: boolean, cls: string, forceSex?: 'M' | 'F')
     const p = c ? gg!.people[c.personId] : undefined;
     return hiddenCardHTML(d.id, { sex: sex ?? p?.sex, seed: p ? p.birthYear : 0, locked, cls: `${cls}-h` });
   }
-  // 전설 직업 카드: 플레이어가 준 그림을 명예의 전당 카드 틀 안에 (천천히 위아래로 훑으며 전신을 보여 준다)
+  // 전설 직업 카드: 플레이어가 준 그림을 명예의 전당 카드 틀 안에 (미획득 시 전당 고유 골든/앰버 실루엣)
   const la = LEGEND_ART[d.id];
-  if (la && !locked) return `<span class="lg-card ${cls}"><img src="${cardArt(d, false)}" alt=""><span class="lg-art" style="background-image:url('${la}')"></span><i class="lg-shine"></i></span>`;
+  if (la) {
+    if (locked) {
+      const laFig = LEGEND_FIG[d.id] ?? la;
+      return `<span class="lg-card ${cls} locked"><img src="${cardArt(d, true)}" alt=""><span class="lg-art lg-sil" style="background-image:url('${laFig}')"></span><span class="lg-q">?</span></span>`;
+    }
+    return `<span class="lg-card ${cls}"><img src="${cardArt(d, false)}" alt=""><span class="lg-art" style="background-image:url('${la}')"></span><i class="lg-shine"></i></span>`;
+  }
   const n = locked ? 1 : customFrames(d.id);
   if (n <= 1) return `<img class="${cls}" src="${cardArt(d, locked)}" alt="">`;
   return `<span class="gif3">${Array.from({ length: n }, (_, i) => `<img class="${cls}${i ? ` gf gf${i}` : ''}" src="${cardArt(d, false, i)}" alt="">`).join('')}</span>`;

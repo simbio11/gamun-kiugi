@@ -262,106 +262,107 @@ export const SUPER_ROUTES: SuperRoute[] = [
   },
 
   // 7. 마성의 최면술사 (멘탈 팜므파탈)
+  // 7. 마성의 최면술사 (멘탈 팜므파탈) - 선천 특성 [마안(魔眼)] 필요 (2% 확률 발현)
   {
     id: 'hj_hypnotist',
     name: '마성의 최면술사',
     icon: '🌀',
-    ready: (s, p) => p.sex === 'F' && A(s, p) >= 24 && A(s, p) <= 35 && ST(p).int >= 70 && ST(p).cha >= 66,
+    ready: (s, p) => p.sex === 'F' && A(s, p) >= 20 && (p.traits?.includes('hypnotic_eye') ?? false),
     step1: {
       title: '🕰️ 심야의 최면 상담실',
-      text: '심각한 불면증에 시달리는 재벌 총수가 극비리에 최면 상담을 요청했다. 몽환적인 목소리로 무의식을 열 차례.',
-      check: (p) => ST(p).int >= 70 && ST(p).cha >= 66,
-      rate: 0.87,
-      succText: '5분 만에 깊은 트랜스 상태로 유도했다. 총수가 눈물을 흘리며 사례금을 건넸다.',
-      succMoney: 3000,
-      failText: '내담자의 저항이 너무 강해 최면이 풀렸다.',
+      text: '심각한 불면증에 시달리는 재벌 총수가 극비리에 최면 상담을 요청했다. 선천적 마안(魔眼)의 몽환적인 눈빛으로 무의식을 열 차례.',
+      check: () => true,
+      rate: 0.98,
+      succText: '눈빛을 마주치자마자 3초 만에 깊은 트랜스 상태로 유도했다! 총수가 눈물을 흘리며 거액의 사례금을 건넸다.',
+      succMoney: 5000,
+      failText: '내담자가 눈을 질끈 감아 최면이 빗나갔다.',
     },
     step2: {
       title: '🗝️ 비밀 금고의 암호',
       text: '정계 거물이 무의식 중에 은닉 비자금의 위치와 비밀번호를 털어놓기 시작했다.',
-      check: (p) => ST(p).int >= 72,
-      rate: 0.84,
+      check: () => true,
+      rate: 0.98,
       succText: '거물의 치부와 함께 막대한 비자금을 가문 자산으로 돌려놓았다.',
-      succMoney: 8000,
+      succMoney: 12000,
       failText: '거물이 최면에서 깨어나 말을 얼버무렸다.',
     },
     step3: {
       title: '👁️ 영혼을 지배하는 여제',
       text: '대한민국 권력자들의 멘탈 주치의로 등극했다. 밀실에서 모든 이의 영혼을 쥐락펴락하는 정점!',
-      check: (p) => ST(p).int >= 74 && ST(p).cha >= 68,
-      rate: 0.93,
+      check: () => true,
+      rate: 0.99,
       succText: '마성의 멘탈 룰러 등극! 아무도 {n}의 뜻을 거역하지 못한다.',
-      succMoney: 15000,
+      succMoney: 20000,
       failText: '의심을 품은 VIP 손님이 발길을 끊었다.',
     },
   },
 
-  // 8. 잉크의 마녀 (어둠의 타투이스트)
+  // 8. 잉크의 마녀 (어둠의 타투이스트) - 선천 특성 [어둠의 손] 필요 (2% 확률 발현)
   {
     id: 'hj_tattooist',
     name: '잉크의 마녀',
     icon: '🖤',
-    ready: (s, p) => p.sex === 'F' && A(s, p) >= 20 && A(s, p) <= 32 && ST(p).cha >= 65 && ST(p).mor <= 50,
+    ready: (s, p) => p.sex === 'F' && A(s, p) >= 19 && (p.traits?.includes('dark_artist') ?? false),
     step1: {
       title: '💉 심야의 비밀 타투 스튜디오',
       text: '어두운 골목 지하 스튜디오. 뒷세계 사내들이 오직 {n}의 손길로만 몸에 예술을 새기기 위해 찾아온다.',
-      check: (p) => ST(p).cha >= 65,
-      rate: 0.88,
-      succText: '피부 위에 피어난 장미 문신. 사내들이 고통 속에서 황홀경을 느꼈다.',
-      succMoney: 2000,
+      check: () => true,
+      rate: 0.98,
+      succText: '피부 위에 피어난 매혹의 장미 문신. 사내들이 고통 속에서 황홀경을 느꼈다.',
+      succMoney: 4000,
       failText: '손님이 통증을 참지 못하고 시술을 중단했다.',
     },
     step2: {
       title: '🐉 마피아 보스의 전신 문신',
       text: '조직의 보스가 등 전체에 용 문신을 의뢰했다. 통증을 견디며 {n}의 카리스마에 압도되기 시작한다.',
-      check: (p) => ST(p).cha >= 68 && ST(p).str >= 50,
-      rate: 0.85,
+      check: () => true,
+      rate: 0.98,
       succText: '시술 완료 후 보스가 무릎을 꿇고 충성을 맹세했다. 거액의 상납금 지급.',
-      succMoney: 6000,
+      succMoney: 10000,
       failText: '바늘이 빗나가 보스가 불쾌해했다.',
     },
     step3: {
       title: '🌹 살갗에 새긴 전설',
       text: '세계 언더그라운드 예술계에서 살아있는 전설로 칭송받는다. 오직 선택받은 자만이 {n}의 바늘을 맞을 수 있다.',
-      check: (p) => ST(p).cha >= 70,
-      rate: 0.94,
+      check: () => true,
+      rate: 0.99,
       succText: '잉크의 마녀 등극! 작업 한 건에 수천만 원이 오간다.',
-      succMoney: 10000,
+      succMoney: 18000,
       failText: '경찰의 불법 시술 단속으로 스튜디오를 옮겨야 했다.',
     },
   },
 
-  // 9. 드리프트 퀸 (심야의 폭주 여제)
+  // 9. 드리프트 퀸 (심야의 폭주 여제) - 선천 특성 [질주본능] 필요 (2% 확률 발현)
   {
     id: 'hj_drifter',
     name: '드리프트 퀸',
     icon: '🏎️',
-    ready: (s, p) => p.sex === 'F' && A(s, p) >= 19 && A(s, p) <= 28 && ST(p).str >= 60 && ST(p).cha >= 65 && ST(p).hp >= 60 && hasCar(s, p),
+    ready: (s, p) => p.sex === 'F' && A(s, p) >= 19 && hasCar(s, p) && (p.traits?.includes('speed_demon') ?? false),
     step1: {
       title: '🌙 새벽 2시의 수도권 와인딩',
-      text: '새벽 고갯길 와인딩 코스. 유명 레이싱 크루 리더가 "여자가 탈 차가 아니다"라며 비웃는다. 코너에서 꺾어줄 시간.',
-      check: (p) => ST(p).str >= 60,
-      rate: 0.88,
-      succText: '완벽한 다운힐 드리프트로 백미러에서 지워버렸다! 판돈 획득.',
-      succMoney: 2000,
+      text: '새벽 고갯길 와인딩 코스. 유명 레이싱 크루 리더가 "여자가 탈 차가 아니다"라며 비웃는다. 선천적 질주본능으로 코너를 꺾어줄 시간.',
+      check: () => true,
+      rate: 0.98,
+      succText: '완벽한 칼각 다운힐 드리프트로 백미러에서 지워버렸다! 판돈 획득.',
+      succMoney: 4000,
       failText: '타이어 그립을 잃고 스핀했다.',
     },
     step2: {
       title: '🔑 핑크 슬립 (페라리 차 키 쟁탈전)',
       text: '재벌가 도련님이 5억짜리 슈퍼카 키를 보닛에 올리며 차를 걸고 단두대 매치를 신청했다.',
-      check: (p) => ST(p).str >= 64 && ST(p).cha >= 66,
-      rate: 0.85,
+      check: () => true,
+      rate: 0.98,
       succText: '헤어핀 코너링으로 압승! 5억짜리 슈퍼카 키를 손에 넣었다.',
-      succMoney: 5000,
+      succMoney: 10000,
       failText: '직선 주로에서 마력 차이로 밀렸다.',
     },
     step3: {
       title: '🚨 전설의 다운힐 & 경찰 헬기 돌파',
       text: '한일 프로 드라이버 초청전 우승 직후, 경찰 헬기와 순찰차가 톨게이트를 봉쇄했다! 3cm 차이로 스치며 뚫고 사라져라.',
-      check: (p) => ST(p).str >= 68 && ST(p).hp >= 65,
-      rate: 0.95,
-      succText: '바리케이드를 드리프트로 통과해 밤안개 속으로 사라졌다! 전설의 드리프트 퀸 등극.',
-      succMoney: 10000,
+      check: () => true,
+      rate: 0.99,
+      succText: '바리케이드를 초고속 드리프트로 통과해 밤안개 속으로 사라졌다! 전설의 드리프트 퀸 등극.',
+      succMoney: 20000,
       failText: '막다른 길에 몰려 벌금을 물었다.',
     },
   },
@@ -399,9 +400,10 @@ export function superHiddenYear(s: GameState): string[] {
         continue;
       }
 
-      // 1단계 미션 체크 (조건 만족 시 75% 확률로 팝업)
+      // 1단계 미션 체크 (희귀 선천 특성 보유 시 100% 즉시 발동, 일반 슈퍼히든 75%)
       if (r.ready(s, p)) {
-        if (chance(s, 0.75) && !s.events.some((e) => e.defId === 'sh_step1' && e.personId === p.id)) {
+        const hasRare = p.traits?.some((t) => ['speed_demon', 'hypnotic_eye', 'dark_artist'].includes(t));
+        if ((hasRare || chance(s, 0.75)) && !s.events.some((e) => e.defId === 'sh_step1' && e.personId === p.id)) {
           s.events.push({ uid: s.eventSeq++, defId: 'sh_step1', personId: p.id, data: { id: r.id } });
           msgs.push(`✨ ${fullName(p)}에게 특별한 제안이 찾아왔다 (${r.icon} ${r.name})`);
           break;
