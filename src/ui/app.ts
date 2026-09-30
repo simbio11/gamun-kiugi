@@ -89,6 +89,8 @@ interface UIState {
   toast?: string;
   giftTo?: string;
   settings?: boolean;
+  /** 저장 슬롯·코드 안내 한 줄 */
+  saveMsg?: string;
   actCat?: string;
   assetSub?: string;
   /** 크게 보고 있는 명예의 전당 카드 */
@@ -152,6 +154,84 @@ function save() {
     /* 저장 불가 환경 */
   }
 }
+// ───────── 저장 슬롯 (자동 저장과 별개로 3칸) · 저장 코드 (다른 기기로 옮기기) ─────────
+const SLOT_KEY = (i: number) => `gamun-kiugi-slot-${i}`;
+interface SlotInfo {
+  label: string;
+  at: number;
+}
+function slotInfo(i: number): SlotInfo | null {
+  try {
+    const raw = localStorage.getItem(SLOT_KEY(i) + '-info');
+    return raw ? (JSON.parse(raw) as SlotInfo) : null;
+  } catch {
+    return null;
+  }
+}
+const slotLabel = (g: GameState) => `${g.familyName}씨 ${g.generation}대 · ${g.year}년 · ${fullName(head(g))} ${age(g, head(g))}세`;
+function saveSlot(i: number): boolean {
+  try {
+    if (!ui.game) return false;
+    localStorage.setItem(SLOT_KEY(i), JSON.stringify(ui.game));
+    localStorage.setItem(SLOT_KEY(i) + '-info', JSON.stringify({ label: slotLabel(ui.game), at: Date.now() }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+function loadSlot(i: number): GameState | null {
+  try {
+    const raw = localStorage.getItem(SLOT_KEY(i));
+    return raw ? migrate(JSON.parse(raw) as GameState) : null;
+  } catch {
+    return null;
+  }
+}
+function deleteSlot(i: number) {
+  try {
+    localStorage.removeItem(SLOT_KEY(i));
+    localStorage.removeItem(SLOT_KEY(i) + '-info');
+  } catch {
+    /* noop */
+  }
+}
+/** 저장 코드: 게임 상태 JSON을 base64로 (유니코드 안전) */
+const CODE_HEAD = 'GAMUN1:';
+function exportCode(g: GameState): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(g));
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return CODE_HEAD + btoa(bin);
+}
+function importCode(code: string): GameState | null {
+  try {
+    const t = code.trim();
+    if (!t.startsWith(CODE_HEAD)) return null;
+    const bin = atob(t.slice(CODE_HEAD.length));
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const g = JSON.parse(new TextDecoder().decode(bytes)) as GameState;
+    return g && g.people && g.headId ? migrate(g) : null;
+  } catch {
+    return null;
+  }
+}
+const whenLabel = (at: number) => {
+  const d = new Date(at);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+/** 슬롯 목록 (설정: 저장·불러오기·삭제 / 첫 화면: 불러오기만) */
+function slotRows(inGame: boolean): string {
+  return [1, 2, 3]
+    .map((i) => {
+      const inf = slotInfo(i);
+      return `<div class="slot ${inf ? '' : 'empty'}">
+        <div class="slot-i"><b>슬롯 ${i}</b><small>${inf ? `${esc(inf.label)}<br>${whenLabel(inf.at)} 저장` : '비어 있음'}</small></div>
+        <div class="slot-b">${inGame ? `<button class="mini" data-action="slot-save" data-v="${i}">${inf ? '덮어쓰기' : '저장'}</button>` : ''}${inf ? `<button class="mini" data-action="slot-load" data-v="${i}">불러오기</button>` : ''}${inf && inGame ? `<button class="mini ghost" data-action="slot-del" data-v="${i}">🗑</button>` : ''}</div>
+      </div>`;
+    })
+    .join('');
+}
+
 function clearSave() {
   try {
     localStorage.removeItem(SAVE_KEY);
@@ -349,6 +429,13 @@ function titleScreen(): string {
       </div>
     </div>
     ${hasSave ? `<button class="btn big" data-action="continue">이어하기</button>` : ''}
+    ${[1, 2, 3].some((i) => slotInfo(i)) ? `<section class="card"><h2>💾 저장한 가문</h2>${slotRows(false)}</section>` : ''}
+    <details class="card code-box"><summary>📋 저장 코드로 불러오기</summary>
+      <p class="fine">다른 기기에서 복사한 저장 코드(GAMUN1:로 시작)를 붙여넣는다.</p>
+      <textarea id="save-code" rows="3" placeholder="GAMUN1:..."></textarea>
+      <button class="btn wide" data-action="code-load">불러오기</button>
+      ${ui.saveMsg ? `<p class="fine">${esc(ui.saveMsg)}</p>` : ''}
+    </details>
     <section class="card">
       <h2>새 가문 세우기</h2>
       <label class="field">가문의 성씨
@@ -518,7 +605,7 @@ function header(g: GameState): string {
     <button class="top-r" data-action="tab" data-v="assets" data-sub="sum" title="자산 탭에서 내년 가계부 보기">
       <div class="money">${w.label} <span class="amt">${formatMoney(fx.wallet !== undefined && fx.walletLabel === w.label ? fx.wallet : w.amount)}</span></div>
       <div class="flow">내년 <b class="${f.net < 0 ? 'neg' : 'pos'}">${f.net < 0 ? '' : '+'}${formatMoney(f.net)}</b> <small>(수입 ${formatMoney(inc)} · 지출 ${formatMoney(exp)})</small></div>
-      ${w.label.includes('부모님') && (h.cash || f.mine) ? `<div class="fame">내 통장 ${formatMoney(h.cash)}${f.mine ? ` (+${formatMoney(f.mine)}/년)` : ''}</div>` : ''}
+      ${w.label.includes('부모님') && (h.cash || f.mine) ? `<div class="fame">내 통장 ${formatMoney(h.cash)}${f.mine ? ` (${f.mine.net < 0 ? "" : "+"}${formatMoney(f.mine.net)}/년)` : ''}</div>` : ''}
     </button>
   </header>`;
 }
@@ -542,7 +629,7 @@ function realtyCard(g: GameState): string {
         ...(a.tags ?? []).filter((t) => t !== '주택').map((t) => `<b class="tag">${esc(t)}</b>`),
       ].join('');
       return `<div class="re">
-        <div class="re-h"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}</span><b>${formatMoney(a.value)}</b></div>
+        <div class="re-h"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}</span><b>${formatMoney(a.value)}${chg(a)}</b></div>
         <div class="re-t">${role}${extra}</div>
         <div class="re-f"><small>${a.cost ? `산 값 ${formatMoney(a.cost)} (${gain >= 0 ? '+' : ''}${formatMoney(gain)}) · ` : ''}팔면 양도세 ${formatMoney(gt.tax)}${gt.note ? ` (${esc(gt.note)})` : ''}</small>
           <span>${a.loan ? `<button class="mini" data-action="repay" data-id="${a.id}" ${h.cash > 0 ? '' : 'disabled'}>대출 갚기</button>` : ''}${a.ownerId === h.id ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>
@@ -554,9 +641,10 @@ function realtyCard(g: GameState): string {
       const q = buyQuote(g, h, l);
       const ok = adult && q.cash >= q.need;
       const tx = acqTax(g, h, l);
-      return `<div class="re listing">
+      return `<div class="re listing ${l.found ? 'found' : ''}">
+        ${l.found ? '<i class="re-found">🔎 임장으로 찾은 매물</i>' : ''}
         <div class="re-h"><span>${ASSET_ICONS[l.kind]} ${esc(l.name)}</span><b>${formatMoney(l.price)}</b></div>
-        <div class="re-t">${l.tags.filter((t) => t !== '주택').map((t) => `<b class="tag ${t === '급매' ? 'hot' : t === '호가 높음' ? 'warn' : ''}">${esc(t)}</b>`).join('')}${l.yield > 0 && !l.deposit ? `<b class="tag">월세 ${(l.yield * 100).toFixed(1)}%</b>` : ''}${l.house ? (l.kind === 'building' ? '<b class="tag">주택 수 포함</b>' : '') : '<b class="tag">주택 수 제외</b>'}</div>
+        <div class="re-t">${l.tags.filter((t) => t !== '주택').map((t) => `<b class="tag ${t === '급매' ? 'hot' : t === '호가 높음' ? 'warn' : t === '알짜' || t === '재건축 확정' || t === 'GTX 개통 예정' ? 'good' : ''}">${esc(t)}</b>`).join('')}${l.yield > 0 && !l.deposit ? `<b class="tag">월세 ${(l.yield * 100).toFixed(1)}%</b>` : ''}${l.house ? (l.kind === 'building' ? '<b class="tag">주택 수 포함</b>' : '') : '<b class="tag">주택 수 제외</b>'}</div>
         <div class="re-f"><small>${l.deposit ? `보증금 ${formatMoney(l.deposit)} 끼고 · ` : ''}취득세 ${formatMoney(q.tax)} (${tx.note}) · 대출 최대 ${formatMoney(q.limit)}${q.ltv ? ` (LTV ${Math.round(q.ltv * 100)}%)` : ''}<br>필요 현금 <b>${formatMoney(Math.max(0, q.need))}</b></small>
           <button class="mini" data-action="buy-l" data-id="${l.id}" ${ok ? '' : 'disabled'}>매수</button></div>
       </div>`;
@@ -570,6 +658,14 @@ function realtyCard(g: GameState): string {
     ${listings || '<p class="hint">올해는 매물이 다 나갔다.</p>'}
     <details class="moves"><summary>부동산 세금·규칙 보기</summary><p class="fine">첫 집(실거주)은 월세가 없는 대신 재산세가 싸고, 2년 넘게 살면 12억까지 양도세 비과세.<br>두 번째 집부터는 투자: 취득세 8%(3채 이상 12%), 대출 LTV 30%(3채부터 0%), 공시가 9억 넘으면 종부세, 팔 때 양도세 중과. 월세는 공실이면 0원.<br>전세 낀 매물은 적은 돈으로 살 수 있지만(갭투자), 만기에 세입자가 나가면 보증금을 돌려줘야 한다.</p></details>
   </section>`;
+}
+
+/** 작년 대비 시세 등락 */
+function chg(a: { value: number; prev?: number }): string {
+  if (!a.prev) return '';
+  const r = a.value / a.prev - 1;
+  if (Math.abs(r) < 0.001) return ' <small class="chg">―</small>';
+  return ` <small class="chg ${r > 0 ? 'up' : 'down'}">${r > 0 ? '▲' : '▼'}${Math.abs(r * 100).toFixed(1)}%</small>`;
 }
 
 /** 가문 자산을 누구 몫인지 나눠 보여준다 */
@@ -591,7 +687,7 @@ function budgetCard(g: GameState): string {
     ${f.income.map(([l, v]) => row(l, v, '+')).join('') || '<div class="arow"><span>수입 없음</span><span></span></div>'}
     ${f.expense.map(([l, v]) => row(l, v, '−')).join('')}
     <div class="arow total"><span>한 해 남는 돈</span><b class="${f.net < 0 ? 'neg' : 'pos'}">${f.net < 0 ? '' : '+'}${formatMoney(f.net)}</b></div>
-    ${f.mine ? `<p class="fine">독립 전이라 내 수입(${formatMoney(f.mine)})은 살림에 안 보태고 내 통장에 모인다.</p>` : ''}
+    ${f.mine ? `<p class="fine">독립 전 내 통장: 수입 ${formatMoney(f.mine.income)} − 세금 ${formatMoney(f.mine.tax)} − 용돈·교통·통신·여가 ${formatMoney(f.mine.own)} − 집에 보태는 생활비 ${formatMoney(f.mine.contrib)} = <b>${f.mine.net < 0 ? '' : '+'}${formatMoney(f.mine.net)}</b></p>` : ''}
     <p class="fine">월급은 세전 금액, 소득세·4대보험은 따로 빠진다 (연봉 3천 약 12%, 5천 16%, 1억 21%). 사업·크리에이터 수입과 시세는 해마다 출렁인다. 학년·진학 이벤트에서 고르는 사교육비는 따로 나간다.</p>
   </section>`;
 }
@@ -1480,8 +1576,16 @@ function settingsModal(g: GameState): string {
       <div class="set-info">
         <div class="sh-row"><span>가문</span><span>${esc(g.familyName)}씨 ${g.generation}대 · ${g.year}년</span></div>
         <div class="sh-row"><span>가주</span><span>${esc(fullName(h))} ${age(g, h)}세</span></div>
-        <div class="sh-row"><span>저장</span><span>해마다 이 기기(브라우저)에 자동 저장</span></div>
+        <div class="sh-row"><span>자동 저장</span><span>해마다 이 기기(브라우저)에</span></div>
       </div>
+      <h3 class="set-h">💾 저장 슬롯</h3>
+      ${slotRows(true)}
+      <details class="code-box"><summary>📋 저장 코드 (다른 기기로 옮기기)</summary>
+        <p class="fine">아래 코드를 복사해 두면 다른 기기나 브라우저에서 이어 할 수 있다. 붙여넣고 불러오기를 누르면 그 가문으로 바뀐다.</p>
+        <textarea id="save-code" rows="3" placeholder="GAMUN1:..."></textarea>
+        <div class="row2"><button class="btn" data-action="code-copy">지금 가문 코드 복사</button><button class="btn" data-action="code-load">붙여넣은 코드 불러오기</button></div>
+      </details>
+      ${ui.saveMsg ? `<p class="save-msg">${esc(ui.saveMsg)}</p>` : ''}
       ${
         ui.confirmReset
           ? `<div class="danger"><p>지금 가문을 지우고 처음부터 시작할까? 되돌릴 수 없다.</p>
@@ -1519,7 +1623,7 @@ function propertyStrip(g: GameState): string {
       tag: r.withParents ? '🏠 부모님 댁' : `🏠 ${HOME_TYPE[home.type]}`,
       cls: 'live',
       name: home.name,
-      val: own ? `시세 ${formatMoney(own.value)}` : home.type === 'jeonse' ? `보증금 ${formatMoney(home.deposit)}` : home.type === 'wolse' ? `월세 연 ${formatMoney(home.rent)}` : '',
+      val: own ? `시세 ${formatMoney(own.value)}${chg(own)}` : home.type === 'jeonse' ? `보증금 ${formatMoney(home.deposit)}` : home.type === 'wolse' ? `월세 연 ${formatMoney(home.rent)}` : '',
     });
   }
   const liveId = home?.type === 'own' ? home.assetId : undefined;
@@ -1533,7 +1637,7 @@ function propertyStrip(g: GameState): string {
       tag: car ? (mine ? `${modelOf(a)?.icon ?? '🚗'} ${modelOf(a)?.yacht ? '요트' : '내 차'}` : '🚗 부모님 차') : mine ? (isHouse(a) ? '💼 임대' : '💼 투자') : '👪 부모님',
       cls: car ? 'car' : mine ? 'inv' : 'par',
       name: a.name,
-      val: formatMoney(a.value),
+      val: formatMoney(a.value) + (car ? '' : chg(a)),
     });
   };
   for (const a of g.assets) if (ownerIds.includes(a.ownerId) && (isRealty(a) || a.kind === 'vehicle')) push(a, true);
@@ -1821,6 +1925,56 @@ function handle(el: HTMLElement) {
       ui.game = load();
       track('continue', '이어하기');
       break;
+    case 'slot-save':
+      ui.saveMsg = saveSlot(Number(v)) ? `슬롯 ${v}에 저장했다.` : '저장하지 못했다 (저장 공간 부족 또는 비공개 창).';
+      break;
+    case 'slot-load': {
+      const g = loadSlot(Number(v));
+      if (!g) {
+        ui.saveMsg = '불러오지 못했다.';
+        break;
+      }
+      ui.game = g;
+      ui.tab = 'tree';
+      ui.report = ui.outcome = ui.sheet = undefined;
+      ui.settings = ui.confirmReset = false;
+      ui.saveMsg = undefined;
+      save();
+      hasSave = true;
+      break;
+    }
+    case 'slot-del':
+      deleteSlot(Number(v));
+      ui.saveMsg = `슬롯 ${v}을 비웠다.`;
+      break;
+    case 'code-copy': {
+      if (!ui.game) break;
+      const code = exportCode(ui.game);
+      const ta = root.querySelector<HTMLTextAreaElement>('#save-code');
+      if (ta) ta.value = code;
+      navigator.clipboard?.writeText(code).then(
+        () => ((ui.saveMsg = '저장 코드를 복사했다. 메모장 등에 붙여 두자.'), render()),
+        () => ((ui.saveMsg = '자동 복사가 안 된다. 칸의 코드를 길게 눌러 직접 복사하자.'), render()),
+      );
+      ta?.select();
+      return;
+    }
+    case 'code-load': {
+      const ta = root.querySelector<HTMLTextAreaElement>('#save-code');
+      const g = importCode(ta?.value ?? '');
+      if (!g) {
+        ui.saveMsg = '코드가 올바르지 않다. GAMUN1:로 시작하는 전체 코드를 붙여넣자.';
+        break;
+      }
+      ui.game = g;
+      ui.tab = 'tree';
+      ui.report = ui.outcome = ui.sheet = undefined;
+      ui.settings = ui.confirmReset = false;
+      ui.saveMsg = undefined;
+      save();
+      hasSave = true;
+      break;
+    }
     case 'start': {
       const sn = (ui.setup.surname || '김').slice(0, 2);
       ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin });
@@ -1873,6 +2027,7 @@ function handle(el: HTMLElement) {
       break;
     case 'settings':
       ui.settings = true;
+      ui.saveMsg = undefined;
       ui.confirmReset = false;
       break;
     case 'reset-ask':

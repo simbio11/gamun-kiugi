@@ -6,7 +6,7 @@ import { addAsset, formatMoney, pay, personWorth } from './economy';
 import { wageIndex } from './pay';
 import { agePenalty, appeal, desirability, jobless, makeDate, marry, suitorLine } from './events';
 import { eul, eun, gate, iga, queueNext, schedule, wa, who, type Choice, type Ctx, type EventDef } from './ev-util';
-import { nestOf } from './nest';
+import { coverTax, nestOf } from './nest';
 import { homeOf, moveInto, moveIntoOwned, moveTo } from './housing';
 import { isHouse } from './realty';
 import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, mark, parentsOf, relationLabel } from './people';
@@ -535,8 +535,10 @@ const wedding: EventDef = {
                   const price = Math.round(x.s.market.apt_local);
                   pay(x.s, hh, price);
                   addAsset(x.s, 'apt_local', x.p.id, price, '신혼집');
-                  x.s.gifts.push({ fromId: hh.id, toId: x.p.id, amount: price, tax: Math.round(price * 0.1), year: x.s.year });
-                  x.p.cash -= Math.round(price * 0.1);
+                  const tax = Math.round(price * 0.1);
+                  const covered = coverTax(x.s, hh, x.p, tax);
+                  x.s.gifts.push({ fromId: hh.id, toId: x.p.id, amount: price + covered, tax, year: x.s.year });
+                  x.p.cash -= tax;
                   const house = x.s.assets[x.s.assets.length - 1];
                   return finish(`${relationLabel(x.s, hh)}께서 아파트를 사주셨다. (증여세 ${formatMoney(price * 0.1)})`, (y) => moveInto(y.s, y.p, house))(x);
                 },

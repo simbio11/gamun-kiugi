@@ -132,6 +132,8 @@ export interface Asset {
   tags?: string[];
   /** 유언장에 적은 받을 사람 (지정 상속) */
   heir?: string;
+  /** 작년 이맘때 시세 (올해 등락 표시) */
+  prev?: number;
 }
 
 /** 올해 나온 부동산 매물 */
@@ -149,6 +151,8 @@ export interface Listing {
   deposit?: number;
   /** 주택 수에 들어가는가 (아파트·오피스텔) */
   house: boolean;
+  /** 임장으로 찾은 매물 */
+  found?: boolean;
 }
 
 export interface Gift {

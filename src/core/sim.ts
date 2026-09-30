@@ -32,6 +32,7 @@ import { achvRarity, checkHonors, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
 import { cardYear } from './cards';
 import { scandalYear } from './scandal';
+import { assignWoes, woeYear } from './woes';
 import { autonomyYear } from './autonomy';
 import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
@@ -225,6 +226,11 @@ export function newGame(o: NewGameOpts): GameState {
       s.familyCash += 200000;
     }
   }
+  // 가난한 집 부모의 짐 (중독·빚·병·실업 …)
+  assignWoes(s, father, mother, o.difficulty);
+  // 난이도에 맞춘 시작 방침: 부잣집은 씀씀이가 크고, 가난한 집 부모는 일에 매달린다
+  if (origin === 'rich') s.policy.living = 'lux';
+  if (o.difficulty === 'hard' || o.difficulty === 'hell') s.policy.lifestyle = 'work';
   // 차: 가난하면 없거나 낡은 경차, 중산층은 중형·SUV, 부자는 수입차
   const carPick = origin === 'poor' ? (chance(s, 0.5) ? 'kei' : undefined) : origin === 'middle' ? pick(s, ['compact', 'mid', 'suv', 'suv', 'large']) : tycoon ? 'super' : pick(s, ['genesis', 'import', 'import']);
   if (carPick) giveUsedCar(s, father, carPick, int(s, 1, origin === 'poor' ? 10 : 6));
@@ -348,6 +354,7 @@ export function simulateYear(s: GameState): void {
   cardYear(s);
   trackPeak(s);
   scandalYear(s);
+  woeYear(s);
   autonomyYear(s);
   perkYear(s, wageIndex(s.year));
 

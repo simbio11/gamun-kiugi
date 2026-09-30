@@ -50,6 +50,8 @@ interface Offer {
   assetId?: string;
   payerId: string;
   why: string;
+  /** 지금은 전세만, 몇 년 뒤 집을 마련해 주기로 한 약속 */
+  promise?: 'apt_seoul' | 'apt_local';
 }
 
 /**
@@ -84,6 +86,12 @@ function parentOffer(s: GameState, child: Person): Offer {
     const spare = homes.sort((a, b) => a.value - b.value)[0];
     return { ...base, kind: 'spare', amount: spare.value, assetId: spare.id, payerId: spare.ownerId, why: `"우리가 가진 ${spare.name}, 이제 네가 살아라."` };
   }
+  // 집은 사회생활 몇 년 해 보고 나서: 갓 취직한 자녀에게 바로 집을 주면 증여세를 감당 못 한다
+  const young = age(s, child) < 27 || child.jobYears < 2;
+  if (budget >= s.market.apt_local && young) {
+    const amt = Math.min(Math.round((budget * 0.4) / 1000) * 1000, Math.round(s.market.apt_local * 0.5));
+    return { ...base, kind: 'jeonse', amount: Math.max(5000, amt), promise: budget >= s.market.apt_seoul ? 'apt_seoul' : 'apt_local', why: '"일단 전셋집에서 시작해라. 몇 년 자리 잡으면 집은 우리가 마련해 주마."' };
+  }
   if (budget >= s.market.apt_seoul) return { ...base, kind: 'apt_seoul', amount: s.market.apt_seoul, why: '"서울에 아파트 하나 봐 뒀다."' };
   if (budget >= s.market.apt_local) return { ...base, kind: 'apt_local', amount: s.market.apt_local, why: '"작은 아파트 하나 사줄게. 거기서 시작해라."' };
   if (budget >= 8000) {
@@ -114,6 +122,18 @@ function offerTax(s: GameState, from: Person, to: Person, o: Offer): number {
   return previewGiftTax(s, from, to, kind ? Math.round(o.amount * ASSESS_RATIO[kind]) : o.amount);
 }
 
+/**
+ * 자녀 통장으로 증여세를 못 내면 부모가 모자란 만큼 더 보내 준다 (실제로도 흔하다).
+ * 대신 내 준 세금도 증여라 20% 남짓 세금이 또 붙는다고 보고 그만큼 부모 돈이 더 나간다.
+ */
+export function coverTax(s: GameState, from: Person, to: Person, tax: number): number {
+  const short = Math.max(0, tax - Math.max(0, to.cash));
+  if (!short || from.cash < short * 1.2) return 0;
+  pay(s, from, Math.round(short * 1.2));
+  to.cash += short;
+  return short;
+}
+
 /** 제안을 실제로 실행: 돈이 오가고 증여 기록이 남는다 */
 function executeOffer(s: GameState, from: Person, to: Person, o: Offer, amount = o.amount): string {
   const tax = offerTax(s, from, to, { ...o, amount });
@@ -128,10 +148,12 @@ function executeOffer(s: GameState, from: Person, to: Person, o: Offer, amount =
     pay(s, from, amount);
     to.cash += amount;
   }
+  const covered = coverTax(s, from, to, tax);
   to.cash -= tax;
-  s.gifts.push({ fromId: from.id, toId: to.id, amount: o.kind === 'spare' || o.kind.startsWith('apt') ? Math.round(amount * 0.7) : amount, tax, year: s.year });
+  s.gifts.push({ fromId: from.id, toId: to.id, amount: (o.kind === 'spare' || o.kind.startsWith('apt') ? Math.round(amount * 0.7) : amount) + covered, tax, year: s.year });
   setNest(to, nestOf(to) + amount);
-  return tax ? ` (증여세 ${formatMoney(tax)}은 내가 냈다)` : ' (증여세 없음: 성인 자녀 10년간 5천만 공제 안)';
+  if (o.promise) addFlag(to, `house_promise:${s.year + 2 + (chance(s, 0.5) ? 1 : 0)}:${o.promise}:${from.id}`);
+  return !tax ? ' (증여세 없음: 성인 자녀 10년간 5천만 공제 안)' : covered ? ` (증여세 ${formatMoney(tax)} 중 모자란 ${formatMoney(covered)}은 부모님이 대신 보태 주셨다)` : ` (증여세 ${formatMoney(tax)}은 내가 냈다)`;
 }
 
 /** 형제보다 훨씬 많이 받으면 뒷말이 나온다 */
@@ -330,12 +352,70 @@ const kidLeave: EventDef = {
   },
 };
 
-export const NEST_EVENTS = [leaveHome, kidLeave];
+/** 약속했던 집: 독립하고 2~3년 뒤, 부모님 형편이 여전하면 집을 마련해 주신다 */
+const housePromise: EventDef = {
+  id: 'house_promise',
+  title: () => '부모님이 약속한 집',
+  valid: (c) => parentsOf(c.s, c.p).some(alive),
+  portraits: (c) => [c.p, ...parentsOf(c.s, c.p).filter(alive)],
+  text: (c) => {
+    const d = (c.ev.data ??= {});
+    const o: Offer = d.offer;
+    const payer = c.s.people[o.payerId];
+    return `${fullName(c.p)} ${age(c.s, c.p)}세. 사회생활도 자리가 잡혔다.
+${relationLabel(c.s, payer)}: "약속했던 집, 이제 마련해 주마."
+→ ${OFFER_NAMES[o.kind]} ${formatMoney(o.amount)} · 예상 증여세 ${formatMoney(offerTax(c.s, payer, c.p, o))}
+내 통장: ${formatMoney(c.p.cash)} (모자라면 부모님이 세금을 보태 주신다)`;
+  },
+  choices: (c) => {
+    const s = c.s;
+    const o: Offer = c.ev.data.offer;
+    const payer = s.people[o.payerId];
+    return [
+      {
+        label: `감사히 받는다 (${OFFER_NAMES[o.kind]})`,
+        run: (x) => {
+          const tx = executeOffer(s, payer, x.p, o);
+          x.p.happiness = clamp(x.p.happiness + 10, 0, 100);
+          mark(x.p, 'helped');
+          return `${eul(OFFER_NAMES[o.kind])} 받았다. 내 이름으로 된 첫 집이다.${tx}${jealousy(s, x.p)}`;
+        },
+      },
+      {
+        label: '마음만 받는다',
+        run: (x) => {
+          mark(x.p, 'selfmade');
+          payer.affinity = clamp(payer.affinity + 8, -100, 100);
+          return '"제 힘으로 마련해 볼게요." 부모님이 대견해하신다.';
+        },
+      },
+    ];
+  },
+};
+
+export const NEST_EVENTS = [leaveHome, kidLeave, housePromise];
+
+/** 약속한 해가 되면: 부모 형편이 아직 되는지 다시 보고 이벤트를 띄운다 */
+function promiseYear(s: GameState, p: Person) {
+  const f = p.flags.find((x) => x.startsWith('house_promise:'));
+  if (!f) return;
+  const [, yr, kind, payerId] = f.split(':');
+  if (Number(yr) > s.year) return;
+  p.flags = p.flags.filter((x) => x !== f);
+  const payer = s.people[payerId];
+  if (!payer || !alive(payer)) return;
+  const k = kind as 'apt_seoul' | 'apt_local';
+  const price = s.market[k];
+  const want = payer.cash >= price * 1.15 ? k : payer.cash >= s.market.apt_local * 1.15 ? 'apt_local' : undefined;
+  if (!want) return;
+  s.events.push({ uid: s.eventSeq++, defId: 'house_promise', personId: p.id, data: { offer: { kind: want, amount: s.market[want], payerId, why: '' } } });
+}
 
 /** 해마다: 독립할 때가 된 사람을 찾는다. 내 자녀는 내가 정하고, 방계는 알아서 나간다. */
 export function nestYear(s: GameState) {
   const h = head(s);
   const queued = (id: string) => s.events.some((e) => e.personId === id && (e.defId === 'leave_home' || e.defId === 'kid_leave'));
+  promiseYear(s, h);
   const r = readyToLeave(s, h);
   if (r && !queued(h.id)) s.events.push({ uid: s.eventSeq++, defId: 'leave_home', personId: h.id, data: { reason: r } });
   for (const id of h.childIds) {

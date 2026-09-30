@@ -599,9 +599,11 @@ export const ACTIONS: ActionDef[] = [
     run: (s) => {
       const me = h(s);
       const t = rollTier(s, me, { stat: 'int', talent: 'merchant' });
-      if (t === 'bad' || (t === 'meh' && chance(s, 0.5))) return pick(s, ['며칠을 돌아다녔지만 마땅한 매물이 없었다.', '중개사무소마다 "요즘 급매는 없어요"란다.', '괜찮아 보였던 집이 알고 보니 반지하였다.']);
-      const found = addBargains(s, t === 'great' ? 2 : 1);
-      return `${pick(s, ['동네 중개사 사장님이 조용히 귀띔해 줬다.', '새벽 임장에서 급하게 내놓은 집을 발견했다.', '경매 정보지를 뒤지다 눈에 띄는 물건을 찾았다.'])}\n→ 자산 탭 매물 목록에 추가: ${found.map((l) => `${l.name} ${formatMoney(l.price)}`).join(', ')}`;
+      // 허탕이어도 동네 시세는 익힌다: 알짜 매물 하나는 건진다. 잘 풀리면 급매까지
+      const [n, prime] = t === 'great' ? [2, 1] : t === 'good' ? [1, 1] : t === 'meh' ? [1, 0] : [0, 1];
+      const found = addBargains(s, n, prime);
+      const lead = t === 'bad' ? pick(s, ['며칠을 돌았지만 급매는 없었다. 대신 동네 사정은 훤해졌다.', '중개사무소마다 "요즘 급매는 없어요"란다. 그래도 좋은 단지 하나는 알아 뒀다.']) : pick(s, ['동네 중개사 사장님이 조용히 귀띔해 줬다.', '새벽 임장에서 급하게 내놓은 집을 발견했다.', '경매 정보지를 뒤지다 눈에 띄는 물건을 찾았다.', '주말마다 단지를 돌며 호가를 적어 둔 보람이 있었다.']);
+      return `${lead}\n→ 자산 탭 매물 맨 위에 🔎 표시로 추가:\n${found.map((l) => `· ${l.name} ${formatMoney(l.price)} [${l.tags.filter((x) => x === '급매' || x === '알짜' || x === '재건축 확정' || x === 'GTX 개통 예정').join('·')}]`).join('\n')}`;
     },
   },
   {

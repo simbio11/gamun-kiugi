@@ -322,7 +322,7 @@ const TPL: Tpl[] = [
 const rng = (s: GameState, [a, b]: [number, number]) => a + next(s) * (b - a);
 const round = (v: number) => (v >= 100000 ? Math.round(v / 1000) * 1000 : Math.round(v / 100) * 100);
 
-function makeListing(s: GameState, t: Tpl, deal?: 'bargain'): Listing {
+function makeListing(s: GameState, t: Tpl, deal?: 'bargain' | 'prime'): Listing {
   const tags = (t.tags ?? []).filter(([, p]) => chance(s, p)).map(([x]) => x);
   let m = rng(s, t.m);
   let drift = t.drift ?? 0;
@@ -333,7 +333,14 @@ function makeListing(s: GameState, t: Tpl, deal?: 'bargain'): Listing {
   if (tags.includes('학군지')) drift += 0.004;
   if (tags.includes('재건축 기대')) y -= 0.004;
   const r = next(s);
-  if (deal === 'bargain' || r < 0.18) {
+  if (deal === 'prime') {
+    // 발품으로 찾은 알짜: 값은 시세 그대로지만 입지가 좋아 꾸준히 오른다
+    const extra = pick(s, [['역세권', 0.004], ['학군지', 0.004], ['재건축 확정', 0.008], ['GTX 개통 예정', 0.007], ['대단지 신축', 0.005]] as [string, number][]);
+    if (!tags.includes(extra[0])) tags.push(extra[0]);
+    drift += extra[1];
+    m *= 0.97 + next(s) * 0.06;
+    tags.push('알짜');
+  } else if (deal === 'bargain' || r < 0.18) {
     m *= deal === 'bargain' ? 0.76 + next(s) * 0.1 : 0.86 + next(s) * 0.07;
     tags.push('급매');
   } else if (r > 0.82) {
@@ -374,12 +381,14 @@ export function rollListings(s: GameState) {
   s.listings = out;
 }
 
-/** 발품(임장)으로 찾은 급매 */
-export function addBargains(s: GameState, n = 2): Listing[] {
+/** 발품(임장)으로 찾은 급매·알짜 매물 */
+export function addBargains(s: GameState, n = 2, prime = 0): Listing[] {
   const found: Listing[] = [];
-  for (let i = 0; i < n; i++) {
-    const t = pickTpl(s, TPL.filter((x) => x.kind !== 'land' || chance(s, 0.3)));
-    found.push(makeListing(s, t, 'bargain'));
+  const pool = TPL.filter((x) => x.kind !== 'land' || chance(s, 0.3));
+  for (let i = 0; i < n + prime; i++) {
+    const l = makeListing(s, pickTpl(s, pool), i < n ? 'bargain' : 'prime');
+    l.found = true;
+    found.push(l);
   }
   (s.listings ??= []).unshift(...found);
   return found;
