@@ -48,6 +48,7 @@ import { wageIndex } from './pay';
 import { BOSS_STORIES, selfBoss } from './boss';
 import { hiddenYear } from './hidden';
 import { superHiddenYear } from './super-hidden';
+import { ultraHiddenYear, deathRescue } from './ultra-hidden';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -412,6 +413,7 @@ export function simulateYear(s: GameState): void {
   cardYear(s);
   for (const m of hiddenYear(s)) log(s, m, 'life');
   for (const m of superHiddenYear(s)) log(s, m, 'life');
+  for (const m of ultraHiddenYear(s)) log(s, m, 'life');
   trackPeak(s);
   scandalYear(s);
   woeYear(s);
@@ -780,7 +782,11 @@ function causeOf(s: GameState, p: Person): string {
 function deaths(s: GameState) {
   const living = Object.values(s.people).filter(alive);
   for (const p of living) {
-    if (!alive(p) || !chance(s, deathChance(s, p))) continue;
+    if (!alive(p)) continue;
+    const fated = p.flags.includes('fated_death'); // 히든의 히든을 거절한 사람: 이듬해 반드시 세상을 떠난다
+    if (!fated && !chance(s, deathChance(s, p))) continue;
+    // 죽음의 문턱: 히든의 히든(뱀파이어·사이보그)이 문을 열면 그 해에는 죽지 않는다
+    if (!fated && deathRescue(s, p)) continue;
     const wasHead = p.id === s.headId;
     const mainline = isMainline(s, p) || isRelevant(s, p);
     const cause = causeOf(s, p);
