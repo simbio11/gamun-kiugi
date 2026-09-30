@@ -875,7 +875,7 @@ describe('부모님 유산', () => {
         s.year = base;
         if (!ok) {
           // 근현대사·미래 사건이 붙이는 플래그 (history.ts 파독·중동·월남·5·18, histpack 금 모으기, timeline.ts 뉴럴·달·화성)
-          const flags = ['president', 'was_minister', 'was_politician', 'nobel', 'olympic_gold', 'mideast', 'germany', 'vietnam', 'arrested80', 'gold_ring', 'neural', 'moon_worker', 'mars_settler']; // 모두 이벤트에서 실제로 붙는 플래그 (대선·청문회·총선·노벨상·올림픽)
+          const flags = ['president', 'was_minister', 'was_politician', 'nobel', 'olympic_gold', 'mideast', 'germany', 'vietnam', 'arrested80', 'gold_ring', 'neural', 'moon_worker', 'mars_settler', 'asteroid_rich', 'starship_crew', 'signal_answer', 'space_trip']; // 모두 이벤트에서 실제로 붙는 플래그 (대선·청문회·총선·노벨상·올림픽)
           for (const f of flags) {
             h.flags.push(f);
             if (d.auto(s, h)) ok = true;

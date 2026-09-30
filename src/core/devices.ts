@@ -6,6 +6,7 @@
 // 같은 해라도 부잣집은 새 물건을 먼저 들이고, 가난한 집은 몇 년 늦게, 그것도 구형이나 공짜폰으로 산다.
 // 모델마다 [부유층, 중산층, 서민, 빈곤층]이 손에 넣는 해를 따로 적었다.
 
+import { formatWon } from './economy';
 import type { GameState, Person } from './types';
 import type { Story } from './stories';
 import type { ActionDef } from './actions';
@@ -236,7 +237,7 @@ export const DEVICE_ACTIONS: ActionDef[] = [
     label: (s) => {
       const m = latest(PHONES, s.year);
       const now = phoneOf(s);
-      return { name: `${m.icon} ${m.name} 들이기`, desc: `${m.note} · 지금: ${now.label} · ${price(s, m).toLocaleString()}만 원` };
+      return { name: `${m.icon} ${m.name} 들이기`, desc: `${m.note} · 지금: ${now.label} · ${formatWon(price(s, m))}` };
     },
     ap: 1,
     show: (s) => latest(PHONES, s.year).price > 0 && phoneOf(s).model.id !== latest(PHONES, s.year).id,
@@ -249,7 +250,7 @@ export const DEVICE_ACTIONS: ActionDef[] = [
       (s.gear ??= {}).phone = m.id;
       h.happiness = clamp(h.happiness + 5, 0, 100);
       s.fame += m.avail[1] > s.year ? 0.5 : 0; // 중산층도 아직 못 쓰는 물건이면 동네에 소문이 난다
-      return `${m.icon} ${m.name}을(를) 들였다. ${m.note}. (${v.toLocaleString()}만 원)`;
+      return `${m.icon} ${m.name}을(를) 들였다. ${m.note}. (${formatWon(v)})`;
     },
   },
   {
@@ -261,7 +262,7 @@ export const DEVICE_ACTIONS: ActionDef[] = [
     label: (s) => {
       const m = latest(PCS, s.year);
       const now = pcOf(s);
-      return { name: `${m.icon} ${m.name} 들이기`, desc: `${m.note} · 지금: ${now.model.id === 'none' ? '없음' : now.label} · ${price(s, m).toLocaleString()}만 원 · 집안 학생들 공부 효율↑` };
+      return { name: `${m.icon} ${m.name} 들이기`, desc: `${m.note} · 지금: ${now.model.id === 'none' ? '없음' : now.label} · ${formatWon(price(s, m))} · 집안 학생들 공부 효율↑` };
     },
     ap: 1,
     show: (s) => latest(PCS, s.year).id !== 'none' && pcOf(s).model.id !== latest(PCS, s.year).id,
@@ -277,7 +278,7 @@ export const DEVICE_ACTIONS: ActionDef[] = [
         k.study = clamp((k.study ?? 40) + 2, 0, 100);
         k.actual.int = clamp(k.actual.int + 1, 0, Math.max(k.potential.int, k.actual.int));
       }
-      return `${m.icon} ${m.name}을(를) 들였다. ${m.note}.${kids.length ? ` ${kids.map(fullName).join('·')}의 공부가 조금 수월해졌다.` : ''} (${v.toLocaleString()}만 원)`;
+      return `${m.icon} ${m.name}을(를) 들였다. ${m.note}.${kids.length ? ` ${kids.map(fullName).join('·')}의 공부가 조금 수월해졌다.` : ''} (${formatWon(v)})`;
     },
   },
 ];

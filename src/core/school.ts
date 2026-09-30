@@ -6,7 +6,7 @@ import { chance, int, next, normal, pick } from './rng';
 import { examName, SUSI_FROM } from './histidx';
 import { histPlan, setHistCur } from './histpack';
 import { SURNAMES, TALENTS } from './data';
-import { formatMoney } from './economy';
+import { formatMoney, setMoneyYear } from './economy';
 import {
   applyDesire,
   gate,
@@ -528,16 +528,16 @@ export const MAJOR_JOBS: Record<string, string[]> = {
   media: ['journalist', 'pd', 'announcer', 'marketer', 'youtuber', 'designer', 'vr_architect'],
   lang: ['trader', 'flight_attendant', 'diplomat', 'tour_guide', 'hotelier', 'corp'],
   welfare: ['social_worker', 'caregiver', 'civil', 'care_robot_mgr', 'memory_designer'],
-  cs: ['developer', 'data_scientist', 'security', 'game_dev', 'corp', 'ai_trainer', 'ai_auditor'],
-  ee: ['chip_engineer', 'developer', 'patent_attorney', 'corp', 'robot_tech', 'space_tech'],
-  mech: ['mech_engineer', 'chip_engineer', 'patent_attorney', 'corp', 'robot_tech', 'space_tech', 'climate_eng'],
-  arch: ['architect', 'corp', 'appraiser', 'vr_architect', 'climate_eng'],
-  bio: ['researcher', 'patent_attorney', 'corp', 'memory_designer', 'climate_eng'],
-  agri: ['smart_farmer', 'farmer', 'rancher', 'civil', 'sea_farmer', 'mars_pioneer'],
+  cs: ['developer', 'data_scientist', 'security', 'game_dev', 'corp', 'ai_trainer', 'ai_auditor', 'upload_engineer'],
+  ee: ['chip_engineer', 'developer', 'patent_attorney', 'corp', 'robot_tech', 'space_tech', 'upload_engineer'],
+  mech: ['mech_engineer', 'chip_engineer', 'patent_attorney', 'corp', 'robot_tech', 'space_tech', 'climate_eng', 'terraformer', 'orbital_architect'],
+  arch: ['architect', 'corp', 'appraiser', 'vr_architect', 'climate_eng', 'orbital_architect'],
+  bio: ['researcher', 'patent_attorney', 'corp', 'memory_designer', 'climate_eng', 'xeno_biologist', 'upload_engineer'],
+  agri: ['smart_farmer', 'farmer', 'rancher', 'civil', 'sea_farmer', 'mars_pioneer', 'terraformer'],
   cook: ['chef', 'hotelier', 'restaurant', 'cafe_owner'],
   beauty: ['hairdresser', 'nail_artist', 'online_shop'],
-  air: ['flight_attendant', 'hotelier', 'tour_guide', 'drone_control'],
-  auto: ['mechanic', 'factory', 'trucker', 'robot_tech'],
+  air: ['flight_attendant', 'hotelier', 'tour_guide', 'drone_control', 'star_navigator'],
+  auto: ['mechanic', 'factory', 'trucker', 'robot_tech', 'asteroid_miner'],
   itc: ['developer', 'security', 'game_dev', 'ai_trainer', 'drone_control'],
   design: ['designer', 'game_dev', 'online_shop', 'vr_architect'],
   acting: ['actor', 'voice_actor', 'model', 'youtuber'],
@@ -553,7 +553,7 @@ export const MAJOR_JOBS: Record<string, string[]> = {
   fashion: ['designer', 'model', 'online_shop'],
   game: ['game_dev', 'developer', 'gamer', 'vr_architect'],
   hotel: ['hotelier', 'flight_attendant', 'tour_guide', 'restaurant'],
-  marine: ['navigator', 'trucker', 'public_corp', 'sea_farmer'],
+  marine: ['navigator', 'trucker', 'public_corp', 'sea_farmer', 'star_navigator'],
   nurse: ['nurse', 'caregiver', 'social_worker', 'care_robot_mgr'],
 };
 
@@ -617,7 +617,7 @@ export function gradeOf(pct: number): number {
 /** 지금 실력으로 본 전국 위치 (시험 운 제외): 백분위·상위 %·등급 */
 /** standing은 인자에 GameState가 없어 마지막으로 본 게임 상태로 동네를 본다 */
 let lastState: GameState | undefined;
-export const bindState = (s: GameState) => (bindKin(s), setHistCur(s), (lastState = s));
+export const bindState = (s: GameState) => (bindKin(s), setHistCur(s), setMoneyYear(s.year), (lastState = s));
 
 export function standing(p: Person): { pct: number; top: number; grade: number } {
   const raw = studyOf(p) * 0.6 + p.actual.int * 0.45 + eduBonus(p) + suneungBonus(p) + (hasTrait(p, 'anxious') ? -2 : hasTrait(p, 'cheerful') ? 1 : 0) + (lastState ? hoodOf(lastState, p).sat : 0);

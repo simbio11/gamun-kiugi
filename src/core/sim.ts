@@ -1,7 +1,7 @@
 import { chance, int, next, normal, pick } from './rng';
 import { ACHIEVEMENTS, ART_TIERS, EXAMS, JOBS, REAL_ESTATE, SURNAMES } from './data';
 import { checkAchievements } from './achievements';
-import { addAsset, addHolding, assetsOf, economyYear, familyWorth, foldFamilyPot, formatMoney, jobLabel, marketYear, pay, personWorth, settlePension, severance, totalWorth } from './economy';
+import { setMoneyYear, addAsset, addHolding, assetsOf, economyYear, familyWorth, foldFamilyPot, formatMoney, jobLabel, marketYear, pay, personWorth, settlePension, severance, totalWorth } from './economy';
 import { checkMissions, initMissions } from './missions';
 import { LIFE_RANDOM, cancerRate, deliver, isElectionYear, setBond, type LifeDef } from './life';
 import { heirCandidates } from './family';
@@ -370,6 +370,7 @@ export function simulateYear(s: GameState): void {
   if (s.events.length || s.gameOver) return;
   bindState(s);
   s.year++;
+  setMoneyYear(s.year);
   s.ap = apMax(s);
   s.actUsed = {};
   const h0 = head(s);

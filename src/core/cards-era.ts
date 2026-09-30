@@ -33,6 +33,12 @@ export const ERA_CARDS: (CardDef & { theme: string })[] = [
   { id: 'moon_pioneer', name: '달 기지 개척자', icon: '🌙', rarity: 'epic', theme: 'space', how: '달 기지 상주 인력으로 뽑힌다 (2063년~)', eff: { fame: 2, kid: 'int' }, honor: 'ungbi', auto: (_s, p) => hasFlag(p, 'moon_worker') || lv(p, ['space_tech'], 2) },
   { id: 'memory_artisan', name: '기억의 장인', icon: '🧠', rarity: 'epic', theme: 'medical', how: '기억 설계사 수석 이상 (2080년~)', eff: { hap: 2, hp: 1 }, auto: (_s, p) => lv(p, ['memory_designer'], 3) },
   { id: 'mars_first', name: '화성 이주 1세대', icon: '🔴', rarity: 'legend', theme: 'space', how: '화성 정착촌 "새터"로 떠난다 (2084년~)', eff: { fame: 5, kid: 'str' }, honor: 'cosmos', auto: (_s, p) => hasFlag(p, 'mars_settler') || lv(p, ['mars_pioneer'], 2) },
+  { id: 'terraform_hero', name: '붉은 행성을 푸르게', icon: '🌱', rarity: 'legend', theme: 'nature', how: '테라포밍 기술자로 구역 책임자 이상 (2105년~)', eff: { hp: 2, fame: 3 }, honor: 'cosmos', auto: (_s, p) => lv(p, ['terraformer'], 3) },
+  { id: 'asteroid_tycoon', name: '소행성 재벌', icon: '☄️', rarity: 'epic', theme: 'money', how: '소행성 채굴권 대박, 또는 소행성 광산 소장 (2112년~)', eff: { cash: 15000 }, auto: (_s, p) => hasFlag(p, 'asteroid_rich') || lv(p, ['asteroid_miner'], 4) },
+  { id: 'orbital_father', name: '궤도 도시의 설계자', icon: '🛰', rarity: 'epic', theme: 'craft', how: '궤도 도시 건축가 수석 이상 (2122년~)', eff: { hap: 2, fame: 2 }, auto: (_s, p) => lv(p, ['orbital_architect'], 3) },
+  { id: 'star_voyager', name: '별로 떠난 사람', icon: '🌠', rarity: 'legend', theme: 'space', how: '성간 탐사선 "누리별" 승무원, 또는 성간 항법사 수석 (2148년~)', eff: { fame: 6, kid: 'int' }, honor: 'cosmos', auto: (_s, p) => hasFlag(p, 'starship_crew') || lv(p, ['star_navigator'], 3) },
+  { id: 'first_contact', name: '인류의 답장', icon: '📡', rarity: 'legend', theme: 'diplo', how: '외계 신호에 보낼 인류의 답장에 뽑히거나, 외계 생물학 연구소장 (2144년~)', eff: { fame: 5, kid: 'cha' }, auto: (_s, p) => hasFlag(p, 'signal_answer') || lv(p, ['xeno_biologist'], 4) },
+  { id: 'space_tourist', name: '우주 여행객', icon: '🚀', rarity: 'common', theme: 'space', how: '우주 여행을 다녀온다 (2044년~)', eff: { hap: 1 }, auto: (_s, p) => hasFlag(p, 'space_trip') },
   { id: 'sea_pioneer', name: '해양 도시 개척자', icon: '🐚', rarity: 'rare', theme: 'nature', how: '해상 도시 입주 또는 해양 양식 기업 (2072년~)', eff: { cash: 2000, hp: 1 }, auto: (_s, p) => lv(p, ['sea_farmer'], 3) },
 ];
 

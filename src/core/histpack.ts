@@ -8,6 +8,7 @@ import { chance, pick } from './rng';
 import { gate, iga, type Choice, type Ctx, type EventDef } from './ev-util';
 import { addFlag, age, check, clamp, fullName, hasFlag, householder, mark, parentsOf } from './people';
 import { wageIndex } from './pay';
+import { formatWon, isNominal } from './economy';
 import type { GameState, Person } from './types';
 import type { Story } from './stories';
 import type { ActionDef } from './actions';
@@ -142,8 +143,18 @@ function futurize(year: number, text: string): string {
   return t;
 }
 
+/** 2026년 이후: 글 속 "50만 원" 같은 금액은 2025년 돈으로 쓰였으니 그해 물가로 바꿔 보여 준다 */
+function inflate(text: string): string {
+  if (!isNominal()) return text;
+  return text.replace(/(\d[\d,]*(?:\.\d+)?)(천만|만|억) ?원/g, (_m, n: string, u: string) => {
+    const v = parseFloat(n.replace(/,/g, '')) * (u === '억' ? 10000 : u === '천만' ? 1000 : 1);
+    return formatWon(v);
+  });
+}
+
 export function periodize(s: GameState, text: string): string {
   if (!text) return text;
+  if (s.year > 2025) text = inflate(text);
   if (s.year >= 2040) return futurize(s.year, text);
   if (!inHistory(s)) return text;
   let t = text;
@@ -576,9 +587,9 @@ export const HIST_ACTIONS: ActionDef[] = [
     run: (s) => {
       const h = householder(s);
       const v = Math.round(400 * wi(s));
-      if (chance(s, 0.15)) return (h.cash -= Math.round(v * 0.6)), `😱 계주가 곗돈을 들고 사라졌다. ${Math.round(v * 0.6).toLocaleString()}만 원이 날아갔다.`;
+      if (chance(s, 0.15)) return (h.cash -= Math.round(v * 0.6)), `😱 계주가 곗돈을 들고 사라졌다. ${formatWon(Math.round(v * 0.6))}이 날아갔다.`;
       h.cash += Math.round(v * 0.12);
-      return `계모임에 들었다. 순번이 돌아와 목돈을 탔다. 이자까지 쳐서 ${Math.round(v * 1.12).toLocaleString()}만 원.`;
+      return `계모임에 들었다. 순번이 돌아와 목돈을 탔다. 이자까지 쳐서 ${formatWon(Math.round(v * 1.12))}.`;
     },
   },
   {
@@ -613,7 +624,7 @@ export const HIST_ACTIONS: ActionDef[] = [
       if (typeof h.study === 'number') h.study = Math.max(0, h.study - 1);
       mark(h, 'selfmade');
       h.actual.str = clamp(h.actual.str + 1, 0, Math.max(h.potential.str, h.actual.str));
-      return `새벽 4시, 자전거에 신문 뭉치를 싣고 달렸다. 한 달에 ${Math.round(v / 12).toLocaleString()}만 원 남짓. 손이 얼어 터졌지만 뿌듯하다.`;
+      return `새벽 4시, 자전거에 신문 뭉치를 싣고 달렸다. 한 달에 ${formatWon(Math.round(v / 12))} 남짓. 손이 얼어 터졌지만 뿌듯하다.`;
     },
   },
   {
@@ -646,7 +657,7 @@ export const HIST_ACTIONS: ActionDef[] = [
       if (h.cash <= 0) return '넣을 돈이 없다.';
       const gain = Math.round(Math.min(h.cash, 2000 * wi(s)) * 0.08);
       h.cash += gain;
-      return `월급날마다 은행 창구에 줄을 섰다. 비과세 고금리 이자 ${gain.toLocaleString()}만 원이 붙었다.`;
+      return `월급날마다 은행 창구에 줄을 섰다. 비과세 고금리 이자 ${formatWon(gain)}이 붙었다.`;
     },
   },
   // ── 유튜브·인스타 대신: 그 시절 이름을 알리는 법 ──

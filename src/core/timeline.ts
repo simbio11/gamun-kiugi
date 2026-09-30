@@ -1,18 +1,22 @@
 // 큰 시간선: 1960년에서 22세기까지 한 줄로 이어진다.
 //
 // · 시대(Epoch)마다 이름·분위기가 있고, 뉴스가 오는 매체가 바뀐다.
-//     연말 뉴스: 종이 신문(~2004) → 포털 뉴스(2005~) → AR 피드(2050~) → AI 브리핑(2080~)
-//     큰 사건 속보: 호외(~1989) → TV 속보(~2009) → 휴대폰 알림(~2039) → 홀로그램 속보(~2069) → AI 비서(2070~)
+//     연말 뉴스: 종이 신문(~2004) → 포털 뉴스(2005~) → AR 피드(2050~) → AI 브리핑(2080~) → 뉴럴 뉴스(2140~)
+//     큰 사건 속보: 호외(~1989) → TV 속보(~2009) → 휴대폰 알림(~2039) → 홀로그램 속보(~2069) → AI 비서(2070~) → 뉴럴 속보(2140~)
 // · 2025년까지는 실제 기록(history.ts), 그 뒤는 게임 속 상상이다. 실존 인물 이름은 쓰지 않는다.
 // · 2026년부터는 모드와 상관없이 같은 미래가 온다: 근현대사에서 넘어온 가문도, 현대에서 시작한 가문도.
 // · 미래의 굵직한 전환점(자율주행·로봇·노화 역전·달 기지·화성 이주·AI 시민권 …)은 선택이 있는 사건으로 온다.
 
 import { addFlag, age, alive, clamp, fullName, hasFlag, head, householder, isMainline } from './people';
 import { chance } from './rng';
+import { formatMoney } from './economy';
+import type { ActionDef } from './actions';
 import { unlock } from './achievements';
 import { wageIndex } from './pay';
 import { gate, type Choice, type Ctx, type EventDef } from './ev-util';
-import { histStyle, inHist } from './history';
+import { histStyle, inHist, NEWS } from './history';
+import { NEWS_MORE } from './news-more';
+import { FILLER, futurePool, MILESTONES } from './future-news';
 import type { GameState, Person } from './types';
 
 // ───────────────────────── 시대 ─────────────────────────
@@ -37,7 +41,11 @@ export const EPOCHS: Epoch[] = [
   { from: 2050, name: '탄소중립 이후', icon: '🌿', theme: 'e50' },
   { from: 2060, name: '장수와 우주의 시대', icon: '🌙', theme: 'e60f' },
   { from: 2080, name: '신인류 시대', icon: '🧬', theme: 'e80f' },
-  { from: 2100, name: '22세기', icon: '🪐', theme: 'e100' },
+  { from: 2100, name: '22세기 · 태양계 경제권', icon: '🪐', theme: 'e100' },
+  { from: 2120, name: '궤도 도시와 테라포밍', icon: '🛰', theme: 'e120' },
+  { from: 2140, name: '행성간 문명', icon: '🌌', theme: 'e140' },
+  { from: 2170, name: '별을 향해', icon: '✨', theme: 'e170' },
+  { from: 2200, name: '23세기', icon: '🌠', theme: 'e200' },
 ];
 export function epochOf(y: number): Epoch {
   let e = EPOCHS[0];
@@ -45,12 +53,12 @@ export function epochOf(y: number): Epoch {
   return e;
 }
 
-export type NewsMedium = 'paper' | 'portal' | 'feed' | 'ai';
+export type NewsMedium = 'paper' | 'portal' | 'feed' | 'ai' | 'neural';
 /** 연말 뉴스를 어디서 보나 */
-export const newsMedium = (y: number): NewsMedium => (y < 2005 ? 'paper' : y < 2050 ? 'portal' : y < 2080 ? 'feed' : 'ai');
-export type AlertMedia = 'extra' | 'tv' | 'push' | 'holo' | 'ai';
+export const newsMedium = (y: number): NewsMedium => (y < 2005 ? 'paper' : y < 2050 ? 'portal' : y < 2080 ? 'feed' : y < 2140 ? 'ai' : 'neural');
+export type AlertMedia = 'extra' | 'tv' | 'push' | 'holo' | 'ai' | 'neural';
 /** 큰 사건 속보가 어떻게 들이닥치나 */
-export const alertMedia = (y: number): AlertMedia => (y < 1990 ? 'extra' : y < 2010 ? 'tv' : y < 2040 ? 'push' : y < 2070 ? 'holo' : 'ai');
+export const alertMedia = (y: number): AlertMedia => (y < 1990 ? 'extra' : y < 2010 ? 'tv' : y < 2040 ? 'push' : y < 2070 ? 'holo' : y < 2140 ? 'ai' : 'neural');
 
 /** 이 사건 카드를 뉴스 연출로 띄울까 (근현대사 큰 사건 · 미래 전환점 · 시대의 파도) */
 export function newsStyle(defId: string, year: number): AlertMedia | undefined {
@@ -60,78 +68,7 @@ export function newsStyle(defId: string, year: number): AlertMedia | undefined {
   return undefined;
 }
 
-// ───────────────────────── 미래 뉴스 (게임 속 상상) ─────────────────────────
-
-/** [시작 해, 끝 해, 머리기사들] — 해마다 여기서 몇 개씩 뽑는다 */
-const FUTURE_NEWS: [number, number, string[]][] = [
-  [2025, 2029, [
-    'AI 디지털 교과서 전면 도입 두고 학부모 찬반 팽팽', '학령인구 급감에 지방 사립대 줄폐교, "벚꽃 피는 순서대로 문 닫는다"', '반도체 슈퍼사이클, 수출 역대 최대',
-    '출생아 수 9년 만에 반등, "결혼 늘어난 효과"', '정년 65세 연장 법안 국회 논의 본격화', '수도권 광역급행철도 연장 개통, 출퇴근 30분 단축',
-    'AI 상담원이 콜센터 절반 대체', '로보택시 시범 운행 구역 서울 전역으로 확대', '전기차 신차 판매 비중 30% 돌파', '폭염 일수 역대 최다, 온열질환자 급증',
-    '외국인 주민 300만 명 시대', '청년 1인 가구 월세 부담 소득의 30% 넘어', '딥페이크 범죄 처벌 강화법 통과', 'K-콘텐츠 수출액 가전 제쳐',
-    '초등 늘봄학교 전면 시행', '국민연금 개혁안 통과: 더 내고 조금 더 받는다',
-  ]],
-  [2030, 2034, [
-    '레벨4 자율주행, 고속도로 전 구간 허용', '"국민 절반이 AI 비서와 매일 대화" 조사 결과', '주 4.5일제 도입 기업 절반 넘어', '소형모듈원전(SMR) 첫 상업 가동',
-    '한국형 달 착륙선 발사 성공', '탄소세 본격 시행, 휘발유 값 리터당 3천 원 시대', '초등학교 1,000곳 통폐합, 폐교 활용 공모', 'AR 글래스 판매량, 스마트폰의 20% 넘어',
-    '사무직 신입 채용 30% 감소, "AI 쓰는 사람만 뽑는다"', '인구 5천만 명 선 무너져', '서울 아파트 평균 전용 59㎡가 대세, "3인 가구도 소형으로"', '정부, 기본소득 시범 도시 3곳 선정',
-    '방학 없는 1년 4학기 대학 등장', '의료 AI 진단, 동네 의원 70%가 사용', '해외 이민자 유치 전담 부처 신설', '폭우 대비 대심도 빗물터널 완공',
-  ]],
-  [2035, 2039, [
-    '가정용 휴머노이드 로봇 첫 시판, 대당 경차 한 대 값', '정년 67세 시대', '해수면 상승 대비 서해안 방조제 보강 착공', '가상 부동산 거래 과세 논란',
-    '재택근무 청구권 법제화', '군 병력 40만 명 아래로, 드론 부대 창설', '노인 1인 가구 300만 가구', '"AI 과외 선생님" 사교육비 첫 감소',
-    '유전자 검사로 맞춤 식단 짜는 가정 늘어', '폭염 휴교령 연례화, "7월은 방학"', '로봇 배송 전면 허용, 택배 기사 전업 지원', '시험관 시술 전액 국가 지원',
-  ]],
-  [2040, 2049, [
-    '로봇세 도입: 로봇 1대당 사람 1명 몫의 세금', '기본소득 월 50만 원 전국 확대 논쟁', '뉴럴 링크 의료용 승인, 척수 마비 환자 걸어', '서울 여름 평균 기온 30도 넘어',
-    '만 70세까지 계속 고용 의무화', '한국인 우주인, 국제 달 궤도 정거장 체류', '초전도 송전망 첫 구간 개통', '대학 절반이 온라인·가상캠퍼스로 전환',
-    '"평생 직업 3번 바뀐다" 직업 전환 바우처 도입', '인공 배양육 대형마트 정식 판매', '농촌 무인 스마트팜 비율 50% 돌파', 'AI 판사 보조 제도 시범 도입',
-    '가상공간 결혼식 법적 효력 인정', '해외 기후 이주민 첫 대규모 수용',
-  ]],
-  [2050, 2059, [
-    '탄소중립 달성 선언', '평균 수명 90세 돌파', '가사 로봇 보급률 50% 넘어', '뉴럴 인터페이스 일반 시판, "생각으로 문자 보낸다"',
-    '남해안 해상 도시 착공', '인구 4천만 명 선 무너져', '노화 역전 치료 첫 승인, 치료비 수억 원 논란', '홀로그램 교실 시범 운영',
-    '자율주행 택시 기사 직업 사실상 소멸', '100세 이상 인구 10만 명', '"로봇에게도 휴식권" 시민단체 캠페인', '폭염 대피 지하도시 개장',
-  ]],
-  [2060, 2079, [
-    '달 기지 상주 인원 100명 돌파, 한국인 12명', '정년 제도 폐지', '홀로그램 통화 요금, 음성 통화보다 싸져', '기억 백업 서비스 출시, "잊고 싶지 않은 날을 저장"',
-    'AI 인격권 헌법소원 제기', '해상 도시 첫 입주, 경쟁률 300대 1', '화성 유인 탐사선 귀환', '평균 수명 100세 시대',
-    '완전 자율 물류, 화물차 운전석 사라져', '우주 엘리베이터 국제 공동 착공', '인공 자궁 임상 논쟁 격화', '폭풍 해일 방벽, 인천·부산 완공',
-    '노인 인구 절반이 "일하는 은퇴자"', '초등학생 장래희망 1위 "우주 기지 기술자"',
-  ]],
-  [2080, 2099, [
-    '화성 이주 1세대 출발, 한국인 가족 40가구', '기억 설계사 국가 자격 신설', '1인 1로봇 시대 개막', '뇌-뇌 직접 통신 실험 첫 성공',
-    'AI와 사람이 함께 운영하는 실험 도시 출범', '달 태생 첫 한국인 아이 출생', '해수면 1m 상승, 해안 도시 이전 계획 확정', '의식 업로드 첫 사례 두고 종교계 반발',
-    '"일하지 않아도 되는 사회" 주 3일 근무 표준화', '인구 3,500만 명, 이민자 비율 20%', '화성 정착촌 인구 1만 명 돌파', 'AI 시민권 국민투표 발의',
-  ]],
-  [2100, 9999, [
-    '22세기 첫 해, 서울 광장에 홀로그램 불꽃놀이', '태양계 경제권 공동시장 출범', '우주 태생 1세대, 성인이 되다', '평균 수명 110세, "몇 번째 인생이세요?"',
-    '지구 기온 상승 멈춰, 복원 100년 계획 착수', '목성 위성 탐사 기지 착공', '가족 단위 우주 이주 보험 등장', '사람과 AI가 공동 저자인 노벨문학상',
-  ]],
-];
-
-/** 기사가 바닥났을 때의 생활 기사 (해마다 되풀이돼도 어색하지 않은 것들) */
-const FILLER: [number, string[]][] = [
-  [2026, ['올여름도 폭염 경보 한 달째', '지방 초등학교 또 폐교, 마지막 졸업생 3명', '무인 상점 3년 새 세 배로', '청년 인구 수도권 쏠림 가속', '로보택시 사고 첫 소송 판결', '노인 일자리 박람회에 인파',
-    '출생아 수 소폭 반등, "아직 갈 길 멀다"', '전셋값 다시 들썩', '반려로봇 등록제 도입 논의', '주말 농장 분양 경쟁률 역대 최고', '태풍 대비 해안 대피 훈련', 'AI 번역 이어폰에 외국어 학원 줄폐업']],
-  [2050, ['해상 도시 인구 역대 최다', '돌봄 로봇 일시 먹통, 요양원 비상', '서울 지하도시 여름 피서객 몰려', '장수 마라톤 최고령 완주자 112세', '폭풍 방벽 정기 점검 완료',
-    '홀로그램 축제 개막, 밤하늘에 고래가 헤엄친다', '뉴럴 칩 보안 업데이트 대란', '달 기지 채용 경쟁률 또 최고치', '100세 신입생 대학 입학', '배양육 김치찌개 전문점 인기']],
-  [2080, ['화성 새터 정착촌에서 첫 결혼식', '화성 온실 감자 풍년', '달 기지 태생 아이들 지구 수학여행', 'AI 공동 운영 도시 시장 선거', '태양 폭풍 대비 전국 훈련',
-    '지구 귀환 이주민 적응 지원 센터 개소', '해상 도시 사이 수중 터널 개통', '기억 설계사 국가시험 합격률 12%', '120세 할머니, 손주 100번째 생일 잔치', '로봇과 사람 혼성 야구단 창단']],
-];
-
-/** 특정 해에 꼭 나오는 이정표 */
-const MILESTONES: Record<number, string> = {
-  2030: '2030년, 세계 인구 85억 명. 한국은 65세 이상이 네 명 중 한 명',
-  2040: '2040년, 서울 인구 800만 명 선 붕괴',
-  2045: '광복 100주년, 판문점에서 기념 행사',
-  2050: '2050년, 대한민국 탄소중립 달성 공식 선언',
-  2060: '2060년, 국민연금 기금 고갈 시점… 개혁으로 넘겼다',
-  2070: '2070년, 달 기지에서 첫 설날 차례상',
-  2080: '2080년, 화성행 정기 수송선 운항 시작',
-  2088: '서울 올림픽 100주년, 잠실에 홀로그램 성화',
-  2100: '22세기 개막. 100년 전 오늘, 우리는 아직 스마트폰을 들고 있었다',
-};
+// 미래 뉴스·이정표·생활 기사는 future-news.ts
 
 /** 게임 rng를 건드리지 않는 해시 (같은 가문·같은 해면 같은 뉴스) */
 function hash(a: number, b: number, c: number): number {
@@ -147,26 +84,29 @@ export function timelineYear(s: GameState): string[] {
   if (inHist(s)) return [];
   const out: string[] = [];
   const y = s.year;
-  if (MILESTONES[y]) out.push(`📰 ${MILESTONES[y]}`);
-  const pool = FUTURE_NEWS.find(([a, b]) => y >= a && y <= b)?.[2] ?? [];
   const seen = (s.storySeen ??= {});
-  // 이미 실린 기사는 되도록 다시 싣지 않는다
-  const fresh = pool.map((_, i) => i).filter((i) => seen[`nw:${y < 2100 ? pool[i].slice(0, 12) : i}`] === undefined);
-  const from = fresh;
-  const n = Math.min(from.length, 3);
-  const used = new Set<number>();
-  for (let i = 0; used.size < n && i < 30; i++) used.add(from[hash(s.seed, y, i) % from.length]);
-  for (const i of used) {
-    out.push(`📰 ${pool[i]}`);
-    seen[`nw:${y < 2100 ? pool[i].slice(0, 12) : i}`] = y;
+  if (MILESTONES[y]) out.push(`📰 ${MILESTONES[y]}`);
+  // 2026년까지는 실제 뉴스 (현대 모드의 2025년, 근현대사에서 넘어온 2026년), 그 뒤는 상상 속 뉴스
+  const real = [...(NEWS[y] ?? []), ...(NEWS_MORE[y] ?? [])];
+  const heads: string[] = [];
+  if (real.length) heads.push(...real);
+  else {
+    const pool = futurePool(y);
+    // 이미 실린 기사는 다시 싣지 않는다
+    const fresh = pool.filter((t) => seen['nw:' + t.slice(0, 14)] === undefined);
+    const n = Math.min(fresh.length, 3);
+    const used = new Set<number>();
+    for (let i = 0; used.size < n && i < 40; i++) used.add(hash(s.seed, y, i) % fresh.length);
+    for (const i of used) heads.push(fresh[i]), (seen['nw:' + fresh[i].slice(0, 14)] = y);
+    // 그 시대 기사가 바닥나면 짧은 생활 기사로 채운다
+    if (n < 2) {
+      const f = FILLER.filter(([a]) => y >= a).pop()![1];
+      const picked = new Set<number>();
+      for (let i = 0; picked.size < 2 - n && i < 10; i++) picked.add(hash(s.seed, y, 40 + i) % f.length);
+      for (const i of picked) heads.push(f[i]);
+    }
   }
-  // 그 시대 기사가 바닥나면 짧은 생활 기사로 채운다
-  if (n < 2 && y >= 2026) {
-    const f = FILLER.filter(([a]) => y >= a).pop()![1];
-    const picked = new Set<number>();
-    for (let i = 0; picked.size < 2 - n && i < 10; i++) picked.add(hash(s.seed, y, 40 + i) % f.length);
-    for (const i of picked) out.push(`📰 ${f[i]}`);
-  }
+  for (const t of heads) out.push(`📰 ${t}`);
   // 시장: 가장 크게 움직인 것 하나만 경제 면 머리기사로 (코인은 원래 출렁이니 문턱이 높다)
   const moves = (['apt_seoul', 'stock', 'coin'] as const)
     .map((k) => [k, s.marketChange?.[k] ?? 0] as const)
@@ -181,9 +121,9 @@ export function timelineYear(s: GameState): string[] {
     const p = s.people[c.personId];
     if (p) out.push(`📰 [가문 소식] ${fullName(p)}, "${cardName(c.id)}"에 오르다`);
   }
-  // 포털 시절: 실시간 검색어
+  // 포털 시절: 실시간 검색어 (2021년 폐지)
   if (newsMedium(y) === 'portal' && y <= 2020) {
-    const words = pool.length ? [...used].map((i) => pool[i].split(/[ ,"]/)[0]).filter(Boolean) : [];
+    const words = heads.map((t) => t.replace(/^생활: /, '').split(/[ ,"]/)[0]).filter(Boolean);
     if (s.fame >= 30) words.unshift(`${fullName(head(s)).slice(0, 1)}씨 가문`);
     if (words.length) out.push(`🔎 ${words.slice(0, 5).join(' · ')}`);
   }
@@ -191,17 +131,18 @@ export function timelineYear(s: GameState): string[] {
   if (s.era === 'history' && y >= 2030) unlock(s, 'hist_to_2030');
   if (s.era === 'history' && y >= 2080) unlock(s, 'paper_to_ai');
   if (y >= 2100) unlock(s, 'century_22');
+  if (y >= 2200) unlock(s, 'century_23');
   if (family(s).some((p) => hasFlag(p, 'moon_worker'))) unlock(s, 'moon_family');
   if (family(s).some((p) => hasFlag(p, 'mars_settler'))) unlock(s, 'mars_family');
+  if (family(s).some((p) => hasFlag(p, 'space_trip'))) unlock(s, 'space_tourist');
   if (family(s).some((p) => new Set(EPOCHS.filter((e, i) => (EPOCHS[i + 1]?.from ?? 99999) > p.birthYear && e.from <= y).map((e) => e.name)).size >= 5)) unlock(s, 'epoch_five');
   // 미래의 전환점
-  const seenF = s.storySeen;
   for (const f of FUTURES) {
-    if (seenF['fut:' + f.id] !== undefined || y < f.y || y > f.y + (f.span ?? 3)) continue;
+    if (seen['fut:' + f.id] !== undefined || y < f.y || y > f.y + (f.span ?? 3)) continue;
     const who = f.who ? f.who(s) : age(s, head(s)) >= 18 ? head(s) : householder(s); // 어린 가주 대신 집안 어른이
     if (!who || age(s, who) < 18) continue;
     if (f.cond && !f.cond(s)) continue;
-    seenF['fut:' + f.id] = y;
+    seen['fut:' + f.id] = y;
     s.events.push({ uid: s.eventSeq++, defId: 'fut_' + f.id, personId: who.id, data: {} });
   }
   return out;
@@ -439,6 +380,225 @@ const FUTURES: Future[] = [
       ok('가문 타임캡슐을 묻는다', '2200년에 열 타임캡슐에 가계도와 편지를 넣었다.', (x) => (x.s.fame += 3)),
     ],
   },
+
+  // ── 현대 ──
+  {
+    id: 'ai_tutor',
+    y: 2028,
+    span: 6,
+    head: 'AI 과외 선생님 시대… 학원가 매출 반토막',
+    sub: '한 달 몇만 원이면 1:1 AI 튜터, 공교육도 AI 교과서',
+    cond: (s) => family(s).some((p) => age(s, p) >= 7 && age(s, p) <= 18),
+    body: () => '아이 책상 위 태블릿이 "오늘은 분수 나눗셈을 해 볼까?" 하고 먼저 말을 건다. 옆집은 학원을 다 끊었다. 그래도 불안하다.',
+    choices: (c) =>
+      gate(c.s, [
+        spend('AI 튜터를 구독한다', (s) => W(s, 150), '아이가 모르는 걸 부끄러워하지 않고 AI에게 백 번씩 묻는다. 성적이 올랐다.', (x) => {
+          for (const p of family(x.s)) if (age(x.s, p) >= 7 && age(x.s, p) <= 18) p.study = clamp((p.study ?? 40) + 3, 0, 100);
+        })(c),
+        ok('화면은 줄이고 운동·독서를 시킨다', '주말마다 도서관과 운동장. "AI가 못 하는 걸 해라."', (x) => {
+          for (const p of family(x.s)) if (age(x.s, p) >= 7 && age(x.s, p) <= 18) up(p, 'str', 1), up(p, 'mor', 1);
+        }),
+        ok('학원을 그대로 보낸다', '"그래도 사람 선생님이지." 학원비는 그대로 나간다.'),
+      ]),
+  },
+  {
+    id: 'suborbital',
+    y: 2044,
+    span: 5,
+    head: '민간 우주 관광 정기편 취항… 고흥 우주항에서 출발',
+    sub: '저궤도 90분 비행, 무중력 5분',
+    body: () => '광고가 쏟아진다. "환갑 선물은 우주로!" 창밖으로 둥근 지구를 본 사람들이 하나같이 울었다고 한다.',
+    choices: (c) =>
+      gate(c.s, [
+        spend('가주가 다녀온다', (s) => W(s, 20000), '둥근 지평선. 얇은 파란 띠. 저기 어딘가에 우리 집이 있다.', (x) => {
+          addFlag(x.p, 'space_trip');
+          hap(x.p, 15);
+          x.s.fame += 1;
+        })(c),
+        ok('값이 내리면 가족 모두 간다', '"10년 뒤엔 반값이 될 거야." 우주 여행 적금을 들었다.'),
+        ok('땅이 좋다', '우주선 발사 영상을 보며 라면을 끓였다.'),
+      ]),
+  },
+  {
+    id: 'moon_trip',
+    y: 2066,
+    span: 6,
+    head: '달 호텔 가족 여행 상품 출시',
+    sub: '2박 3일, 달 궤도 호텔 "한울"과 달 표면 산책',
+    body: () => '어린 시절 교과서에서 본 달에 가족이 간다. 1/6 중력에서 아이들이 3미터씩 뛴다고 한다.',
+    choices: (c) =>
+      gate(c.s, [
+        spend('가족이 함께 간다', (s) => W(s, 12000), '달 표면에 가족 이름을 새긴 발자국. 지구가 뜨는 걸 다 같이 봤다.', (x) => {
+          for (const p of family(x.s)) if (age(x.s, p) >= 6 && age(x.s, p) <= 85) addFlag(p, 'space_trip'), hap(p, 10);
+          x.s.fame += 1;
+        })(c),
+        spend('아이 하나만 보낸다', (s) => W(s, 4000), '"우리 대신 보고 와." 아이가 달에서 영상 편지를 보냈다.')(c),
+        ok('지구에서 망원경으로 본다', '옥상에서 온 가족이 달을 봤다. 저기 불빛이 호텔이란다.', (x) => hap(x.p, 3)),
+      ]),
+  },
+  {
+    id: 'fusion_free',
+    y: 2088,
+    head: '핵융합 전력 무료화… 전기요금 고지서가 사라진다',
+    sub: '"에너지는 공기처럼" — 전력 기본권 법 통과',
+    body: () => '100년 동안 매달 나가던 전기요금이 사라졌다. 대신 에너지 회사 주식은 반토막이 났다.',
+    choices: () => [
+      ok('아낀 돈으로 저축한다', '매달 전기요금만큼 가문 통장에 넣었다.', (x) => (householder(x.s).cash += W(x.s, 1500))),
+      ok('집을 통째로 전기로 바꾼다', '겨울에도 반팔. 온실을 들여 채소를 키운다.', (x) => {
+        for (const p of family(x.s)) hap(p, 3), up(p, 'hp', 1);
+      }),
+    ],
+  },
+  // ── 22세기 ──
+  {
+    id: 'elevator_trip',
+    y: 2106,
+    span: 6,
+    head: '우주 엘리베이터 전망대 일반 개방',
+    sub: '적도 해상 기지에서 정지궤도까지 사흘, 왕복 비용 대폭 인하',
+    body: () => '엘리베이터 창밖으로 구름이, 대륙이, 마침내 지구 전체가 보인다. 가족 여행 1위 상품이 됐다.',
+    choices: (c) =>
+      gate(c.s, [
+        spend('온 가족이 간다', (s) => W(s, 1500), '사흘 동안 천천히 올라가며 지구가 작아지는 걸 봤다. 할머니(할아버지)가 "살다 보니 별일이다" 하셨다.', (x) => {
+          for (const p of family(x.s)) addFlag(p, 'space_trip'), hap(p, 8);
+        })(c),
+        ok('다음에 가자', '엘리베이터 모형을 샀다.'),
+      ]),
+  },
+  {
+    id: 'asteroid',
+    y: 2112,
+    span: 4,
+    head: '소행성 채굴권 공개 청약',
+    sub: '금속 소행성 "하늘광산 7호", 백금 매장량 지구 전체의 10배',
+    body: () => '우주 재벌이 탄생하고 있다. 반대로 "원자재 값 폭락으로 지구 광산이 망한다"는 경고도 있다.',
+    choices: (c) =>
+      gate(c.s, [
+        spend('크게 건다', (s) => W(s, 10000), '', (x) => {
+          if (chance(x.s, 0.45)) (householder(x.s).cash += W(x.s, 32000)), addFlag(householder(x.s), 'asteroid_rich');
+        })(c),
+        spend('조금만 넣는다', (s) => W(s, 1500), '', (x) => {
+          if (chance(x.s, 0.5)) householder(x.s).cash += W(x.s, 3500);
+        })(c),
+        ok('우주 투기는 안 한다', '"하늘에서 돈이 떨어지진 않는다."'),
+      ]).map((ch) => (ch.cost ? { ...ch, run: (x: Ctx) => (ch.run(x), hasFlag(householder(x.s), 'asteroid_rich') ? '채굴선이 백금을 싣고 돌아왔다! 가문 통장이 불어났다.' : '채굴선 소식이 뜸하다… 결과를 기다린다. (일부는 날렸다)') } : ch)),
+  },
+  {
+    id: 'orbital_city',
+    y: 2122,
+    span: 6,
+    head: '궤도 도시 "은하1" 2차 입주자 모집',
+    sub: '회전하는 원통 도시, 지구와 같은 중력, 창밖은 우주',
+    who: (s) => youngAdult(s),
+    body: (c) => `${fullName(c.p)}이(가) 모집 공고를 보여 준다. "아이들은 별을 보며 자랄 거야."`,
+    choices: () => [
+      ok('궤도 도시로 이주한다', '지구가 창밖에서 천천히 돈다. 명절엔 엘리베이터 타고 내려온다.', (x) => (addFlag(x.p, 'orbital_home'), hap(x.p, 8), (x.s.fame += 1))),
+      ok('지구에 남는다', '"흙 냄새가 좋다." 숲이 된 옛 도시 옆에 산다.', (x) => up(x.p, 'hp', 2)),
+    ],
+  },
+  {
+    id: 'upload',
+    y: 2133,
+    span: 6,
+    head: '의식 업로드 합법화',
+    sub: '육체가 다한 뒤에도 "디지털 인격"으로 가족 곁에',
+    cond: (s) => elders(s).length > 0,
+    who: (s) => elders(s).sort((a, b) => age(s, b) - age(s, a))[0],
+    body: (c) => `${fullName(c.p)}(${age(c.s, c.p)}세)에게 가족들이 조심스럽게 묻는다. 업로드된 인격은 명절에 홀로그램으로 올 수 있다. 그게 정말 "그 사람"인지는 아무도 모른다.`,
+    choices: (c) =>
+      gate(c.s, [
+        spend('업로드를 신청한다', (s) => W(s, 3000), '"그럼 증손주 결혼식도 볼 수 있겠구나." 어르신이 웃으셨다.', (x) => (addFlag(x.p, 'uploaded'), hap(x.p, 8)))(c),
+        ok('자연스럽게 떠나겠다', '"한 번 사는 게 인생이지." 대신 긴 편지를 써서 남기셨다.', (x) => (up(x.p, 'mor', 3), hap(x.p, 4))),
+      ]),
+  },
+  {
+    id: 'europa',
+    y: 2144,
+    head: '유로파에서 생명체 확인… "우리는 혼자가 아니었다"',
+    sub: '목성 위성 얼음 바다 아래 미생물 생태계',
+    body: () => '온 태양계가 들썩였다. 교회와 절, 학교와 술집에서 같은 이야기를 한다. 아이들은 "외계인 그리기"에 빠졌다.',
+    choices: () => [
+      ok('아이들과 밤새 이야기한다', '"그럼 다른 별에도 있겠네?" 아이의 눈이 반짝였다.', (x) => {
+        for (const p of family(x.s)) if (age(x.s, p) < 20) up(p, 'int', 1);
+      }),
+      ok('보호 운동에 참여한다', '"그들의 바다를 지키자" 서명에 이름을 올렸다.', (x) => (up(x.p, 'mor', 2), (x.s.fame += 0.5))),
+    ],
+  },
+  {
+    id: 'starship',
+    y: 2148,
+    span: 4,
+    head: '성간 탐사선 "누리별" 승무원 최종 모집',
+    sub: '알파 센타우리까지 80년. 인공 동면과 교대 근무',
+    who: (s) => youngAdult(s),
+    body: (c) => `${fullName(c.p)}이(가) 지원서를 들고 왔다. 돌아올 수 없다. 대신 인류 최초로 다른 별에 닿는 사람이 된다.`,
+    choices: () => [
+      {
+        label: '지원한다',
+        run: (x) => {
+          const pass = x.p.actual.int + x.p.actual.hp + x.p.actual.mor > 200 || chance(x.s, 0.2);
+          if (!pass) return (hap(x.p, -3), '최종 면접에서 떨어졌다. 대신 발사 관제실 자원봉사자가 됐다.');
+          addFlag(x.p, 'starship_crew');
+          x.s.fame += 6;
+          return '합격! 발사대 앞에서 온 가족이 손을 흔들었다. "80년 뒤, 너희 증손주에게 편지할게."';
+        },
+      },
+      ok('가족 곁에 남는다', '발사 생중계를 가족과 함께 봤다. 저 별빛 속에 인류의 꿈이 있다.'),
+    ],
+  },
+  {
+    id: 'four_planets',
+    y: 2165,
+    span: 8,
+    head: '"4행성 가족 모임" 명절 풍경',
+    sub: '지구·달·화성·타이탄… 흩어진 가족이 뉴럴로 한자리에',
+    body: () => '이번 설, 가족들은 네 개의 하늘 아래에서 같은 떡국을 끓였다. 화성 쪽은 20분 늦게 "새해 복 많이 받으세요"가 도착한다.',
+    choices: () => [
+      ok('지구 본가로 모두 부른다', '비싼 여행비에도 다들 왔다. 몇십 년 만에 한 식탁.', (x) => {
+        householder(x.s).cash -= W(x.s, 800);
+        for (const p of family(x.s)) hap(p, 8);
+      }),
+      ok('뉴럴 모임으로 충분하다', '생각으로 손을 잡았다. 따뜻했다… 아마도.', (x) => hap(x.p, 4)),
+    ],
+  },
+  {
+    id: 'first_signal',
+    y: 2182,
+    span: 6,
+    head: '외계 신호 해독… 인류의 답장을 공모합니다',
+    sub: '"수학적 인사"로 보이는 반복 신호, 발신원 약 40광년',
+    body: () => '태양계 연합이 누구나 보낼 수 있는 한 문장을 공모한다. 뽑히면 인류 대표 답장에 실린다.',
+    choices: () => [
+      {
+        label: '가문의 이름으로 한 문장을 보낸다',
+        run: (x) => {
+          if (x.p.actual.cha + x.p.actual.int > 120 || chance(x.s, 0.1)) {
+            addFlag(x.p, 'signal_answer');
+            x.s.fame += 8;
+            return '뽑혔다! "우리는 서로를 기억하는 존재입니다." — 가문의 문장이 40광년을 날아간다.';
+          }
+          return '뽑히지 않았다. 그래도 가족끼리 쓴 문장을 액자로 걸었다.';
+        },
+      },
+      ok('조용히 지켜본다', '밤하늘의 그 방향을 오래 올려다봤다.'),
+    ],
+  },
+  {
+    id: 'c23',
+    y: 2200,
+    head: '23세기가 밝았다',
+    sub: '2200년 1월 1일, 태양계 동시 카운트다운',
+    body: (c) => `${fullName(head(c.s))} 가문은 이 날을 어디서 맞을까? 지구의 숲에서, 달의 호텔에서, 화성의 돔에서, 뉴럴 공간에서.`,
+    choices: () => [
+      ok('가문의 200년을 되새긴다', '홀로그램 족보를 펼쳤다. 맨 위, 먼 조상의 얼굴이 웃고 있다.', (x) => {
+        for (const p of family(x.s)) hap(p, 10);
+        x.s.fame += 5;
+      }),
+      ok('다음 100년의 가훈을 정한다', '"어느 별에 살든, 서로를 잊지 말 것."', (x) => {
+        for (const p of family(x.s)) up(p, 'mor', 2);
+      }),
+    ],
+  },
 ];
 
 const futDef = (f: Future): EventDef => ({
@@ -449,3 +609,46 @@ const futDef = (f: Future): EventDef => ({
   portraits: (c) => [c.p],
 });
 export const FUTURE_EVENTS: EventDef[] = FUTURES.map(futDef);
+
+// ───────────────────────── 우주 여행 (행동) ─────────────────────────
+
+/** [이 해부터, 목적지, 값(2025년 돈, 1인), 한 줄] — 시대가 갈수록 멀리, 싸게 */
+const TRIPS: [number, string, number, string][] = [
+  [2044, '저궤도 우주 관광 (90분)', 20000, '둥근 지평선과 얇은 파란 띠. 무중력 5분 동안 모두가 울었다.'],
+  [2055, '저궤도 우주 관광 (하루)', 8000, '우주정거장에서 하룻밤. 지구가 90분마다 한 바퀴 돈다.'],
+  [2066, '달 궤도 호텔 "한울"', 12000, '달 표면을 걸었다. 1/6 중력에서 3미터를 뛰었다.'],
+  [2085, '달 가족 여행', 3000, '달빛골 한국 마을에서 달 떡국을 먹었다.'],
+  [2105, '우주 엘리베이터 정지궤도 전망대', 900, '사흘 동안 천천히 올라가며 지구가 작아지는 걸 봤다.'],
+  [2112, '화성 새터 관광 (한 달)', 15000, '붉은 모래 언덕과 파란 노을. 화성의 해 질 녘은 파랗다.'],
+  [2135, '화성 휴가', 3500, '새터 시의 돔 아래 온실 카페에서 화성 사과 주스를 마셨다.'],
+  [2150, '토성 고리 크루즈', 6000, '얼음 조각들이 햇빛에 반짝이는 고리 사이를 지났다.'],
+  [2170, '타이탄 메탄 호수 요트', 5000, '주황빛 하늘 아래 메탄 호수 위를 미끄러졌다.'],
+  [2190, '가니메데 얼음 축제', 4000, '목성이 하늘을 반쯤 덮은 채 떠 있었다.'],
+];
+const tripOf = (y: number) => TRIPS.filter(([from]) => y >= from).pop();
+
+export const SPACE_ACTIONS: ActionDef[] = [
+  {
+    id: 'space_trip',
+    cat: '가족',
+    icon: '🚀',
+    name: '우주 여행 가기',
+    desc: '그 시대에 갈 수 있는 가장 먼 곳으로',
+    label: (s) => {
+      const t = tripOf(s.year)!;
+      return { name: `🚀 ${t[1]} 여행`, desc: `가주 1인 ${formatMoney(W(s, t[2]))} · 행복↑↑ · 평생 이야깃거리 (명성 +1)` };
+    },
+    ap: 1,
+    show: (s) => !!tripOf(s.year),
+    blocked: (s) => (householder(s).cash < W(s, tripOf(s.year)![2]) ? '돈이 모자란다' : undefined),
+    run: (s) => {
+      const t = tripOf(s.year)!;
+      const h = head(s);
+      householder(s).cash -= W(s, t[2]);
+      addFlag(h, 'space_trip');
+      hap(h, 15);
+      s.fame += 1;
+      return `${t[1]}에 다녀왔다. ${t[3]}`;
+    },
+  },
+];

@@ -75,6 +75,7 @@ export const JOB_FROM: Record<string, number> = {
   // 미래 직업 (현대 모드에도 적용: 그해가 와야 생긴다)
   ai_trainer: 2027, robot_tech: 2034, drone_control: 2036, climate_eng: 2038, vr_architect: 2042, care_robot_mgr: 2046, longevity_doc: 2055,
   ai_auditor: 2056, space_tech: 2063, bci_surgeon: 2066, memory_designer: 2080, sea_farmer: 2074, mars_pioneer: 2088,
+  terraformer: 2105, asteroid_miner: 2112, orbital_architect: 2122, upload_engineer: 2133, xeno_biologist: 2145, star_navigator: 2150,
 };
 /** 이 해부터 새로 뛰어들 수 없는 직업 (자율주행·드론·AI가 대신한다) */
 export const JOB_UNTIL: Record<string, number> = {

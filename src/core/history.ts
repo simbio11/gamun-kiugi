@@ -11,6 +11,7 @@ import { addAsset, addHolding, expectedIncome, formatMoney } from './economy';
 import { wageIndex } from './pay';
 import { addFlag, age, alive, clamp, fullName, hasFlag, head, householder, isMainline, mark, parentsOf } from './people';
 import type { GameState, Person } from './types';
+import { NEWS_MORE } from './news-more';
 
 export const HIST_START = 1960;
 export const isHist = (s: GameState) => s.era === 'history';
@@ -47,7 +48,7 @@ export const mediaOf = (y: number): 'extra' | 'tv' | 'push' => (y < 1990 ? 'extr
 // ───────────────────────── 해마다 뉴스 ─────────────────────────
 
 /** 연도별 신문 머리기사와 생활 풍경 (월은 대략) */
-const NEWS: Record<number, string[]> = {
+export const NEWS: Record<number, string[]> = {
   1960: ['3·15 정·부통령 선거, 공개투표·투표함 바꿔치기 등 부정선거 논란', '마산 앞바다에서 김주열 군 시신 발견 (4월 11일), 전국이 들끓다', '이승만 대통령 하야 성명 (4월 26일), 허정 과도정부', '제2공화국 출범: 윤보선 대통령·장면 국무총리 내각책임제', '생활: 쌀밥 한 그릇이 귀한 보릿고개, 미국 원조 밀가루로 끼니를 잇는 집이 많다'],
   1961: ['5월 16일 새벽, 박정희 소장 등 군부가 한강을 건너 정권을 장악 (5·16 군사정변)', '국가재건최고회의 발족, 중앙정보부 창설', '부정축재자 처리법: 대기업 총수들 줄줄이 연행', '생활: 거리마다 "혁명공약" 벽보, 깡패 소탕·밀수 단속'],
   1962: ['제1차 경제개발 5개년 계획 시작 (1962~1966)', '6월 10일 화폐개혁: 10환 → 1원, 예금 일부 동결', '울산 공업센터 기공식', '생활: 라디오 한 대가 온 동네의 뉴스 창구'],
@@ -715,7 +716,7 @@ export const HIST_EVENTS: EventDef[] = MAJORS.map(majorEv);
 export function histYear(s: GameState): string[] {
   if (!inHist(s)) return [];
   const msgs: string[] = [];
-  for (const t of NEWS[s.year] ?? []) msgs.push(`📰 ${t}`);
+  for (const t of [...(NEWS[s.year] ?? []), ...(NEWS_MORE[s.year] ?? [])]) msgs.push(`📰 ${t}`);
   const seen = (s.storySeen ??= {});
   for (const m of MAJORS) {
     if (seen['hist:' + m.id] !== undefined) continue;

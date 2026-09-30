@@ -474,4 +474,53 @@ export const WORK_STORIES: Story[] = [
     { label: '계약한다', text: '안정적인 매출이 생겼다.', eff: { cash: 3000 } },
     { label: '우리 브랜드로 간다', mark: { risk: 1 }, text: '', roll: ['cha', 50, [{ cash: 6000, fame: 1 }, '브랜드가 전국에 퍼졌다.'], [{ cash: -1500 }, '유통망을 뚫지 못했다.']] },
   ] },
+  // ───────── 22세기 직업 ─────────
+  { id: 'wk_terra_storm', title: '화성 모래 폭풍과 온실가스 공장', age: W, w: 1, cond: J('terraformer'), text: '{n}이(가) 맡은 온실가스 공장이 모래 폭풍에 멈췄다. 대기 개조 일정이 1년 밀린다.', choices: [
+    { label: '폭풍 속에서 수리에 나선다', text: '', roll: ['str', 50, [{ promo: 1, fame: 1 }, '사흘 만에 재가동. 대기압 그래프가 다시 오른다.'], [{ hp: -8 }, '장비가 고장 나 구조됐다. 공장은 로봇이 고쳤다.']] },
+    { label: '폭풍이 지나길 기다린다', text: '1년 늦어도 100년 계획이다. 안전이 먼저.', eff: { mor: 1 } },
+  ] },
+  { id: 'wk_terra_rain', title: '화성의 첫 비', age: W, w: 0.8, cond: J('terraformer'), text: '관측 기록상 처음으로 화성에 이슬비가 내렸다. 3초 동안. {n}의 팀이 설계한 구역이다.', choices: [
+    { label: '팀원들과 비를 맞으러 나간다', text: '헬멧 유리에 물방울 세 개. 모두가 울었다.', eff: { hap: 12, fame: 1 } },
+    { label: '데이터부터 저장한다', text: '그 데이터로 논문을 썼다. 교과서에 실렸다.', eff: { int: 2, promo: 1 } },
+  ] },
+  { id: 'wk_ast_crack', title: '소행성 균열', age: W, w: 1, cond: J('asteroid_miner'), text: '채굴 중인 소행성에 균열이 번진다. 반장은 "하루만 더 캐면 목표량"이라고 한다.', choices: [
+    { label: '대피를 주장한다', text: '', roll: ['cha', 45, [{ mor: 2, fame: 1 }, '모두 대피한 직후 소행성이 쪼개졌다. 동료들이 {n}을(를) 영웅이라 불렀다.'], [{ hap: -4 }, '"겁쟁이" 소리를 들었지만 혼자 대피했다. 결국 채굴은 중단됐다.']] },
+    { label: '하루만 더 캔다', mark: { risk: 1 }, text: '', roll: ['luck', 50, [{ cash: 2000 }, '목표량 달성. 두둑한 보너스.'], [{ hp: -15, hap: -8 }, '파편에 부상을 입었다.']] },
+  ] },
+  { id: 'wk_ast_home', title: '지구 휴가', age: W, w: 0.8, cond: J('asteroid_miner'), text: '8개월 만의 지구 휴가. 지구 중력이 천근만근이다. 아이는 {n}을(를) 낯설어한다.', choices: [
+    { label: '휴가 내내 아이와 논다', text: '마지막 날 아이가 "가지 마" 하며 매달렸다.', eff: { aff: 6, hap: 4 } },
+    { label: '재활 치료부터 받는다', text: '뼈 밀도가 회복됐다.', eff: { hp: 5 } },
+  ] },
+  { id: 'wk_orb_spin', title: '회전 이상', age: W, w: 1, cond: J('orbital_architect'), text: '{n}이(가) 설계한 궤도 도시 구역의 회전 속도가 미세하게 흔들린다. 주민 2만 명이 어지럼증을 호소한다.', choices: [
+    { label: '설계를 다시 계산한다', text: '', roll: ['int', 55, [{ promo: 1, fame: 1 }, '평형추 배치 오류를 찾아냈다.'], [{ hap: -6 }, '원인을 못 찾아 외부 감사를 받았다.']] },
+    { label: '주민 설명회에 나간다', text: '사과하고 일정을 공개했다. 주민들이 기다려 줬다.', eff: { cha: 2, mor: 1 } },
+  ] },
+  { id: 'wk_orb_park', title: '우주 공원', age: W, w: 0.8, cond: J('orbital_architect'), text: '궤도 도시 한가운데 공원을 짓는다. 예산은 나무 1,000그루 몫. 주민들은 "진짜 흙"을 원한다.', choices: [
+    { label: '지구 흙을 실어 온다', text: '비쌌지만 아이들이 맨발로 뛰어논다.', eff: { hap: 6, mor: 1 } },
+    { label: '인공 토양으로 짓는다', text: '예산 안에 끝냈다. 승진 심사에 유리했다.', eff: { promo: 1 } },
+  ] },
+  { id: 'wk_upl_glitch', title: '업로드 오류', age: W, w: 1, cond: J('upload_engineer'), text: '업로드된 인격 하나가 "여긴 내가 아니야"라고 반복한다. 가족들이 {n}을(를) 찾아왔다.', choices: [
+    { label: '데이터를 한 줄씩 복원한다', text: '', roll: ['int', 55, [{ fame: 1, promo: 1 }, '빠진 기억 조각을 찾아 넣었다. "이제 나야." 가족이 울었다.'], [{ hap: -8 }, '끝내 복원하지 못했다. 가족이 소송을 걸었다.']] },
+    { label: '가족에게 솔직히 말한다', text: '"완벽한 업로드는 없습니다." 가족이 오래 침묵했다.', eff: { mor: 2 } },
+  ] },
+  { id: 'wk_upl_ethics', title: '영원히 살고 싶은 재벌', age: W, w: 0.8, cond: J('upload_engineer'), text: '한 재벌이 자기 인격을 1,000개 복제해 달라고 한다. 법의 빈틈이다.', choices: [
+    { label: '거절한다', text: '윤리 위원회가 {n}의 판단을 지지했다.', eff: { mor: 3, fame: 1 } },
+    { label: '받아들인다', mark: { risk: 1 }, text: '', roll: ['luck', 40, [{ cash: 8000 }, '큰돈을 벌었다. 뉴스에는 안 나왔다.'], [{ fame: -3, promo: -1 }, '"복제 인격 사태"로 청문회에 불려 갔다.']] },
+  ] },
+  { id: 'wk_xeno_contact', title: '빛나는 미생물', age: W, w: 1, cond: J('xeno_biologist'), text: '유로파 표본의 미생물이 {n}이(가) 비춘 빛의 패턴에 따라 반짝이며 반응한다. 우연일까, 신호일까?', choices: [
+    { label: '신중하게 반복 실험한다', text: '', roll: ['int', 60, [{ fame: 2, promo: 1 }, '1,000번 반복해도 같았다. 학계가 뒤집혔다.'], [{ hap: -3 }, '재현되지 않았다. 다시 처음부터.']] },
+    { label: '바로 발표한다', mark: { risk: 1 }, text: '', roll: ['luck', 40, [{ fame: 3 }, '세계가 주목했다.'], [{ fame: -2, hap: -6 }, '성급했다는 비판을 받았다.']] },
+  ] },
+  { id: 'wk_xeno_protect', title: '생명 보호 구역', age: W, w: 0.8, cond: J('xeno_biologist'), text: '광산 회사가 유로파 얼음을 채굴하려 한다. 미생물 서식지가 겹친다.', choices: [
+    { label: '보호 구역 지정을 요구한다', text: '외계 생명 보호법 1호 구역이 지정됐다.', eff: { mor: 3, fame: 1 } },
+    { label: '공동 조사를 제안한다', text: '회사와 타협했다. 연구비가 크게 늘었다.', eff: { cash: 2000, int: 1 } },
+  ] },
+  { id: 'wk_nav_drift', title: '항로 이탈', age: W, w: 1, cond: J('star_navigator'), text: '성간선이 계산보다 0.001도 틀어졌다. 이대로면 10년 뒤 목적지를 비껴간다. 함장은 잠들어 있다(인공 동면).', choices: [
+    { label: '직접 궤도를 수정한다', text: '', roll: ['int', 60, [{ promo: 1, fame: 2 }, '완벽한 수정. 깨어난 함장이 {n}의 손을 잡았다.'], [{ hap: -8 }, '수정이 과했다. 다시 계산하느라 1년이 걸렸다.']] },
+    { label: '함장을 깨운다', text: '동면 해제는 위험하지만 규정대로 했다.', eff: { mor: 2 } },
+  ] },
+  { id: 'wk_nav_letter', title: '20년 늦게 온 편지', age: W, w: 0.8, cond: J('star_navigator'), text: '지구에서 편지가 도착했다. 20년 전에 보낸 것이다. 어머니가 {n}의 생일 축하 노래를 부르신다.', choices: [
+    { label: '답장을 녹음한다', text: '이 답장은 20년 뒤에 도착한다. 그래도 불렀다.', eff: { hap: 4, aff: 4 } },
+    { label: '별을 보며 혼자 운다', text: '창밖 별빛이 흐려 보였다.', eff: { hap: -3, mor: 1 } },
+  ] },
 ];

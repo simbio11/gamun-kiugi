@@ -32,7 +32,7 @@ import {
   TALENTS,
   WILL_NAMES,
 } from '../core/data';
-import { advisorFee, assessedValue, assetsOf, forecast, formatMoney, jobTitle, personWorth } from '../core/economy';
+import { advisorFee, assessedValue, assetsOf, forecast, formatMoney, jobTitle, personWorth, setMoneyYear, setNominal } from '../core/economy';
 import { estateTax, previewAssetGiftTax, previewGiftTax } from '../core/estate';
 import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
@@ -121,8 +121,10 @@ interface Prefs {
   vibe?: boolean;
   calm?: boolean;
   text?: TextSize;
+  money?: 'nominal' | 'real';
 }
 const prefs: Prefs = loadPrefs();
+setNominal(prefs.money !== 'real');
 setSound(prefs.sound ?? true);
 setVibe(prefs.vibe ?? true);
 const ui: UIState = {
@@ -297,6 +299,7 @@ export function mount(el: HTMLElement) {
 
 function render() {
   const g = ui.game;
+  if (g) setMoneyYear(g.year);
   root.classList.toggle('calm', !!prefs.calm);
   // 근현대사 모드: 시대 분위기 (1960~70년대 신문지·1980년대·1990~2000년대)
   const hy = ui.game?.era === 'history' && ui.game.year <= 2025 ? ui.game.year : 0;
@@ -1271,7 +1274,9 @@ function newsModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent
           ? `<div class="nw-pushcard"><div class="nw-pushapp">🔔 뉴스 속보 · 지금</div><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
           : media === 'holo'
             ? `<div class="nw-holohead"><span class="nw-holo-tag">◉ LIVE 속보</span><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
-            : `<div class="nw-aihead"><div class="nw-ai-av">🤖</div><div class="nw-ai-b"><small>AI 비서 · 지금</small><p>"잠깐만요, 가문에 중요한 소식이에요."</p><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div></div>`;
+            : media === 'neural'
+              ? `<div class="nw-nrlhead"><span>🧠 뉴럴 속보가 머릿속에 떠오른다</span><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
+              : `<div class="nw-aihead"><div class="nw-ai-av">🤖</div><div class="nw-ai-b"><small>AI 비서 · 지금</small><p>"잠깐만요, 가문에 중요한 소식이에요."</p><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div></div>`;
   return `
   <div class="modal nw-modal nw-${media}">
     <div class="event nw-card" data-stop>
@@ -1427,6 +1432,8 @@ function newsBlock(year: number, news: string[], trends: string[]): string {
   }
   if (m === 'feed')
     return `<div class="feed"><div class="fd-top">👓 오늘의 피드 <small>${year}</small></div>${items.map((l, i) => `<div class="fd-item" style="animation-delay:${i * 90}ms"><span class="fd-dot"></span>${esc(l)}</div>`).join('')}</div>`;
+  if (m === 'neural')
+    return `<div class="nrl"><div class="nrl-h">🧠 뉴럴 뉴스 <small>${year} · 생각으로 도착한 소식</small></div>${items.map((l, i) => `<div class="nrl-item" style="animation-delay:${i * 220}ms">${esc(l)}</div>`).join('')}</div>`;
   return `<div class="aib"><div class="aib-h"><span class="aib-av">🤖</span><b>AI 비서</b><small>${year}년 한 해 브리핑</small></div>
     <div class="aib-msg">올해 알아 두실 소식 ${items.length}가지를 정리했어요.</div>
     ${items.map((l, i) => `<div class="aib-msg" style="animation-delay:${200 + i * 160}ms"><em>${i + 1}</em> ${esc(l)}</div>`).join('')}</div>`;
@@ -1759,6 +1766,7 @@ function settingsModal(g: GameState): string {
       <div class="set-row"><span>효과음</span>${seg('sound', soundOn() ? 1 : 0, [[1, '🔊 켜기'], [0, '🔇 끄기']])}</div>
       <div class="set-row"><span>진동</span>${seg('pref-vibe', vibeOn() ? 1 : 0, [[1, '📳 켜기'], [0, '끄기']])}</div>
       <div class="set-row"><span>움직임</span>${seg('pref-calm', prefs.calm ? 1 : 0, [[0, '보통'], [1, '줄이기']])}</div>
+      <div class="set-row"><span>돈 표시</span>${seg('pref-money', prefs.money ?? 'nominal', [['nominal', '그해 물가'], ['real', '2025년 돈']])}</div>
       <div class="set-row"><span>글자 크기</span>${seg('pref-text', prefs.text ?? 'm', [['s', '작게'], ['m', '보통'], ['l', '크게']])}</div>
       <div class="set-row"><span>가계도 보기</span>${seg('zoom', ui.zoom, [['big', '크게'], ['mid', '보통'], ['small', '작게']])}</div>
       <div class="set-info">
@@ -2234,6 +2242,11 @@ function handle(el: HTMLElement) {
       break;
     case 'pref-calm':
       prefs.calm = v === '1';
+      savePrefs();
+      break;
+    case 'pref-money':
+      prefs.money = v as 'nominal' | 'real';
+      setNominal(v !== 'real');
       savePrefs();
       break;
     case 'pref-text':

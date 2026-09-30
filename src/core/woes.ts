@@ -6,6 +6,7 @@
 import { chance, int, pick } from './rng';
 import { eun, iga, type Choice, type EventDef } from './ev-util';
 import { addFlag, age, alive, clamp, fullName, hasFlag, head, mark, parentsOf, relationLabel } from './people';
+import { formatWon } from './economy';
 import type { GameState, Person } from './types';
 
 export type WoeId = 'alcohol' | 'gamble' | 'chronic' | 'injury' | 'depression' | 'loan' | 'guarantee' | 'jobless' | 'shopping' | 'smoking';
@@ -79,7 +80,7 @@ export const WOES: Record<WoeId, Woe> = {
       const lost = int(s, 600, 2500);
       p.cash -= lost;
       fam(s, -6);
-      return `${lost.toLocaleString()}만 원이 사라졌다.`;
+      return `${formatWon(lost)}이 사라졌다.`;
     },
     treat: { label: '도박문제 치유 입소 프로그램', cost: 200, cure: 0.4, ok: '입소 치료를 마치고 앱을 모두 지웠다. 통장은 가족이 관리한다.', fail: '나오자마자 다시 손을 댔다.' },
     free: { label: '1336 도박문제 상담 전화 (무료)', cost: 0, cure: 0.15, ok: '상담 끝에 스스로 출입 제한 신청을 했다.', fail: '"나는 중독 아니야." 전화를 끊었다.' },

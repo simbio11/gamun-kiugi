@@ -15,16 +15,55 @@ import { HIST_BASE, histPrice, SINCE } from './histidx';
 import { allowanceOf, allowanceYear } from './allowance';
 import { allowanceForecast, careYear, childAllowanceYear, reverseMortgageYear, youthAccountYear } from './welfare';
 
-export function formatMoney(man: number): string {
+// ───────── 물가: 게임 속 계산은 모두 "2025년 돈 가치"로 하고, 보여 줄 때만 그해 돈으로 바꾼다 ─────────
+// 그래서 밸런스는 그대로다. 1970년 짜장면은 몇백 원, 2080년 짜장면은 몇만 원으로 보일 뿐.
+/** 소비자물가지수 (2025 = 1, 통계청 CPI를 어림한 값) */
+const CPI: [number, number][] = [
+  [1955, 0.008], [1960, 0.014], [1965, 0.025], [1970, 0.043], [1975, 0.09], [1980, 0.2], [1985, 0.29], [1990, 0.375], [1995, 0.49],
+  [1998, 0.57], [2000, 0.58], [2005, 0.665], [2010, 0.75], [2015, 0.81], [2020, 0.86], [2022, 0.925], [2025, 1],
+];
+/** 그해 물가 (2025 = 1). 2026년부터는 해마다 2%씩 (한국은행 물가 목표) */
+export function priceLevel(y: number): number {
+  if (y >= 2025) return Math.pow(1.02, y - 2025);
+  if (y <= CPI[0][0]) return CPI[0][1];
+  for (let i = 1; i < CPI.length; i++)
+    if (y <= CPI[i][0]) {
+      const [y0, v0] = CPI[i - 1];
+      const [y1, v1] = CPI[i];
+      return v0 * Math.pow(v1 / v0, (y - y0) / (y1 - y0));
+    }
+  return 1;
+}
+let MONEY_YEAR = 2025;
+let NOMINAL = true;
+/** 지금 보여 줄 해 (게임이 한 해 넘어갈 때마다) */
+export const setMoneyYear = (y: number) => (MONEY_YEAR = y);
+/** 그해 돈으로 보여 줄까(true) 2025년 돈으로 보여 줄까(false) */
+export const setNominal = (on: boolean) => (NOMINAL = on);
+export const isNominal = () => NOMINAL;
+
+export function formatMoney(man0: number): string {
+  const man = NOMINAL ? man0 * priceLevel(MONEY_YEAR) : man0;
   const neg = man < 0;
+  // 1만 원이 안 되는 돈은 원 단위로 (1960년대 짜장면 값 같은)
+  if (Math.abs(man) < 1 && man !== 0) return (neg ? '-' : '') + (Math.max(10, Math.round((Math.abs(man) * 10000) / 10) * 10)).toLocaleString('ko-KR') + '원';
   const v = Math.abs(Math.round(man));
   let out: string;
-  if (v >= 10000) {
+  if (v >= 100000000) {
+    const jo = v / 100000000;
+    out = (jo >= 100 ? Math.round(jo).toLocaleString('ko-KR') : jo.toFixed(1).replace(/\.0$/, '')) + '조';
+  } else if (v >= 10000) {
     const eok = v / 10000;
     out = (eok >= 100 ? Math.round(eok).toLocaleString('ko-KR') : eok.toFixed(1).replace(/\.0$/, '')) + '억';
   } else out = v.toLocaleString('ko-KR') + '만';
   return (neg ? '-' : '') + out;
 }
+
+/** "3만 원"·"1.2억 원"·"500원" */
+export const formatWon = (man: number) => {
+  const t = formatMoney(man);
+  return t.endsWith('원') ? t : t + '\u00a0원'; // 보통 공백 대신 줄바꿈 없는 공백: 물가 환산(histpack inflate)이 두 번 걸리지 않게
+};
 
 export const assetsOf = (s: GameState, ownerId: string) => s.assets.filter((a) => a.ownerId === ownerId);
 
