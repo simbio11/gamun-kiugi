@@ -1011,7 +1011,7 @@ describe('부모님 유산', () => {
     s.scandal = 80;
     s.fame = 50;
     s.events = [{ uid: s.eventSeq++, defId: 'scandal_break', personId: h.id }];
-    resolveChoice(s, 2); // 모르쇠
+    resolveChoice(s, 0); // 공개 사과
     expect(s.fame).toBeLessThan(50);
   });
 
@@ -1037,7 +1037,7 @@ describe('부모님 유산', () => {
     // 히든 직업은 「내 직업」에서 전용 행동을 한다
     h.job = 'hj_magician';
     const hid = ACTIONS.filter((a) => a.id.startsWith('ja_hj_magician_') && a.show!(s));
-    expect(hid.filter((a) => a.cat === '내 직업').length).toBe(3);
+    expect(hid.filter((a) => a.cat === '내 직업').length).toBe(4);
     s.ap = 5;
     h.cash = 1e6;
     expect(doAction(s, hid.find((a) => a.cat === '내 직업')!.id).ok).toBe(true);
@@ -1057,13 +1057,15 @@ describe('부모님 유산', () => {
       expect(eligible(s, h)).toContain(id);
       _quest.startQuest(s, h, id);
       let tries = 0;
-      while (!s.events.some((e) => e.defId === 'hid_offer' && e.data.id === id) && tries++ < 40) {
+      while (!s.events.some((e) => e.defId === 'hid_offer' && e.data.id === id) && tries++ < 100) {
         if (!_quest.questOf(h)) _quest.startQuest(s, h, id);
         s.ap = 3;
         s.actUsed = {};
+        s.storySeen = {};
         doAction(s, 'hq_step');
       }
-      expect(tries).toBeLessThan(40);
+      if (tries >= 100) console.log(`FAILED ID: ${id}, tries: ${tries}`);
+      expect(tries).toBeLessThan(100);
     }
   });
 

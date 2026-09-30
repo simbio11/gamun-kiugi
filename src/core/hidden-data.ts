@@ -48,6 +48,7 @@ export const ULTRA_HIDDEN_IDS = new Set([
 ]);
 
 export const isUltraHidden = (id: string) => ULTRA_HIDDEN_IDS.has(id);
+export const isHoH = isUltraHidden;
 /** 히든 등급: 최심층(ultra) · 슈퍼(super) · 보통(plain) — 카드 테두리와 표기가 달라진다 */
 export type HiddenTier = 'ultra' | 'super' | 'plain';
 export const hiddenTierOf = (id: string): HiddenTier => (ULTRA_HIDDEN_IDS.has(id) ? 'ultra' : SUPER_HIDDEN_IDS.has(id) ? 'super' : 'plain');
