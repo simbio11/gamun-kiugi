@@ -74,7 +74,7 @@ export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; 
     // 아직 모르는 직업: 흐릿하고 어두운 배경 위 새까만 실루엣. 이름은 숨기고 수수께끼만
     return `<div class="hid-card locked ${o.cls ?? ''}"><div class="hid-stage">${
       a ? `<img class="hid-back" src="${a.src}" alt=""><img class="hid-img hid-blur" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-sil" src="${a.fig}" alt="">` : ''}` : ''
-    }<div class="hid-q">?</div></div><div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in"><b>??? HIDDEN JOB ???</b><small>${h.hint}</small></div><i class="hid-orn r"></i><em class="hid-medal">?</em></div></div>`;
+    }<div class="hid-q">?</div></div><div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in only"><b>HIDDEN JOB</b></div><i class="hid-orn r"></i><em class="hid-medal">?</em></div></div>`;
   const art = a
     ? `<img class="hid-back" src="${a.src}" alt=""><div class="hid-pan"><img class="hid-img hid-bg" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-fig" src="${a.fig}" alt="">` : ''}</div>`
     : `<div class="hid-q">${h.icon}<small>그림 준비 중</small></div>`;

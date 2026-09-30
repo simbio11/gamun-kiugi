@@ -29,6 +29,7 @@ import { profScore } from '../src/core/career';
 import { awardCard, cardYear, CARDS, SUMMITS, SYNERGIES, activeSynergies } from '../src/core/cards';
 import { familyScore, lifeReport } from '../src/core/score';
 import { WORK_STORIES } from '../src/core/stories-work';
+import { WORK2_STORIES } from '../src/core/stories-work2';
 import { obeys, willOf } from '../src/core/autonomy';
 
 describe('콘텐츠 무결성', () => {
@@ -843,7 +844,7 @@ describe('부모님 유산', () => {
       h.job = id;
       h.jobLevel = 2;
       h.jobYears = 20;
-      const n = WORK_STORIES.filter((st) => !st.id.startsWith('wk_any') && (!st.cond || st.cond(s, h))).length;
+      const n = [...WORK_STORIES, ...WORK2_STORIES].filter((st) => !st.id.startsWith('wk_any') && (!st.cond || st.cond(s, h))).length;
       if (n < 2) thin.push(`${id}:${n}`);
     }
     expect(thin).toEqual([]);

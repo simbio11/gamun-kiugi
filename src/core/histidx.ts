@@ -67,6 +67,9 @@ export const histPrice = (base: number, k: HistKey, y: number) => base * histRel
 
 /** 이 직업이 생긴 해 (없으면 예전부터 있었다) */
 export const JOB_FROM: Record<string, number> = {
+  streamer: 2005, ai_engineer: 2015, ux_designer: 2008, cloud_eng: 2010, battery_eng: 2000, startup_emp: 2000, star_lecturer: 1990, fund_manager: 1996, actuary: 1975, psychologist: 1980,
+  speech_therapist: 1990, dental_hygienist: 1970, daycare_teacher: 1991, pharma_sales: 1965, consultant: 1990, franchise_ceo: 1985, developer_re: 1975, aide: 1960, air_controller: 1960, illustrator: 1990,
+  interior_designer: 1985, fashion_designer: 1970, sommelier: 1995, makeup_artist: 1980, logistics: 1995, funeral_director: 1995, comedian: 1970, dancer: 1985, heavy_equipment: 1965,
   youtuber: 2008, gamer: 2000, developer: 1985, data_scientist: 2012, security: 2000, game_dev: 1995, chip_engineer: 1983,
   online_shop: 2000, delivery_rider: 2012, pet_groomer: 2000, nail_artist: 2000, wedding_planner: 1995, cvs_owner: 1989, barista: 2000,
   flight_attendant: 1969, pilot: 1969, aero_engineer: 1990, smart_farmer: 2015, realtor: 1985, labor_attorney: 1986, appraiser: 1989,

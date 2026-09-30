@@ -1440,7 +1440,7 @@ function cardViewer(g: GameState, id: string): string {
           <img class="cv-img" src="${cardBackURL(d.rarity)}" alt="">
           <div class="cv-back-top">명예의 전당 · ${RARITY_NAME[d.rarity]}</div>
           <div class="cv-crest">${esc(g.familyName)}</div>
-          <div class="cv-back-bottom"><b>${d.hidden && !got ? '??? 히든 직업' : d.name}</b><small>${esc(d.how)}</small>${d.honor && HONORS[d.honor] ? `<small>🎖 ${HONORS[d.honor].name}</small>` : ''}</div>
+          <div class="cv-back-bottom"><b>${d.hidden && !got ? 'HIDDEN JOB' : d.name}</b>${d.hidden && !got ? '' : `<small>${esc(d.how)}</small>`}${d.honor && HONORS[d.honor] ? `<small>🎖 ${HONORS[d.honor].name}</small>` : ''}</div>
         </div>
       </div>
       <div class="cv-hint">↔ 카드를 옆으로 밀어 돌려 보세요 · 바깥을 누르면 닫혀요</div>
