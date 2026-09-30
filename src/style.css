@@ -633,8 +633,7 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 /* 카드 뷰어 */
 .cv-modal { align-items: center; justify-content: center; background: radial-gradient(circle at 50% 40%, rgba(40,30,60,.75), rgba(0,0,0,.88)); }
 .cv-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; perspective: 900px; padding: 16px; }
-.cv-card { position: relative; width: min(72vw, 288px); aspect-ratio: 96 / 132; transform-style: preserve-3d; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .55s cubic-bezier(.2, .9, .3, 1.2); cursor: pointer; animation: cv-in .8s cubic-bezier(.2, 1.2, .3, 1) backwards; }
-.cv-card.flip { transform: rotateX(var(--rx, 0deg)) rotateY(calc(180deg + var(--ry, 0deg))); }
+.cv-card { position: relative; width: min(72vw, 288px); aspect-ratio: 96 / 132; transform-style: preserve-3d; transform: rotateX(var(--rx, 0deg)) rotateY(calc(var(--spin, 0deg) + var(--ry, 0deg))); touch-action: none; user-select: none; -webkit-user-select: none; transition: transform .55s cubic-bezier(.2, .9, .3, 1.2); cursor: grab; animation: cv-in .8s cubic-bezier(.2, 1.2, .3, 1) backwards; }
 @keyframes cv-in { 0% { rotate: y -540deg; scale: .2; opacity: 0; } 100% { rotate: y 0deg; scale: 1; opacity: 1; } }
 .cv-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 10px; overflow: hidden; }
 .cv-back { transform: rotateY(180deg); }
@@ -658,9 +657,11 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .cv-crest { position: absolute; left: 0; right: 0; top: 44.3%; transform: translateY(-50%); text-align: center; font-family: 'Galmuri14', serif; font-size: 38px; color: #fff4c8; text-shadow: 3px 3px 0 rgba(0,0,0,.6), 0 0 14px rgba(255,210,90,.8); }
 .cv-back-bottom { position: absolute; left: 9%; right: 9%; top: 71.5%; bottom: 6.5%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #f4ecd8; font-size: 10.5px; text-align: center; line-height: 1.3; }
 .cv-back-bottom b { color: #fff; font-size: 12px; }
-.cv-actions { display: flex; gap: 10px; }
 .calm .cv-card, .calm .cv-holo, .calm .dx-art, .calm .sy-crest { animation: none; }
 
 .dx-c { position: relative; display: block; width: 100%; max-width: 96px; }
 .dx-c .dx-art { display: block; }
 .dx-nm { position: absolute; left: 8%; right: 8%; top: 73%; bottom: 7%; display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 10px; line-height: 1.15; color: #fff4d8; text-shadow: 1px 1px 0 #000; text-align: center; overflow: hidden; }
+.cv-card.drag { transition: none; cursor: grabbing; }
+.cv-card img { pointer-events: none; -webkit-user-drag: none; }
+.cv-hint { margin-top: 10px; font-size: 11px; color: #e8dcff; opacity: .75; text-align: center; text-shadow: 1px 1px 0 #000; }

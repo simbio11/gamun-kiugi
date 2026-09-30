@@ -196,6 +196,10 @@ export function mount(el: HTMLElement) {
   root.addEventListener('touchstart', () => {}, { passive: true }); // iOS에서 :active 눌림 효과 켜기
   root.addEventListener('input', onInput);
   root.addEventListener('pointermove', tilt);
+  root.addEventListener('pointerdown', spinStart);
+  root.addEventListener('pointermove', spinMove);
+  root.addEventListener('pointerup', spinEnd);
+  root.addEventListener('pointercancel', spinEnd);
   root.addEventListener('pointerleave', tilt, true);
   render();
 }
@@ -1115,8 +1119,8 @@ function cardViewer(g: GameState, id: string): string {
   const hp = got ? g.people[hs[0].personId] : undefined;
   return `
   <div class="modal cv-modal" data-action="close-card">
-    <div class="cv-wrap" data-stop>
-      <div class="cv-card ${d.rarity} ${got ? '' : 'locked'}" data-action="flip-card">
+    <div class="cv-wrap">
+      <div class="cv-card ${d.rarity} ${got ? '' : 'locked'}" data-stop>
         <div class="cv-face cv-front">
           <img class="cv-img" src="${cardArt(d, !got)}" alt="">
           <div class="cv-no">No.${String(cardNo(id)).padStart(3, '0')} · ${RARITY_NAME[d.rarity]}</div>
@@ -1135,7 +1139,7 @@ function cardViewer(g: GameState, id: string): string {
           <div class="cv-back-bottom"><b>${d.name}</b><small>${esc(d.how)}</small>${d.honor && HONORS[d.honor] ? `<small>🎖 ${HONORS[d.honor].name}</small>` : ''}</div>
         </div>
       </div>
-      <div class="cv-actions"><button class="btn" data-action="flip-card">🔄 뒤집기</button><button class="btn primary" data-action="close-card">닫기</button></div>
+      <div class="cv-hint">↔ 카드를 옆으로 밀어 돌려 보세요 · 바깥을 누르면 닫혀요</div>
     </div>
   </div>`;
 }
@@ -1720,8 +1724,43 @@ function onInput(e: Event) {
 const SFX: Record<string, Sfx> = { choose: 'choose', next: 'next', buy: 'coin', 'buy-l': 'coin', repay: 'coin', sell: 'coin', gift: 'coin', 'gift-asset': 'coin', 'ok-outcome': 'close', 'ok-report': 'close', 'close-sheet': 'close', start: 'great', 'buy-car': 'coin' };
 let leaving = false;
 
+/** 카드 돌리기: 옆으로 끌면 실제 카드처럼 따라 돌고, 놓으면 앞/뒷면 중 가까운 쪽(빠르게 튕기면 다음 면)으로 붙는다. 톡 누르면 뒤집기 */
+let spin: { c: HTMLElement; x0: number; base: number; last: number; t: number; v: number; moved: boolean } | null = null;
+const spinOf = (c: HTMLElement) => parseFloat(c.style.getPropertyValue('--spin')) || 0;
+function spinStart(e: PointerEvent) {
+  const c = (e.target as HTMLElement)?.closest?.<HTMLElement>('.cv-card');
+  if (!c) return;
+  spin = { c, x0: e.clientX, base: spinOf(c), last: e.clientX, t: e.timeStamp, v: 0, moved: false };
+  c.classList.add('drag');
+  c.setPointerCapture?.(e.pointerId);
+}
+function spinMove(e: PointerEvent) {
+  if (!spin) return;
+  const dx = e.clientX - spin.x0;
+  if (Math.abs(dx) > 6) spin.moved = true;
+  const dt = Math.max(1, e.timeStamp - spin.t);
+  spin.v = spin.v * 0.6 + ((e.clientX - spin.last) / dt) * 0.4;
+  spin.last = e.clientX;
+  spin.t = e.timeStamp;
+  spin.c.style.setProperty('--spin', `${(spin.base + dx * 0.75).toFixed(1)}deg`);
+  spin.c.style.setProperty('--ry', '0deg');
+}
+function spinEnd() {
+  if (!spin) return;
+  const { c, base, moved, v } = spin;
+  spin = null;
+  c.classList.remove('drag');
+  const cur = spinOf(c);
+  let k = Math.round(cur / 180);
+  if (!moved) k = Math.round(base / 180) + 1;
+  else if (Math.abs(v) > 0.5 && k === Math.round(base / 180)) k += Math.sign(v);
+  if (k * 180 !== Math.round(base / 180) * 180) sfx('choose');
+  c.style.setProperty('--spin', `${k * 180}deg`);
+}
+
 /** 카드 기울이기: 손가락·마우스 위치에 따라 3D로 기울고 홀로그램이 흐른다 */
 function tilt(e: PointerEvent) {
+  if (spin) return;
   const c = (e.target as HTMLElement)?.closest?.<HTMLElement>('.cv-card');
   if (!c) return;
   if (e.type === 'pointerleave') {
@@ -1746,11 +1785,6 @@ function onClick(e: MouseEvent) {
   if (el.classList.contains('modal') && target.closest('[data-stop]') && !target.closest('button')) return;
   if ((el as HTMLButtonElement).disabled) return;
   const a = el.dataset.action!;
-  if (a === 'flip-card') {
-    root.querySelector('.cv-card')?.classList.toggle('flip');
-    sfx('choose');
-    return;
-  }
   if (a !== 'act') sfx(SFX[a] ?? 'tap');
   buzz(a === 'next' || a === 'choose' ? 12 : 6);
   // 창을 닫을 땐 내려가는 모습을 보여 주고 처리
