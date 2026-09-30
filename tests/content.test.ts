@@ -1011,7 +1011,6 @@ describe('부모님 유산', () => {
     expect(s.fame).toBeLessThan(50);
   });
 
-<<<<<<< HEAD
   it('직업 전용 행동: 모든 일반 직업마다 전용 행동 둘 + 올해의 기회 하나', () => {
     const skip = ['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'mayor', 'landlord'];
     const missing = JOB_IDS.filter((id) => !skip.includes(id) && (JOB_ACTS[id]?.length ?? 0) < (id.startsWith('hj_') ? 4 : 6));
