@@ -20,6 +20,10 @@ export interface HiddenJob {
   strategy: string;
 }
 
+/** 히든의 히든 9종 */
+export const HOH_IDS = ['hj_hermes', 'hj_vampire', 'hj_gumiho', 'hj_cyborg', 'hj_reaper', 'hj_nymph', 'hj_dragon', 'hj_timetraveler', 'hj_dokkaebi'];
+export const isHoH = (id: string) => HOH_IDS.includes(id);
+
 export const SUPER_HIDDEN_IDS = new Set([
   'hj_madam',
   'hj_onlyfans',
@@ -30,6 +34,8 @@ export const SUPER_HIDDEN_IDS = new Set([
   'hj_hypnotist',
   'hj_tattooist',
   'hj_drifter',
+  // 히든의 히든 (슈퍼 히든을 배출한 가문에만 열리는 문) — 취급은 슈퍼 히든과 같다
+  ...HOH_IDS,
 ]);
 
 export const isSuperHidden = (id: string) => SUPER_HIDDEN_IDS.has(id);
@@ -70,6 +76,16 @@ export const HIDDEN: HiddenJob[] = [
   { id: 'hj_hypnotist', name: '마성의 최면술사', icon: '🌀', pay: 55000, color: '#502080', fx: 'magic', eff: { fame: 6, cash: 5000, hap: 4, heat: 10 }, hint: '어두운 상담실, 흔들리는 회중시계, 무장해제된 거물들.', strategy: '선천 희귀 특성 [마안(魔眼)](출생 시 2% 확률)을 타고난 여성(20세 이상) 시 100% 확정 제의 발생 → 3단계 미션 프리패스 격파' },
   { id: 'hj_tattooist', name: '잉크의 마녀', icon: '🖤', pay: 48000, color: '#202028', fx: 'smoke', eff: { cash: 4500, fame: 6, kid: 'str', hp: 4 }, hint: '자욱한 인센스 연기, 잉크 냄새, 거친 사내들의 절대 복종.', strategy: '선천 희귀 특성 [어둠의 손](출생 시 2% 확률)을 타고난 여성(19세 이상) 시 100% 확정 제의 발생 → 3단계 미션 프리패스 격파' },
   { id: 'hj_drifter', name: '드리프트 퀸', icon: '🏎️', pay: 52000, color: '#d03020', fx: 'fire', eff: { fame: 8, cash: 4000, hp: 5, hap: 4 }, hint: '새벽 3시 톨게이트, 붉은색 스포츠카, 차 키를 뺏긴 사내들.', strategy: '선천 희귀 특성 [질주본능](출생 시 2% 확률)을 타고난 여성(19세 이상) 시 100% 확정 제의 발생 → 3단계 미션 프리패스 격파' },
+  // ── 히든의 히든 (슈퍼 히든을 배출한 가문에만, 3단계 미션) ──
+  { id: 'hj_hermes', name: '헤르메스', icon: '🪽', pay: 70000, color: '#d0a030', fx: 'magic', eff: { cash: 8000, fame: 8, hap: 4, kid: 'int' }, hint: '날개 달린 샌들, 세 대륙을 하루에 오가는 사람. 전설의 가문에만 나타난다.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 25~55세 지능 70+·매력 65+ → 3단계: 날개 달린 샌들 → 세 대륙의 거래 → 신들의 전령' },
+  { id: 'hj_vampire', name: '뱀파이어 백작', icon: '🦇', pay: 65000, color: '#6a0a1a', fx: 'shadow', eff: { cash: 7000, fame: 7, hp: 6, hap: 2 }, hint: '해가 지면 깨어나는 고성의 주인. 늙지 않는 얼굴.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 30세 이상 매력 70+·건강 60+ → 3단계: 붉은 초대장 → 영원의 계약 → 고성의 주인' },
+  { id: 'hj_gumiho', name: '구미호', icon: '🦊', pay: 62000, color: '#e06a20', fx: 'spirit', eff: { cash: 6000, fame: 7, hap: 5, kid: 'cha' }, hint: '달빛 아래 아홉 꼬리. 천 년을 기다린 여우.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 20~45세 매력 72+ → 3단계: 여우 구슬 → 아홉 번째 꼬리 → 천년 여우' },
+  { id: 'hj_cyborg', name: '사이보그', icon: '🦾', pay: 68000, color: '#3a8ad0', fx: 'screen', eff: { cash: 7000, fame: 6, hp: 10, kid: 'str' }, hint: '반은 기계, 반은 사람. 심장 대신 뛰는 원자로.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 2040년 이후 근력 65+ (미래 의료 시술을 받았으면 더 쉽게) → 3단계: 인공 팔 → 전신 개조 → 강철의 전설' },
+  { id: 'hj_reaper', name: '저승사자', icon: '🎩', pay: 55000, color: '#1a1a2a', fx: 'smoke', eff: { fame: 6, hap: 3, hp: 5, cash: 5000 }, hint: '검은 갓, 창백한 얼굴. 명부에 이름을 적는 손.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 40세 이상 도덕 70+ → 3단계: 명부 → 억울한 넋 → 저승의 차사' },
+  { id: 'hj_nymph', name: '선녀', icon: '🌙', pay: 58000, color: '#a0c0f0', fx: 'spirit', eff: { hap: 8, fame: 6, hp: 6, kid: 'mor' }, hint: '날개옷, 무지개 다리, 하늘의 연못.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 여성 20~40세 도덕 65+·매력 65+ → 3단계: 날개옷 → 하늘 연못 → 천상의 선녀' },
+  { id: 'hj_dragon', name: '용왕', icon: '🐉', pay: 75000, color: '#1a6a8a', fx: 'waves', eff: { cash: 9000, fame: 8, hp: 5 }, hint: '바다 밑 수정궁. 파도를 부리는 자.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 30세 이상 근력 70+ (어부·항해사·선장·해양 직업이면 더 쉽게) → 3단계: 여의주 → 수정궁 → 사해의 왕' },
+  { id: 'hj_timetraveler', name: '시간 여행자', icon: '⏳', pay: 72000, color: '#5a4ad0', fx: 'magic', eff: { cash: 8000, fame: 7, kid: 'int', study: 5 }, hint: '멈춘 회중시계, 미래에서 온 편지.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 지능 78+ → 3단계: 멈춘 시계 → 과거의 나 → 시간의 관리자' },
+  { id: 'hj_dokkaebi', name: '도깨비', icon: '👹', pay: 60000, color: '#3a8a3a', fx: 'fire', eff: { cash: 7000, hap: 6, fame: 5 }, hint: '방망이 한 번에 금 나와라 뚝딱. 씨름 좋아하는 장난꾸러기.', strategy: '가문에 슈퍼 히든 카드가 있을 때, 매력 60+·모험 성향(위험 감수) → 3단계: 도깨비불 → 씨름 한 판 → 도깨비 방망이' },
 ];
 export const HIDDEN_BY_ID: Record<string, HiddenJob> = Object.fromEntries(HIDDEN.map((h) => [h.id, h]));
 export const isHiddenJob = (job: string) => job.startsWith('hj_');
