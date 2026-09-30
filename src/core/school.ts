@@ -68,6 +68,8 @@ export interface Program {
   note?: string;
   /** 명문 전문학교 졸업장: 그 분야 취업에 크게 유리 (직업 분야) */
   elite?: string;
+  /** 여대: 여학생만 */
+  sex?: 'F';
 }
 
 const P: Program[] = [];
@@ -76,14 +78,14 @@ function prog(tier: Tier, major: string, key: string, cut: number, o: Partial<Pr
 }
 // 의약
 prog('S', '의예과', 'med', 99.8, { years: 6, track: 'med_school', tuition: 1200 });
-prog('C', '의예과 (지방 의대)', 'med', 99.3, { years: 6, track: 'med_school', tuition: 1100 });
-prog('A', '치의예과', 'dent', 99.0, { years: 6, track: 'dent_school', tuition: 1300 });
-prog('C', '치의예과', 'dent', 98.6, { years: 6, track: 'dent_school', tuition: 1000 });
-prog('D', '한의예과', 'kmd', 98.0, { years: 6, track: 'kmd_school', tuition: 1100 });
-prog('S', '수의예과', 'vet', 98.2, { years: 6, track: 'vet_school' });
-prog('C', '수의예과', 'vet', 96.5, { years: 6, track: 'vet_school' });
-prog('A', '약학과', 'pharm', 98.3, { years: 6, track: 'pharm_school', tuition: 1100 });
-prog('C', '약학과', 'pharm', 97.0, { years: 6, track: 'pharm_school' });
+prog('C', '의예과', 'med', 99.1, { school: '경북대', years: 6, track: 'med_school', tuition: 1100 });
+prog('A', '치의예과', 'dent', 99.2, { school: '연세대', years: 6, track: 'dent_school', tuition: 1300 });
+prog('C', '치의예과', 'dent', 98.7, { school: '전남대', years: 6, track: 'dent_school', tuition: 1000 });
+prog('D', '한의예과', 'kmd', 98.0, { school: '대구한의대', years: 6, track: 'kmd_school', tuition: 1100 });
+prog('S', '수의예과', 'vet', 98.5, { years: 6, track: 'vet_school' });
+prog('C', '수의예과', 'vet', 97.0, { school: '충남대', years: 6, track: 'vet_school' });
+prog('A', '약학과', 'pharm', 98.8, { school: '연세대', years: 6, track: 'pharm_school', tuition: 1100 });
+prog('C', '약학부', 'pharm', 98.3, { school: '부산대', years: 6, track: 'pharm_school' });
 prog('B', '간호학과', 'nurse', 90, { track: 'nurse_school', tag: 'public' });
 prog('D', '간호학과', 'nurse', 72, { track: 'nurse_school', tag: 'public' });
 prog('D', '물리치료학과', 'pt', 62, { track: 'health_pt', tag: 'public' });
@@ -159,11 +161,11 @@ prog('E', '자동차과', 'auto', 25, { years: 2, tag: 'free' });
 prog('E', 'IT소프트웨어과', 'itc', 38, { years: 2 });
 // 예체능 (실기 70% + 수능 30%)
 prog('S', '미술대학', 'art', 70, { track: 'art_school', practical: { stat: 'cha', need: 75 }, tag: 'stage' });
-prog('B', '미술대학 (홍대)', 'art', 55, { track: 'art_school', practical: { stat: 'cha', need: 62 }, tag: 'stage' });
+prog('B', '미술대학', 'art', 55, { school: '홍익대', track: 'art_school', practical: { stat: 'cha', need: 62 }, tag: 'stage' });
 prog('D', '시각디자인과', 'design', 35, { practical: { stat: 'cha', need: 48 }, tag: 'stage' });
 prog('S', '음악대학', 'music', 70, { track: 'music_school', practical: { stat: 'cha', need: 76 }, tag: 'stage' });
 prog('D', '실용음악과', 'music', 30, { track: 'music_school', practical: { stat: 'cha', need: 52 }, tag: 'stage' });
-prog('A', '연극영화과', 'acting', 60, { practical: { stat: 'cha', need: 70 }, tag: 'stage' });
+prog('A', '연기예술학과', 'acting', 60, { school: '성균관대', practical: { stat: 'cha', need: 70 }, tag: 'stage' });
 prog('D', '연기예술과', 'acting', 30, { practical: { stat: 'cha', need: 50 }, tag: 'stage' });
 prog('S', '체육교육과', 'sport', 75, { practical: { stat: 'str', need: 72 }, tag: 'sport' });
 prog('C', '체육학과', 'sport', 45, { practical: { stat: 'str', need: 58 }, tag: 'sport' });
@@ -332,11 +334,11 @@ uni('B', '중앙대', 92, [['경영학부', 'biz', 0.5, BIZ], ['약학부', 'pha
 uni('B', '경희대', 91.5, [['한의예과', 'kmd', 7, { years: 6, track: 'kmd_school', tuition: 1100 }], ['호텔경영학과', 'hotel', -1, { tag: 'free' }], ['경영학과', 'biz', 0.3, BIZ], ['간호학과', 'nurse', -1, { track: 'nurse_school', ...PUB }]]);
 uni('B', '한국외대', 91, [['LT학부 (통번역)', 'lang', 0.5, { tag: 'free' }], ['국제통상학과', 'econ', 0, BIZ], ['Language & Diplomacy', 'admin', 0.3, PUB]]);
 uni('B', '서울시립대', 91.5, [['세무학과', 'biz', 0, BIZ], ['도시행정학과', 'admin', 0, PUB], ['전자전기컴퓨터공학부', 'ee', 0], ['조경학과', 'agri', -3, { tag: 'free' }]], { tuition: 250 });
-uni('B', '이화여대', 91, [['경영학부', 'biz', 0, BIZ], ['초등교육과', 'edu_elem', 1, { track: 'edu_school', ...PUB }], ['간호학부', 'nurse', -1, { track: 'nurse_school', ...PUB }]]);
+uni('B', '이화여대', 91, [['경영학부', 'biz', 0, BIZ], ['초등교육과', 'edu_elem', 1, { track: 'edu_school', ...PUB }], ['간호학부', 'nurse', -1, { track: 'nurse_school', ...PUB }]], { sex: 'F' });
 uni('B', '건국대', 88.5, [['수의예과', 'vet', 8, { years: 6, track: 'vet_school' }], ['부동산학과', 'econ', -0.5, BIZ], ['경영학과', 'biz', 0, BIZ], ['스마트ICT융합공학과', 'cs', 0]]);
 uni('B', '동국대', 88, [['경찰행정학부', 'police', 1.5, PUB], ['연극학부', 'acting', -30, { practical: { stat: 'cha', need: 70 }, ...STG }], ['경영학과', 'biz', 0, BIZ], ['컴퓨터공학전공', 'cs', 0]]);
 uni('B', '홍익대', 87.5, [['건축학부 (5년)', 'arch', 0, { years: 5, ...STG }], ['경영학부', 'biz', -0.5, BIZ], ['게임소프트웨어전공', 'game', 0]]);
-uni('B', '숙명여대', 87, [['경영학부', 'biz', 0, BIZ], ['약학부', 'pharm', 9, { years: 6, track: 'pharm_school', tuition: 1100 }], ['미디어학부', 'media', 0, STG]]);
+uni('B', '숙명여대', 87, [['경영학부', 'biz', 0, BIZ], ['약학부', 'pharm', 9, { years: 6, track: 'pharm_school', tuition: 1100 }], ['미디어학부', 'media', 0, STG]], { sex: 'F' });
 uni('B', '국민대', 85.5, [['자동차공학과', 'mech', 0], ['경영학부', 'biz', 0, BIZ], ['소프트웨어학부', 'cs', 0.5]]);
 uni('B', '숭실대', 85, [['컴퓨터학부', 'cs', 0.5], ['AI융합학부', 'cs', 0], ['경영학부', 'biz', -0.5, BIZ], ['사회복지학부', 'welfare', -2, PUB]]);
 uni('B', '세종대', 84.5, [['호텔관광외식경영', 'hotel', 0, { tag: 'free' }], ['항공시스템공학과', 'mech', 0], ['만화애니메이션텍', 'anim', -40, { practical: { stat: 'cha', need: 60 }, ...STG }]]);
@@ -381,11 +383,75 @@ uni('E', '영남이공대', 25, [['간호학과', 'nurse', 20, { years: 4, track
 uni('E', '경복대', 20, [['치위생과', 'clinical', 5, { years: 3, ...PUB }], ['호텔조리과', 'cook', 0, { years: 2, tag: 'free' }]]);
 uni('E', '백석예술대', 22, [['실용음악과', 'music', 8, { years: 2, track: 'music_school', practical: { stat: 'cha', need: 55 }, ...STG }], ['외식산업학부', 'cook', 0, { years: 2, tag: 'free' }]]);
 
+
+// ───────── 의·치·한·약·수의: 실제로 그 학과가 있는 대학만, 합격선은 대략적인 입결 서열 ─────────
+// (서강대·국민대·홍익대 등은 의약계열이 없다. 성균관대는 의대·약대, 경희대는 의·치·한·약, 원광대는 의·치·한·약이 모두 있다)
+const MD = { years: 6, track: 'med_school', tuition: 1200 };
+const DD = { years: 6, track: 'dent_school', tuition: 1300 };
+const KD = { years: 6, track: 'kmd_school', tuition: 1100 };
+const PD = { years: 6, track: 'pharm_school', tuition: 1100 };
+const VD = { years: 6, track: 'vet_school', tuition: 900 };
+const REAL_MED: [Tier, string, string, string, number, Partial<Program>][] = [
+  // 의예과
+  ['A', '성균관대', '의예과', 'med', 99.7, MD], ['A', '가톨릭대', '의예과', 'med', 99.6, MD], ['A', '고려대', '의예과', 'med', 99.5, MD], ['A', '한양대', '의예과', 'med', 99.4, MD],
+  ['B', '경희대', '의예과', 'med', 99.3, MD], ['B', '중앙대', '의예과', 'med', 99.3, MD], ['B', '이화여대', '의예과', 'med', 99.1, { ...MD, sex: 'F' }],
+  ['C', '충남대', '의예과', 'med', 99.0, MD], ['C', '전북대', '의예과', 'med', 98.9, MD], ['C', '충북대', '의예과', 'med', 98.9, MD], ['C', '경상국립대', '의예과', 'med', 98.8, MD], ['C', '강원대', '의예과', 'med', 98.7, MD], ['C', '제주대', '의예과', 'med', 98.6, MD],
+  ['D', '원광대', '의예과', 'med', 98.8, MD], ['D', '조선대', '의예과', 'med', 98.8, MD], ['D', '단국대', '의예과', 'med', 98.9, MD], ['D', '동아대', '의예과', 'med', 98.8, MD], ['D', '건양대', '의예과', 'med', 98.7, MD],
+  ['D', '을지대', '의예과', 'med', 98.8, MD], ['D', '고신대', '의예과', 'med', 98.6, MD], ['D', '대구가톨릭대', '의예과', 'med', 98.7, MD], ['D', '연세대(미래)', '의예과', 'med', 98.9, MD], ['D', '건국대(글로컬)', '의예과', 'med', 98.8, MD],
+  // 치의예과
+  ['S', '서울대', '치의예과', 'dent', 99.3, DD], ['B', '경희대', '치의예과', 'dent', 98.9, DD], ['C', '경북대', '치의예과', 'dent', 98.9, DD], ['C', '부산대', '치의학과', 'dent', 98.9, DD], ['C', '강릉원주대', '치의예과', 'dent', 98.3, DD], ['D', '원광대', '치의예과', 'dent', 98.4, DD],
+  // 한의예과
+  ['B', '동국대(WISE)', '한의예과', 'kmd', 98.3, KD], ['D', '가천대', '한의예과', 'kmd', 98.3, KD], ['D', '동의대', '한의예과', 'kmd', 97.8, KD], ['D', '대전대', '한의예과', 'kmd', 97.8, KD],
+  ['D', '상지대', '한의예과', 'kmd', 97.6, KD], ['D', '세명대', '한의예과', 'kmd', 97.5, KD], ['D', '우석대', '한의예과', 'kmd', 97.5, KD],
+  // 약학
+  ['S', '서울대', '약학계열', 'pharm', 99.0, PD], ['A', '고려대(세종)', '약학과', 'pharm', 98.2, PD], ['A', '가톨릭대', '약학과', 'pharm', 98.3, PD], ['B', '경희대', '약학과', 'pharm', 98.5, PD], ['B', '이화여대', '약학부', 'pharm', 98.6, { ...PD, sex: 'F' }],
+  ['B', '동국대', '약학과', 'pharm', 98.0, PD], ['C', '경북대', '약학과', 'pharm', 98.2, PD], ['C', '전남대', '약학과', 'pharm', 98.0, PD], ['D', '원광대', '약학과', 'pharm', 97.5, PD], ['D', '조선대', '약학과', 'pharm', 97.4, PD],
+  ['D', '계명대', '약학과', 'pharm', 97.4, PD], ['D', '인제대', '약학과', 'pharm', 97.3, PD],
+  // 수의예과
+  ['C', '전남대', '수의예과', 'vet', 96.8, VD], ['C', '전북대', '수의예과', 'vet', 96.8, VD], ['C', '경상국립대', '수의예과', 'vet', 96.5, VD], ['C', '제주대', '수의예과', 'vet', 96.3, VD],
+];
+for (const [tier, school, major, key, cut, o] of REAL_MED) prog(tier, major, key, cut, { school, ...o });
+/** 앞서 만든 의약계열 합격선을 실제 서열에 맞춘다 */
+const REAL_CUT: Record<string, number> = {
+  '연세대 의예과': 99.7, '인하대 의예과': 99.2, '아주대 의예과': 99.3, '부산대 의예과': 99.2, '전남대 의예과': 99.0, '가천대 의예과': 99.1, '계명대 의예과': 98.9, '한림대 의예과': 99.0,
+  '순천향대 의예과': 98.9, '인제대 의예과': 98.8, '울산대 의예과': 99.6, '단국대 치의예과': 98.5, '조선대 치의예과': 98.5, '경희대 한의예과': 99.0, '원광대 한의예과': 98.2,
+  '성균관대 약학과': 98.8, '중앙대 약학부': 98.5, '숙명여대 약학부': 97.8, '충남대 약학과': 98.0, '영남대 약학부': 97.6, '건국대 수의예과': 97.5, '경북대 수의예과': 97.0, '강원대 수의예과': 96.5, '충북대 수의예과': 96.5,
+};
+for (const pr of P) {
+  const nm = (pr.school ?? '') + ' ' + pr.major;
+  if (REAL_CUT[nm] !== undefined) pr.cut = REAL_CUT[nm];
+}
+
 // ───────── 이름 없는 학과에 붙이는 가상의 학교 이름 (등급마다, 학과 순서대로 고정 배정) ─────────
+// 상위권·중위권·거점국립대는 실제 대학 (공학 계열이 없는 학교엔 공학을 붙이지 않는다), 하위권·전문대만 가상 이름
+const ENG_KEYS = new Set(['cs', 'ee', 'mech', 'arch', 'bio']);
+const NO_ENG = new Set(['한국외대']);
+const LAW_UNDERGRAD = new Set(['국민대', '숭실대', '광운대', '명지대', '홍익대']);
+const REAL_POOL: Partial<Record<Tier, string[]>> = {
+  A: ['연세대', '고려대', '서강대', '성균관대', '한양대'],
+  B: ['중앙대', '경희대', '한국외대', '서울시립대', '건국대', '동국대', '홍익대', '국민대', '숭실대', '세종대', '광운대', '명지대', '인하대', '아주대'],
+  C: ['부산대', '경북대', '전남대', '충남대', '전북대', '강원대', '충북대', '경상국립대', '제주대'],
+};
+{
+  const taken = new Set(P.map((pr) => (pr.school ?? '') + '|' + pr.major));
+  const cursor: Partial<Record<Tier, number>> = {};
+  for (const pr of P) {
+    const pool = REAL_POOL[pr.tier];
+    if (pr.school || !pool) continue;
+    for (let k = 0; k < pool.length * 2; k++) {
+      const i = (cursor[pr.tier] = ((cursor[pr.tier] ?? -1) + 1) % pool.length);
+      const sc = pool[i];
+      if (ENG_KEYS.has(pr.key) && NO_ENG.has(sc)) continue;
+      // 로스쿨이 있는 대학은 학부 법학과가 없다
+      if (pr.key === 'law' && pr.tier === 'B' && !LAW_UNDERGRAD.has(sc)) continue;
+      if (taken.has(sc + '|' + pr.major)) continue;
+      pr.school = sc;
+      taken.add(sc + '|' + pr.major);
+      break;
+    }
+  }
+}
 const FAKE_SCHOOLS: Partial<Record<Tier, string[]>> = {
-  A: ['한빛대', '청룡대', '백호대', '서라벌대'],
-  B: ['남산대', '한양도성대', '마포나루대', '성수동대', '을지로대', '북악산대', '낙산대', '인왕대', '망원한강대', '용산미래대', '청계천대', '한남오거리대'],
-  C: ['동해국립대', '호남국립대', '영남국립대', '중원국립대', '탐라국립대', '금강국립대', '태백국립대', '섬진강국립대'],
   D: ['고라니대', '감자밭대', '벚꽃캠퍼스대', '한우마을대', '대나무숲대', '파도소리대', '사과나무대', '갈매기대', '느티나무대', '막차버스대', '기숙사천국대', '동네뒷산대'],
   E: ['내일바로취업전문대', '손기술폴리텍', '한우물전문대', '뚝딱이공대', '반짝예술전문대', '새벽별보건대', '출근길전문대', '장인정신전문대'],
 };
@@ -540,6 +606,7 @@ export function standingChange(before: { top: number; grade: number }, p: Person
 
 /** 합격 확률 */
 export function admitChance(p: Person, pr: Program, pct: number): number {
+  if (pr.sex && p.sex !== pr.sex) return 0;
   if (pr.need && p.actual[pr.need.stat] < pr.need.min) return 0;
   if (pr.practical) {
     const v = p.actual[pr.practical.stat] * 0.7 + (pct / 100) * 30 + (hasFlag(p, 'high_art') || hasFlag(p, 'high_sport') ? 6 : 0);
@@ -694,7 +761,7 @@ export const SUSI_TYPES = Object.keys(SUSI) as SusiType[];
 /** 수시 합격 확률 */
 export function susiChance(s: GameState, p: Person, pr: Program, type: SusiType, pct: number): number {
   const d = SUSI[type];
-  if (pr.special || pr.practical || !d.tiers.includes(pr.tier) || d.deny?.(s, p)) return 0;
+  if (pr.special || pr.practical || !d.tiers.includes(pr.tier) || d.deny?.(s, p) || (pr.sex && p.sex !== pr.sex)) return 0;
   if (d.keys && !d.keys.includes(pr.key)) return 0;
   const v = d.score(s, p, pct, pr);
   const w = Math.max(0.35, (100 - pr.cut) * 0.3) * (d.luck ?? 1);

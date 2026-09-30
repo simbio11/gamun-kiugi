@@ -90,6 +90,8 @@ interface UIState {
   settings?: boolean;
   actCat?: string;
   assetSub?: string;
+  /** 업적 탭에서 펼친 목록 (카드 도감·시너지) */
+  open?: Record<string, boolean>;
   confirmReset?: boolean;
   setup: { surname: string; sex: Sex; origin: Difficulty | 'random' };
 }
@@ -1570,20 +1572,22 @@ function achvScreen(g: GameState): string {
   </section>
   <section class="card">
     <h2>🃏 명예의 전당 카드 <small class="muted">${dexGot.size}/${CARDS.length}종</small></h2>
-    <div class="dex">${[...CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).map((d) => {
+    <div class="dex">${[...CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.dex ? 999 : 6).map((d) => {
       const who = dexGot.get(d.id);
       return who
         ? `<div class="dx ${d.rarity}" title="${esc(effText(d.eff))}"><span>${d.icon}</span><b>${d.name}</b><i class="dx-tier">${'★'.repeat(cardTier(d))}</i><small>${esc(who.join(', '))}</small><em>${esc(effText(d.eff))}</em></div>`
         : `<div class="dx locked"><span>❔</span><b>${d.name}</b><i class="dx-tier">${'★'.repeat(cardTier(d))}</i><small>${esc(d.how)}</small></div>`;
     }).join('')}</div>
+    <button class="more-btn" data-action="more" data-v="dex">${ui.open?.dex ? '▲ 접기' : `▼ 더보기 (${CARDS.length - 6}종 더)`}</button>
     <p class="fine">★ 난이도 (★★★는 2단계 도전·선행 카드). 카드 주인이 살아 있는 동안 효과가 계속된다. 3·6·10·16·24종을 모으면 세트 보상.</p>
   </section>
   <section class="card">
     <h2>✨ 가문 시너지 <small class="muted">발동 ${activeSynergies(g).length}/${SYNERGIES.length}</small></h2>
-    <div class="syn">${[...SYNERGIES].sort((a, b) => Number(activeSynergies(g).includes(b)) - Number(activeSynergies(g).includes(a))).map((sy) => {
+    <div class="syn">${[...SYNERGIES].sort((a, b) => Number(activeSynergies(g).includes(b)) - Number(activeSynergies(g).includes(a))).slice(0, ui.open?.syn ? 99 : 3).map((sy) => {
       const on = activeSynergies(g).includes(sy);
       return `<div class="sy ${on ? 'on' : ''}"><span>${sy.icon}</span><div><b>${sy.name}</b> <small>${esc(sy.desc)}</small><em>${sy.groups.map((gr) => '[' + gr.map((id) => (dexGot.has(id) ? `✅${CARD[id].name}` : CARD[id].name)).join(' / ') + ']').join(' + ')}</em><em class="sy-eff">→ ${esc(effText(sy.eff))}</em></div></div>`;
     }).join('')}</div>
+    <button class="more-btn" data-action="more" data-v="syn">${ui.open?.syn ? '▲ 접기' : `▼ 더보기 (${SYNERGIES.length - 3}개 더)`}</button>
     <p class="fine">서로 다른 분야의 카드 주인이 같은 시대에 함께 살아 있으면 발동한다.</p>
   </section>
   <section class="card rank-card">
@@ -1787,6 +1791,9 @@ function handle(el: HTMLElement) {
     case 'pref-text':
       prefs.text = v as TextSize;
       savePrefs();
+      break;
+    case 'more':
+      (ui.open ??= {})[v] = !ui.open[v];
       break;
     case 'act-cat':
       ui.actCat = v;
