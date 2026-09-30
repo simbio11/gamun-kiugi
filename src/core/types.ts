@@ -36,6 +36,12 @@ export interface Person {
   sex: Sex;
   birthYear: number;
   deathYear?: number;
+  /** 논문 편수 (대학원·교수·연구원) */
+  papers?: number;
+  /** 누적 기부액 (만원) */
+  donated?: number;
+  /** 정치인: 지지율·정치자금·비자금 */
+  pol?: { approval: number; fund: number; slush: number; heat: number };
   fatherId?: string;
   motherId?: string;
   spouseId?: string;
@@ -243,6 +249,15 @@ export interface GameState {
   storySeen?: Record<string, number>;
   /** 시작 난이도 (없으면 운명에 맡김) */
   difficulty?: 'easy' | 'normal' | 'hard';
+  /** 보상 팝업 대기열 */
+  rewards?: import('./rewards').Reward[];
+  /** 명예(✦): 쓸 수 있는 것 / 누적 (등급) */
+  glory?: number;
+  gloryTotal?: number;
+  /** 명예 상점에서 산 혜택 단계 */
+  perks?: Record<string, number>;
+  /** 가문이 받은 훈장 */
+  honors?: { id: string; personId: string; year: number }[];
   /** 라이벌 가문 */
   rival?: import('./rival').Rival;
 }

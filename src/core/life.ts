@@ -3,30 +3,13 @@
 
 import { queuePostnatal } from './lifecost';
 import { chance, int, normal, pick } from './rng';
-import { JOBS, MALE_NAMES, FEMALE_NAMES } from './data';
-import { addHolding, formatMoney, jobTitle, personWorth, settlePension } from './economy';
+import { JOBS } from './data';
+import { campaignMoney, polOf } from './career';
+import { grant } from './rewards';
+import { addHolding, formatMoney, jobTitle, pay, personWorth, settlePension } from './economy';
 import { birthSupport } from './welfare';
-import { applyDesire, gate, iga, queueNext, req, schedule, setJob, who, type Choice, type Ctx, type EventDef } from './ev-util';
-import {
-  isMedStudent,
-  addFlag,
-  age,
-  alive,
-  check,
-  clamp,
-  createPerson,
-  fullName,
-  hasFlag,
-  hasTalent,
-  hasTrait,
-  householder,
-  inherit,
-  mark,
-  randomGenes,
-  spouseOf,
-  freshName,
-  takenNames,
-} from './people';
+import { applyDesire, gate, iga, queueNext, req, schedule, setJob, spendable, who, type Choice, type Ctx, type EventDef } from './ev-util';
+import { addFlag, age, alive, check, clamp, createPerson, freshName, fullName, hasFlag, hasTalent, hasTrait, householder, inherit, isMedStudent, mark, randomGenes, randomName, spouseOf, takenNames } from './people';
 import type { GameState, Person } from './types';
 import { illMult } from './marks';
 
@@ -421,11 +404,10 @@ export function deliver(s: GameState, dad: Person, mom: Person, surname: string,
     if (n === 2) addFlag(baby, 'twin');
     out.push(baby);
     if (name) {
-      const pool = baby.sex === 'M' ? MALE_NAMES : FEMALE_NAMES;
       const names = new Set<string>([baby.name]);
       const taken = takenNames(s, baby);
       for (let i = 0; names.size < 3 && i < 60; i++) {
-        const n = pick(s, pool);
+        const n = randomName(s, baby.sex, s.year);
         if (!taken.has(n)) names.add(n);
       }
       s.events.push({ uid: s.eventSeq++, defId: 'naming', personId: dad.id, data: { childId: baby.id, names: [...names] } });
@@ -716,6 +698,7 @@ const minister: LifeDef = {
           setJob(p, 'minister');
           addFlag(p, 'was_minister');
           x.s.fame += 15;
+          grant(x.s, '🏛', `장관 임명: ${fullName(p)}`, '인사청문회를 통과했다. 2년 임기를 마치면 청조근정훈장이 기다린다.', 'epic');
           return '🏛 청문회를 통과했다! 장관으로 임명됐다. (2년 임기)';
         }
         x.s.fame = Math.max(0, x.s.fame - 8);
@@ -737,20 +720,30 @@ const presidential: LifeDef = {
     gate(c.s, [
       {
         label: '대선에 출마한다',
-        cost: 30000,
+        req: ['선거비용 30억', '지지율', '가문 명성 150'],
+        disabled: campaignMoney(c.p, 30000).short > spendable(c.s),
         tag: 'public',
         run: (x) => {
           const p = x.p;
+          const pl = polOf(p);
+          const m = campaignMoney(p, 30000);
+          pl.fund -= m.fromFund;
+          pl.slush -= m.fromSlush;
+          if (m.fromSlush) pl.heat += 20;
+          if (m.short) pay(x.s, householder(x.s), m.short);
           const score =
-            p.actual.cha * 0.4 + p.actual.mor * 0.3 + Math.min(40, x.s.fame / 5) + (hasTrait(p, 'leader') ? 8 : 0) + (hasTrait(p, 'social') ? 3 : 0) + p.jobLevel * 3 + normal(x.s, 0, 5);
-          if (check(x.s, score, 78, 6)) {
+            p.actual.cha * 0.4 + p.actual.mor * 0.3 + Math.min(40, x.s.fame / 5) + (pl.approval - 50) * 0.4 + (hasTrait(p, 'leader') ? 8 : 0) + (hasTrait(p, 'social') ? 3 : 0) + p.jobLevel * 2 + Math.min(6, m.fromSlush / 20000) - (x.s.fame < 150 ? 10 : 0) + normal(x.s, 0, 5);
+          if (check(x.s, score, 84, 6)) {
             setJob(p, 'president');
             addFlag(p, 'president');
+            p.pol = { approval: 65, fund: 0, slush: pl.slush, heat: pl.heat };
             x.s.fame += 150;
+            for (const q of Object.values(x.s.people)) if (q.deathYear === undefined) q.happiness = clamp(q.happiness + 20, 0, 100);
+            grant(x.s, '🇰🇷', `대통령 당선: ${fullName(p)}`, `${x.s.familyName}씨 가문에서 대통령이 나왔다!\n명성 +150 · 온 가족 행복 +20 · 재임 중 행동력 +1, 해마다 명성 +6\n퇴임 때 지지율이 50%를 넘으면 "성공한 대통령"으로 남는다. 비자금이 있다면… 퇴임 후가 두렵다.`, 'legend');
             x.s.log.push({ year: x.s.year, text: `🇰🇷 ${fullName(p)} 대통령 당선!`, kind: 'achv' });
             return `🇰🇷 당선! ${iga(who(x))} 대한민국 대통령이 되었다! 5년 단임.`;
           }
-          if (score > 60) {
+          if (score > 64) {
             householder(x.s).cash += 30000;
             return '낙선했지만 득표율 15%를 넘겨 선거비용은 보전받았다.';
           }

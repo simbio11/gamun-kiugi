@@ -1,5 +1,6 @@
 // 세대 미션: 가주가 바뀔 때마다 이번 세대의 목표 3개가 주어진다. 달성하면 보상, 못 하면 기록만 남는다.
 import { chance, pick } from './rng';
+import { grant } from './rewards';
 import { unlock } from './achievements';
 import { totalWorth } from './economy';
 import { alive, childrenOf, hasFlag, head, isDescendantOf, isMainline } from './people';
@@ -90,7 +91,7 @@ export function checkMissions(s: GameState) {
     m.state = 'done';
     s.fame += d.fame;
     if (d.cash) s.familyCash += d.cash;
-    s.log.push({ year: s.year, text: `🎯 세대 미션 달성: ${d.name}` + (d.fame ? ` (명성 +${d.fame})` : '') + (d.cash ? ` (상금 +${d.cash >= 10000 ? d.cash / 10000 + '억' : d.cash + '만'})` : ''), kind: 'achv' });
+    grant(s, '🎯', `세대 미션 달성: ${d.name}`, `${d.desc}${d.fame ? `\n명성 +${d.fame}` : ''}${d.cash ? `\n상금 ${d.cash >= 10000 ? d.cash / 10000 + '억' : d.cash + '만'} 원` : ''}`, 'epic');
   }
   const done = (s.missions ?? []).filter((m) => m.state === 'done').length;
   if (done >= 10) unlock(s, 'mission10');

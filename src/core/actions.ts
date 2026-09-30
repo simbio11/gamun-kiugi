@@ -8,6 +8,9 @@ import { TRACK_ACTIONS, trackOf } from './tracks';
 import { reverseMortgageRate } from './welfare';
 import { vehicleAP } from './vehicle';
 import { oppActions } from './opportunities';
+import { bonusAP } from './rewards';
+import { CAREER_ACTIONS } from './career';
+import { RIVAL_ACTIONS } from './rival';
 import { STUDENT_ACTIONS } from './student-actions';
 import { fitCats } from './interests';
 import { JOB_CATS } from './jobs';
@@ -52,7 +55,7 @@ export function stageOf(s: GameState, p: Person): Stage {
 
 /** 생활 수준에 따른 한 해 행동력: 검소 2 · 보통 3 · 호화 4 */
 export function apMax(s: GameState): number {
-  return AP_PER_YEAR + ({ frugal: -1, normal: 0, lux: 1 } as const)[s.policy.living] + vehicleAP(s);
+  return AP_PER_YEAR + ({ frugal: -1, normal: 0, lux: 1 } as const)[s.policy.living] + vehicleAP(s) + bonusAP(s) + (Object.values(s.people).some((p) => p.job === 'president' && p.deathYear === undefined) ? 1 : 0);
 }
 
 export interface ActionDef {
@@ -666,6 +669,7 @@ export const ACTIONS: ActionDef[] = [
     run: (s) => {
       const me = h(s);
       s.fame += 5;
+      me.donated = (me.donated ?? 0) + 2000;
       mark(me, 'kind', 1);
       if (chance(s, 0.3)) schedule(s, int(s, 15, 25), 'scholar_return', me.id, { years: 20 });
       return `${s.familyName}씨 가문 장학금을 만들었다. (명성 +5)`;
@@ -1259,7 +1263,7 @@ const STAGE_ACTIONS: ActionDef[] = [
 ];
 // 올해의 기회: 목록 맨 앞 (분류 칩도 맨 앞에 선다)
 ACTIONS.unshift(...oppActions((s) => stageOf(s, h(s))));
-ACTIONS.push(...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...TRACK_ACTIONS, {
+ACTIONS.push(...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, {
   id: 'license',
   cat: '진로·자기계발',
   icon: '🚦',

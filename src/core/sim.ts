@@ -1,5 +1,5 @@
 import { chance, int, next, normal, pick } from './rng';
-import { ACHIEVEMENTS, ART_TIERS, EXAMS, FEMALE_NAMES, JOBS, MALE_NAMES, REAL_ESTATE } from './data';
+import { ACHIEVEMENTS, ART_TIERS, EXAMS, JOBS, REAL_ESTATE, SURNAMES } from './data';
 import { checkAchievements } from './achievements';
 import { addAsset, addHolding, assetsOf, economyYear, familyWorth, foldFamilyPot, formatMoney, jobLabel, marketYear, pay, personWorth, settlePension, severance, totalWorth } from './economy';
 import { checkMissions, initMissions } from './missions';
@@ -27,6 +27,10 @@ import { exposeFakes, makeDate, marry, examScore, spendable, type Ctx } from './
 import { EVENTS, RANDOM_EVENTS } from './registry';
 import { eraYear } from './era';
 import { rivalYear } from './rival';
+import { careerYear, ministerLeaves, presidentLeaves } from './career';
+import { achvRarity, checkHonors, perkYear, retireHonor } from './rewards';
+import { scanMilestones } from './milestones';
+import { wageIndex } from './pay';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -51,6 +55,7 @@ import {
   spouseOf,
   parentsOf,
   freshName,
+  randomName,
 } from './people';
 import type { AssetKind, GameState, MarketKey, Person, Sex, WillMode } from './types';
 
@@ -78,6 +83,15 @@ const DEFAULT_MARKET: Record<MarketKey, number> = { apt_seoul: 250000, apt_local
 /** 예전 버전 세이브를 현재 형식으로 */
 export function migrate(s: GameState): GameState {
   bindState(s);
+  // 보상 시스템 이전 저장: 이미 이룬 업적만큼 명예를 채워 준다 (팝업 없이)
+  if (s.gloryTotal === undefined) {
+    const pts = { common: 5, rare: 12, epic: 30, legend: 80 } as const;
+    const t = s.achievements.reduce((sum, id) => {
+      const r = ACHIEVEMENTS[id] ? achvRarity(id, ACHIEVEMENTS[id].cat) : undefined;
+      return sum + (r ? pts[r] : 0);
+    }, 0);
+    s.glory = s.gloryTotal = t;
+  }
   const v = s.version as number;
   if (v < 2) {
     s.market = { ...DEFAULT_MARKET, ...s.market };
@@ -162,7 +176,7 @@ export function newGame(o: NewGameOpts): GameState {
   const fAge = int(s, 31, 43);
   const mAge = clamp(fAge + int(s, -5, 2), 28, 42);
   const father = createPerson(s, { sex: 'M', surname: o.familyName, birthYear: START_YEAR - fAge, quality: q, grown: 0.72 });
-  const mother = createPerson(s, { sex: 'F', surname: pick(s, ['이', '박', '최', '정', '강', '윤', '한', '조', '장', '임', '오', '서']), birthYear: START_YEAR - mAge, quality: q, grown: 0.72 });
+  const mother = createPerson(s, { sex: 'F', surname: pick(s, SURNAMES.filter((n) => n !== o.familyName)), birthYear: START_YEAR - mAge, quality: q, grown: 0.72 });
   mother.inLaw = true;
   father.spouseId = mother.id;
   mother.spouseId = father.id;
@@ -229,7 +243,7 @@ export function newGame(o: NewGameOpts): GameState {
   for (const a of olderAges) if (mAge - a >= 22) born(a);
   const me = born(5);
   me.sex = o.sex;
-  me.name = pick(s, o.sex === 'M' ? MALE_NAMES : FEMALE_NAMES);
+  me.name = randomName(s, o.sex, me.birthYear);
   for (const p of Object.values(s.people)) p.name = freshName(s, p);
   // 다섯 살까지 쌓인 능력치는 운
   for (const k of Object.keys(me.actual) as (keyof typeof me.actual)[]) me.actual[k] = Math.round(me.potential[k] * (0.12 + next(s) * 0.2));
@@ -325,6 +339,8 @@ export function simulateYear(s: GameState): void {
   for (const m of leverageYear(s)) log(s, m, 'money');
   for (const m of eraYear(s)) log(s, m, 'market');
   for (const m of rivalYear(s, familyTotal(s))) log(s, m, 'life');
+  for (const m of careerYear(s)) log(s, m, 'life');
+  perkYear(s, wageIndex(s.year));
 
   retirementAndGraduation(s);
   deaths(s);
@@ -345,6 +361,8 @@ export function simulateYear(s: GameState): void {
   const after = homeTotal(s);
   log(s, `💰 ${after.label} ${formatMoney(after.value)} (${after.value >= before.value ? '+' : ''}${formatMoney(after.value - before.value)})`, 'money');
   checkAchievements(s);
+  checkHonors(s);
+  scanMilestones(s, familyTotal(s));
   checkMissions(s);
   foldFamilyPot(s);
   if (!homeOf(s, householder(s))) {
@@ -400,7 +418,7 @@ function lifeYear(s: GameState) {
     if (p.job === 'founder' && p.jobLevel >= 4 && !p.flags.some((f) => f === 'ipo' || f === 'ipo_declined')) queue(s, 'ipo', p.id);
     // 대선
     if (isElectionYear(s.year) && a >= 45 && a <= 72 && !hasFlag(p, 'draft_dodger') && p.job !== 'president' && !hasFlag(p, 'president')) {
-      if ((p.job === 'politician' && p.jobLevel >= 2) || (hasFlag(p, 'was_minister') && s.fame >= 120) || (p.job === 'politician' && s.fame >= 150)) queue(s, 'presidential', p.id);
+      if ((p.job === 'politician' && p.jobLevel >= 2 && s.fame >= 100 && (p.pol?.approval ?? 0) >= 45) || (hasFlag(p, 'was_minister') && s.fame >= 140)) queue(s, 'presidential', p.id);
     }
   }
   // 유언장: 가주 65세부터 5년마다
@@ -475,12 +493,14 @@ function retirementAndGraduation(s: GameState) {
       p.jobLevel = Number(pl);
       p.jobYears = 5;
       log(s, `${fullName(p)} 장관 퇴임`, 'life');
+      ministerLeaves(s, p);
     }
     if (p.job === 'president' && p.jobYears >= 5) {
       p.job = 'pension';
       p.flags = p.flags.filter((f) => !f.startsWith('pens:'));
       p.flags.push('pens:15000', 'ex_president');
       log(s, `🇰🇷 ${fullName(p)} 대통령 퇴임`, 'life');
+      presidentLeaves(s, p);
     }
     // 건물주
     const building = s.assets.some((x) => x.kind === 'building' && x.ownerId === p.id);
@@ -508,6 +528,7 @@ function retirementAndGraduation(s: GameState) {
     if (ra && a >= ra) {
       const sev = severance(s, p);
       if (p.job !== 'none' && p.job !== 'parttime') log(s, `${fullName(p)} ${JOBS[p.job].kind === 'salary' ? '정년퇴직' : '은퇴'}${sev ? ` (퇴직금 ${formatMoney(sev)})` : ''}`, 'life');
+      retireHonor(s, p);
       settlePension(p);
       if (p.id === s.headId) queue(s, 'pension_timing', p.id), queue(s, 'second_life', p.id);
       p.job = 'pension';
@@ -567,8 +588,12 @@ function graduate(s: GameState, p: Person, track?: string) {
       addFlag(p, 'flight_school');
       return prep('pilot');
     case 'grad_school':
-      log(s, `🎓 ${fullName(p)} 박사 학위 취득`, 'life');
-      return prep('professor');
+      log(s, `🎓 ${fullName(p)} 박사 학위 취득 (논문 ${p.papers ?? 0}편)`, 'life');
+      addFlag(p, 'phd');
+      p.flags.push('phd_y:' + s.year);
+      setJob('researcher', 0); // 박사후연구원·시간강사로 버티며 임용을 노린다
+      if (main) queue(s, 'prof_hire', p.id);
+      return;
     case 'pharm_school':
       return prep('pharmacist');
     case 'nurse_school':
@@ -926,6 +951,7 @@ export function resolveChoice(s: GameState, idx: number): string {
   if (typeof res === 'string' || !res.keep) s.events.shift();
   if (text && cur.def.id !== 'notice') log(s, `[${cur.title}] ${ch.label} → ${text.split('\n')[0]}`, 'life');
   checkAchievements(s);
+  scanMilestones(s, familyTotal(s));
   foldFamilyPot(s);
   return text;
 }

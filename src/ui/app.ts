@@ -38,6 +38,8 @@ import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
 import { MISSIONS } from '../core/missions';
 import { rivalLine, rivalMood } from '../core/rival';
+import { buyPerk, HONORS, PERKS, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
+import { fameNeed } from '../core/career';
 import { pendingAffairs } from '../core/fate';
 import { ACTIONS, STAGE_NAMES, apLeft, apMax, doAction, forHead, stageOf, type ActionCat } from '../core/actions';
 import { spendable as canSpend } from '../core/ev-util';
@@ -163,6 +165,7 @@ function back(): boolean {
   if (!g) return false;
   if (ui.settings || ui.sheet) return (ui.settings = ui.confirmReset = false), (ui.sheet = undefined), render(), true;
   if (ui.outcome) return (ui.outcome = undefined), (fx.modalKey = ''), render(), true;
+  if (ui.game?.rewards?.length) return ui.game.rewards.shift(), (fx.modalKey = ''), render(), true;
   if (ui.report) return (ui.report = undefined), (fx.modalKey = ''), render(), true;
   if (g.events.length || g.gameOver) return true;
   if (ui.tab !== 'tree') return (ui.tab = 'tree'), render(), true;
@@ -195,11 +198,29 @@ function render() {
     root.innerHTML = titleScreen();
     return;
   }
+  // 일반 보상은 화면을 막지 않고 위에 반짝 떴다 사라진다
+  const commons = (g.rewards ?? []).filter((r) => r.rarity === 'common');
+  if (commons.length) {
+    g.rewards = g.rewards!.filter((r) => r.rarity !== 'common');
+    for (const r of commons) fx.chips.push({ id: r.id, text: `${r.icon} ${r.title}`, pts: r.pts });
+    sfx('coin');
+    for (const r of commons) setTimeout(() => ((fx.chips = fx.chips.filter((c) => c.id !== r.id)), root.querySelector(`.rw-chip[data-id="${r.id}"]`)?.remove()), 3600);
+  }
   let modal = '';
   let modalKey = '';
   if (g.gameOver) (modal = gameOverModal(g)), (modalKey = 'over');
   else if (ui.report) (modal = reportModal(ui.report)), (modalKey = 'rep' + ui.report.title);
   else if (ui.outcome) (modal = outcomeModal(ui.outcome)), (modalKey = 'out' + ui.outcome.title + ui.outcome.text);
+  else if (g.rewards?.length) {
+    const rw = g.rewards[0];
+    modal = rewardModal(rw);
+    modalKey = 'rw' + rw.id;
+    if (fx.rewardShown !== rw.id) {
+      fx.rewardShown = rw.id;
+      sfx(rw.rarity === 'legend' ? 'legend' : rw.rarity === 'epic' ? 'fanfare' : 'great');
+      buzz(rw.rarity === 'legend' ? 180 : rw.rarity === 'epic' ? 90 : 40);
+    }
+  }
   else if (g.events.length) {
     modal = eventModal(g);
     const ev = g.events[0];
@@ -215,6 +236,7 @@ function render() {
     ${nav()}
     ${modal}
     ${ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ''}
+    ${fx.chips.length ? `<div class="rw-chips">${fx.chips.map((c) => `<div class="rw-chip" data-id="${c.id}">${esc(c.text)}${c.pts ? ` <b>+${c.pts}✦</b>` : ''}</div>`).join('')}</div>` : ''}
   `;
   // 새로 뜬 것만 움직인다: 같은 창이 다시 그려질 땐 가만히
   const m = root.querySelector('.modal');
@@ -291,7 +313,7 @@ function track(name: string, title = name) {
 }
 
 /** 직전 화면 상태 (애니메이션을 새로 생긴 것에만 주려고) */
-const fx: { modalKey: string; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number; assetSub?: string } = { modalKey: '' };
+const fx: { modalKey: string; chips: { id: number; text: string; pts: number }[]; rewardShown?: number; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number; assetSub?: string } = { modalKey: '', chips: [] };
 const TAB_ORDER: Tab[] = ['tree', 'act', 'policy', 'assets', 'log', 'achv'];
 
 function titleScreen(): string {
@@ -473,7 +495,7 @@ function header(g: GameState): string {
     <div class="top-l">
       <div class="year">${g.year}년 <button class="gear" data-action="settings" title="설정" aria-label="설정">⚙</button></div>
       <div class="fam">${esc(g.familyName)}씨 ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
-      <div class="fam">명성 ${Math.round(g.fame)}</div>
+      <div class="fam">명성 ${Math.round(g.fame)} · <button class="rank-chip" data-action="tab" data-v="achv">${RANKS[rankOf(g)].icon} ${RANKS[rankOf(g)].name} <b>${g.glory ?? 0}✦</b></button></div>
     </div>
     <button class="top-r" data-action="tab" data-v="assets" data-sub="sum" title="자산 탭에서 내년 가계부 보기">
       <div class="money">${w.label} <span class="amt">${formatMoney(fx.wallet !== undefined && fx.walletLabel === w.label ? fx.wallet : w.amount)}</span></div>
@@ -827,6 +849,15 @@ function lifeRows(g: GameState, p: Person): string {
   const affairs = alive(p) ? pendingAffairs(g, p) : [];
   if (affairs.length) rows.push(`<div class="sh-row"><span>진행 중</span><span class="affairs">${affairs.map((a) => esc(a)).join('<br>')}</span></div>`);
   if (p.flags.includes('dui')) rows.push(`<div class="sh-row warn"><span>⚠</span><span>음주운전 전과</span></div>`);
+  const honors = (g.honors ?? []).filter((x) => x.personId === p.id);
+  if (honors.length) rows.push(`<div class="sh-row"><span>훈장</span><span>${honors.map((x) => `${HONORS[x.id].icon} ${HONORS[x.id].name} (${x.year})`).join('<br>')}</span></div>`);
+  if (p.papers) rows.push(`<div class="sh-row"><span>논문</span><span>📝 ${p.papers}편${p.flags.includes('phd') ? ' · 박사' : ''}${p.job === 'professor' && p.jobLevel === 0 ? ` · 정년 심사까지 ${Math.max(0, 6 - p.jobYears)}년 (기준 약 12편)` : ''}</span></div>`);
+  if (p.pol && ['politician', 'president'].includes(p.job)) {
+    const pl = p.pol;
+    const need = fameNeed(p);
+    rows.push(`<div class="sh-row ${pl.approval < 25 || pl.fund < 0 ? 'warn' : ''}"><span>정치</span><span>지지율 ${pl.approval}% · 정치자금 ${formatMoney(pl.fund)}${pl.slush ? ` · 🕶 비자금 ${formatMoney(pl.slush)}` : ''}${pl.heat >= 30 ? ' · ⚠ 수사 위험' : ''}<br>가문 명성 ${Math.round(g.fame)} / 체면 유지 ${need}${g.fame < need ? ' ⚠ 부족' : ''}</span></div>`);
+  }
+  if (p.flags.includes('convicted_politician')) rows.push(`<div class="sh-row warn"><span>⚖</span><span>정치자금법 위반 전과</span></div>`);
   return rows.join('');
 }
 
@@ -974,6 +1005,25 @@ function outcomeModal(o: { title: string; text: string }): string {
     </div>
   </div>`;
 }
+
+/** 🎁 보상 팝업: 희귀도마다 빛깔과 효과가 다르다 */
+function rewardModal(r: Reward): string {
+  const sparks = r.rarity === 'common' ? 0 : r.rarity === 'rare' ? 8 : r.rarity === 'epic' ? 14 : 22;
+  return `
+  <div class="modal reward-bg ${r.rarity}" data-action="ok-reward">
+    <div class="event reward ${r.rarity}" data-stop>
+      <div class="rw-burst">${Array.from({ length: sparks }, (_, i) => `<i style="--a:${Math.round((360 / sparks) * i)}deg;--d:${(i % 5) * 60}ms"></i>`).join('')}</div>
+      <div class="rw-rarity">${RARITY_NAME[r.rarity]}</div>
+      <div class="rw-icon">${r.icon}</div>
+      <h3>${esc(r.title)}</h3>
+      <p class="ev-text">${nl(r.text)}</p>
+      ${r.pts ? `<div class="rw-pts">+${r.pts} <b>✦</b> 명예</div>` : ''}
+      <button class="btn primary rw-take" data-action="ok-reward">${r.rarity === 'legend' ? '영광을 받든다!' : '받기!'}</button>
+      ${g0()?.rewards && g0()!.rewards!.length > 1 ? `<button class="btn ghost rw-all" data-action="ok-reward-all">모두 받기 (${g0()!.rewards!.length - 1}개 더)</button>` : ''}
+    </div>
+  </div>`;
+}
+const g0 = () => ui.game;
 
 function reportModal(r: { title: string; lines: string[] }): string {
   return `
@@ -1423,14 +1473,40 @@ function achvScreen(g: GameState): string {
   const cats = [...new Set(Object.values(ACHIEVEMENTS).map((a) => a.cat))];
   const got = g.achievements.length;
   const total = Object.keys(ACHIEVEMENTS).length;
+  const rk = rankOf(g);
+  const cur0 = RANKS[rk];
+  const nxt = RANKS[rk + 1];
+  const tot = g.gloryTotal ?? 0;
+  const pctR = nxt ? Math.round(((tot - cur0.at) / (nxt.at - cur0.at)) * 100) : 100;
+  const honors = g.honors ?? [];
   return `
+  <section class="card rank-card">
+    <div class="rank-top"><span class="rank-ic">${cur0.icon}</span><div><b>${esc(g.familyName)}씨 가문 · ${cur0.name}</b><small>누적 명예 ${tot}✦${nxt ? ` · 다음 "${nxt.name}"까지 ${nxt.at - tot}✦` : ' · 최고 등급'}</small></div></div>
+    <div class="rank-bar"><i style="width:${pctR}%"></i></div>
+    <p class="fine">업적·훈장·출세·세대 미션을 이룰 때마다 명예(✦)가 쌓인다. 등급이 오르면 혜택이 붙고, 모은 명예는 아래 상점에서 쓸 수 있다.${RANKS.slice(1, rk + 1).filter((r) => r.perk).length ? `<br>받는 등급 혜택: ${RANKS.slice(1, rk + 1).filter((r) => r.perk).map((r) => r.perk).join(' · ')}` : ''}</p>
+  </section>
+  <section class="card">
+    <h2>✦ 명예 상점 <small class="muted">보유 ${g.glory ?? 0}✦</small></h2>
+    <div class="perks">${PERKS.map((pk) => {
+      const lv = perkLv(g, pk.id);
+      const cost = pk.cost[lv];
+      const max = cost === undefined;
+      return `<div class="perk ${max ? 'max' : ''}"><span class="pk-i">${pk.icon}</span><div class="pk-m"><b>${pk.name} <small>${'★'.repeat(lv)}${'☆'.repeat(pk.cost.length - lv)}</small></b><small>${pk.desc}</small></div><button class="mini do" data-action="buy-perk" data-id="${pk.id}" ${max || (g.glory ?? 0) < cost ? 'disabled' : ''}>${max ? '완료' : `${cost}✦`}</button></div>`;
+    }).join('')}</div>
+  </section>
+  <section class="card">
+    <h2>🎖 가문의 훈장 <small class="muted">${honors.length}개</small></h2>
+    ${honors.length ? `<div class="honors">${honors.map((x) => `<div class="honor ${HONORS[x.id].rarity}"><span>${HONORS[x.id].icon}</span><b>${HONORS[x.id].name}</b><small>${esc(fullName(g.people[x.personId]))} · ${x.year}</small></div>`).join('')}</div>` : `<p class="fine">아직 없다. 공무원·교원으로 25년 넘게 봉직하고 퇴직하거나, 올림픽 금메달·노벨상·대통령·장관·기업 상장·거액 기부 등으로 받을 수 있다.</p>`}
+  </section>
   ${
     g.rival
       ? `<section class="card">
     <h2>⚔️ 라이벌 가문: ${esc(g.rival.name)}씨 가문 <small class="muted">${rivalMood(g.rival)}</small></h2>
     <p>${esc(rivalLine(g, familyTotal(g)))}</p>
     <div class="feud"><i style="width:${Math.round(g.rival.feud)}%"></i></div>
-    <p class="fine">대표 ${esc(g.rival.boss)} · 명성 ${Math.round(g.rival.fame)} (우리 ${Math.round(g.fame)}) · 원한 ${Math.round(g.rival.feud)}/100. 사사건건 부딪치다 보면 원수가 되고, 손을 내밀면 사돈이 될 수도 있다.</p>
+    ${g.rival.move ? `<p class="rv-move">올해 저쪽의 한 수: ${esc(g.rival.move)}</p>` : ''}
+    ${(g.rival.lead ?? 0) >= 2 ? `<p class="fine">🔥 ${g.rival.lead}년 연속 우리가 앞서는 중. 저쪽이 독기를 품었다 (성장 가속).</p>` : ''}
+    <p class="fine">대표 ${esc(g.rival.boss)} · 명성 ${Math.round(g.rival.fame)} (우리 ${Math.round(g.fame)}) · 원한 ${Math.round(g.rival.feud)}/100. 해마다 저쪽도 한 수를 둔다. 행동 탭 '사회'에서 견제·화해, '재산'에서 지분 매입으로 맞설 수 있다.</p>
   </section>`
       : ''
   }
@@ -1638,6 +1714,20 @@ function handle(el: HTMLElement) {
     case 'ok-report':
       ui.report = undefined;
       break;
+    case 'ok-reward':
+      g?.rewards?.shift();
+      sfx('coin');
+      break;
+    case 'ok-reward-all':
+      if (g) g.rewards = [];
+      sfx('coin');
+      break;
+    case 'buy-perk': {
+      const r = buyPerk(g!, id);
+      if (r.ok) (ui.toast = r.text), sfx('fanfare');
+      else (ui.toast = r.text), sfx('error');
+      break;
+    }
     case 'choose': {
       if (!g) break;
       const cur = currentEvent(g);

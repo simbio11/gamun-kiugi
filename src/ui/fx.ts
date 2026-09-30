@@ -38,7 +38,7 @@ function tone(freq: number, at: number, dur: number, vol = 0.05, type: Oscillato
   o.stop(t + dur + 0.02);
 }
 
-export type Sfx = 'tap' | 'choose' | 'great' | 'bad' | 'next' | 'coin' | 'close' | 'error';
+export type Sfx = 'tap' | 'choose' | 'great' | 'bad' | 'next' | 'coin' | 'close' | 'error' | 'fanfare' | 'legend';
 
 export function sfx(kind: Sfx) {
   try {
@@ -66,6 +66,15 @@ export function sfx(kind: Sfx) {
       case 'coin':
         tone(988, 0, 0.05, 0.035);
         tone(1319, 0.05, 0.12, 0.035);
+        break;
+      case 'fanfare':
+        [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.07, 0.14, 0.045, 'triangle'));
+        tone(1568, 0.38, 0.3, 0.04, 'triangle');
+        break;
+      case 'legend':
+        [392, 523, 659, 784].forEach((f, i) => tone(f, i * 0.09, 0.18, 0.05, 'triangle'));
+        [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.4 + i * 0.06, 0.35, 0.04, 'sine'));
+        tone(523, 0.4, 0.8, 0.03, 'sawtooth', 1047);
         break;
       case 'next':
         tone(330, 0, 0.18, 0.035, 'triangle', 660);

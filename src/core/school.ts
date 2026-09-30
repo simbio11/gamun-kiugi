@@ -3,7 +3,7 @@
 // 수능 백분위 = 성적·지능·사교육비·컨디션. 대학·학과마다 합격선과 경쟁률이 있고, 학과가 진로를 연다.
 
 import { chance, int, next, normal, pick } from './rng';
-import { FEMALE_NAMES, MALE_NAMES, SURNAMES, TALENTS } from './data';
+import { SURNAMES, TALENTS } from './data';
 import { formatMoney } from './economy';
 import {
   applyDesire,
@@ -20,9 +20,10 @@ import {
   type Ctx,
   type EventDef,
 } from './ev-util';
-import { addFlag, age, check, clamp, discoverTalent, hasFlag, hasTalent, hasTrait, mark, markOf } from './people';
+import { addFlag, age, check, clamp, discoverTalent, hasFlag, hasTalent, hasTrait, mark, markOf, randomName } from './people';
 import type { CareerTag, Focus, GameState, Person } from './types';
 import { studyBoost, suneungBonus } from './marks';
+import { bonusStudy } from './rewards';
 import { hoodOf } from './housing';
 import { spendable } from './ev-util';
 import { planLine, specialChoices, yearMood } from './school-flavor';
@@ -387,6 +388,7 @@ export function addStudy(s: GameState, p: Person, base: number) {
   if (hasTrait(p, 'lazy')) g *= 0.75;
   if (age(s, p) >= 16) g *= 1.3;
   g *= studyBoost(p);
+  g *= bonusStudy(s);
   g *= hoodOf(s, p).study; // 동네 학군: 반지하에선 같은 노력으로 덜 오른다
   // 위로 갈수록 한 점 올리기가 훨씬 어렵다
   p.study = clamp(cur + g * Math.pow(Math.max(0, 1 - cur / 105), 1.4), 0, 100);
@@ -540,26 +542,10 @@ export function susiFields(p: Person): string[] {
 export function susiPct(s: GameState, p: Person, pct: number, pr?: Program): number {
   const hood = hoodOf(s, p).hood;
   let v = pct + Math.min(6, activityOf(p) * 0.4);
-  if (hood === 'poor') v += 4; // 기회균형 전형
   if (pr && pr.tier === 'C' && (hood === 'local' || hasFlag(p, 'local_talent'))) v += 4; // 지역인재 전형
   return clamp(v, 0, 99.99);
 }
 
-export function recommendSusi(s: GameState, p: Person, pct: number): Program[] {
-  const keys = susiFields(p);
-  const per = new Map<string, number>();
-  return P.filter((pr) => !pr.practical && !pr.special && keys.includes(pr.key))
-    .map((pr) => [pr, admitChance(p, pr, susiPct(s, p, pct, pr))] as const)
-    .filter(([, c]) => c >= 0.08 && c <= 0.95)
-    .sort((a, b) => b[0].cut - a[0].cut)
-    .filter(([pr]) => {
-      const n = per.get(pr.key) ?? 0;
-      per.set(pr.key, n + 1);
-      return n < 2;
-    })
-    .slice(0, 7)
-    .map(([pr]) => pr);
-}
 
 /** 특별 전형 합격 확률 */
 export function specialChance(s: GameState, p: Person, pr: Program): number {
@@ -576,6 +562,79 @@ export function specialChance(s: GameState, p: Person, pr: Program): number {
   return lg(p.actual.int * 0.5 + p.actual.cha * 0.3 + (hasFlag(p, 'abroad') ? 12 : 0) + (hasFlag(p, 'high_lang') ? 8 : 0), pr.cut * 0.65 + Math.max(0, pr.cut - 95) * 3, 5) * (hoodOf(s, p).hood === 'poor' ? 0.7 : 1);
 }
 
+
+
+// ───────────────────────── 수시 전형들 ─────────────────────────
+// 수시는 6장. 과외 없이 학교생활을 성실히 한 학생, 형편이 어려운 학생, 지방·농어촌 학생에게 열린 길이 많다.
+
+/** 내신: 학교 성적. 사교육보다 성실함이 크고, 학군지일수록 경쟁이 치열해 등급 받기 어렵다 */
+const HOOD_NAESIN: Record<string, number> = { poor: 5, modest: 4, local: 4, middle: 0, rich: -3, elite: -6 };
+export function naesin(s: GameState, p: Person): number {
+  return clamp(studyOf(p) * 0.8 + p.actual.mor * 0.12 + (hasTrait(p, 'diligent') ? 5 : hasTrait(p, 'lazy') ? -4 : 0) + Math.min(6, Math.max(0, markOf(p, 'study')) * 0.6) + (HOOD_NAESIN[hoodOf(s, p).hood] ?? 0), 0, 100);
+}
+const naesinPct = (s: GameState, p: Person) => 100 / (1 + Math.exp(-(naesin(s, p) - 58) / 8));
+export const naesinGrade = (s: GameState, p: Person) => gradeOf(naesinPct(s, p));
+const parentGone = (s: GameState, p: Person) => [p.fatherId, p.motherId].some((id) => !id || !s.people[id] || s.people[id].deathYear !== undefined);
+
+export type SusiType = 'gyo' | 'hak' | 'region' | 'opp' | 'rural' | 'essay' | 'talent' | 'equal';
+interface SusiDef {
+  icon: string;
+  name: string;
+  desc: string;
+  tiers: Tier[];
+  /** 지원 자격이 없으면 이유 */
+  deny?: (s: GameState, p: Person) => string | undefined;
+  /** 이 전형에서 보는 실질 백분위 */
+  score: (s: GameState, p: Person, pct: number, pr: Program) => number;
+  /** 운의 폭 (논술은 크다) */
+  luck?: number;
+  /** 수능 최저학력기준 (백분위) */
+  min?: Partial<Record<Tier, number>>;
+  keys?: string[];
+}
+export const SUSI: Record<SusiType, SusiDef> = {
+  gyo: { icon: '📘', name: '학생부교과', desc: '내신 성적만 본다. 과외 없이 학교 수업에 충실했다면 가장 확실한 길', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], score: (s, p) => naesinPct(s, p) + 1, min: { S: 75, A: 65, B: 45 } },
+  hak: { icon: '📚', name: '학생부종합', desc: '동아리·봉사·반장 등 학교생활 전체와 전공 적합성', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], score: (s, p, pct, pr) => susiPct(s, p, Math.max(pct, naesinPct(s, p) - 4), pr) },
+  region: { icon: '🏫', name: '지역균형 (학교장 추천)', desc: '학교마다 추천받은 내신 최상위 몇 명만. 강남보다 일반고가 유리', tiers: ['S', 'A', 'B', 'C'], deny: (s, p) => (naesin(s, p) < 62 ? '내신 최상위만 학교장 추천' : undefined), score: (s, p) => naesinPct(s, p) + 5, min: { S: 70, A: 60 } },
+  opp: { icon: '🤝', name: '기회균형 (저소득층)', desc: '기초생활수급·차상위 가정 학생을 정원 외로 뽑는다. 합격선이 크게 낮다', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], deny: (s, p) => (['poor', 'modest'].includes(hoodOf(s, p).hood) || s.origin === 'poor' || hasFlag(p, 'welfare') ? undefined : '저소득 가정만'), score: (s, p, pct) => Math.max(pct, naesinPct(s, p)) + 13 },
+  rural: { icon: '🌾', name: '농어촌 특별전형', desc: '읍·면 지역에서 6년 이상 다닌 학생. 정원 외 선발', tiers: ['S', 'A', 'B', 'C', 'D'], deny: (s, p) => (hoodOf(s, p).hood === 'local' || hasFlag(p, 'local_talent') || hasFlag(p, 'rural') ? undefined : '농어촌 거주자만'), score: (s, p, pct) => Math.max(pct, naesinPct(s, p)) + 9 },
+  equal: { icon: '🕊', name: '고른기회 (한부모·자립준비청년 등)', desc: '부모를 잃었거나 한부모 가정, 보훈·다문화 가정 학생', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], deny: (s, p) => (parentGone(s, p) || hasFlag(p, 'multicultural') ? undefined : '해당 가정만'), score: (s, p, pct) => Math.max(pct, naesinPct(s, p)) + 10 },
+  essay: { icon: '✍️', name: '논술', desc: '내신·수능보다 글 한 편. 경쟁률 수십 대 1, 운도 크다. 역전의 기회', tiers: ['S', 'A', 'B', 'C'], luck: 2.6, score: (_s, p) => 100 / (1 + Math.exp(-(p.actual.int * 0.65 + studyOf(p) * 0.35 - 62) / 7)), min: { S: 65, A: 55 } },
+  talent: { icon: '🏅', name: '특기자 (어학·SW·과학·체육)', desc: '올림피아드·어학 성적·수상 실적이 있는 학생', tiers: ['S', 'A', 'B', 'C'], keys: ['lang', 'cs', 'ee', 'bio', 'mech', 'sport', 'econ'], deny: (_s, p) => (['high_lang', 'olympiad', 'high_sci', 'gifted_center', 'high_sport'].some((f) => hasFlag(p, f)) || markOf(p, 'sport') >= 5 ? undefined : '수상·특기 실적 필요'), score: (_s, _p, pct) => pct + 14 },
+};
+export const SUSI_TYPES = Object.keys(SUSI) as SusiType[];
+
+/** 수시 합격 확률 */
+export function susiChance(s: GameState, p: Person, pr: Program, type: SusiType, pct: number): number {
+  const d = SUSI[type];
+  if (pr.special || pr.practical || !d.tiers.includes(pr.tier) || d.deny?.(s, p)) return 0;
+  if (d.keys && !d.keys.includes(pr.key)) return 0;
+  const v = d.score(s, p, pct, pr);
+  const w = Math.max(0.35, (100 - pr.cut) * 0.3) * (d.luck ?? 1);
+  let c = 1 / (1 + Math.exp(-(v - pr.cut) / w));
+  if (d.luck) c = Math.min(c, 0.55); // 논술은 아무리 잘 써도 절반 운
+  const need = d.min?.[pr.tier];
+  if (need && pct < need) c *= 0.12; // 수능 최저 미달
+  return c;
+}
+
+/** 이 전형으로 붙을 만한 곳 (적성 맞는 곳 먼저) */
+export function recommendSusiType(s: GameState, p: Person, type: SusiType, pct: number): Program[] {
+  const fs = fitSet(p);
+  const keys = type === 'hak' ? susiFields(p) : undefined;
+  const seen = new Set<string>();
+  const all = P.filter((pr) => !keys || keys.includes(pr.key) || fitsMajor(p, pr, fs))
+    .map((pr) => [pr, susiChance(s, p, pr, type, pct)] as const)
+    .filter(([, c]) => c >= 0.06)
+    .sort((a, b) => b[0].cut - a[0].cut)
+    .filter(([pr]) => !seen.has(pr.key + pr.tier) && (seen.add(pr.key + pr.tier), true))
+    .map(([pr]) => pr);
+  // 적성 맞는 곳 5곳 + 나머지 좋은 곳 (같은 전공은 2곳까지)
+  const fit = all.filter((pr) => fitsMajor(p, pr, fs)).slice(0, 5);
+  const per = new Map<string, number>();
+  const rest = all.filter((pr) => !fit.includes(pr) && (per.set(pr.key, (per.get(pr.key) ?? 0) + 1).get(pr.key)! <= 2)).slice(0, 12 - fit.length);
+  return [...fit, ...rest];
+}
 
 // ───────────────────────── 원서: 종류별 공통 ─────────────────────────
 
@@ -664,7 +723,7 @@ const PLANS: Plan[] = [
       // 첫사랑: 수십 년 뒤 다시 나타날 수도
       if (!x.p.flags.includes('first_love') && chance(x.s, 0.35)) {
         x.p.flags.push('first_love');
-        const name = pick(x.s, SURNAMES) + pick(x.s, x.p.sex === 'M' ? FEMALE_NAMES : MALE_NAMES);
+        const name = pick(x.s, SURNAMES) + randomName(x.s, x.p.sex === 'M' ? 'F' : 'M', x.p.birthYear);
         schedule(x.s, int(x.s, 15, 30), 'first_love', x.p.id, { name });
         return ` 첫사랑 ${name}. 졸업하며 헤어졌지만 평생 잊지 못할 것 같다.`;
       }
@@ -779,7 +838,8 @@ const path: EventDef = {
     const d = (c.ev.data ??= {});
     if (d.pct === undefined) d.pct = suneung(c.s, c.p);
     const apps: string[] = d.apps ?? [];
-    const used = apps.filter((a) => !a.startsWith('m:')).length;
+    const used = apps.filter((a) => !a.startsWith('m:') && !a.startsWith('s:')).length;
+    const susiN = apps.filter((a) => a.startsWith('s:')).length;
     const head =
       `${who(c)} 수능 성적표: 백분위 ${d.pct} (평균 ${gradeOf(d.pct)}등급)\n` +
       `누적 사교육비 ${formatMoney(c.p.eduSpent ?? 0)}` +
@@ -788,7 +848,11 @@ const path: EventDef = {
       return head + '\n\n📮 합격 발표\n' + (d.results as [string, boolean][]).map(([id, okk]) => `${okk ? '✅ 합격' : '❌ 불합격'} ${programName(PROGRAMS[id])}`).join('\n');
     }
     if (d.stage === 'susi')
-      return head + `\n\n📚 학생부종합 (수시)\n학교생활 활동 ${Math.round(activityOf(c.p))}점 · 강점 분야: ${susiFields(c.p).slice(0, 5).join(', ')}` + (hoodOf(c.s, c.p).hood === 'poor' ? '\n기회균형 전형 대상' : '') + (hoodOf(c.s, c.p).hood === 'local' || hasFlag(c.p, 'local_talent') ? '\n지역인재 전형 대상 (지방 거점대)' : '') + `\n원서 ${3 - used}장 남음`;
+      return head + `\n\n📚 수시 (6장 · 정시 3장과 별개)\n내신 ${naesinGrade(c.s, c.p)}등급 · 학교생활 활동 ${Math.round(activityOf(c.p))}점 · 강점 분야: ${susiFields(c.p).slice(0, 4).join(', ')}\n수능 성적이 아쉬워도 내신·형편·지역·특기로 갈 수 있는 길이 있다.\n수시 원서 ${6 - susiN}장 남음`;
+    if (typeof d.stage === 'string' && d.stage.startsWith('susi:')) {
+      const sd = SUSI[d.stage.slice(5) as SusiType];
+      return head + `\n\n${sd.icon} ${sd.name}\n${sd.desc}${sd.min ? '\n⚠ 상위권 대학은 수능 최저학력기준이 있다' : ''}\n내신 ${naesinGrade(c.s, c.p)}등급 · 수시 원서 ${6 - susiN}장 남음`;
+    }
     if (d.stage === 'special') return head + `\n\n🧪🌏 특별 전형 (영재·해외 대학·해외 요리/디자인/음악 전문학교) · 원서 ${3 - used}장 남음\n해외는 학비·생활비가 크다. 첫해 학비가 없으면 지원할 수 없다.`;
     if (d.stage === 'mil') return head + `\n\n🎖 사관학교·경찰대 · 1차 필기 → 2차 체력·면접 → 수능 반영\n수시·정시 원서 3장과 별개로 2곳까지 지원할 수 있다. (지원 ${apps.filter((a) => a.startsWith('m:')).length}/2)\n2025학년도 경쟁률: 육사 29.8:1 · 해사 25.7:1`;
     if (d.stage === 'fit') return head + `\n\n🧭 맞춤 추천 · 원서 ${3 - used}장 남음\n성향·적성: ${temperamentLine(c.p)}\n💡 = 관심·성향에 맞는 전공. 성적으로 붙을 만한 곳 중 좋은 곳부터.`;
@@ -797,8 +861,8 @@ const path: EventDef = {
     if (d.stage === 'apply' || d.stage === 'art')
       return (
         head +
-        `\n\n원서 ${3 - apps.length}장 남음` +
-        (apps.length ? `\n지원: ${apps.map((raw) => (raw.startsWith('s:') ? '[수시] ' : raw.startsWith('x:') ? '[특별] ' : raw.startsWith('m:') ? '[사관] ' : '') + programName(PROGRAMS[raw.split(':').pop()!])).join(', ')}` : '') +
+        `\n\n정시 원서 ${3 - used}장 남음 · 수시 ${susiN}/6` +
+        (apps.length ? `\n지원: ${apps.map((raw) => (raw.startsWith('s:') ? `[${SUSI[(raw.split(':').length > 2 ? raw.split(':')[1] : 'hak') as SusiType].name}] ` : raw.startsWith('x:') ? '[특별] ' : raw.startsWith('m:') ? '[사관] ' : '') + programName(PROGRAMS[raw.split(':').pop()!])).join(', ')}` : '') +
         `\n(상향 < 소신 < 적정 < 안정 순으로 붙기 쉽다)`
       );
     if (d.stage === 'work') return head + '\n\n대학 대신 어떤 길로?';
@@ -808,8 +872,9 @@ const path: EventDef = {
     const d = c.ev.data;
     const p = c.p;
     const apps: string[] = d.apps ?? [];
-    const used = apps.filter((a) => !a.startsWith('m:')).length;
-    const mil = apps.length - used;
+    const used = apps.filter((a) => !a.startsWith('m:') && !a.startsWith('s:')).length;
+    const susiN = apps.filter((a) => a.startsWith('s:')).length;
+    const mil = apps.filter((a) => a.startsWith('m:')).length;
     const fs = fitSet(p);
     const back: Choice = { label: '← 뒤로', run: (x) => ((x.ev.data.stage = undefined), { text: '', keep: true }) };
     const finish: Choice = {
@@ -817,9 +882,11 @@ const path: EventDef = {
       disabled: !apps.length,
       run: (x) => {
         x.ev.data.results = apps.map((raw) => {
-          const [kind, id] = raw.includes(':') ? raw.split(':') : ['j', raw];
+          const parts = raw.includes(':') ? raw.split(':') : ['j', raw];
+          const kind = parts[0];
+          const id = parts[parts.length - 1];
           const pr = PROGRAMS[id];
-          const c = kind === 's' ? admitChance(x.p, pr, susiPct(x.s, x.p, x.ev.data.pct, pr)) : kind === 'x' || kind === 'm' ? specialChance(x.s, x.p, pr) : admitChance(x.p, pr, x.ev.data.pct);
+          const c = kind === 's' ? susiChance(x.s, x.p, pr, (parts.length > 2 ? parts[1] : 'hak') as SusiType, x.ev.data.pct) : kind === 'x' || kind === 'm' ? specialChance(x.s, x.p, pr) : admitChance(x.p, pr, x.ev.data.pct);
           return [id, chance(x.s, c)];
         });
         x.ev.data.stage = 'result';
@@ -866,18 +933,6 @@ const path: EventDef = {
 
     if (d.stage === 'work') return workChoices(c);
 
-    const addApp = (raw: string, pr: Program, chanceV: number, extra: string[] = []): Choice => {
-      const tuition = pr.tuition ?? TIERS[pr.tier].tuition;
-      return {
-        label: programName(pr),
-        req: [band(chanceV), `${pr.years}년`, ...(tuition ? [`등록금 ${formatMoney(tuition)}/년`] : ['학비 면제']), ...extra],
-        disabled: used >= 3,
-        run: (x: Ctx) => {
-          x.ev.data.apps = [...(x.ev.data.apps ?? []), raw];
-          return { text: '', keep: true };
-        },
-      };
-    };
     /** 어떤 전형이든 한 학교를 원서에 올린다 */
     const appChoice = (pr: Program): Choice => {
       const raw = rawOf(pr);
@@ -924,10 +979,34 @@ const path: EventDef = {
       return [finish, ...out, { label: '← 분야 다시 고르기', run: (x) => ((x.ev.data.stage = 'field'), { text: '', keep: true }) }, back];
     }
     if (d.stage === 'susi') {
-      const recs = recommendSusi(c.s, p, d.pct).filter((pr) => !apps.includes('s:' + pr.id));
-      const out = recs.map((pr) => addApp('s:' + pr.id, pr, admitChance(p, pr, susiPct(c.s, p, d.pct, pr)), ['학종']));
-      if (!out.length) out.push({ label: '(내세울 활동이 부족하다)', disabled: true, run: () => '' });
-      return [finish, ...out, back];
+      const menu: Choice[] = SUSI_TYPES.map((ty) => {
+        const sd = SUSI[ty];
+        const no = sd.deny?.(c.s, p);
+        const n = no ? 0 : recommendSusiType(c.s, p, ty, d.pct).length;
+        return { label: `${sd.icon} ${sd.name}`, req: no ? [no] : [n ? `추천 ${n}곳` : '붙을 만한 곳 없음'], disabled: !!no || !n, run: (x: Ctx) => ((x.ev.data.stage = 'susi:' + ty), { text: '', keep: true as const }) };
+      });
+      return [finish, ...menu.sort((a, b) => Number(!!a.disabled) - Number(!!b.disabled)), back];
+    }
+    if (typeof d.stage === 'string' && d.stage.startsWith('susi:')) {
+      const ty = d.stage.slice(5) as SusiType;
+      const out = recommendSusiType(c.s, p, ty, d.pct)
+        .filter((pr) => !apps.includes(`s:${ty}:${pr.id}`))
+        .map((pr): Choice => {
+          const ch = susiChance(c.s, p, pr, ty, d.pct);
+          const fee = feeOf(pr);
+          const need = SUSI[ty].min?.[pr.tier];
+          return {
+            label: (fitsMajor(p, pr, fs) ? '💡 ' : '') + programName(pr),
+            req: [...(fitsMajor(p, pr, fs) ? ['관심·성향'] : []), band(ch), `${pr.years}년`, fee ? `연 ${formatMoney(fee)}` : '학비 면제', ...(need ? [d.pct >= need ? '수능최저 충족' : '수능최저 미달'] : []), ...(ty === 'essay' ? [`경쟁률 ${30 + Math.round(pr.cut / 2)}:1`] : [])],
+            disabled: susiN >= 6,
+            run: (x: Ctx) => {
+              x.ev.data.apps = [...(x.ev.data.apps ?? []), `s:${ty}:${pr.id}`];
+              return { text: '', keep: true };
+            },
+          };
+        });
+      if (!out.length) out.push({ label: '(이 전형으로 붙을 만한 곳이 없다)', disabled: true, run: () => '' });
+      return [finish, ...out, { label: '← 다른 전형 보기', run: (x) => ((x.ev.data.stage = 'susi'), { text: '', keep: true }) }, back];
     }
     if (d.stage === 'special') {
       const out = P.filter((pr) => pr.special && pr.special !== 'military' && !apps.includes(rawOf(pr)) && (pr.special !== 'sci' || sciOk(p)))
@@ -940,7 +1019,7 @@ const path: EventDef = {
       { label: '🧭 맞춤 추천 (성적·적성·형편 종합)', run: (x) => ((x.ev.data.stage = 'fit'), { text: '', keep: true }) },
       { label: `🗂 분야별로 전체 보기 (${P.length}개 학과)`, run: (x) => ((x.ev.data.stage = 'field'), { text: '', keep: true }) },
       { label: '📝 정시 원서 쓰기 (가·나·다군 3장)', run: (x) => ((x.ev.data.stage = 'apply'), { text: '', keep: true }) },
-      { label: '📚 수시 학생부종합 (활동·기회균형·지역인재)', run: (x) => ((x.ev.data.stage = 'susi'), { text: '', keep: true }) },
+      { label: `📚 수시 6장 (교과·종합·지역균형·기회균형·농어촌·논술·특기자) ${susiN}/6`, run: (x) => ((x.ev.data.stage = 'susi'), { text: '', keep: true }) },
       ...(hasFlag(p, 'high_sci') || hasFlag(p, 'gifted_center') || hasFlag(p, 'olympiad') || hasFlag(p, 'abroad') || hasFlag(p, 'high_lang') || spendable(c.s) >= 40000
         ? [{ label: '🧪🌏 특별 전형 (KAIST·GIST / 해외 대학·요리·디자인 학교)', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]
         : [{ label: '🌏 해외 요리·디자인·음악 전문학교', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]),

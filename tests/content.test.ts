@@ -20,10 +20,12 @@ import { pensionOf, settlePension, severance } from '../src/core/economy';
 import { divorce } from '../src/core/life';
 import { reverseMortgageRate } from '../src/core/welfare';
 import { acqTax, buyListing, gainsTax, isPrimary, rentable, rollListings } from '../src/core/realty';
-import { recommendSusi, standing } from '../src/core/school';
+import { recommendSusiType, standing } from '../src/core/school';
 import { hoodOf } from '../src/core/housing';
 import { homeOf, moveTo, settleHome } from '../src/core/housing';
 import { debtRate, goBankrupt, walletNet } from '../src/core/debt';
+import { awardHonor, buyPerk, grant, retireHonor } from '../src/core/rewards';
+import { profScore } from '../src/core/career';
 
 describe('콘텐츠 무결성', () => {
   it('직업 100개 이상, 모든 참조가 유효', () => {
@@ -461,8 +463,23 @@ describe('인생 시스템', () => {
     const h = head(s);
     mark(h, 'kind', 6);
     mark(h, 'warmth', 4);
-    const keys = new Set(recommendSusi(s, h, 70).map((p) => p.key));
+    const keys = new Set(recommendSusiType(s, h, 'hak', 70).map((p) => p.key));
     expect([...keys].some((k) => ['edu', 'edu_elem', 'welfare', 'nurse', 'kinder', 'pt'].includes(k))).toBe(true);
+  });
+
+  it('수시: 과외 없이 내신만 좋은 저소득층 학생도 기회균형·교과로 인서울에 갈 길이 있다', () => {
+    const s = newGame({ seed: 53, familyName: '최', sex: 'F', origin: 'poor' });
+    const h = head(s);
+    h.study = 80;
+    h.eduSpent = 0;
+    s.year += 14;
+    const opp = recommendSusiType(s, h, 'opp', 45);
+    const gyo = recommendSusiType(s, h, 'gyo', 45);
+    expect(opp.some((p) => ['S', 'A', 'B'].includes(p.tier))).toBe(true);
+    expect(gyo.length).toBeGreaterThan(0);
+    // 부유한 집 아이는 기회균형 자격이 없다
+    const r = newGame({ seed: 54, familyName: '최', sex: 'F', origin: 'rich' });
+    expect(recommendSusiType(r, head(r), 'opp', 45).length).toBe(0);
   });
 
   it('세금·퇴직금·연금: 누진세, 근속만큼 퇴직금, 공무원연금 > 국민연금', () => {
@@ -750,5 +767,39 @@ describe('부모님 유산', () => {
       expect(got).toBeGreaterThan(momGot / 1.5 * 0.5); // 자녀 몫이 0에 가깝지 않다
     }
     expect(momGot).toBeLessThan((290000 * 1.5) / total * 1.6);
+  });
+
+  it('교수의 길: 박사 학위 → 연구원으로 버티며 임용 공고가 온다, 논문이 많을수록 유리', () => {
+    const s = newGame({ seed: 71, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year += 30;
+    h.flags.push('student', 'track:grad_school', 'grad:' + s.year);
+    h.papers = 8;
+    s.events = [];
+    simulateYear(s);
+    expect(h.flags).toContain('phd');
+    expect(h.job).toBe('researcher');
+    expect(s.events.some((e) => e.defId === 'prof_hire')).toBe(true);
+    const low = profScore(h);
+    h.papers = 20;
+    expect(profScore(h)).toBeGreaterThan(low + 20);
+  });
+
+  it('훈장·명예: 25년 넘게 봉직한 교사는 근정훈장, 명예로 상점에서 행동력을 산다', () => {
+    const s = newGame({ seed: 72, familyName: '최', sex: 'F' });
+    const h = head(s);
+    h.job = 'teacher';
+    h.jobYears = 31;
+    const fame = s.fame;
+    retireHonor(s, h);
+    expect(s.honors?.[0]?.id).toBe('hongjo');
+    expect(s.fame).toBeGreaterThan(fame);
+    awardHonor(s, h, 'hongjo', '중복');
+    expect(s.honors?.length).toBe(1); // 같은 훈장은 한 번만
+    grant(s, '🏆', '테스트', '', 'legend');
+    const ap = apMax(s);
+    expect(buyPerk(s, 'ap').ok).toBe(true);
+    expect(apMax(s)).toBe(ap + 1);
+    expect((s.rewards ?? []).length).toBeGreaterThan(0);
   });
 });

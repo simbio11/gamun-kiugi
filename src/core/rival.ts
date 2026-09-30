@@ -1,12 +1,15 @@
 // 라이벌 가문: 같은 동네에서 대대로 엎치락뒤치락하는 집안.
 // 해마다 저쪽 재산도 불어나거나 줄고, 가끔 두 집안이 부딪친다. 앙숙이 될 수도, 사돈이 될 수도 있다.
 
-import { SURNAMES, FEMALE_NAMES, MALE_NAMES } from './data';
+import { SURNAMES } from './data';
 import { addAsset, addHolding, formatMoney } from './economy';
 import { chance, int, next, normal, pick } from './rng';
 import { gate, schedule, type Choice, type Ctx, type EventDef } from './ev-util';
 import { unlock } from './achievements';
-import { addFlag, age, alive, check, clamp, fullName, head, householder, spouseOf } from './people';
+import { addFlag, age, alive, check, clamp, fullName, head, householder, isMainline, mark, randomName, spouseOf } from './people';
+import { JOBS } from './data';
+import { grant } from './rewards';
+import type { ActionDef } from './actions';
 import { buyPower } from './leverage';
 import type { GameState, Person } from './types';
 
@@ -27,6 +30,12 @@ export interface Rival {
   bossBorn: number;
   /** 우리보다 앞섰던 적이 있는가 → 추월하면 업적 */
   passed?: boolean;
+  /** 자극받은 정도 (우리가 앞설수록 독기를 품는다) */
+  drive?: number;
+  /** 우리가 연속으로 앞선 햇수 */
+  lead?: number;
+  /** 올해 저쪽이 한 일 (화면 표시용) */
+  move?: string;
 }
 
 const rv = (s: GameState) => s.rival!;
@@ -43,7 +52,7 @@ export function initRival(s: GameState, ourWorth: number) {
     fame: Math.round(s.fame * 1.2 + 8),
     feud: 30,
     since: s.year,
-    boss: name + pick(s, chance(s, 0.5) ? MALE_NAMES : FEMALE_NAMES),
+    boss: name + randomName(s, chance(s, 0.5) ? 'M' : 'F', born),
     bossBorn: born,
   };
 }
@@ -71,8 +80,8 @@ export function rivalYear(s: GameState, ourWorth: number): string[] {
   // 세대교체: 저쪽 대표가 늙으면 자식이 물려받는다
   if (s.year - r.bossBorn >= 78 && chance(s, 0.25)) {
     const old = r.boss;
-    r.boss = r.name + pick(s, chance(s, 0.5) ? MALE_NAMES : FEMALE_NAMES);
     r.bossBorn = s.year - int(s, 40, 52);
+    r.boss = r.name + randomName(s, chance(s, 0.5) ? 'M' : 'F', r.bossBorn);
     r.feud = Math.round(r.feud * 0.6);
     msgs.push(`🕯 ${R(s)} ${old} 회장 별세. 이제 ${r.boss}이(가) 집안을 이끈다.`);
   }
@@ -85,15 +94,40 @@ export function rivalYear(s: GameState, ourWorth: number): string[] {
     return msgs;
   }
   const mc = s.marketChange;
-  const g = normal(s, 0.045, 0.09) + 0.4 * (mc.apt_seoul ?? 0) + 0.2 * (mc.stock ?? 0);
-  r.worth = Math.max(3000, Math.round(r.worth * (1 + clamp(g, -0.35, 0.5))));
-  r.fame = Math.max(0, Math.round((r.fame + normal(s, 0.6, 1.2)) * 10) / 10);
+  // 우리가 앞서면 저쪽은 독기를 품고 더 공격적으로 불린다 (고무줄 경쟁)
+  const ratio = ourWorth / Math.max(1, r.worth);
+  r.drive = clamp((r.drive ?? 0) * 0.85 + (ratio > 1 ? Math.min(0.03, (ratio - 1) * 0.02) : 0), 0, 0.06);
+  // 앞서면 쫓아오고, 너무 앞서 나가면 저쪽도 돈을 쓰고 방심한다: 늘 비등한 승부가 되게
+  const chase = ratio > 1 ? Math.min(0.15, 0.03 + (ratio - 1) * 0.05) : -Math.min(0.09, (1 / Math.max(ratio, 0.05) - 1) * 0.02);
+  // 세 배 넘게 벌어지면 저쪽이 총력전(또는 크게 헤프게 쓴다)
+  const burst = ratio > 3 ? 0.18 : ratio < 1 / 3 ? -0.1 : 0;
+  const g = normal(s, 0.05 + chase + r.drive + burst, 0.09) + 0.45 * (mc.apt_seoul ?? 0) + 0.25 * (mc.stock ?? 0);
+  r.worth = Math.max(3000, Math.round(r.worth * (1 + clamp(g, -0.35, 0.8))));
+  // 명성도 우리를 쫓아온다
+  r.fame = Math.max(0, Math.round((r.fame + normal(s, 0.8, 1.2) + (s.fame > r.fame ? (s.fame - r.fame) * 0.12 : 0)) * 10) / 10);
   r.feud = clamp(r.feud + (r.allied ? -2 : 0.5), 0, 100);
-  if (ourWorth < r.worth) r.passed = false;
-  else if (r.passed === false) {
-    r.passed = true;
-    unlock(s, 'rival_passed');
-    msgs.push(`🏁 드디어 ${R(s)}의 재산을 넘어섰다! 동네 사람들이 수군댄다.`);
+  if (ourWorth < r.worth) {
+    if ((r.lead ?? 0) >= 3) msgs.push(`😱 ${R(s)}에게 역전당했다! 저쪽 재산 ${formatMoney(r.worth)}. 동네에서 "역시 ${r.name}씨네"라는 말이 돈다.`);
+    r.passed = false;
+    r.lead = 0;
+  } else {
+    r.lead = (r.lead ?? 0) + 1;
+    if (r.passed === false) {
+      r.passed = true;
+      unlock(s, 'rival_passed');
+      msgs.push(`🏁 드디어 ${R(s)}의 재산을 넘어섰다! 동네 사람들이 수군댄다.`);
+    }
+    if (r.lead === 5) grant(s, '⚔️', `라이벌 5년 연속 제압`, `${R(s)}을(를) 5년째 앞서고 있다. 저쪽이 독기를 품었다는 소문이다.`, 'rare');
+    if (r.lead === 15) grant(s, '👑', `동네의 패자`, `${R(s)}을(를) 15년째 앞섰다. 이 동네에서 ${s.familyName}씨 가문을 모르는 사람이 없다.`, 'epic');
+  }
+  // 저쪽의 올해 한 수 (우리에게 영향을 준다)
+  r.move = undefined;
+  if (age(s, h) >= 20 && chance(s, 0.6)) {
+    const mv = rivalMove(s, ourWorth);
+    if (mv) {
+      r.move = mv;
+      msgs.push(`⚔️ ${mv}`);
+    }
   }
   if (age(s, h) < 20) return msgs;
   // 부딪치는 사건: 2년에 한 번꼴
@@ -127,7 +161,7 @@ interface RivalDef extends EventDef {
 
 const feud = (s: GameState, d: number) => (rv(s).feud = clamp(rv(s).feud + d, 0, 100));
 const rich = (s: GameState) => rv(s).worth;
-const kid = (s: GameState) => rv(s).name + pick(s, chance(s, 0.5) ? MALE_NAMES : FEMALE_NAMES);
+const kid = (s: GameState) => rv(s).name + randomName(s, chance(s, 0.5) ? 'M' : 'F', rv(s).bossBorn + 30);
 const ok = (s: GameState) => !!s.rival && !rv(s).fallen;
 const hostile = (s: GameState) => ok(s) && !rv(s).allied;
 const choices = (c: Ctx, list: (Choice | false | undefined)[]) => gate(c.s, list.filter((x): x is Choice => !!x));
@@ -400,6 +434,184 @@ const repay: EventDef = {
     { label: '원금만 받는다', run: (x) => ((householder(x.s).cash += 30000), (x.s.fame += 4), (x.p.actual.mor = clamp(x.p.actual.mor + 3, 0, 100)), '"이자는 됐소." 소문이 퍼져 가문의 이름이 높아졌다.') },
   ],
 };
+
+// ───────────────────────── 라이벌의 한 수 ─────────────────────────
+
+interface Move {
+  w: (s: GameState, ours: number) => number;
+  run: (s: GameState, ours: number) => string;
+}
+const mainAdults = (s: GameState) => Object.values(s.people).filter((p) => alive(p) && !p.inLaw && isMainline(s, p) && age(s, p) >= 20);
+const HOSTILE: Move[] = [
+  { // 매물 선점
+    w: (s) => ((s.listings ?? []).length ? 1 : 0),
+    run: (s) => {
+      const ls = s.listings!;
+      const i = Math.floor(next(s) * ls.length);
+      const l = ls.splice(i, 1)[0];
+      rv(s).worth += Math.round(l.price * 0.4);
+      return `${R(s)}이(가) 올해 매물 "${l.name}"을(를) 먼저 계약해 버렸다. (${formatMoney(l.price)})`;
+    },
+  },
+  { // 헛소문
+    w: (s) => (rv(s).feud >= 40 ? 1 : 0.4),
+    run: (s) => {
+      const d = s.fame >= 80 && chance(s, 0.5) ? 0 : int(s, 2, 5);
+      s.fame = Math.max(0, s.fame - d);
+      return d ? `${R(s)} 쪽에서 우리 집안에 대한 헛소문을 퍼뜨렸다. 명성 -${d}` : `${R(s)}의 헛소문이 돌았지만, 우리 가문의 이름값에 묻혔다.`;
+    },
+  },
+  { // 가게 옆에 가게
+    w: (s) => (mainAdults(s).some((p) => ['biz', 'service'].includes(JOBS[p.job]?.cat) && JOBS[p.job].kind === 'business') ? 1.2 : 0),
+    run: (s) => {
+      const p = mainAdults(s).find((q) => ['biz', 'service'].includes(JOBS[q.job]?.cat) && JOBS[q.job].kind === 'business')!;
+      const loss = Math.round(Math.max(300, Math.abs(p.cash) * 0.05 + 600));
+      p.cash -= loss;
+      p.happiness = clamp(p.happiness - 5, 0, 100);
+      return `${R(s)}이(가) ${fullName(p)}의 ${JOBS[p.job].name.replace(' 사장', '').replace(' 대표', '')} 바로 옆에 더 큰 가게를 냈다. 손님이 빠졌다. (-${formatMoney(loss)})`;
+    },
+  },
+  { // 스카우트
+    w: (s) => (mainAdults(s).some((p) => JOBS[p.job]?.kind === 'salary' && p.id !== s.headId) ? 0.7 : 0),
+    run: (s) => {
+      const p = pick(s, mainAdults(s).filter((q) => JOBS[q.job]?.kind === 'salary' && q.id !== s.headId));
+      if (chance(s, 0.5)) {
+        p.jobLevel = Math.min(JOBS[p.job].maxLevel, p.jobLevel + 1);
+        p.affinity = clamp(p.affinity - 10, -100, 100);
+        rv(s).feud = clamp(rv(s).feud - 5, 0, 100);
+        return `${R(s)} 계열사가 ${fullName(p)}을(를) 한 직급 높여 스카우트했다. 본인은 신났지만 집안 어른들은 서운하다.`;
+      }
+      return `${R(s)}이(가) ${fullName(p)}에게 스카우트 제의를 했다. "우리 집안 사람이 거길 왜 가!" 거절했다.`;
+    },
+  },
+  { // 선거에서 상대를 민다
+    w: (s) => (mainAdults(s).some((p) => ['politician', 'president'].includes(p.job)) ? 1.5 : 0),
+    run: (s) => {
+      const p = mainAdults(s).find((q) => ['politician', 'president'].includes(q.job))!;
+      const pl = (p.pol ??= { approval: 45, fund: 0, slush: 0, heat: 0 });
+      pl.approval = Math.max(5, pl.approval - 6);
+      return `${R(s)}이(가) ${fullName(p)}의 정적에게 거액을 후원했다. 지지율 -6%`;
+    },
+  },
+  { // 자랑
+    w: () => 0.8,
+    run: (s) => {
+      rv(s).fame += 3;
+      const kids = Object.values(s.people).filter((p) => alive(p) && isMainline(s, p) && age(s, p) >= 10 && age(s, p) <= 25);
+      for (const k of kids) k.happiness = clamp(k.happiness - 3, 0, 100);
+      return `${R(s)} 자녀가 ${pick(s, ['서울대 의대에 수석 합격', '국가대표에 발탁', '대기업 최연소 임원이 됐다', '사법시험 수석을 했다', '해외 명문대 장학생이 됐다'])}. 동네 현수막이 걸렸다.${kids.length ? ' 우리 아이들이 비교당한다.' : ''}`;
+    },
+  },
+  { // 대규모 투자
+    w: (_s, ours) => (_s.rival!.worth < ours ? 1.2 : 0.5),
+    run: (s) => {
+      const add = Math.round(rv(s).worth * (0.08 + next(s) * 0.12));
+      rv(s).worth += add;
+      return `${R(s)}이(가) ${pick(s, ['강남 빌딩을 사들였다', '신사업에 뛰어들어 대박을 냈다', '코인으로 큰돈을 벌었다', '물류센터 부지를 선점했다'])}. 저쪽 재산 +${formatMoney(add)}`;
+    },
+  },
+  { // 기부로 이름값
+    w: () => 0.5,
+    run: (s) => ((rv(s).fame += 5), `${R(s)}이(가) 지역 병원에 거액을 기부했다. 신문에 대문짝만하게 났다. (저쪽 명성 +5)`),
+  },
+];
+const FRIENDLY: Move[] = [
+  { w: () => 1, run: (s) => {
+    const g = Math.round(Math.min(5000, rv(s).worth * 0.01));
+    householder(s).cash += g;
+    return `사돈 ${R(s)}과(와) 함께한 공동 사업에서 배당금 ${formatMoney(g)}이 나왔다.`;
+  } },
+  { w: () => 0.7, run: (s) => {
+    const p = head(s);
+    mark(p, 'network', 1);
+    s.fame += 2;
+    return `${boss(s)}이(가) 우리 가주를 경제인 모임에 소개했다. 명성 +2`;
+  } },
+  { w: (s) => (householder(s).cash < 0 ? 2 : 0), run: (s) => {
+    householder(s).cash += 3000;
+    return `형편이 어렵다는 소식에 사돈 ${R(s)}이(가) 3,000만 원을 보태 줬다.`;
+  } },
+];
+function rivalMove(s: GameState, ours: number): string | undefined {
+  const pool = (rv(s).allied ? FRIENDLY : HOSTILE).map((m) => [m, m.w(s, ours)] as const).filter(([, w]) => w > 0);
+  const total = pool.reduce((t, [, w]) => t + w, 0);
+  if (!total) return;
+  let x = next(s) * total;
+  const hit = pool.find(([, w]) => (x -= w) <= 0) ?? pool[pool.length - 1];
+  return hit[0].run(s, ours);
+}
+
+// ───────────────────────── 우리의 대응 (행동) ─────────────────────────
+
+const rivalOn = (s: GameState) => !!s.rival && !s.rival.fallen && age(s, head(s)) >= 20;
+export const RIVAL_ACTIONS: ActionDef[] = [
+  {
+    id: 'rv_counter',
+    cat: '사회',
+    icon: '⚔️',
+    name: '라이벌 견제 (여론전)',
+    desc: '저쪽 명성·기세를 꺾는다. 실패하면 우리가 망신 · 원한↑',
+    ap: 1,
+    cost: 500,
+    show: (s) => rivalOn(s) && !s.rival!.allied,
+    run: (s) => {
+      const p = head(s);
+      if (check(s, p.actual.cha, 55, 10)) {
+        rv(s).fame = Math.max(0, rv(s).fame - 5);
+        rv(s).worth = Math.round(rv(s).worth * 0.97);
+        rv(s).feud = clamp(rv(s).feud + 8, 0, 100);
+        return `${R(s)}의 갑질 의혹을 지역 언론에 흘렸다. 저쪽 명성 -5, 재산 -3%. 원한이 깊어진다.`;
+      }
+      s.fame = Math.max(0, s.fame - 3);
+      rv(s).feud = clamp(rv(s).feud + 5, 0, 100);
+      return '역풍을 맞았다. "남 흉보는 집안"이라는 소리를 들었다. 명성 -3';
+    },
+  },
+  {
+    id: 'rv_peace',
+    cat: '사회',
+    icon: '🕊',
+    name: '라이벌에게 화해의 손길',
+    desc: '원한↓ · 원한이 거의 없어지면 동맹(사돈)이 되어 서로 돕는다',
+    ap: 1,
+    cost: 300,
+    show: (s) => rivalOn(s) && !s.rival!.allied,
+    run: (s) => {
+      const p = head(s);
+      const d = check(s, (p.actual.cha + p.actual.mor) / 2, 50, 10) ? int(s, 12, 20) : int(s, 3, 7);
+      rv(s).feud = clamp(rv(s).feud - d, 0, 100);
+      if (rv(s).feud <= 10) {
+        rv(s).allied = true;
+        unlock(s, 'rival_allied');
+        return `${boss(s)}이(가) 손을 맞잡았다. "이제 경쟁 말고 같이 갑시다." ${R(s)}과(와) 동맹을 맺었다! 해마다 서로 돕는다.`;
+      }
+      return `선물을 들고 찾아갔다. 원한 -${d} (지금 ${Math.round(rv(s).feud)}). ${d >= 12 ? '저쪽 표정이 한결 풀렸다.' : '문 앞에서 돌려보내졌다.'}`;
+    },
+  },
+  {
+    id: 'rv_takeover',
+    cat: '재산',
+    icon: '🦈',
+    name: '라이벌 계열사 지분 매입',
+    desc: '저쪽이 약할 때 지분을 사들인다 · 저쪽 재산↓ 우리 자산↑ · 끝까지 몰아붙이면 몰락',
+    ap: 1,
+    show: (s) => rivalOn(s) && !s.rival!.allied && s.rival!.worth < buyPower(s) * 4,
+    blocked: (s) => (buyPower(s) < Math.round(rv(s).worth * 0.1) ? `${formatMoney(Math.round(rv(s).worth * 0.1))} 필요` : undefined),
+    run: (s) => {
+      const cost = Math.round(rv(s).worth * 0.1);
+      householder(s).cash -= cost;
+      addAsset(s, 'building', householder(s).id, Math.round(cost * (0.95 + next(s) * 0.3)), `${rv(s).name}씨 계열사 지분`);
+      rv(s).worth = Math.round(rv(s).worth * 0.82);
+      rv(s).feud = clamp(rv(s).feud + 20, 0, 100);
+      if (rv(s).worth < 20000 && chance(s, 0.4)) {
+        rv(s).fallen = s.year;
+        unlock(s, 'rival_fallen');
+        return `적대적 인수 성공! ${R(s)}의 경영권이 무너졌다. 저쪽은 몰락했다.`;
+      }
+      return `${formatMoney(cost)}어치 지분을 사들였다. ${boss(s)}이(가) 긴급 이사회를 소집했다는 소문. (저쪽 재산 -18%)`;
+    },
+  },
+];
 
 export const RIVAL_EVENTS: EventDef[] = [intro, union, repay, ...RIVAL_RANDOM];
 
