@@ -150,18 +150,24 @@ const ui: UIState = {
   setup: { surname: '김', sex: 'M', origin: 'random' },
 };
 
+/** 테스트 모드 여부: 로컬 개발 환경(Vite DEV)이거나 ?test=1 / ?debug=1 파라미터가 있을 때만 활성화 */
+export function isTestMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (import.meta.env.DEV) return true;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('test') || params.has('debug')) return true;
+    if (localStorage.getItem('gamun_test_mode') === '1') return true;
+  } catch {
+    /* noop */
+  }
+  return false;
+}
+
 function load(): GameState | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     const g = raw ? migrate(JSON.parse(raw) as GameState) : null;
-    if (g) {
-      const p = head(g);
-      // 검수 요청: 모든 카드 해금 버전
-      g.cards = CARDS.map((c) => ({ id: c.id, personId: p.id, year: g.year }));
-      (ui.open ??= {})['dex'] = true;
-      (ui.open ??= {})['hdex'] = true;
-      (ui.open ??= {})['syn'] = true;
-    }
     return g;
   } catch {
     return null;
@@ -305,16 +311,7 @@ export function mount(el: HTMLElement) {
     return r;
   };
   hasSave = !!ui.game;
-  // 검수 요청: 모든 카드가 해금된 상태로 게임을 바로 띄운다
-  if (!ui.game) {
-    ui.game = newGame({ familyName: '김', sex: 'M' });
-    const p = head(ui.game);
-    ui.game.cards = CARDS.map((c) => ({ id: c.id, personId: p.id, year: ui.game!.year }));
-    (ui.open ??= {})['dex'] = true;
-    (ui.open ??= {})['hdex'] = true;
-    (ui.open ??= {})['syn'] = true;
-    hasSave = true;
-  }
+  ui.game = null;
   root.addEventListener('click', onClick);
   root.addEventListener('touchstart', () => {}, { passive: true }); // iOS에서 :active 눌림 효과 켜기
   root.addEventListener('input', onInput);
@@ -1557,7 +1554,7 @@ function cardViewer(g: GameState, id: string): string {
         }
         <button class="cv-ctrl-btn" data-action="flip-card">🔄 카드 뒤집기 (공략법)</button>
         ${
-          isHidden
+          isHidden && isTestMode()
             ? `<button class="cv-ctrl-btn" style="background:#551133;color:#ff99bb;border-color:#ff3366;" data-action="preview-reward" data-id="${id}">🎬 획득 연출 보기</button>`
             : ''
         }
@@ -2146,7 +2143,7 @@ function achvScreen(g: GameState): string {
   <section class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <h2 style="margin:0;">🃏 명예의 전당 카드 <small class="muted">${[...dexGot.keys()].filter((id) => !CARD[id]?.hidden).length}/${NORMAL_CARDS.length}종</small></h2>
-      <button class="mini do" data-action="unlock-all-cards" style="font-size:11px;padding:3px 10px;cursor:pointer;">✨ 전 카드 해금</button>
+      ${isTestMode() ? `<button class="mini do" data-action="unlock-all-cards" style="font-size:11px;padding:3px 10px;cursor:pointer;background:#442255;border-color:#bb66ff;color:#f0c0ff;">🧪 [테스트] 전 카드 해금</button>` : ''}
     </div>
     <div class="cdex">${[...NORMAL_CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.dex ? 999 : 6).map((d) => {
       const who = dexGot.get(d.id);
@@ -2581,13 +2578,13 @@ function handle(el: HTMLElement) {
       window.scrollTo(0, 0);
       break;
     case 'unlock-all-cards': {
-      if (!g) break;
+      if (!g || !isTestMode()) break;
       const p = head(g);
       g.cards = CARDS.map((c) => ({ id: c.id, personId: p.id, year: g.year }));
       (ui.open ??= {})['dex'] = true;
       (ui.open ??= {})['hdex'] = true;
       (ui.open ??= {})['syn'] = true;
-      ui.toast = '🃏 모든 명예의 전당 & 히든 카드 해금!';
+      ui.toast = '🃏 [테스트] 모든 명예의 전당 & 히든 카드 해금!';
       sfx('fanfare');
       save();
       break;
