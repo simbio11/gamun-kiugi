@@ -26,7 +26,8 @@ import { studyBoost, suneungBonus } from './marks';
 import { hoodOf } from './housing';
 import { spendable } from './ev-util';
 import { planLine, specialChoices, yearMood } from './school-flavor';
-import { fitCats, topInterests } from './interests';
+import { bindKin, fitCats, temperamentLine, topInterests } from './interests';
+import { JOB_CATS } from './jobs';
 
 // ───────────────────────── 대학·학과 ─────────────────────────
 
@@ -60,8 +61,12 @@ export interface Program {
   /** 추가 조건 (사관학교 체력 등) */
   need?: { stat: 'str' | 'hp'; min: number };
   tag: CareerTag;
-  /** 특별 전형으로만 (sci: 과학고·영재 특별전형, abroad: 해외 대학) */
-  special?: 'sci' | 'abroad';
+  /** 특별 전형으로만 (sci: 과학고·영재 특별전형, abroad: 해외 대학, military: 사관학교·경찰대 1차 시험, voc: 해외 요리·디자인·예술 전문학교) */
+  special?: 'sci' | 'abroad' | 'military' | 'voc';
+  /** 한 줄 소개 (선택지 뱃지) */
+  note?: string;
+  /** 명문 전문학교 졸업장: 그 분야 취업에 크게 유리 (직업 분야) */
+  elite?: string;
 }
 
 const P: Program[] = [];
@@ -92,8 +97,8 @@ prog('B', '사범대 (국어교육)', 'edu', 88, { track: 'edu_school', tag: 'pu
 prog('C', '사범대 (영어교육)', 'edu', 80, { track: 'edu_school', tag: 'public' });
 prog('E', '유아교육과', 'kinder', 40, { years: 3, track: 'kinder_edu', tag: 'public' });
 // 특수대학
-prog('X', '경찰대학', 'police', 97, { school: '경찰대', track: 'police_univ', need: { stat: 'str', min: 35 }, tag: 'public' });
-prog('X', '육군사관학교', 'army', 93.5, { school: '사관학교', track: 'academy', need: { stat: 'hp', min: 45 }, tag: 'public' });
+prog('X', '치안학과 (4년 · 경위 임관)', 'police', 97, { school: '경찰대학', special: 'military', track: 'police_univ', need: { stat: 'str', min: 35 }, tag: 'public', note: '학비 국비 · 졸업 즉시 경위' });
+prog('X', '생도 (4년 · 소위 임관)', 'army', 93.5, { school: '육군사관학교', special: 'military', track: 'academy', need: { stat: 'hp', min: 45 }, tag: 'public', note: '경쟁률 약 30:1 · 학비 전액 국비' });
 prog('X', '항해학부', 'marine', 72, { school: '한국해양대', track: 'maritime', tuition: 400, tag: 'free' });
 prog('X', '항공운항학과', 'flight', 91, { school: '항공대', track: 'flight_univ', tuition: 1100, need: { stat: 'hp', min: 45 } });
 // 문과
@@ -210,6 +215,103 @@ prog('B', '체육학과 (스포츠산업)', 'sport', 55, { practical: { stat: 's
 prog('C', '무용학과', 'acting', 40, { practical: { stat: 'cha', need: 60 }, tag: 'stage' });
 prog('D', 'e스포츠학과', 'sport', 30, { practical: { stat: 'str', need: 40 }, tag: 'sport' });
 
+
+// ───────── 대학 선택지 대확장: 실제 학교 이름으로 (2025학년도 전후 입시 자료 참고, 게임용으로 단순화) ─────────
+const NO_FEE = 0;
+// 사관학교·국군 (1차 필기 → 2차 체력·면접 → 수능 반영. 수시·정시와 별도로 지원 가능)
+const MIL = { special: 'military' as const, tuition: NO_FEE, tag: 'public' as const };
+prog('X', '생도 (4년 · 해군 소위 임관)', 'army', 92.5, { ...MIL, school: '해군사관학교', track: 'academy', need: { stat: 'hp', min: 48 }, note: '경쟁률 약 26:1 · 원양 순항훈련' });
+prog('X', '생도 (4년 · 공군 소위 임관)', 'army', 93, { ...MIL, school: '공군사관학교', track: 'academy_air', need: { stat: 'hp', min: 52 }, note: '조종 특기 · 신체검사 엄격' });
+prog('X', '생도 (4년 · 간호장교)', 'nurse', 92, { ...MIL, school: '국군간호사관학교', track: 'academy_nurse', need: { stat: 'hp', min: 40 }, note: '간호사 면허 + 소위 임관' });
+prog('X', '해양경찰학과 (특채)', 'police', 72, { ...MIL, school: '한국해양대', tuition: 400, track: 'coast_guard', need: { stat: 'hp', min: 45 }, note: '졸업 후 해경 간부후보' });
+prog('X', '철도운전시스템 (2년)', 'rail', 70, { school: '한국교통대 철도대학', years: 2, tuition: 350, track: 'rail', tag: 'public', note: '기관사 면허로 직행' });
+prog('X', '항해·기관학부', 'marine', 58, { school: '목포해양대', tuition: 350, track: 'maritime', tag: 'free', note: '승선 실습 · 해기사' });
+prog('X', '항공운항학과', 'flight', 84, { school: '한서대', tuition: 1100, track: 'flight_univ', need: { stat: 'hp', min: 45 }, note: '자체 비행장 · 조종사' });
+// 국립 특수대
+prog('X', '초등교육과', 'edu_elem', 93, { school: '서울교육대학교', track: 'edu_elem', tuition: 350, tag: 'public', note: '임용 합격률 높음' });
+prog('X', '초등교육과', 'edu_elem', 86, { school: '춘천교육대학교', track: 'edu_elem', tuition: 350, tag: 'public', note: '지역 교대' });
+prog('X', '사범대 (교원 양성 특화)', 'edu', 90, { school: '한국교원대학교', track: 'edu_school', tuition: 350, tag: 'public', note: '전원 기숙사 · 임용 강세' });
+prog('X', '스마트팜·축산 (3년)', 'agri', 48, { school: '한국농수산대학교', years: 3, tuition: NO_FEE, track: 'agri_univ', tag: 'business', note: '학비 전액 국비 · 졸업 후 영농' });
+prog('X', '문화재보존과학과', 'heritage', 70, { school: '한국전통문화대학교', tuition: 350, tag: 'public', note: '국가유산 전문가' });
+prog('X', '생활체육·경기지도', 'sport', 55, { school: '한국체육대학교', tuition: 400, practical: { stat: 'str', need: 76 }, tag: 'sport', note: '국가대표 산실' });
+// 한국예술종합학교 (수능 없이 실기 위주)
+prog('X', '미술원 조형예술과', 'art', 50, { school: '한국예술종합학교', tuition: 350, track: 'art_school', practical: { stat: 'cha', need: 80 }, tag: 'stage', note: '실기 100% 가까이' });
+prog('X', '음악원 기악과', 'music', 50, { school: '한국예술종합학교', tuition: 350, track: 'music_school', practical: { stat: 'cha', need: 82 }, tag: 'stage', note: '콩쿠르 입상자 즐비' });
+prog('X', '연극원 연기과', 'acting', 50, { school: '한국예술종합학교', tuition: 350, practical: { stat: 'cha', need: 80 }, tag: 'stage', note: '배우 사관학교' });
+prog('X', '영상원 영화과', 'film', 55, { school: '한국예술종합학교', tuition: 350, practical: { stat: 'cha', need: 76 }, tag: 'stage', note: '감독·촬영' });
+prog('X', '영상원 애니메이션과', 'anim', 55, { school: '한국예술종합학교', tuition: 350, practical: { stat: 'cha', need: 74 }, tag: 'stage' });
+prog('X', '무용원 실기과', 'acting', 45, { school: '한국예술종합학교', tuition: 350, practical: { stat: 'cha', need: 78 }, tag: 'stage' });
+// 이공 특성화 (영재·과학고 특별전형)
+prog('X', '기초교육학부', 'bio', 95.5, { school: 'GIST', special: 'sci', tuition: 0, note: '전원 장학 · 광주' });
+prog('X', '기초학부', 'ee', 95, { school: 'DGIST', special: 'sci', tuition: 0, note: '무학과 융복합' });
+prog('X', '에너지공학부', 'ee', 94.5, { school: '한국에너지공대 (KENTECH)', special: 'sci', tuition: 0, note: '나주 · 에너지 특화' });
+// 이름 있는 학과들 (정시)
+prog('A', '반도체시스템공학과 (계약학과)', 'ee', 97.8, { school: '성균관대', note: '대기업 채용 연계' });
+prog('A', '연극영화학과', 'acting', 60, { school: '중앙대', practical: { stat: 'cha', need: 72 }, tag: 'stage' });
+prog('A', '통번역학과', 'lang', 94, { school: '한국외대', tag: 'free' });
+prog('B', '조리과학과', 'cook', 82, { school: '경희대', tag: 'free', note: '호텔·외식 명문' });
+prog('B', '호텔관광경영학과', 'hotel', 83, { school: '세종대', tag: 'free' });
+prog('B', '공업디자인학과', 'design', 50, { school: '국민대 조형대', practical: { stat: 'cha', need: 64 }, tag: 'stage' });
+prog('B', '패션디자인학과', 'fashion', 50, { school: '홍익대', practical: { stat: 'cha', need: 66 }, tag: 'stage' });
+prog('B', '영상애니메이션학과', 'anim', 45, { school: '세종대', practical: { stat: 'cha', need: 60 }, tag: 'stage' });
+prog('B', '게임소프트웨어학과', 'game', 84, { school: '인서울 게임학과', tag: 'study' });
+prog('D', '글로벌외식조리 (영어 수업)', 'cook', 44, { school: '우송대 솔브릿지', tuition: 1100, tag: 'free', note: '해외 셰프 교수진' });
+prog('D', '호텔외식조리학과', 'cook', 40, { tag: 'free' });
+prog('D', '패션산업학과', 'fashion', 40, { tag: 'stage' });
+prog('D', '항공정비학과', 'auto', 40, { tag: 'free' });
+prog('D', '철도경영·운전학과', 'rail', 38, { tag: 'public' });
+prog('D', '경찰경호학과', 'police', 38, { tag: 'public' });
+prog('D', '문화재·관광학과', 'heritage', 36, { tag: 'free' });
+prog('C', '해양경찰학과', 'police', 62, { tag: 'public' });
+prog('C', '항공교통물류학과', 'marine', 58, { tag: 'free' });
+// 전문대 (실무형)
+prog('E', '자동화·전기·반도체장비 (2년)', 'auto', 12, { school: '한국폴리텍대학', years: 2, tuition: 250, tag: 'free', note: '학비 저렴 · 취업률 높음' });
+prog('E', '컴퓨터정보계열 (주문식 교육)', 'itc', 40, { school: '영진전문대', years: 3, tag: 'study', note: '대기업 협약반' });
+prog('E', '연기과', 'acting', 30, { school: '서울예술대학교', years: 3, practical: { stat: 'cha', need: 66 }, tag: 'stage', note: '방송·예능인 배출' });
+prog('E', '실용음악과', 'music', 30, { school: '서울예술대학교', years: 3, track: 'music_school', practical: { stat: 'cha', need: 64 }, tag: 'stage' });
+prog('E', '문예창작과', 'media', 34, { school: '서울예술대학교', years: 3, tag: 'stage' });
+prog('E', '시각디자인과', 'design', 28, { school: '계원예술대학교', years: 3, practical: { stat: 'cha', need: 52 }, tag: 'stage' });
+prog('E', '방송영상과', 'film', 26, { school: '동아방송예술대학교', years: 2, practical: { stat: 'cha', need: 48 }, tag: 'stage' });
+prog('E', '만화·애니메이션·게임', 'anim', 24, { school: '청강문화산업대학교', years: 3, practical: { stat: 'cha', need: 46 }, tag: 'stage', note: '웹툰 작가 산실' });
+prog('E', '조리과학과', 'cook', 22, { years: 2, tag: 'free' });
+prog('E', '호텔관광과', 'hotel', 26, { years: 2, tag: 'free' });
+prog('E', '패션디자인과', 'fashion', 24, { years: 2, tag: 'stage' });
+prog('E', '반려동물보건과', 'agri', 24, { years: 3, tag: 'free' });
+prog('E', '사회복지과', 'welfare', 20, { years: 2, tag: 'public' });
+prog('E', '경호보안과', 'police', 20, { years: 2, tag: 'public' });
+prog('E', '철도운전과', 'rail', 30, { years: 2, tag: 'public' });
+prog('E', '세무회계과', 'biz', 24, { years: 2, tag: 'business' });
+// 해외 대학 (영어·에세이·인터뷰. 학비·생활비 합쳐 연 만원 단위)
+const AB = { special: 'abroad' as const };
+prog('X', '경제학 (Harvard)', 'econ', 99, { ...AB, school: '미국 하버드대', tuition: 12000, tag: 'business', note: '합격률 3%대' });
+prog('X', '컴퓨터과학 (Stanford)', 'cs', 98.5, { ...AB, school: '미국 스탠퍼드대', tuition: 12000, note: '실리콘밸리 한복판' });
+prog('X', '전기·컴퓨터공학 (MIT)', 'ee', 98.5, { ...AB, school: '미국 MIT', tuition: 12000 });
+prog('X', 'PPE (철학·정치·경제)', 'admin', 97, { ...AB, school: '영국 옥스퍼드대', years: 3, tuition: 9000, tag: 'public', note: '3년제 · 튜토리얼' });
+prog('X', '자연과학 (Natural Sciences)', 'bio', 97, { ...AB, school: '영국 케임브리지대', years: 3, tuition: 9000 });
+prog('X', '경제학부', 'econ', 94, { ...AB, school: '일본 도쿄대', tuition: 2500, note: '일본어 필수' });
+prog('X', '컴퓨팅학부', 'cs', 93, { ...AB, school: '싱가포르국립대 (NUS)', tuition: 5000, note: '아시아 1위권' });
+prog('X', '공학부', 'ee', 90, { ...AB, school: '중국 칭화대', tuition: 2500, note: '중국어 필수' });
+prog('X', '기계공학', 'mech', 88, { ...AB, school: '독일 뮌헨공대 (TUM)', tuition: 3000, note: '독일어 · 학비 비교적 저렴' });
+prog('X', '상경대 (Sauder)', 'biz', 85, { ...AB, school: '캐나다 UBC', tuition: 6000, tag: 'business' });
+prog('X', '간호학', 'nurse', 78, { ...AB, school: '호주 시드니대', years: 3, tuition: 6000, tag: 'public', note: '현지 취업·이민 루트' });
+prog('X', '2년 후 4년제 편입', 'biz', 50, { ...AB, school: '미국 커뮤니티 칼리지', years: 2, tuition: 3000, tag: 'business', note: '문턱 낮음 · 편입 루트' });
+// 해외 전문학교 (요리·디자인·예술: 실력·관심·돈이 필요. 수능과 무관)
+const VOC = { special: 'voc' as const };
+prog('X', '그랑 디플로마 (요리·제과)', 'cook', 60, { ...VOC, school: '프랑스 르 꼬르동 블루 파리', years: 1, tuition: 9500, elite: 'service', track: 'culinary', tag: 'free', note: '학비 약 6만 유로' });
+prog('X', '조리예술 학사', 'cook', 66, { ...VOC, school: '미국 CIA 요리학교', years: 4, tuition: 8000, elite: 'service', track: 'culinary', tag: 'free', note: '뉴욕 하이드파크' });
+prog('X', '조리사 본과', 'cook', 50, { ...VOC, school: '일본 츠지조리사전문학교', years: 1, tuition: 2500, elite: 'service', track: 'culinary', tag: 'free', note: '오사카 · 일식·프렌치' });
+prog('X', '이탈리아 요리 마스터', 'cook', 55, { ...VOC, school: '이탈리아 ICIF 요리학교', years: 1, tuition: 3500, elite: 'service', track: 'culinary', tag: 'free', note: '현지 레스토랑 인턴' });
+prog('X', '호텔경영 학사', 'hotel', 70, { ...VOC, school: '스위스 EHL 로잔 호텔학교', years: 4, tuition: 9000, elite: 'service', track: 'hotel_school', tag: 'business', note: '세계 1위 호텔스쿨' });
+prog('X', '커뮤니케이션 디자인', 'design', 72, { ...VOC, school: '미국 파슨스 디자인스쿨', tuition: 9000, elite: 'media', tag: 'stage', note: '학비 연 6만 달러' });
+prog('X', '패션디자인', 'fashion', 74, { ...VOC, school: '영국 센트럴 세인트 마틴', years: 3, tuition: 6500, elite: 'media', tag: 'stage', note: '런던 · 맥퀸 모교' });
+prog('X', '파인아트·일러스트', 'art', 74, { ...VOC, school: '미국 RISD', tuition: 9000, elite: 'media', track: 'art_school', tag: 'stage' });
+prog('X', '패션머천다이징 (2년)', 'fashion', 58, { ...VOC, school: '미국 뉴욕 FIT', years: 2, tuition: 5000, elite: 'media', tag: 'stage' });
+prog('X', '현대음악·작곡', 'music', 70, { ...VOC, school: '미국 버클리 음대', tuition: 9000, elite: 'media', track: 'music_school', tag: 'stage', note: 'K팝 작곡가 다수' });
+prog('X', '피아노·성악', 'music', 86, { ...VOC, school: '미국 줄리어드', tuition: 9000, elite: 'media', track: 'music_school', tag: 'stage', note: '합격률 한 자릿수' });
+prog('X', '애니메이션 (2년)', 'anim', 50, { ...VOC, school: '일본 도쿄 애니메이션 전문학교', years: 2, tuition: 2000, elite: 'media', tag: 'stage' });
+prog('X', '영화 연출 (1년)', 'film', 55, { ...VOC, school: '미국 뉴욕 필름 아카데미', years: 1, tuition: 6000, elite: 'media', tag: 'stage' });
+prog('X', '게임 디자인 (1년)', 'game', 55, { ...VOC, school: '캐나다 밴쿠버 필름스쿨', years: 1, tuition: 5000, elite: 'tech', tag: 'stage' });
+
 export const PROGRAMS: Record<string, Program> = Object.fromEntries(P.map((p) => [p.id, p]));
 
 /** 전공 → 직업 분야 (관심·성향 추천용) */
@@ -220,9 +322,12 @@ export const KEY_CAT: Record<string, string> = {
   media: 'media', design: 'media', art: 'media', music: 'media', acting: 'media', lang: 'edu',
   cs: 'tech', ee: 'tech', mech: 'trade', bio: 'tech', arch: 'tech', agri: 'farm', cook: 'service', beauty: 'service',
   auto: 'trade', itc: 'tech', sport: 'sport',
+  rail: 'transport', heritage: 'edu', film: 'media', anim: 'media', fashion: 'media', game: 'tech', hotel: 'service',
 };
 /** 이 학생의 관심·성향에 맞는 전공인가 */
-export const fitsMajor = (p: Person, pr: Program) => [...topInterests(p, 2, 2), ...fitCats(p, 2)].includes(KEY_CAT[pr.key] as never);
+/** 관심·성향 분야 집합 (학과마다 다시 계산하지 않게 한 번에) */
+export const fitSet = (p: Person) => new Set<string>([...topInterests(p, 2, 2), ...fitCats(p, 2)]);
+export const fitsMajor = (p: Person, pr: Program, set = fitSet(p)) => set.has(KEY_CAT[pr.key]);
 export const programName = (p: Program) => `${p.school ?? TIERS[p.tier].name} ${p.major}`;
 
 /** 전공별 추천 진로 (졸업 후 진로 선택의 '전공 추천' 탭) */
@@ -250,6 +355,17 @@ export const MAJOR_JOBS: Record<string, string[]> = {
   sport: ['trainer', 'police', 'firefighter', 'coach'],
   art: ['painter', 'designer'],
   music: ['musician'],
+  army: ['officer', 'police', 'security', 'civil'],
+  police: ['police', 'coast_guard', 'prison_guard', 'security', 'civil'],
+  rail: ['train_driver', 'bus_driver', 'public_corp'],
+  heritage: ['researcher', 'civil', 'tour_guide'],
+  film: ['pd', 'photographer', 'youtuber', 'actor'],
+  anim: ['writer', 'designer', 'game_dev'],
+  fashion: ['designer', 'model', 'online_shop'],
+  game: ['game_dev', 'developer', 'gamer'],
+  hotel: ['hotelier', 'flight_attendant', 'tour_guide', 'restaurant'],
+  marine: ['navigator', 'trucker', 'public_corp'],
+  nurse: ['nurse', 'caregiver', 'social_worker'],
 };
 
 // ───────────────────────── 성적 ─────────────────────────
@@ -309,7 +425,7 @@ export function gradeOf(pct: number): number {
 /** 지금 실력으로 본 전국 위치 (시험 운 제외): 백분위·상위 %·등급 */
 /** standing은 인자에 GameState가 없어 마지막으로 본 게임 상태로 동네를 본다 */
 let lastState: GameState | undefined;
-export const bindState = (s: GameState) => (lastState = s);
+export const bindState = (s: GameState) => (bindKin(s), (lastState = s));
 
 export function standing(p: Person): { pct: number; top: number; grade: number } {
   const raw = studyOf(p) * 0.6 + p.actual.int * 0.45 + eduBonus(p) + suneungBonus(p) + (hasTrait(p, 'anxious') ? -2 : hasTrait(p, 'cheerful') ? 1 : 0) + (lastState ? hoodOf(lastState, p).sat : 0);
@@ -378,7 +494,8 @@ export function recommend(p: Person, pct: number, practical: boolean): Program[]
   // 관심·성향에 맞는 전공 몇 개는 꼭 보여 준다
   // 소신·적정·안정 구간에서 하나씩, 각 구간에서 가장 좋은 학교로
   const fitIn = (lo: number, hi: number, not: string[]) =>
-    list.filter(([pr, c]) => c >= lo && c < hi && fitsMajor(p, pr) && !not.includes(pr.key)).sort((a, b) => b[0].cut - a[0].cut)[0]?.[0];
+    list.filter(([pr, c]) => c >= lo && c < hi && fitsMajor(p, pr, fs) && !not.includes(pr.key)).sort((a, b) => b[0].cut - a[0].cut)[0]?.[0];
+  const fs = fitSet(p);
   const fits: Program[] = [];
   for (const [lo, hi] of [[0.12, 0.5], [0.5, 0.85], [0.85, 1.01]] as const) {
     const f = fitIn(lo, hi, fits.map((x) => x.key));
@@ -448,7 +565,55 @@ export function recommendSusi(s: GameState, p: Person, pct: number): Program[] {
 export function specialChance(s: GameState, p: Person, pr: Program): number {
   const lg = (v: number, mid: number, w: number) => 1 / (1 + Math.exp(-(v - mid) / w));
   if (pr.special === 'sci') return lg(p.actual.int * 0.6 + studyOf(p) * 0.4 + (hasFlag(p, 'gifted_center') ? 6 : 0) + (hasFlag(p, 'high_sci') ? 6 : 0) + (hasFlag(p, 'olympiad') ? 8 : 0), pr.cut * 0.8, 4);
-  return lg(p.actual.int * 0.5 + p.actual.cha * 0.3 + (hasFlag(p, 'abroad') ? 12 : 0) + (hasFlag(p, 'high_lang') ? 8 : 0), pr.cut * 0.65, 5) * (hoodOf(s, p).hood === 'poor' ? 0.7 : 1);
+  if (pr.need && p.actual[pr.need.stat] < pr.need.min) return 0;
+  // 사관학교·경찰대: 1차 필기(학력) + 체력 + 면접(도덕성) + 수능
+  if (pr.special === 'military') return lg(studyOf(p) * 0.35 + p.actual.int * 0.25 + p.actual.str * 0.15 + p.actual.mor * 0.15 + (hasTrait(p, 'leader') ? 4 : 0) + markOf(p, 'sport') * 0.8, pr.cut * 0.62, 3);
+  // 해외 전문학교: 포트폴리오(매력) + 그 분야 관심 + 어학
+  if (pr.special === 'voc') {
+    const cat = KEY_CAT[pr.key];
+    return lg(p.actual.cha * 0.45 + p.actual.int * 0.2 + Math.min(20, markOf(p, 'i:' + cat) * 2.5) + (hasFlag(p, 'high_lang') || hasFlag(p, 'abroad') ? 6 : 0) + (hasFlag(p, 'high_art') ? 6 : 0), pr.cut * 0.62, 4);
+  }
+  return lg(p.actual.int * 0.5 + p.actual.cha * 0.3 + (hasFlag(p, 'abroad') ? 12 : 0) + (hasFlag(p, 'high_lang') ? 8 : 0), pr.cut * 0.65 + Math.max(0, pr.cut - 95) * 3, 5) * (hoodOf(s, p).hood === 'poor' ? 0.7 : 1);
+}
+
+
+// ───────────────────────── 원서: 종류별 공통 ─────────────────────────
+
+/** 원서 기록 앞머리: j 정시·실기, s 수시, x 특별(과학·해외·전문학교), m 사관학교(별도 지원, 3장과 별개) */
+const rawOf = (pr: Program) => (pr.special === 'military' ? 'm:' : pr.special ? 'x:' : '') + pr.id;
+const sciOk = (p: Person) => hasFlag(p, 'high_sci') || hasFlag(p, 'gifted_center') || hasFlag(p, 'olympiad');
+/** 이 학생이 이 학과에 붙을 확률 (전형에 맞게) */
+export function chanceOf(s: GameState, p: Person, pr: Program, pct: number): number {
+  if (pr.special === 'sci' && !sciOk(p)) return 0;
+  return pr.special ? specialChance(s, p, pr) : admitChance(p, pr, pct);
+}
+const feeOf = (pr: Program) => pr.tuition ?? TIERS[pr.tier].tuition;
+const kindLabel = (pr: Program) => (pr.special === 'military' ? '별도 지원' : pr.special === 'sci' ? '영재 특별' : pr.special === 'abroad' ? '해외 대학' : pr.special === 'voc' ? '해외 전문학교' : pr.practical ? '실기' : '정시');
+
+/** 맞춤 추천: 성적·적성·형편을 함께 보고 붙을 만한 곳 중 좋은 곳 */
+export function recommendFit(s: GameState, p: Person, pct: number): Program[] {
+  const fs = fitSet(p);
+  const all = P.map((pr) => [pr, chanceOf(s, p, pr, pct)] as const).filter(([pr, c]) => c >= 0.08 && (!pr.special || pr.special === 'military' || feeOf(pr) <= spendable(s)));
+  const seen = new Set<string>();
+  const take = (arr: (readonly [Program, number])[], n: number) =>
+    arr
+      .filter(([pr]) => !seen.has(pr.key + pr.tier) && (seen.add(pr.key + pr.tier), true))
+      .slice(0, n)
+      .map(([pr]) => pr);
+  const fit = take(all.filter(([pr]) => fitsMajor(p, pr, fs)).sort((a, b) => b[0].cut * Math.min(1, b[1] * 2) - a[0].cut * Math.min(1, a[1] * 2)), 7);
+  const reach = take(all.filter(([pr, c]) => !fitsMajor(p, pr, fs) && c >= 0.35).sort((a, b) => b[0].cut - a[0].cut), 4);
+  const safe = take(all.filter(([pr, c]) => !fitsMajor(p, pr, fs) && c >= 0.8).sort((a, b) => b[0].cut - a[0].cut), 2);
+  return [...fit, ...reach, ...safe];
+}
+
+/** 분야(직업 계열)별 전체 학교 목록 */
+export function programsIn(s: GameState, p: Person, cat: string, pct: number): Program[] {
+  return P.filter((pr) => KEY_CAT[pr.key] === cat)
+    .map((pr) => [pr, chanceOf(s, p, pr, pct)] as const)
+    .filter(([pr, c]) => c > 0.015 || (pr.special === 'sci' && sciOk(p)))
+    .sort((a, b) => b[0].cut - a[0].cut)
+    .slice(0, 18)
+    .map(([pr]) => pr);
 }
 
 // ───────────────────────── 학년별 생활 ─────────────────────────
@@ -588,6 +753,8 @@ function enroll(x: Ctx, pr: Program): string {
   setStudy(x.s, p, pr.years, pr.track ?? t.flag);
   p.flags.push('tuition:' + (pr.tuition ?? t.tuition));
   p.flags.push('school:' + programName(pr));
+  if (pr.elite) addFlag(p, 'elite:' + pr.elite);
+  if (pr.special === 'abroad' || pr.special === 'voc') addFlag(p, 'abroad_grad');
   return `🎓 ${programName(pr)} 입학! (${pr.years}년 · 등록금 연 ${formatMoney(pr.tuition ?? t.tuition)})` + applyDesire(x, pr.tag);
 }
 
@@ -612,6 +779,7 @@ const path: EventDef = {
     const d = (c.ev.data ??= {});
     if (d.pct === undefined) d.pct = suneung(c.s, c.p);
     const apps: string[] = d.apps ?? [];
+    const used = apps.filter((a) => !a.startsWith('m:')).length;
     const head =
       `${who(c)} 수능 성적표: 백분위 ${d.pct} (평균 ${gradeOf(d.pct)}등급)\n` +
       `누적 사교육비 ${formatMoney(c.p.eduSpent ?? 0)}` +
@@ -620,13 +788,17 @@ const path: EventDef = {
       return head + '\n\n📮 합격 발표\n' + (d.results as [string, boolean][]).map(([id, okk]) => `${okk ? '✅ 합격' : '❌ 불합격'} ${programName(PROGRAMS[id])}`).join('\n');
     }
     if (d.stage === 'susi')
-      return head + `\n\n📚 학생부종합 (수시)\n학교생활 활동 ${Math.round(activityOf(c.p))}점 · 강점 분야: ${susiFields(c.p).slice(0, 5).join(', ')}` + (hoodOf(c.s, c.p).hood === 'poor' ? '\n기회균형 전형 대상' : '') + (hoodOf(c.s, c.p).hood === 'local' || hasFlag(c.p, 'local_talent') ? '\n지역인재 전형 대상 (지방 거점대)' : '') + `\n원서 ${3 - apps.length}장 남음`;
-    if (d.stage === 'special') return head + `\n\n🧪🌏 특별 전형 · 원서 ${3 - apps.length}장 남음`;
+      return head + `\n\n📚 학생부종합 (수시)\n학교생활 활동 ${Math.round(activityOf(c.p))}점 · 강점 분야: ${susiFields(c.p).slice(0, 5).join(', ')}` + (hoodOf(c.s, c.p).hood === 'poor' ? '\n기회균형 전형 대상' : '') + (hoodOf(c.s, c.p).hood === 'local' || hasFlag(c.p, 'local_talent') ? '\n지역인재 전형 대상 (지방 거점대)' : '') + `\n원서 ${3 - used}장 남음`;
+    if (d.stage === 'special') return head + `\n\n🧪🌏 특별 전형 (영재·해외 대학·해외 요리/디자인/음악 전문학교) · 원서 ${3 - used}장 남음\n해외는 학비·생활비가 크다. 첫해 학비가 없으면 지원할 수 없다.`;
+    if (d.stage === 'mil') return head + `\n\n🎖 사관학교·경찰대 · 1차 필기 → 2차 체력·면접 → 수능 반영\n수시·정시 원서 3장과 별개로 2곳까지 지원할 수 있다. (지원 ${apps.filter((a) => a.startsWith('m:')).length}/2)\n2025학년도 경쟁률: 육사 29.8:1 · 해사 25.7:1`;
+    if (d.stage === 'fit') return head + `\n\n🧭 맞춤 추천 · 원서 ${3 - used}장 남음\n성향·적성: ${temperamentLine(c.p)}\n💡 = 관심·성향에 맞는 전공. 성적으로 붙을 만한 곳 중 좋은 곳부터.`;
+    if (d.stage === 'field') return head + '\n\n🗂 어느 분야의 학교를 볼까?';
+    if (typeof d.stage === 'string' && d.stage.startsWith('field:')) return head + `\n\n🗂 ${JOB_CATS[d.stage.slice(6) as keyof typeof JOB_CATS]} 계열 학교 · 원서 ${3 - used}장 남음\n(합격선 높은 순)`;
     if (d.stage === 'apply' || d.stage === 'art')
       return (
         head +
         `\n\n원서 ${3 - apps.length}장 남음` +
-        (apps.length ? `\n지원: ${apps.map((raw) => (raw.startsWith('s:') ? '[수시] ' : raw.startsWith('x:') ? '[특별] ' : '') + programName(PROGRAMS[raw.split(':').pop()!])).join(', ')}` : '') +
+        (apps.length ? `\n지원: ${apps.map((raw) => (raw.startsWith('s:') ? '[수시] ' : raw.startsWith('x:') ? '[특별] ' : raw.startsWith('m:') ? '[사관] ' : '') + programName(PROGRAMS[raw.split(':').pop()!])).join(', ')}` : '') +
         `\n(상향 < 소신 < 적정 < 안정 순으로 붙기 쉽다)`
       );
     if (d.stage === 'work') return head + '\n\n대학 대신 어떤 길로?';
@@ -636,6 +808,9 @@ const path: EventDef = {
     const d = c.ev.data;
     const p = c.p;
     const apps: string[] = d.apps ?? [];
+    const used = apps.filter((a) => !a.startsWith('m:')).length;
+    const mil = apps.length - used;
+    const fs = fitSet(p);
     const back: Choice = { label: '← 뒤로', run: (x) => ((x.ev.data.stage = undefined), { text: '', keep: true }) };
     const finish: Choice = {
       label: `📮 원서 마감 · 결과 보기 (${apps.length}곳)`,
@@ -644,7 +819,7 @@ const path: EventDef = {
         x.ev.data.results = apps.map((raw) => {
           const [kind, id] = raw.includes(':') ? raw.split(':') : ['j', raw];
           const pr = PROGRAMS[id];
-          const c = kind === 's' ? admitChance(x.p, pr, susiPct(x.s, x.p, x.ev.data.pct, pr)) : kind === 'x' ? specialChance(x.s, x.p, pr) : admitChance(x.p, pr, x.ev.data.pct);
+          const c = kind === 's' ? admitChance(x.p, pr, susiPct(x.s, x.p, x.ev.data.pct, pr)) : kind === 'x' || kind === 'm' ? specialChance(x.s, x.p, pr) : admitChance(x.p, pr, x.ev.data.pct);
           return [id, chance(x.s, c)];
         });
         x.ev.data.stage = 'result';
@@ -676,9 +851,9 @@ const path: EventDef = {
         const ch = admitChance(p, pr, d.pct);
         const tuition = pr.tuition ?? TIERS[pr.tier].tuition;
         return {
-          label: (fitsMajor(p, pr) ? '💡 ' : '') + programName(pr),
-          req: [...(fitsMajor(p, pr) ? ['관심·성향'] : []), `경쟁률 ${ratioOf(c.s, pr)}:1`, band(ch), `${pr.years}년`, ...(tuition ? [`등록금 ${formatMoney(tuition)}/년`] : ['학비 면제']), ...(pr.practical ? ['실기'] : [])],
-          disabled: apps.length >= 3,
+          label: (fitsMajor(p, pr, fs) ? '💡 ' : '') + programName(pr),
+          req: [...(fitsMajor(p, pr, fs) ? ['관심·성향'] : []), `경쟁률 ${ratioOf(c.s, pr)}:1`, band(ch), `${pr.years}년`, ...(tuition ? [`등록금 ${formatMoney(tuition)}/년`] : ['학비 면제']), ...(pr.practical ? ['실기'] : [])],
+          disabled: used >= 3,
           run: (x: Ctx) => {
             x.ev.data.apps = [...(x.ev.data.apps ?? []), pr.id];
             return { text: '', keep: true };
@@ -696,13 +871,58 @@ const path: EventDef = {
       return {
         label: programName(pr),
         req: [band(chanceV), `${pr.years}년`, ...(tuition ? [`등록금 ${formatMoney(tuition)}/년`] : ['학비 면제']), ...extra],
-        disabled: apps.length >= 3,
+        disabled: used >= 3,
         run: (x: Ctx) => {
           x.ev.data.apps = [...(x.ev.data.apps ?? []), raw];
           return { text: '', keep: true };
         },
       };
     };
+    /** 어떤 전형이든 한 학교를 원서에 올린다 */
+    const appChoice = (pr: Program): Choice => {
+      const raw = rawOf(pr);
+      const ch = chanceOf(c.s, p, pr, d.pct);
+      const fee = feeOf(pr);
+      const poor = !!pr.special && pr.special !== 'military' && fee > spendable(c.s);
+      const full = pr.special === 'military' ? mil >= 2 : used >= 3;
+      return {
+        label: (fitsMajor(p, pr, fs) ? '💡 ' : '') + programName(pr),
+        req: [...(fitsMajor(p, pr, fs) ? ['관심·성향'] : []), kindLabel(pr), band(ch), `${pr.years}년`, fee ? `연 ${formatMoney(fee)}` : '학비 면제', ...(pr.note ? [pr.note] : []), ...(poor ? ['학비 부족'] : [])],
+        disabled: full || poor || apps.includes(raw),
+        run: (x: Ctx) => {
+          x.ev.data.apps = [...(x.ev.data.apps ?? []), raw];
+          return { text: '', keep: true };
+        },
+      };
+    };
+    if (d.stage === 'fit') {
+      const out = recommendFit(c.s, p, d.pct).filter((pr) => !apps.includes(rawOf(pr))).map(appChoice);
+      if (!out.length) out.push({ label: '(추천할 곳이 없다)', disabled: true, run: () => '' });
+      return [finish, ...out, back];
+    }
+    if (d.stage === 'mil') {
+      const out = P.filter((pr) => pr.special === 'military' && !apps.includes(rawOf(pr))).map((pr) => {
+        const ch = appChoice(pr);
+        if (pr.need && p.actual[pr.need.stat] < pr.need.min) return { ...ch, disabled: true, req: [...(ch.req ?? []), pr.need.stat === 'hp' ? '신체검사 미달' : '체력 미달'] };
+        return ch;
+      });
+      return [finish, ...out, back];
+    }
+    if (d.stage === 'field') {
+      const cats = [...new Set(P.map((pr) => KEY_CAT[pr.key]))].filter(Boolean);
+      const mine = new Set<string>([...topInterests(p, 2, 2), ...fitCats(p, 2)]);
+      return [
+        ...cats
+          .sort((a, b) => Number(mine.has(b)) - Number(mine.has(a)))
+          .map((cat) => ({ label: `${mine.has(cat) ? '💡 ' : ''}${JOB_CATS[cat as keyof typeof JOB_CATS]} (${P.filter((pr) => KEY_CAT[pr.key] === cat).length}곳)`, run: (x: Ctx) => ((x.ev.data.stage = 'field:' + cat), { text: '', keep: true as const }) })),
+        back,
+      ];
+    }
+    if (typeof d.stage === 'string' && d.stage.startsWith('field:')) {
+      const out = programsIn(c.s, p, d.stage.slice(6), d.pct).filter((pr) => !apps.includes(rawOf(pr))).map(appChoice);
+      if (!out.length) out.push({ label: '(이 분야엔 붙을 만한 곳이 없다)', disabled: true, run: () => '' });
+      return [finish, ...out, { label: '← 분야 다시 고르기', run: (x) => ((x.ev.data.stage = 'field'), { text: '', keep: true }) }, back];
+    }
     if (d.stage === 'susi') {
       const recs = recommendSusi(c.s, p, d.pct).filter((pr) => !apps.includes('s:' + pr.id));
       const out = recs.map((pr) => addApp('s:' + pr.id, pr, admitChance(p, pr, susiPct(c.s, p, d.pct, pr)), ['학종']));
@@ -710,18 +930,21 @@ const path: EventDef = {
       return [finish, ...out, back];
     }
     if (d.stage === 'special') {
-      const out = P.filter((pr) => pr.special && !apps.includes('x:' + pr.id) && (pr.special === 'sci' ? hasFlag(p, 'high_sci') || hasFlag(p, 'gifted_center') || hasFlag(p, 'olympiad') : true)).map((pr) =>
-        addApp('x:' + pr.id, pr, specialChance(c.s, p, pr), [pr.special === 'sci' ? '과학 영재 특별전형' : '어학·에세이·인터뷰']),
-      );
+      const out = P.filter((pr) => pr.special && pr.special !== 'military' && !apps.includes(rawOf(pr)) && (pr.special !== 'sci' || sciOk(p)))
+        .sort((a, b) => Number(fitsMajor(p, b, fs)) - Number(fitsMajor(p, a, fs)) || specialChance(c.s, p, b) - specialChance(c.s, p, a))
+        .map(appChoice);
       return [finish, ...out, back];
     }
 
     return [
+      { label: '🧭 맞춤 추천 (성적·적성·형편 종합)', run: (x) => ((x.ev.data.stage = 'fit'), { text: '', keep: true }) },
+      { label: `🗂 분야별로 전체 보기 (${P.length}개 학과)`, run: (x) => ((x.ev.data.stage = 'field'), { text: '', keep: true }) },
       { label: '📝 정시 원서 쓰기 (가·나·다군 3장)', run: (x) => ((x.ev.data.stage = 'apply'), { text: '', keep: true }) },
       { label: '📚 수시 학생부종합 (활동·기회균형·지역인재)', run: (x) => ((x.ev.data.stage = 'susi'), { text: '', keep: true }) },
       ...(hasFlag(p, 'high_sci') || hasFlag(p, 'gifted_center') || hasFlag(p, 'olympiad') || hasFlag(p, 'abroad') || hasFlag(p, 'high_lang') || spendable(c.s) >= 40000
-        ? [{ label: '🧪🌏 특별 전형 (KAIST·POSTECH / 해외 대학)', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]
-        : []),
+        ? [{ label: '🧪🌏 특별 전형 (KAIST·GIST / 해외 대학·요리·디자인 학교)', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]
+        : [{ label: '🌏 해외 요리·디자인·음악 전문학교', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]),
+      { label: `🎖 사관학교·경찰대 (별도 지원 ${mil}/2)`, run: (x) => ((x.ev.data.stage = 'mil'), { text: '', keep: true }) },
       { label: '🎨 예체능 실기 전형', run: (x) => ((x.ev.data.stage = 'art'), { text: '', keep: true }) },
       ...retakeChoices,
       { label: '💼 대학 대신 사회로', run: (x) => ((x.ev.data.stage = 'work'), { text: '', keep: true }) },

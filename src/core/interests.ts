@@ -5,11 +5,15 @@ import type { GameState, Person, StatKey } from './types';
 import { chance, pick } from './rng';
 import { age, clamp, discoverTalent, fullName, mark, markOf } from './people';
 import { JOB_CATS, type JobCat } from './jobs';
-import { TALENTS } from './data';
+import { JOBS, TALENTS } from './data';
 import { grow } from './practice';
 
 export type Interest = Exclude<JobCat, 'etc'>;
 export const INTEREST_KEYS = Object.keys(JOB_CATS).filter((k) => k !== 'etc') as Interest[];
+
+/** 부모를 찾으려고 지금 게임 상태를 붙잡아 둔다 (school.bindState에서 호출) */
+let kin: GameState | undefined;
+export const bindKin = (s: GameState) => (kin = s);
 
 export const interestLevel = (p: Person, cat: string) => Math.max(0, markOf(p, 'i:' + cat));
 
@@ -25,19 +29,19 @@ export function topInterests(p: Person, n = 2, min = 2): Interest[] {
 
 const TRAIT_FIT: Record<string, Interest[]> = {
   diligent: ['office', 'legal', 'public', 'trade'],
-  lazy: ['media', 'service'],
-  cheerful: ['service', 'sport', 'edu'],
+  lazy: ['farm', 'transport'],
+  cheerful: ['sport', 'service', 'media'],
   anxious: ['tech', 'legal', 'office'],
-  social: ['service', 'biz', 'media', 'edu'],
+  social: ['biz', 'service', 'public'],
   shy: ['tech', 'farm', 'trade', 'media'],
   filial: ['edu', 'medical', 'public'],
-  rebel: ['media', 'sport', 'biz'],
+  rebel: ['sport', 'biz', 'transport'],
   frugal: ['office', 'farm'],
-  spender: ['biz', 'service'],
+  spender: ['biz', 'media'],
   gambler: ['biz'],
   flirt: ['service', 'media'],
   devoted: ['medical', 'edu'],
-  leader: ['public', 'biz', 'edu'],
+  leader: ['public', 'biz', 'legal'],
   tough: ['sport', 'trade', 'transport', 'farm', 'public'],
   frail: ['tech', 'media', 'office'],
   ambitious: ['legal', 'biz', 'public', 'medical'],
@@ -45,15 +49,15 @@ const TRAIT_FIT: Record<string, Interest[]> = {
 const TALENT_FIT: Record<string, Interest[]> = {
   genius: ['tech', 'medical', 'legal'],
   athlete: ['sport', 'public', 'transport'],
-  star: ['media', 'service'],
+  star: ['media', 'sport'],
   merchant: ['biz', 'office'],
-  artist: ['media', 'service'],
+  artist: ['media', 'trade'],
 };
 const STAT_FIT: Record<StatKey, Interest[]> = {
   str: ['sport', 'trade', 'transport', 'farm', 'public'],
   int: ['tech', 'medical', 'legal', 'office'],
-  cha: ['media', 'service', 'biz', 'edu'],
-  mor: ['public', 'edu', 'medical'],
+  cha: ['media', 'biz', 'service', 'legal'],
+  mor: ['public', 'medical', 'farm'],
   hp: ['sport', 'transport'],
 };
 
@@ -62,19 +66,19 @@ const STAT_FIT: Record<StatKey, Interest[]> = {
 
 export const MBTI_INFO: Record<string, [string, Interest[]]> = {
   INTJ: ['전략가', ['tech', 'legal', 'biz']],
-  INTP: ['논리술사', ['tech', 'edu', 'media']],
+  INTP: ['논리술사', ['tech', 'legal', 'transport']],
   ENTJ: ['통솔자', ['biz', 'legal', 'public']],
   ENTP: ['변론가', ['biz', 'media', 'legal']],
   INFJ: ['옹호자', ['edu', 'medical', 'media']],
-  INFP: ['중재자', ['media', 'edu', 'farm']],
-  ENFJ: ['선도자', ['edu', 'public', 'service']],
-  ENFP: ['활동가', ['media', 'service', 'biz']],
+  INFP: ['중재자', ['media', 'farm', 'medical']],
+  ENFJ: ['선도자', ['edu', 'public', 'medical']],
+  ENFP: ['활동가', ['media', 'biz', 'service']],
   ISTJ: ['현실주의자', ['office', 'public', 'legal']],
   ISFJ: ['수호자', ['medical', 'edu', 'office']],
   ESTJ: ['경영자', ['office', 'public', 'biz']],
   ESFJ: ['집정관', ['service', 'medical', 'edu']],
   ISTP: ['장인', ['trade', 'transport', 'tech']],
-  ISFP: ['모험가', ['media', 'service', 'farm']],
+  ISFP: ['모험가', ['media', 'farm', 'trade']],
   ESTP: ['사업가', ['sport', 'biz', 'transport']],
   ESFP: ['연예인', ['media', 'service', 'sport']],
 };
@@ -114,6 +118,14 @@ export function fitScores(p: Person): Record<Interest, number> {
   const stats = (Object.keys(STAT_FIT) as StatKey[]).sort((a, b) => p.potential[b] - p.potential[a]).slice(0, 2);
   for (const st of stats) for (const k of STAT_FIT[st]) sc[k] += 1.5;
   for (const k of MBTI_INFO[mbtiOf(p)][1]) sc[k] += 2.5;
+  // 부모의 일과 성격이 대물림된다: 어깨너머로 보고 자란 일, 닮은 기질
+  for (const id of [p.fatherId, p.motherId]) {
+    const par = id ? kin?.people[id] : undefined;
+    if (!par) continue;
+    const cat = JOBS[par.job]?.cat as Interest | undefined;
+    if (cat && cat in sc && !['none', 'parttime', 'pension'].includes(par.job)) sc[cat] += 3.5 + Math.min(2, par.jobLevel * 0.5);
+    for (const tr of par.traits ?? []) for (const k of TRAIT_FIT[tr] ?? []) sc[k] += 0.6;
+  }
   return sc;
 }
 

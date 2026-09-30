@@ -243,4 +243,6 @@ export interface GameState {
   storySeen?: Record<string, number>;
   /** 시작 난이도 (없으면 운명에 맡김) */
   difficulty?: 'easy' | 'normal' | 'hard';
+  /** 라이벌 가문 */
+  rival?: import('./rival').Rival;
 }

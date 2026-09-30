@@ -14,7 +14,9 @@ import { LIFECOST_EVENTS } from './lifecost';
 import { DECEPTION_EVENTS } from './deception';
 import { HOBBY_EVENT } from './interests';
 import { WELFARE_EVENTS } from './welfare';
+import { RIVAL_EVENTS } from './rival';
+import { ERA_EVENTS } from './era';
 import type { EventDef } from './ev-util';
 
-export const EVENTS: Record<string, EventDef> = { ...CORE, ...Object.fromEntries([...SCHOOL_EVENTS, ...FAMILY_EVENTS, ...LIFE_EVENTS, ...FATE_EVENTS, ...FATE_RANDOM, ...ROMANCE_EVENTS, ...ROMANCE_RANDOM, ...STORIES, ...SEED_EVENTS, ...NEST_EVENTS, ...DEBT_EVENTS, ...LEVERAGE_EVENTS, ...LIFECOST_EVENTS, ...DECEPTION_EVENTS, HOBBY_EVENT, ...WELFARE_EVENTS].map((e) => [e.id, e])) };
+export const EVENTS: Record<string, EventDef> = { ...CORE, ...Object.fromEntries([...SCHOOL_EVENTS, ...FAMILY_EVENTS, ...LIFE_EVENTS, ...FATE_EVENTS, ...FATE_RANDOM, ...ROMANCE_EVENTS, ...ROMANCE_RANDOM, ...STORIES, ...SEED_EVENTS, ...NEST_EVENTS, ...DEBT_EVENTS, ...LEVERAGE_EVENTS, ...LIFECOST_EVENTS, ...DECEPTION_EVENTS, HOBBY_EVENT, ...WELFARE_EVENTS, ...RIVAL_EVENTS, ...ERA_EVENTS].map((e) => [e.id, e])) };
 export { RANDOM_EVENTS };

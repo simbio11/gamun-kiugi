@@ -19,7 +19,7 @@ const MAJOR_GROUP: Record<string, string> = {
   cs: 'eng', ee: 'eng', mech: 'eng', auto: 'eng', bio: 'eng', arch: 'eng', itc: 'eng', air: 'eng', agri: 'eng',
   biz: 'biz', econ: 'biz', lang: 'hum', media: 'hum',
   art: 'art', design: 'art', music: 'perf', acting: 'perf',
-  sport: 'sport', police: 'police', army: 'army', marine: 'sea', flight: 'sea', cook: 'craft', beauty: 'craft',
+  sport: 'sport', police: 'police', army: 'army', marine: 'sea', flight: 'sea', cook: 'craft', beauty: 'craft', rail: 'sea', heritage: 'hum', film: 'perf', anim: 'art', fashion: 'art', game: 'eng', hotel: 'craft',
 };
 const EXAM_GROUP: Record<string, string> = {
   civil: 'civil', civil5: 'civil', tax_civil: 'civil', corrections: 'civil', postal: 'civil', diplomat: 'civil',
