@@ -870,6 +870,10 @@ describe('부모님 유산', () => {
           }
           h.donated = 50000;
           if (d.auto(s, h)) ok = true;
+          // 나이·자녀가 조건인 가족 카드 (장한 어버이·백세 어르신)
+          h.birthYear = s.year - 96;
+          h.childIds = [...h.childIds, 'x1', 'x2', 'x3'];
+          if (d.auto(s, h)) ok = true;
         }
       }
       if (!ok && sm) {
@@ -912,5 +916,23 @@ describe('부모님 유산', () => {
     s.events = [];
     cardYear(s);
     expect(s.rewards?.some((r) => r.title.includes('군수 재벌'))).toBe(true);
+  });
+
+  it('어떤 직업이든 그 직업으로 딸 수 있는 명예의 전당 카드가 하나 이상 있다', () => {
+    const s = newGame({ seed: 92, familyName: '최', sex: 'M' });
+    const h = head(s);
+    s.year += 40;
+    for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) h.actual[k] = 80;
+    const none: string[] = [];
+    for (const id of JOB_IDS) {
+      if (['none', 'parttime', 'pension', 'landlord'].includes(id)) continue;
+      let ok = false;
+      for (let lv = 0; lv <= JOBS[id].maxLevel && !ok; lv++) {
+        h.job = id; h.jobLevel = lv; h.jobYears = 20;
+        ok = CARDS.some((d) => d.auto?.(s, h)) || SUMMITS.some((sm) => !sm.pre && sm.ok(s, h));
+      }
+      if (!ok) none.push(id);
+    }
+    expect(none).toEqual([]);
   });
 });

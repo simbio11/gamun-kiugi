@@ -381,6 +381,25 @@ uni('E', '영남이공대', 25, [['간호학과', 'nurse', 20, { years: 4, track
 uni('E', '경복대', 20, [['치위생과', 'clinical', 5, { years: 3, ...PUB }], ['호텔조리과', 'cook', 0, { years: 2, tag: 'free' }]]);
 uni('E', '백석예술대', 22, [['실용음악과', 'music', 8, { years: 2, track: 'music_school', practical: { stat: 'cha', need: 55 }, ...STG }], ['외식산업학부', 'cook', 0, { years: 2, tag: 'free' }]]);
 
+// ───────── 이름 없는 학과에 붙이는 가상의 학교 이름 (등급마다, 학과 순서대로 고정 배정) ─────────
+const FAKE_SCHOOLS: Partial<Record<Tier, string[]>> = {
+  A: ['한빛대', '청룡대', '백호대', '서라벌대'],
+  B: ['남산대', '한양도성대', '마포나루대', '성수동대', '을지로대', '북악산대', '낙산대', '인왕대', '망원한강대', '용산미래대', '청계천대', '한남오거리대'],
+  C: ['동해국립대', '호남국립대', '영남국립대', '중원국립대', '탐라국립대', '금강국립대', '태백국립대', '섬진강국립대'],
+  D: ['고라니대', '감자밭대', '벚꽃캠퍼스대', '한우마을대', '대나무숲대', '파도소리대', '사과나무대', '갈매기대', '느티나무대', '막차버스대', '기숙사천국대', '동네뒷산대'],
+  E: ['내일바로취업전문대', '손기술폴리텍', '한우물전문대', '뚝딱이공대', '반짝예술전문대', '새벽별보건대', '출근길전문대', '장인정신전문대'],
+};
+{
+  const used: Partial<Record<Tier, number>> = {};
+  for (const pr of P) {
+    const pool = FAKE_SCHOOLS[pr.tier];
+    if (pr.school || !pool) continue;
+    const i = used[pr.tier] ?? 0;
+    used[pr.tier] = i + 1;
+    pr.school = pool[i % pool.length];
+  }
+}
+
 export const PROGRAMS: Record<string, Program> = Object.fromEntries(P.map((p) => [p.id, p]));
 
 /** 전공 → 직업 분야 (관심·성향 추천용) */

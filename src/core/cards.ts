@@ -173,19 +173,19 @@ export interface Summit {
   b: [string, StatKey, number, string, string];
 }
 export const SUMMITS: Summit[] = [
-  { card: 'national_mc', title: '🎤 연말 연예대상', ok: (_s, p) => ['entertainer', 'announcer', 'youtuber', 'actor', 'voice_actor'].includes(p.job) && p.jobLevel >= 3 && p.actual.cha >= 65,
+  { card: 'national_mc', title: '🎤 연말 연예대상', ok: (_s, p) => ['entertainer', 'announcer', 'youtuber', 'actor', 'voice_actor'].includes(p.job) && p.jobLevel >= 2 && p.actual.cha >= 55,
     text: (c) => `${fullName(c.p)}이(가) 올해 예능 3개를 동시에 진행했다. 연말 연예대상 대상 후보에 올랐다. 생방송 수상 소감이 남았다.`,
     a: ['재치 있는 소감으로 웃긴다', 'cha', 65, '🏆 대상! "국민 MC" 칭호가 붙었다. 다음 날 모든 포털 메인.', '최우수상에 그쳤다. 그래도 내년이 있다.'],
     b: ['동료와 제작진에게 공을 돌린다', 'mor', 55, '🏆 대상! 겸손한 소감이 두고두고 회자된다. 국민 MC 탄생.', '대상은 다른 사람에게. 박수는 가장 컸다.'] },
-  { card: 'best_actor', title: '🎬 청룡영화상', ok: (_s, p) => ['actor', 'entertainer'].includes(p.job) && p.jobLevel >= 3,
+  { card: 'best_actor', title: '🎬 청룡영화상', ok: (_s, p) => ['actor', 'entertainer'].includes(p.job) && p.jobLevel >= 2,
     text: (c) => `${fullName(c.p)}의 주연작이 관객 600만을 넘겼다. 청룡영화상 주연상 후보다.`,
     a: ['예술영화로 승부했던 연기를 믿는다', 'cha', 68, '🏆 주연상! 트로피를 든 손이 떨렸다.', '수상은 불발. 그래도 인생작이 남았다.'],
     b: ['시상식 전 캠페인 인터뷰를 돈다', 'int', 55, '🏆 주연상! 평단과 대중 모두를 잡았다.', '과한 홍보가 역효과였다.'] },
-  { card: 'national_singer', title: '🎶 가요대상', ok: (_s, p) => p.job === 'musician' && p.jobLevel >= 3,
+  { card: 'national_singer', title: '🎶 가요대상', ok: (_s, p) => p.job === 'musician' && p.jobLevel >= 2,
     text: (c) => `${fullName(c.p)}의 노래가 12주 연속 음원 차트 1위를 했다. 연말 가요대상 대상 후보다.`,
     a: ['라이브 무대로 정면 승부', 'cha', 66, '🏆 대상! 떼창이 시상식장을 울렸다. 국민 가수 탄생.', '본상만 받았다. 그래도 노래는 남았다.'],
     b: ['가족에게 바치는 신곡을 부른다', 'mor', 55, '🏆 대상! 온 국민이 따라 부르는 노래가 됐다.', '감동은 컸지만 대상은 다른 팀에게.'] },
-  { card: 'anchor', title: '📺 메인 앵커 발탁', ok: (_s, p) => ['announcer', 'journalist'].includes(p.job) && p.jobLevel >= 2,
+  { card: 'anchor', title: '📺 메인 앵커 발탁', ok: (_s, p) => ['announcer', 'journalist'].includes(p.job) && p.jobLevel >= 1,
     text: (c) => `방송국 보도국장이 ${fullName(c.p)}을(를) 불렀다. "9시 뉴스 메인 앵커 오디션을 보게."`,
     a: ['또렷한 전달력으로 승부', 'cha', 62, '📺 9시 뉴스 메인 앵커 확정! 매일 밤 온 국민이 본다.', '최종에서 밀렸다. 주말 뉴스를 맡게 됐다.'],
     b: ['단독 취재 기사로 실력을 보인다', 'int', 60, '📺 특종 앵커로 발탁! "믿고 보는 뉴스"가 됐다.', '특종이 오보로 판명 났다. 아찔했다.'] },
@@ -193,19 +193,19 @@ export const SUMMITS: Summit[] = [
     text: (c) => `다른 병원들이 포기한 환자가 ${fullName(c.p)}에게 왔다. 12시간짜리 고난도 수술이다.`,
     a: ['직접 집도한다', 'int', 68, '🩺 수술 성공! 환자가 걸어서 퇴원했다. "TV 명의" 출연 섭외가 왔다.', '최선을 다했지만 합병증이 왔다. 오래 마음에 남는다.'],
     b: ['국내 최고 팀을 꾸려 협진한다', 'cha', 60, '🩺 협진 성공! 새 수술법이 교과서에 실렸다.', '팀이 삐걱였다. 수술은 절반의 성공.'] },
-  { card: 'bestseller', title: '📚 밀리언셀러', ok: (_s, p) => ['novelist', 'writer'].includes(p.job) && p.jobLevel >= 3,
+  { card: 'bestseller', title: '📚 밀리언셀러', ok: (_s, p) => ['novelist', 'writer'].includes(p.job) && p.jobLevel >= 2,
     text: (c) => `${fullName(c.p)}의 신작이 입소문을 타고 있다. 출판사가 대형 마케팅을 제안한다.`,
     a: ['북토크 전국 투어', 'cha', 55, '📚 100만 부 돌파! 서점마다 평대 한가운데.', '50만 부에서 멈췄다. 그래도 대단하다.'],
     b: ['홍보 대신 다음 작품을 쓴다', 'int', 65, '📚 조용히 100만 부. 평론가들이 "시대의 문장"이라 불렀다.', '입소문이 식었다.'] },
-  { card: 'national_coach', title: '📋 국가대표 감독 제의', ok: (_s, p) => (p.job === 'coach' && p.jobLevel >= 2) || (p.job === 'athlete' && age(_s, p) >= 38),
+  { card: 'national_coach', title: '📋 국가대표 감독 제의', ok: (_s, p) => (p.job === 'coach' && p.jobLevel >= 1) || (p.job === 'athlete' && age(_s, p) >= 32),
     text: (c) => `대한체육회에서 ${fullName(c.p)}에게 국가대표 감독을 맡아 달라고 한다. 아시안게임이 1년 남았다.`,
     a: ['지옥 훈련으로 끌어올린다', 'str', 60, '📋 아시안게임 금메달! 선수들이 헹가래를 쳤다.', '동메달. 여론은 싸늘했다.'],
     b: ['선수들과 소통하는 리더십', 'cha', 58, '📋 금메달! "형님 리더십"이 화제가 됐다.', '분위기는 좋았지만 결과가 따르지 않았다.'] },
-  { card: 'architect', title: '🏗 세계 건축상', ok: (_s, p) => p.job === 'architect' && p.jobLevel >= 4,
+  { card: 'architect', title: '🏗 세계 건축상', ok: (_s, p) => p.job === 'architect' && p.jobLevel >= 3,
     text: (c) => `${fullName(c.p)}이(가) 설계한 도서관이 해외 건축 잡지 표지에 실렸다. 세계적인 건축상 후보에 올랐다.`,
     a: ['설계 철학을 담은 강연을 한다', 'int', 70, '🏗 한국인 최초 수상! 세계 건축계가 주목한다.', '최종 후보에서 멈췄다.'],
     b: ['지역 공공건축에 집중한다', 'mor', 60, '🏗 수상! "사람을 위한 건축"이라는 평.', '수상은 불발. 그래도 동네 명소가 남았다.'] },
-  { card: 'master_craft', title: '🛠 대한민국 명장 심사', ok: (_s, p) => ['welder', 'mechanic', 'electrician', 'carpenter', 'shipbuilder', 'big_factory', 'factory', 'plumber'].includes(p.job) && p.jobLevel >= 3 && p.jobYears >= 15,
+  { card: 'master_craft', title: '🛠 대한민국 명장 심사', ok: (_s, p) => ['welder', 'mechanic', 'electrician', 'carpenter', 'shipbuilder', 'big_factory', 'factory', 'plumber'].includes(p.job) && p.jobLevel >= 2 && p.jobYears >= 10,
     text: (c) => `30년 가까이 한 길을 걸은 ${fullName(c.p)}이(가) 고용노동부 "대한민국 명장" 후보에 올랐다. 실기 심사가 남았다.`,
     a: ['손끝으로 증명한다', 'str', 55, '🛠 대한민국 명장 선정! 국가가 인정한 장인이 됐다.', '아깝게 떨어졌다. 내년에 다시.'],
     b: ['후배 양성 실적을 내세운다', 'mor', 55, '🛠 명장 선정! 제자 50명이 축하하러 왔다.', '서류에서 밀렸다.'] },
@@ -213,7 +213,7 @@ export const SUMMITS: Summit[] = [
     text: (c) => `${fullName(c.p)}이(가) 전국 요리 서바이벌 결승에 올랐다. 마지막 미션은 "나를 만든 한 그릇".`,
     a: ['어머니의 집밥을 재해석', 'cha', 55, '🍳 우승! 심사위원이 숟가락을 놓지 못했다. 가게 예약이 3개월 밀렸다.', '준우승. 그래도 가게 앞에 줄이 섰다.'],
     b: ['분자요리로 모험한다', 'int', 62, '🍳 우승! "천재 셰프" 수식어가 붙었다.', '실험이 과했다. 탈락.'] },
-  { card: 'star_farmer', title: '🌾 신지식 농업인', ok: (_s, p) => ['farmer', 'smart_farmer', 'rancher', 'fisher'].includes(p.job) && p.jobLevel >= 2,
+  { card: 'star_farmer', title: '🌾 신지식 농업인', ok: (_s, p) => ['farmer', 'smart_farmer', 'rancher', 'fisher'].includes(p.job) && p.jobLevel >= 1,
     text: (c) => `${fullName(c.p)}의 농장이 새 재배법으로 수확량을 두 배로 늘렸다. 농림부가 "신지식 농업인" 후보로 올렸다.`,
     a: ['재배법을 무료로 공개한다', 'mor', 50, '🌾 신지식 농업인 선정! 전국 농민들이 견학을 온다.', '심사에서 떨어졌지만 이웃들이 고마워한다.'],
     b: ['특허를 내고 사업화한다', 'int', 58, '🌾 선정! 기술 이전료까지 들어온다.', '특허 분쟁에 휘말렸다.'] },
@@ -241,7 +241,9 @@ const summitDef = (sm: Summit): EventDef => ({
       run: (x) => {
         const stage = x.ev.data?.stage ?? 1;
         const total = sm.stages ?? 1;
-        const need = need0 + (stage > 1 ? 4 : 0) + diffMod(x.s).challenge;
+        // 실패할수록 경험이 쌓여 다음 도전이 쉬워진다
+        const tries = x.s.storySeen?.[`try:${x.p.id}:${sm.card}`] ?? 0;
+        const need = need0 - 6 + (stage > 1 ? 2 : 0) + diffMod(x.s).challenge - Math.min(15, tries * 5);
         if (check(x.s, x.p.actual[st], need, 10)) {
           if (stage < total) {
             schedule(x.s, int(x.s, 1, 2), 'summit_' + sm.card, x.p.id, { stage: stage + 1 });
@@ -253,7 +255,9 @@ const summitDef = (sm: Summit): EventDef => ({
           return win;
         }
         if (sm.card === 'national_hero' && label.startsWith('직접')) x.p.actual.hp = clamp(x.p.actual.hp - 15, 0, 100);
-        return lose;
+        (x.s.storySeen ??= {})[`try:${x.p.id}:${sm.card}`] = tries + 1;
+        x.s.fame += 1;
+        return `${lose}\n(도전 경험이 쌓였다: 다음 도전은 조금 더 쉽다 · 명성 +1)`;
       },
     }))),
 });
@@ -267,11 +271,12 @@ export function cardYear(s: GameState): void {
   // 정점 이벤트: 한 해에 하나
   const cands: [Summit, Person][] = [];
   for (const p of people)
-    for (const sm of SUMMITS) if (!hasCard(s, p, sm.card) && sm.ok(s, p) && (seen[`summit:${p.id}:${sm.card}`] ?? -99) <= s.year - 4) cands.push([sm, p]);
-  if (cands.length && chance(s, 0.4)) {
+    for (const sm of SUMMITS) if (!hasCard(s, p, sm.card) && sm.ok(s, p) && (seen[`summit:${p.id}:${sm.card}`] ?? -99) <= s.year - 2) cands.push([sm, p]);
+  for (let i = 0; i < 2 && cands.length && chance(s, i === 0 ? 0.65 : 0.3); i++) {
     const [sm, p] = pick(s, cands);
     seen[`summit:${p.id}:${sm.card}`] = s.year;
     s.events.push({ uid: s.eventSeq++, defId: 'summit_' + sm.card, personId: p.id });
+    cands.splice(cands.findIndex(([x, q]) => x === sm && q === p), 1);
   }
   // 효과: 카드 주인이 살아 있는 동안
   const kids = Object.values(s.people).filter((p) => alive(p) && isMainline(s, p) && age(s, p) < 20);
