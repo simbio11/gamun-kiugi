@@ -80,7 +80,7 @@ export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; 
   const pickSex = o.sex ?? ([...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 2 ? 'M' : 'F');
   const a = hiddenArt(id, pickSex, o.seed ?? 0) ?? hiddenArt(id, pickSex === 'F' ? 'M' : 'F', o.seed ?? 0);
   if (o.locked)
-    // 아직 모르는 직업: 흐릿하고 어두운 배경 위 새까만 실루엣. 이름은 숨기고 수수께끼만
+    // 아직 모르는 직업: 흐릿하게 보이는 배경 위 새까만 실루엣. 이름은 숨기고 수수께끼만
     return `<div class="hid-card locked ${superJob ? 'is-super' : ''} ${o.cls ?? ''}"><div class="hid-stage">${
       a ? `<img class="hid-back" src="${a.src}" alt=""><img class="hid-img hid-blur" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-sil" src="${a.fig}" alt="">` : ''}` : ''
     }<div class="hid-q">?</div></div><div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in only"><b>${superJob ? 'SUPER HIDDEN' : 'HIDDEN JOB'}</b></div><i class="hid-orn r"></i><em class="hid-medal">${superJob ? '👑' : '?'}</em></div></div>`;
@@ -91,7 +91,7 @@ export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; 
     <div class="hid-stage">${art}<div class="hid-fx">${particles(h.fx)}</div><i class="hid-shine"></i></div>
     <div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in"><b>${superJob ? '👑 SUPER HIDDEN 👑' : '✦ HIDDEN JOB ✦'}</b><span>${h.name}</span></div><i class="hid-orn r"></i><em class="hid-medal">${h.icon}</em></div>
     <i class="hid-glint g1"></i><i class="hid-glint g2"></i><i class="hid-glint g3"></i>
-    ${a?.vid ? '<button class="hid-replay" data-hid-replay title="영상 다시 보기">▶</button>' : ''}
+    ${a?.vid ? '<span class="hid-replay" role="button" data-hid-replay title="영상 다시 보기">▶</span>' : ''}
   </div>`;
 }
 

@@ -948,8 +948,8 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 /* 오려 낸 인물: 배경과 따로, 숨 쉬듯 들썩이고 살짝 흔들린다 (도트답게 뚝뚝 끊어서) */
 .hid-img.hid-fig { transform-origin: 50% 100%; animation: hid-fig 2.4s steps(1) infinite; filter: drop-shadow(0 0 3px rgba(255, 220, 150, .35)); }
 @keyframes hid-fig { 0% { transform: none; } 25% { transform: scale(1.004, 1.01) translate(0, -0.35%) rotate(0.3deg); } 50% { transform: scale(1.008, 1.018) translate(0, -0.6%); } 75% { transform: scale(1.004, 1.01) translate(0, -0.35%) rotate(-0.3deg); } }
-/* 못 얻은 카드: 흐릿하고 어두운 배경 + 새까만 실루엣 */
-.hid-img.hid-blur { filter: blur(3px) brightness(.32) saturate(.5); transform: scale(1.08); animation: none; }
+/* 못 얻은 카드: 흐릿하게 보이는 배경 + 새까만 실루엣 */
+.hid-img.hid-blur { filter: blur(4px) brightness(.85) saturate(.9); transform: scale(1.08); animation: none; }
 .hid-img.hid-sil { filter: brightness(0) drop-shadow(0 0 2px rgba(170, 120, 255, .55)); transform: scale(1.04); animation: hid-sil 3s ease-in-out infinite; }
 @keyframes hid-sil { 50% { filter: brightness(0) drop-shadow(0 0 5px rgba(170, 120, 255, .8)); } }
 .hid-card.locked .hid-q { background: none; font-size: 30px; color: rgba(200, 170, 255, .5); text-shadow: 0 0 8px rgba(160, 110, 255, .8); animation: hid-sil 3s ease-in-out infinite; }
@@ -1010,7 +1010,7 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 .hid-card .hid-img { object-fit: contain; object-position: 50% 0%; }
 .hid-card .hid-pan { inset: 0 0 15% 0; }
 .hid-card .hid-img.hid-blur, .hid-card .hid-img.hid-sil { inset: 0 0 15% 0; height: 85%; }
-.hid-card .hid-img.hid-blur { transform: none; filter: blur(3px) brightness(.28) saturate(.5); }
+.hid-card .hid-img.hid-blur { transform: none; filter: blur(4px) brightness(.85) saturate(.9); }
 .hid-card .hid-img.hid-sil { transform: none; }
 @keyframes hid-kb { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.03) translate(0, 0.6%); } }
 /* 이름판: 금테 장식 + 새김 글씨 + 메달 */
@@ -1345,8 +1345,9 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 .dx-c .hid-replay { display: none; }
 
 /* 미획득 카드: 히든·슈퍼 히든 모두 똑같이 — 사람은 새까맣게, 배경은 어둡고 흐릿하게 */
-.hid-card.locked .hid-back { filter: blur(10px) brightness(.3) saturate(.6); }
-.hid-card.locked .hid-img.hid-blur { filter: blur(3px) brightness(.28) saturate(.5); }
+.hid-card.locked .hid-back { filter: blur(10px) brightness(.8) saturate(.9); }
+.hid-card.locked .hid-img.hid-blur { filter: blur(4px) brightness(.85) saturate(.9); }
+.dx.locked:has(.hid-card) { opacity: 1; }
 .hid-card.locked .hid-img.hid-sil { filter: brightness(0) drop-shadow(0 0 2px rgba(170, 120, 255, .55)); }
 /* 카드 뷰어의 영상 보기 버튼 */
 .cv-ctrl-btn.vid-btn { background: #3a1030; color: #ffd0e8; border-color: #ff5aa8; }
