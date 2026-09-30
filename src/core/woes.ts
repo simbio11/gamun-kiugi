@@ -370,6 +370,8 @@ export function medicalCost(s: GameState, p: Person): number {
     v *= hp < 15 ? 6 : hp < 25 ? 3.5 : hp < 35 ? 1.8 : 1;
   }
   if (woesOf(p).includes('chronic')) v += 60;
+  // 근현대사: 의료보험 전(1977)엔 병원비를 다 냈고, 전 국민 의료보험(1989) 전엔 자영업·농민이 비쌌다
+  if (s.era === 'history') v *= s.year < 1977 ? 1.6 : s.year < 1989 ? 1.3 : 1;
   if (hasFlag(p, 'health_insured')) v *= 0.75;
   // 본인부담상한제: 아무리 아파도 한 해 800만 남짓에서 막힌다
   return Math.min(Math.round(v), 800);

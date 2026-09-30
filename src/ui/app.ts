@@ -39,6 +39,7 @@ import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, is
 import { MISSIONS } from '../core/missions';
 import { rivalLine, rivalMood } from '../core/rival';
 import { FOCUS_LABEL, focusOf } from '../core/spouse';
+import { govOf, histStyle } from '../core/history';
 import { jeonseRatio, LEASE_NAME, leaseOf, setLease, type Lease } from '../core/tenant';
 import { WOES, woesOf } from '../core/woes';
 import { chooseSuccessor } from '../core/estate';
@@ -103,7 +104,7 @@ interface UIState {
   /** 업적 탭에서 펼친 목록 (카드 도감·시너지) */
   open?: Record<string, boolean>;
   confirmReset?: boolean;
-  setup: { surname: string; sex: Sex; origin: Difficulty | 'random' };
+  setup: { surname: string; sex: Sex; origin: Difficulty | 'random'; era?: 'modern' | 'history' };
 }
 
 const SAVE_KEY = 'gamun-kiugi-save-v1';
@@ -294,6 +295,10 @@ export function mount(el: HTMLElement) {
 function render() {
   const g = ui.game;
   root.classList.toggle('calm', !!prefs.calm);
+  // 근현대사 모드: 시대 분위기 (1960~70년대 신문지·1980년대·1990~2000년대)
+  const hy = ui.game?.era === 'history' && ui.game.year <= 2025 ? ui.game.year : 0;
+  root.classList.toggle('hist', !!hy);
+  root.dataset.decade = hy ? (hy < 1980 ? '60' : hy < 1990 ? '80' : '90') : '';
   root.classList.toggle('text-s', prefs.text === 's');
   root.classList.toggle('text-l', prefs.text === 'l');
   if (!g) {
@@ -450,7 +455,8 @@ function titleScreen(): string {
       <div class="field">나의 성별 ${seg('setup-sex', o.sex, [['M', '남'], ['F', '여']])}</div>
       <div class="field">난이도 (태어날 집안과 유전자) ${seg('setup-origin', o.origin, [['random', '🎲 운명'], ['easy', '쉬움'], ['normal', '보통'], ['hard', '어려움'], ['hell', '🔥지옥']])}</div>
       <p class="fine">${o.origin === 'random' ? '집안 형편(서민 30%·중산층 52%·부유층 18%), 부모 직업·재산, 타고난 능력치와 재능 모두 운에 맡긴다.' : `<b>${DIFFICULTY[o.origin].name}</b> — ${DIFFICULTY[o.origin].desc}`}<br>다섯 살부터 시작한다. 형제자매는 태어나 봐야 안다.</p>
-      <div class="field">시대 <div class="seg"><button class="on">현대 한국</button><button disabled>근현대사 (준비 중)</button></div></div>
+      <div class="field">시대 ${seg('setup-era', o.era ?? 'modern', [['modern', '현대 한국 (2025~)'], ['history', '📜 근현대사 (1960~)']])}</div>
+      ${o.era === 'history' ? `<p class="fine hist-note">1960년 봄, 4·19 혁명의 해에 다섯 살 아이로 태어난다 (1955년생). 5·16, 산업화, 유신, 광주, 6월 항쟁, 올림픽, IMF, 월드컵, 촛불까지 — 해마다 실제 신문 기사가 오고, 큰 사건은 호외·TV 속보로 들이닥친다. 그 시절엔 없던 직업·입시 전형·복지는 열리지 않고, 집값·땅값·주가는 실제 역사대로 오르내린다. 2026년부터는 미래로 이어진다.</p>` : ''}
       <button class="btn big primary" data-action="start">가문 시작</button>
     </section>
     <p class="fine">v0.3 · 다섯 살부터 · 직업 119종 · 수능과 입시 · 인생사 · 업적 70+</p>
@@ -606,6 +612,7 @@ function header(g: GameState): string {
     <div class="top-l">
       <div class="year">${g.year}년 <button class="gear" data-action="settings" title="설정" aria-label="설정">⚙</button></div>
       <div class="fam">${esc(g.familyName)}씨 ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
+      ${g.era === 'history' && g.year <= 2025 ? `<div class="fam gov">🏛 ${esc(govOf(g.year))}</div>` : ''}
       <div class="fam">명성 ${Math.round(g.fame)}${(g.scandal ?? 0) >= 10 ? ` · <span class="scandal-chip" title="가문 스캔들 위험 ${Math.round(g.scandal ?? 0)}">${scandalLabel(g.scandal ?? 0)}</span>` : ''} · <button class="rank-chip" data-action="tab" data-v="achv">${RANKS[rankOf(g)].icon} ${RANKS[rankOf(g)].name} <b>${g.glory ?? 0}✦</b></button></div>
     </div>
     <button class="top-r" data-action="tab" data-v="assets" data-sub="sum" title="자산 탭에서 내년 가계부 보기">
@@ -1155,6 +1162,8 @@ function personSheet(g: GameState, p: Person): string {
 
 function eventModal(g: GameState): string {
   const cur = currentEvent(g)!;
+  const media = histStyle(cur.def.id, g.year);
+  if (media) return newsModal(g, cur, media);
   const ports = cur.portraits
     .filter(Boolean)
     .slice(0, 3)
@@ -1181,6 +1190,37 @@ function eventModal(g: GameState): string {
     </div>
   </div>`;
 }
+
+/** 역사의 큰 사건: 1960~80년대 호외, 1990~2000년대 TV 속보, 2010년대~ 휴대폰 알림 */
+function newsModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>>, media: 'extra' | 'tv' | 'push'): string {
+  const [sub, ...rest] = cur.text.split('\n\n');
+  const body = rest.join('\n\n');
+  const paper = pick2(g.year, ['동아일보', '조선일보', '경향신문', '한국일보', '서울신문']);
+  const choices = cur.choices
+    .map(
+      (c, i) => `<button class="choice" style="animation-delay:${900 + i * 80}ms" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
+        <span class="cl">${esc(c.label)}</span>
+        ${c.cost ? `<span class="badges"><b class="cost">💰${formatMoney(c.cost)}</b></span>` : ''}
+      </button>`,
+    )
+    .join('');
+  const head =
+    media === 'extra'
+      ? `<div class="nw-mast"><span class="nw-hoei">號外</span><span class="nw-paper">${paper}</span><span class="nw-date">${g.year}년 · ${esc(govOf(g.year))}</span></div>
+         <h2 class="nw-h">${esc(cur.title)}</h2><div class="nw-sub">${esc(sub)}</div>`
+      : media === 'tv'
+        ? `<div class="nw-tv"><div class="nw-tvbar"><b>속보</b><span>${esc(cur.title)}</span></div><div class="nw-tvsub">${esc(sub)} · ${pick2(g.year, ['KBS 9시 뉴스', 'MBC 뉴스데스크', 'SBS 8뉴스'])}</div></div>`
+        : `<div class="nw-pushcard"><div class="nw-pushapp">🔔 뉴스 속보 · 지금</div><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`;
+  return `
+  <div class="modal nw-modal nw-${media}">
+    <div class="event nw-card" data-stop>
+      ${head}
+      <p class="ev-text nw-body">${nl(body)}</p>
+      <div class="choices">${choices}</div>
+    </div>
+  </div>`;
+}
+const pick2 = <T,>(seed: number, arr: T[]) => arr[Math.abs(seed * 7 + 3) % arr.length];
 
 /** 결과 문장 끝의 "(매력 +2 · 행복 +6)"를 색깔 칩으로 */
 function richText(text: string): string {
@@ -1308,11 +1348,14 @@ function bestScore(g: GameState, now: number): number {
 }
 
 function reportModal(r: { title: string; lines: string[] }): string {
+  const news = r.lines.filter((l) => l.startsWith('📰 '));
+  const rest = r.lines.filter((l) => !l.startsWith('📰 '));
   return `
   <div class="modal" data-action="ok-report">
     <div class="event report" data-stop>
       <h3>${esc(r.title)}</h3>
-      <ul>${r.lines.map((l, i) => `<li style="animation-delay:${120 + Math.min(i, 12) * 45}ms">${esc(l)}</li>`).join('') || '<li class="muted">조용한 한 해였다.</li>'}</ul>
+      ${news.length ? `<div class="paper"><div class="paper-mast">📰 올해의 신문 <small>${esc(r.title.replace(/[^0-9년]/g, ''))}</small></div>${news.map((l, i) => `<div class="paper-item ${i === 0 ? 'lead' : ''}">${esc(l.slice(3))}</div>`).join('')}</div>` : ''}
+      <ul>${rest.map((l, i) => `<li style="animation-delay:${120 + Math.min(i, 12) * 45}ms">${esc(l)}</li>`).join('') || '<li class="muted">조용한 한 해였다.</li>'}</ul>
       <button class="btn primary" data-action="ok-report">확인</button>
     </div>
   </div>`;
@@ -1468,6 +1511,7 @@ function assetsScreen(g: GameState): string {
     })()}
     <div class="mkt">${(REAL_ESTATE as AssetKind[]).map((k) => `<span>${ASSET_ICONS[k]} ${ASSET_NAMES[k].replace('강남 ', '서울 ')} ${pct(g.marketChange[k as MarketKey])}</span>`).join('')}</div>
     ${(['stock', 'coin'] as const)
+      .filter((k) => k !== 'coin' || g.era !== 'history' || g.year >= 2014)
       .map(
         (k) => `<h4 class="sub">${ASSET_ICONS[k]} ${k === 'stock' ? '주식 (지수 ' + g.market.stock + ')' : '코인 (지수 ' + g.market.coin + ')'} ${pct(g.marketChange[k])}</h4>
         <div class="buy-row">${units
@@ -1974,6 +2018,9 @@ function handle(el: HTMLElement) {
     case 'setup-sex':
       ui.setup.sex = v as Sex;
       break;
+    case 'setup-era':
+      ui.setup.era = v as 'modern' | 'history';
+      break;
     case 'setup-origin':
       ui.setup.origin = v as Difficulty | 'random';
       break;
@@ -2033,7 +2080,7 @@ function handle(el: HTMLElement) {
     }
     case 'start': {
       const sn = (ui.setup.surname || '김').slice(0, 2);
-      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin });
+      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin, era: ui.setup.era === 'history' ? 'history' : undefined });
       ui.tab = 'tree';
       track(`start-${ui.setup.origin}`, `새 가문 (${ui.setup.origin})`);
       break;

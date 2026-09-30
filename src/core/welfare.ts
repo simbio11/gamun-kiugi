@@ -16,6 +16,7 @@ const wi = (s: GameState) => wageIndex(s.year);
 
 /** 출생 순간: 첫만남이용권 */
 export function birthSupport(s: GameState, mom: Person, dad: Person, n: number): number {
+  if (s.era === 'history' && s.year < 2022) return 0; // 첫만남이용권 2022~
   const order = mom.childIds.length; // 이번에 태어난 아이까지 포함
   let v = 0;
   for (let i = 0; i < n; i++) v += (order - i <= 1 ? 200 : 300) * wi(s);
@@ -29,7 +30,7 @@ export function childAllowanceYear(s: GameState) {
   for (const c of Object.values(s.people)) {
     if (!alive(c)) continue;
     const a = age(s, c);
-    const v = a === 0 ? 1200 : a === 1 ? 600 : a < 8 ? 120 : 0;
+    const v = allowanceAmt(s, a, s.year);
     if (!v) continue;
     const par = parentsOf(s, c).find(alive);
     if (par) par.cash += Math.round(v * wi(s));
@@ -43,9 +44,17 @@ export function allowanceForecast(s: GameState, owners: Person[]): number {
   for (const c of Object.values(s.people)) {
     if (!alive(c) || !parentsOf(s, c).some((q) => ids.has(q.id))) continue;
     const a = age(s, c) + 1;
-    t += a === 0 ? 1200 : a === 1 ? 600 : a < 8 ? 120 : 0;
+    t += allowanceAmt(s, a, s.year + 1);
   }
   return Math.round(t * wi(s));
+}
+
+/** 부모급여(2023~)·아동수당(2018~). 근현대사 모드에선 제도가 생긴 해부터 */
+function allowanceAmt(s: GameState, a: number, y: number): number {
+  const hist = s.era === 'history';
+  if (a <= 1 && (!hist || y >= 2023)) return a === 0 ? 1200 : 600;
+  if (a < 8 && (!hist || y >= 2018)) return 120;
+  return 0;
 }
 
 const salaryJob = (p: Person) => JOBS[p.job]?.kind === 'salary' && p.job !== 'pension';

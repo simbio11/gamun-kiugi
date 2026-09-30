@@ -3,6 +3,7 @@
 // 수능 백분위 = 성적·지능·사교육비·컨디션. 대학·학과마다 합격선과 경쟁률이 있고, 학과가 진로를 연다.
 
 import { chance, int, next, normal, pick } from './rng';
+import { examName, SUSI_FROM } from './histidx';
 import { SURNAMES, TALENTS } from './data';
 import { formatMoney } from './economy';
 import {
@@ -580,7 +581,8 @@ export function addStudy(s: GameState, p: Person, base: number) {
 }
 
 /** 사교육비 누적이 수능에 주는 보너스 (돈이 많이 들수록 체감) */
-const eduBonus = (p: Person) => Math.min(8, Math.sqrt((p.eduSpent ?? 0) / 1000) * 1.0);
+/** 과외 금지 시절(1980~2000, 근현대사)엔 사교육 효과가 절반 */
+const eduBonus = (p: Person) => Math.min(8, Math.sqrt((p.eduSpent ?? 0) / 1000) * 1.0) * (lastState?.era === 'history' && lastState.year >= 1980 && lastState.year < 2000 ? 0.5 : 1);
 
 /** 수능 원점수 → 백분위 곡선: 가운데(50%)와 기울기. 상위 1%는 재능과 노력이 모두 있어야 한다 */
 const SUNEUNG_MID = 64;
@@ -845,6 +847,7 @@ function phi(x: number): number {
 /** 수시 합격 확률 */
 export function susiChance(s: GameState, p: Person, pr: Program, type: SusiType, pct: number): number {
   const d = SUSI[type];
+  if (s.era === 'history' && s.year < (SUSI_FROM[type] ?? 0)) return 0; // 아직 없는 전형
   if (pr.special || pr.practical || !d.tiers.includes(pr.tier) || d.deny?.(s, p) || (pr.sex && p.sex !== pr.sex)) return 0;
   if (d.keys && !d.keys.includes(pr.key)) return 0;
   const v = d.score(s, p, pct, pr);
@@ -1088,8 +1091,9 @@ const path: EventDef = {
     const apps: string[] = d.apps ?? [];
     const used = apps.filter((a) => !a.startsWith('m:') && !a.startsWith('s:')).length;
     const susiN = apps.filter((a) => a.startsWith('s:')).length;
+    const exam = c.s.era === 'history' ? examName(c.s.year) : '수능';
     const head =
-      `${who(c)} 수능 성적표: 백분위 ${d.pct} (평균 ${gradeOf(d.pct)}등급)\n` +
+      `${who(c)} ${exam} 성적표: 백분위 ${d.pct} (평균 ${gradeOf(d.pct)}등급)\n` +
       `누적 사교육비 ${formatMoney(c.p.eduSpent ?? 0)}` +
       (retakesOf(c.p) ? ` · ${retakesOf(c.p) + 1}수째` : '');
     if (d.stage === 'result') {
@@ -1270,7 +1274,7 @@ const path: EventDef = {
       { label: '🧭 맞춤 추천 (성적·적성·형편 종합)', run: (x) => ((x.ev.data.stage = 'fit'), { text: '', keep: true }) },
       { label: `🗂 분야별로 전체 보기 (${P.length}개 학과)`, run: (x) => ((x.ev.data.stage = 'field'), { text: '', keep: true }) },
       { label: '📝 정시 원서 쓰기 (가·나·다군 3장)', run: (x) => ((x.ev.data.stage = 'apply'), { text: '', keep: true }) },
-      { label: `📚 수시 6장 (교과·종합·지역균형·기회균형·농어촌·논술·특기자) ${susiN}/6`, run: (x) => ((x.ev.data.stage = 'susi'), { text: '', keep: true }) },
+      ...(c.s.era === 'history' && c.s.year < 1996 ? [] : [{ label: `📚 수시 6장 (교과·종합·지역균형·기회균형·농어촌·논술·특기자) ${susiN}/6`, run: (x: Ctx) => ((x.ev.data.stage = 'susi'), { text: '', keep: true as const }) }]),
       ...(hasFlag(p, 'high_sci') || hasFlag(p, 'gifted_center') || hasFlag(p, 'olympiad') || hasFlag(p, 'abroad') || hasFlag(p, 'high_lang') || spendable(c.s) >= 40000
         ? [{ label: '🧪🌏 특별 전형 (KAIST·GIST / 해외 대학·요리·디자인 학교)', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]
         : [{ label: '🌏 해외 요리·디자인·음악 전문학교', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]),

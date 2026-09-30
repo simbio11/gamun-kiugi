@@ -258,6 +258,17 @@ export function realtyForecast(s: GameState, owners: Person[]): { income: [strin
 
 // ───────────────────────── 매물 ─────────────────────────
 
+/** 근현대사 모드: 아파트 단지·지역이 생긴 해 (그 전엔 매물로 안 나온다) */
+const AREA_FROM: Record<string, number> = {
+  '강남구 대치동': 1979, '서초구 반포동': 1974, '송파구 잠실동': 1976, '용산구 한남동': 1970, '양천구 목동': 1986, '노원구 상계동': 1988,
+  '강서구 마곡동': 2014, '경기 분당 정자동': 1992, '경기 과천': 1982, '경기 화성 동탄2': 2015, '인천 송도': 2009, '경기 고양 일산': 1992,
+  '세종 새롬동': 2014, '천안 불당동': 2008, '대전 둔산동': 1992, '부산 해운대구': 1996, '광주 봉선동': 1990, '울산 남구': 1985, '창원 성산구': 1985,
+  '성수동 리모델링 빌딩': 2015, '역세권 오피스텔 1실': 1990, '신도시 예정지 인근 대지 100평': 1989, '신도시 근린상가 1층 점포': 1992, '홍대 꼬마빌딩 (5층)': 1990,
+};
+const eraOk = (s: GameState, t: { area: string }) => s.era !== 'history' || s.year >= (AREA_FROM[t.area] ?? 0);
+/** 1990년대까지의 아파트 이름 */
+const OLD_APT = ['주공', '시영', '현대', '한신', '삼익', '우성', '한양', '럭키', '선경', '미도', '대림', '쌍용', '삼성', '롯데'];
+
 const APT = ['래미안', '자이', '힐스테이트', '푸르지오', '아이파크', 'e편한세상', '롯데캐슬', '더샵', '센트레빌', '포레나', '스위첸', '하늘채', '주공', '현대', '한신'];
 
 interface Tpl {
@@ -353,7 +364,7 @@ function makeListing(s: GameState, t: Tpl, deal?: 'bargain' | 'prime'): Listing 
   }
   const price = round(s.market[t.kind] * m);
   const house = t.house ?? (HOUSE_KINDS as readonly string[]).includes(t.kind);
-  const name = t.noApt ? t.area : `${t.area} ${pick(s, APT)} ${t.py}평`;
+  const name = t.noApt ? t.area : `${t.area} ${pick(s, s.era === 'history' && s.year < 1999 ? OLD_APT : APT)} ${t.py}평`;
   const l: Listing = { id: 'l' + s.idSeq++, kind: t.kind, name, price, tags, beta: t.beta ?? 1, drift, vol: t.vol ?? (t.kind === 'land' ? 0.04 : 0.02), yield: Math.max(0, y), house };
   if (house && !t.noApt && deal !== 'bargain' && chance(s, 0.3)) {
     l.deposit = round(price * (0.5 + next(s) * 0.22));
@@ -371,7 +382,7 @@ function pickTpl(s: GameState, pool: Tpl[]): Tpl {
 
 /** 올해 매물 새로 깔기: 서울·수도권 2~3, 지방 1~2, 건물·상가 1~2, 땅 1 */
 export function rollListings(s: GameState) {
-  const by = (k: string) => TPL.filter((t) => t.kind === k);
+  const by = (k: string) => TPL.filter((t) => t.kind === k && eraOk(s, t));
   const out: Listing[] = [];
   const n = { apt_seoul: int(s, 2, 3), apt_local: int(s, 1, 2), building: int(s, 1, 2), land: 1 };
   for (const [k, c] of Object.entries(n)) {
@@ -388,7 +399,7 @@ export function rollListings(s: GameState) {
 /** 발품(임장)으로 찾은 급매·알짜 매물 */
 export function addBargains(s: GameState, n = 2, prime = 0): Listing[] {
   const found: Listing[] = [];
-  const pool = TPL.filter((x) => x.kind !== 'land' || chance(s, 0.3));
+  const pool = TPL.filter((x) => (x.kind !== 'land' || chance(s, 0.3)) && eraOk(s, x));
   for (let i = 0; i < n + prime; i++) {
     const l = makeListing(s, pickTpl(s, pool), i < n ? 'bargain' : 'prime');
     l.found = true;

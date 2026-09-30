@@ -98,4 +98,29 @@ describe('시뮬레이션', () => {
       }
     expect(seen.has('woe')).toBe(true);
   }, 60000);
+
+  it('근현대사 모드: 1960년 시작, 역사 사건이 제때 오고 2030년까지 크래시 없음', () => {
+    const s = newGame({ seed: 21, familyName: '박', sex: 'M', era: 'history' });
+    expect(s.year).toBe(1960);
+    expect(s.people[s.headId].birthYear).toBe(1955);
+    const seen: string[] = [];
+    for (let y = 0; y < 70 && !s.gameOver; y++) {
+      let guard = 0;
+      while (s.events.length && guard++ < 300) {
+        const cur = currentEvent(s);
+        if (!cur) break;
+        if (cur.def.id.startsWith('hist_')) seen.push(`${s.year}:${cur.def.id}`);
+        const en = cur.choices.map((c, i) => [c, i] as const).filter(([c]) => !c.disabled && !c.label.startsWith('←'));
+        resolveChoice(s, (en.length ? en : cur.choices.map((c, i) => [c, i] as const))[Math.floor(next(s) * Math.max(1, en.length))][1]);
+      }
+      simulateYear(s);
+      for (const p of Object.values(s.people)) expect(Number.isFinite(p.cash)).toBe(true);
+    }
+    expect(seen).toContain('1961:hist_h516');
+    expect(seen).toContain('1979:hist_h1026');
+    expect(seen).toContain('1997:hist_himf');
+    expect(s.log.some((l) => l.text.includes('경부고속도로 개통'))).toBe(true);
+    // 2025년이 지나면 평범하게 미래로
+    expect(s.year).toBeGreaterThan(2026);
+  }, 60000);
 });

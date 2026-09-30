@@ -8,6 +8,7 @@
 // bonus = 해마다 성과급·실적으로 출렁이는 정도. open = 이 직급부터는 개원·개업(자영업): 수입이 크게 출렁이고 폐업도 있다.
 // 전문직 최고 수준도 연 4~5억 선: 수십억은 대박 난 연예인·유튜버·사업가의 몫이다.
 // ladder = 연차가 차면 자동으로 오르는 수련 과정 [근무 연수, 직급] (의사: 인턴 1년 → 레지던트 4년 → 전문의).
+import { histWage } from './histidx';
 
 export interface PayDef {
   pay: number[];
@@ -128,7 +129,8 @@ export const GRAD_STIPEND = 1500;
 /** 명목 임금 상승률: 물가·집값이 오르듯 임금도 오른다 (연 2.5%) */
 export const WAGE_GROWTH = 0.025;
 export const BASE_YEAR = 2025;
-export const wageIndex = (year: number) => Math.pow(1 + WAGE_GROWTH, Math.max(0, year - BASE_YEAR));
+/** 임금 지수: 2025년 이후는 연 상승률, 그 전(근현대사 모드)은 실질 소득 연표 (histidx.ts) */
+export const wageIndex = (year: number) => (year < BASE_YEAR ? histWage(year) : Math.pow(1 + WAGE_GROWTH, year - BASE_YEAR));
 
 // ───────────────────────── 세금·4대보험·연금 ─────────────────────────
 
@@ -165,7 +167,8 @@ export function incomeTax(income: number, year: number): { tax: number; social: 
   if (income <= 0) return { tax: 0, social: 0 };
   const wi = wageIndex(year);
   const x = income / wi;
-  const social = SOCIAL_RATE * Math.min(x, SOCIAL_CAP);
+  // 4대보험이 없던 시절 (근현대사): 산재 1964·의료 1977·국민연금 1988·고용 1995
+  const social = SOCIAL_RATE * Math.min(x, SOCIAL_CAP) * (year < 1977 ? 0 : year < 1988 ? 0.3 : year < 1995 ? 0.7 : 1);
   let base = Math.max(0, x - earnedDeduction(x) - 150 - 0.045 * Math.min(x, SOCIAL_CAP));
   let tax = 0;
   let prev = 0;

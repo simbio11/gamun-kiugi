@@ -11,6 +11,7 @@ import { vehicleUpkeep, vehicleYear } from './vehicle';
 import { petUpkeep } from './lifecost';
 import { debtRate } from './debt';
 import { medicalCost, woeItems } from './woes';
+import { HIST_BASE, histPrice, SINCE } from './histidx';
 import { allowanceOf, allowanceYear } from './allowance';
 import { allowanceForecast, careYear, childAllowanceYear, reverseMortgageYear, youthAccountYear } from './welfare';
 
@@ -135,7 +136,7 @@ export function severance(s: GameState, p: Person): number {
  * 공무원·군인·교원 연금 = 마지막 연봉 × 1.7% × 재직 연수(최대 36년)
  * 국민연금 = (A값 + 본인 평균소득) / 2 × 40% × 가입 연수/40 (+ 기초연금은 소득 적은 사람만)
  */
-export function settlePension(p: Person) {
+export function settlePension(p: Person, s?: GameState) {
   const years = Math.max(0, markOf(p, 'npy'));
   const avg = years ? markOf(p, 'npsum') / years : 0;
   let amount: number;
@@ -145,7 +146,11 @@ export function settlePension(p: Person) {
   } else {
     amount = ((NPS_A + Math.min(avg, 7400)) / 2) * 0.4 * (Math.min(40, years) / 40);
   }
-  if (amount < 1200) amount += BASIC_PENSION;
+  // 기초연금(2014~, 그 전 2008 기초노령연금): 근현대사 모드에서 그 전에 은퇴하면 없다
+  const hist = s?.era === 'history' && s.year < 2008;
+  if (amount < 1200 && !hist) amount += BASIC_PENSION;
+  // 국민연금이 없던 시절(1988 전) 은퇴한 자영업·회사원은 연금이 0 (자식이 부양)
+  if (hist && !PUBLIC_PENSION.has(p.job) && years === 0) amount = 0;
   p.flags = p.flags.filter((f) => !f.startsWith('pens:'));
   p.flags.push('pens:' + Math.round(amount));
 }
@@ -352,7 +357,7 @@ export function householdItems(s: GameState, incomes: Map<string, number>) {
   for (const [l, v] of woeItems(s, inHouse, wi)) add(l, v);
   // 미취학 아동 교육비 (학령기는 해마다 학년 이벤트에서 직접 고른다)
   let pre = 0;
-  for (const c of livingMainlineMinors(s)) if (age(s, c) < 8) pre += EDU_COST[s.policy.children[c.id]?.budget ?? 1];
+  for (const c of livingMainlineMinors(s)) if (age(s, c) < 8) pre += EDU_COST[s.policy.children[c.id]?.budget ?? 1] * wi;
   add('미취학 교육비', pre);
   let tuition = 0;
   for (const p of Object.values(s.people)) {
@@ -429,6 +434,8 @@ export function livelihoodAid(s: GameState, incomes: Map<string, number>, inHous
   const worth = personWorth(s, hh) + (sp && alive(sp) ? personWorth(s, sp) : 0);
   if (worth > 22000 * wi) return 0;
   const median = (MEDIAN[Math.min(6, n)] + Math.max(0, n - 6) * 96) * 12 * wi;
+  // 근현대사 모드: 2000년 전엔 생활보호법 (일할 사람이 없는 집에 쌀·밀가루 정도), 근로장려금은 2009년부터
+  if (s.era === 'history' && s.year < SINCE.livelihood) return inc <= 0 ? Math.round(line * 0.3) : 0;
   // 생계급여 (32%까지 채움)
   let aid = Math.max(0, line - inc);
   // 주거급여 (중위 48% 이하 세입자: 월세를 기준임대료 한도 안에서) · 교육급여 (초중고 학생 1인 연 50만 남짓)
@@ -442,7 +449,7 @@ export function livelihoodAid(s: GameState, incomes: Map<string, number>, inHous
   }
   // 근로장려금 (일해서 버는 저소득 가구): 홑벌이 최대 285만, 맞벌이 330만, 소득 3,800~4,400만에서 끊긴다
   const earners = ids.filter((id) => (incomes.get(id) ?? 0) > 0).length;
-  if (earners) {
+  if (earners && !(s.era === 'history' && s.year < SINCE.eitc)) {
     const [mx, top] = earners >= 2 ? [330, 4400] : [285, 3800];
     const t = inc / wi;
     aid += (t < 2200 ? mx : t < top ? (mx * (top - t)) / (top - 2200) : 0) * wi;
@@ -544,7 +551,7 @@ export function economyYear(s: GameState): string[] {
     incomes.set(p.id, got);
     taxes.set(p.id, t.tax + t.social);
     // 국민연금 가입 기록 (연금 수령액 계산용, 2025년 원)
-    if (got > 0 && p.job !== 'pension') {
+    if (got > 0 && p.job !== 'pension' && !(s.era === 'history' && s.year < SINCE.nps)) {
       mark(p, 'npy', 1);
       mark(p, 'npsum', Math.round(Math.min(got / wageIndex(s.year), 7400)));
     }
@@ -686,7 +693,15 @@ export function marketYear(s: GameState): string[] {
     coin: normal(s, 0.1, 0.55),
     art: normal(s, 0.035, 0.07),
   };
-  if (chance(s, 0.18)) {
+  // 근현대사 모드: 2025년까지는 실제 연표를 따라간다 (연표 값으로 끌어당기고 잡음만 조금)
+  const hist = s.era === 'history' && s.year <= 2025;
+  if (hist)
+    for (const k of MARKET_KEYS) {
+      const target = histPrice(HIST_BASE[k], k, s.year);
+      const sd = k === 'stock' ? 0.05 : k === 'coin' ? 0.12 : 0.015;
+      r[k] = target / Math.max(1, s.market[k]) - 1 + normal(s, 0, sd);
+    }
+  if (!hist && chance(s, 0.18)) {
     const ev = pick(s, MARKET_EVENTS);
     msgs.push(ev.text);
     for (const k of Object.keys(ev.delta) as MarketKey[]) r[k] += ev.delta[k]!;
@@ -696,7 +711,7 @@ export function marketYear(s: GameState): string[] {
   const era = ERA_NEWS[s.year];
   if (era) msgs.push(era);
   for (const k of MARKET_KEYS) {
-    r[k] = clamp(r[k], ...MARKET_CLAMP[k]);
+    r[k] = hist ? clamp(r[k], -0.6, 1.5) : clamp(r[k], ...MARKET_CLAMP[k]);
     s.market[k] = Math.max(1, Math.round(s.market[k] * (1 + r[k])));
     s.marketChange[k] = r[k];
   }

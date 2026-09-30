@@ -3,6 +3,7 @@
 
 import { queuePostnatal } from './lifecost';
 import { chance, int, normal, pick } from './rng';
+import { armyMonths } from './histidx';
 import { JOBS } from './data';
 import { campaignMoney, polOf } from './career';
 import { grant } from './rewards';
@@ -33,6 +34,8 @@ const setFlagVal = (p: Person, key: string, v: string | number) => {
 /** 복무 시작: 학생이면 졸업이 2년 밀리고, 직장은 휴직 */
 function serve(x: Ctx, years: number, kind: string, text: string, pay?: number): string {
   const p = x.p;
+  // 근현대사: 1960~80년대엔 30~36개월 (3년)
+  if (x.s.era === 'history' && ['army', 'marine', 'airforce', 'katusa'].includes(kind) && armyMonths(x.s.year) >= 30) years = 3;
   setFlagVal(p, 'serving', x.s.year + years - 1);
   p.flags = p.flags.filter((f) => f !== 'mil_postponed' && !f.startsWith('serve_pay:'));
   if (pay) p.flags.push('serve_pay:' + pay);
@@ -116,7 +119,7 @@ const military: LifeDef = {
       ];
     const out: Choice[] = [
       {
-        label: '육군 현역 입대 (18개월)',
+        label: `육군 현역 입대 (${c.s.era === 'history' ? armyMonths(c.s.year) : 18}개월)`,
         run: (x) => {
           x.p.actual.str = clamp(x.p.actual.str + 4, 0, 100);
           x.p.actual.mor = clamp(x.p.actual.mor + 3, 0, 100);
@@ -531,7 +534,7 @@ const layoff: LifeDef = {
       label: `명퇴를 받아들인다 (위로금 ${formatMoney(salary(c.p) * 2)})`,
       run: (x) => {
         x.p.cash += salary(x.p) * 2;
-        settlePension(x.p);
+        settlePension(x.p, x.s);
         setJob(x.p, 'none');
         queueNext(x.s, 'first_job', x.p.id, { second: true });
         return '짐을 챙겨 나왔다. 인생 2막을 준비할 때다. (치킨집? 귀농? 재취업?)';

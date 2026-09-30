@@ -400,6 +400,8 @@ export const ERA_EVENTS: EventDef[] = [...ERAS.map(eraDef), rebound, bust];
 
 /** 해마다: 마지막 파도 뒤 7년이 지나면 조금씩 확률이 오른다 */
 export function eraYear(s: GameState): string[] {
+  // 근현대사 모드는 2025년까지 실제 사건이 대신한다
+  if (s.era === 'history' && s.year <= 2025) return [];
   const h = head(s);
   if (age(s, h) < 22) return [];
   const seen = (s.storySeen ??= {});

@@ -252,6 +252,8 @@ export interface GameState {
   missions?: Mission[];
   /** 예약된 후폭풍: 지난 선택의 결과가 몇 년 뒤 터진다 */
   scheduled?: { year: number; defId: string; personId: string; data?: any }[];
+  /** 근현대사 모드 (1960년 시작) */
+  era?: 'history';
   gameOver?: { reason: string; score: number };
   /** 올해 부동산 매물 */
   listings?: Listing[];

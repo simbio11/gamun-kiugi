@@ -717,3 +717,59 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .lease-b small { font-size: .62em; opacity: .75; text-align: center; overflow-wrap: anywhere; }
 .lease-b.on { border-color: #2a8a4a; background: #dff4e0; }
 .lease-b:disabled:not(.on) { opacity: .45; }
+
+/* ───────── 근현대사 모드 ───────── */
+.hist-note { background: #f3e6c4; color: #4a3413; border-left: 3px solid #a0782a; padding: 8px 10px; border-radius: 4px; }
+.fam.gov { font-size: .72em; opacity: .85; color: #f0d8a0; letter-spacing: .5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48vw; }
+/* 시대 분위기: 60·70년대는 빛바랜 신문지, 80년대는 갈색 브라운관, 90~2000년대는 원래 색에 가깝게 */
+.hist[data-decade="60"] { --hist-bg: #3a2e22; --hist-card: #efe3c6; }
+.hist[data-decade="80"] { --hist-bg: #33261e; --hist-card: #f2e6cc; }
+.hist[data-decade="90"] { --hist-bg: #2c231d; --hist-card: #f4ead4; }
+.hist { background: var(--hist-bg) repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 2px, transparent 2px 4px); }
+.hist .card { background-color: var(--hist-card); }
+.hist[data-decade="60"] .tree img.px, .hist[data-decade="60"] .props img { filter: sepia(.45) contrast(1.05); }
+.hist[data-decade="80"] .tree img.px, .hist[data-decade="80"] .props img { filter: sepia(.2) saturate(.9); }
+
+/* 올해의 신문 (연말 결산) */
+.paper { margin: 6px 0 10px; padding: 10px 12px; background: #f1e8d0 repeating-linear-gradient(90deg, rgba(0,0,0,.02) 0 1px, transparent 1px 3px); color: #1e1a14; border: 1px solid #b8a67e; box-shadow: 0 2px 0 #cbb88c, 0 4px 10px rgba(0,0,0,.25); font-family: 'Nanum Myeongjo', 'Batang', serif; }
+.paper-mast { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 3px double #1e1a14; padding-bottom: 4px; margin-bottom: 6px; font-weight: 800; font-size: 1.05em; letter-spacing: 1px; }
+.paper-item { font-size: .86em; line-height: 1.45; padding: 3px 0; border-bottom: 1px dotted #b8a67e; }
+.paper-item.lead { font-size: 1em; font-weight: 800; }
+.paper-item:last-child { border-bottom: 0; }
+
+/* 호외 (1960~80년대) */
+.nw-modal { align-items: center; }
+.nw-extra .nw-card { background: #efe6cd repeating-linear-gradient(90deg, rgba(0,0,0,.025) 0 1px, transparent 1px 3px); color: #16120c; border: 2px solid #16120c; outline: 3px double #16120c; outline-offset: -8px; font-family: 'Nanum Myeongjo', 'Batang', serif; animation: nw-drop .9s cubic-bezier(.2, 1.2, .3, 1) both; box-shadow: 0 20px 40px rgba(0,0,0,.6); }
+@keyframes nw-drop { 0% { opacity: 0; transform: translateY(-60px) rotate(-8deg) scale(1.1); } 60% { opacity: 1; transform: translateY(4px) rotate(1.5deg); } 100% { transform: none; } }
+.nw-mast { display: flex; align-items: center; gap: 8px; border-bottom: 4px double #16120c; padding-bottom: 6px; margin-bottom: 8px; }
+.nw-hoei { display: inline-block; padding: 2px 8px; font-size: 1.5em; font-weight: 800; color: #c0141e; border: 3px solid #c0141e; transform: rotate(-6deg); animation: nw-stamp .5s .55s cubic-bezier(.3, 1.8, .4, 1) both; letter-spacing: 2px; }
+@keyframes nw-stamp { 0% { opacity: 0; transform: rotate(-6deg) scale(2.4); } 100% { opacity: 1; transform: rotate(-6deg) scale(1); } }
+.nw-paper { font-weight: 800; font-size: 1.1em; }
+.nw-date { margin-left: auto; font-size: .7em; text-align: right; }
+.nw-h { font-size: 1.65em; line-height: 1.25; margin: 4px 0 6px; font-weight: 800; text-wrap: balance; letter-spacing: -.5px; }
+.nw-sub { font-size: .82em; font-weight: 700; border-bottom: 1px solid #16120c; padding-bottom: 6px; margin-bottom: 8px; }
+.nw-extra .nw-body { font-size: .92em; line-height: 1.6; column-gap: 14px; text-align: justify; }
+.nw-extra .choice { background: #fbf6e8; color: #16120c; border-color: #16120c; font-family: inherit; }
+
+/* TV 속보 (1990~2000년대) */
+.nw-tv .nw-card { background: #0c0f18; color: #e8ecf4; border: 6px solid #2a2a30; border-radius: 18px; box-shadow: inset 0 0 40px rgba(80,120,255,.12), 0 20px 40px rgba(0,0,0,.7); position: relative; overflow: hidden; animation: nw-tvon .7s ease-out both; }
+.nw-tv .nw-card::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px); }
+@keyframes nw-tvon { 0% { transform: scaleY(.02) scaleX(.6); filter: brightness(4); } 45% { transform: scaleY(.02) scaleX(1); } 100% { transform: none; filter: none; } }
+.nw-tvbar { display: flex; align-items: stretch; margin: -4px -4px 4px; font-weight: bold; }
+.nw-tvbar b { background: #d0101e; color: #fff; padding: 6px 10px; font-size: 1.05em; animation: nw-blink 1s steps(2) infinite; }
+.nw-tvbar span { background: linear-gradient(#1a3a9a, #0e2466); color: #fff; padding: 6px 10px; font-size: 1.05em; flex: 1; line-height: 1.3; }
+@keyframes nw-blink { 50% { background: #7a0810; } }
+.nw-tvsub { font-size: .75em; color: #ffd84a; margin: 2px 0 8px; }
+.nw-tv .nw-body { color: #d8deea; }
+.nw-tv .choice { background: #1a2034; color: #e8ecf4; border-color: #4a5a8a; }
+
+/* 휴대폰 속보 알림 (2010년대~) */
+.nw-push .nw-card { animation: nw-slide .6s cubic-bezier(.2, 1.1, .3, 1) both; border-radius: 18px; }
+.nw-push { align-items: flex-start; padding-top: 30px; }
+@keyframes nw-slide { 0% { transform: translateY(-120%); } 100% { transform: none; } }
+.nw-pushapp { font-size: .72em; opacity: .7; margin-bottom: 4px; }
+.nw-pushcard { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; margin: -4px -4px 8px; background: rgba(40,40,48,.92); color: #fff; border-radius: 14px; box-shadow: 0 6px 18px rgba(0,0,0,.35); animation: nw-buzz .4s .6s ease-in-out 2; }
+.nw-pushcard b { font-size: 1.05em; line-height: 1.3; }
+.nw-pushcard small { opacity: .75; font-size: .75em; }
+@keyframes nw-buzz { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.calm .nw-card, .calm .nw-hoei, .calm .nw-tvbar b, .calm .nw-pushcard { animation: none !important; }

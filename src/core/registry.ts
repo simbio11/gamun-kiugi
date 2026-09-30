@@ -9,6 +9,7 @@ import { STORIES } from './stories';
 import { SEED_EVENTS } from './seeds';
 import { NEST_EVENTS } from './nest';
 import { WOE_EVENTS } from './woes';
+import { HIST_EVENTS } from './history';
 import { EGG_EVENTS } from './nestegg';
 import { SPOUSE_EVENTS } from './spouse';
 import { ALLOWANCE_EVENTS } from './allowance';
@@ -27,5 +28,5 @@ import { SCANDAL_EVENTS } from './scandal';
 import { AUTONOMY_EVENTS } from './autonomy';
 import type { EventDef } from './ev-util';
 
-export const EVENTS: Record<string, EventDef> = { ...CORE, ...Object.fromEntries([...SCHOOL_EVENTS, ...FAMILY_EVENTS, ...LIFE_EVENTS, ...FATE_EVENTS, ...FATE_RANDOM, ...ROMANCE_EVENTS, ...ROMANCE_RANDOM, ...STORIES, ...SEED_EVENTS, ...NEST_EVENTS, ...DEBT_EVENTS, ...LEVERAGE_EVENTS, ...LIFECOST_EVENTS, ...DECEPTION_EVENTS, HOBBY_EVENT, ...WELFARE_EVENTS, ...RIVAL_EVENTS, ...ERA_EVENTS, ...CAREER_EVENTS, ...CARD_EVENTS, ...SCANDAL_EVENTS, ...AUTONOMY_EVENTS, ...WOE_EVENTS, ...EGG_EVENTS, ...SPOUSE_EVENTS, ...ALLOWANCE_EVENTS, ...TENANT_EVENTS].map((e) => [e.id, e])) };
+export const EVENTS: Record<string, EventDef> = { ...CORE, ...Object.fromEntries([...SCHOOL_EVENTS, ...FAMILY_EVENTS, ...LIFE_EVENTS, ...FATE_EVENTS, ...FATE_RANDOM, ...ROMANCE_EVENTS, ...ROMANCE_RANDOM, ...STORIES, ...SEED_EVENTS, ...NEST_EVENTS, ...DEBT_EVENTS, ...LEVERAGE_EVENTS, ...LIFECOST_EVENTS, ...DECEPTION_EVENTS, HOBBY_EVENT, ...WELFARE_EVENTS, ...RIVAL_EVENTS, ...ERA_EVENTS, ...CAREER_EVENTS, ...CARD_EVENTS, ...SCANDAL_EVENTS, ...AUTONOMY_EVENTS, ...WOE_EVENTS, ...EGG_EVENTS, ...SPOUSE_EVENTS, ...ALLOWANCE_EVENTS, ...TENANT_EVENTS, ...HIST_EVENTS].map((e) => [e.id, e])) };
 export { RANDOM_EVENTS };
