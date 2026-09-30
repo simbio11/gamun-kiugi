@@ -1,3 +1,4 @@
+import { isStudent } from './path';
 // 주도적 행동: 턴을 넘기기 전에 대시보드에서 직접 하는 일. 해마다 행동력 3.
 // (갑작스러운 사건·선택형 이벤트는 턴을 넘길 때 일어난다)
 
@@ -93,7 +94,8 @@ export interface ActionDef {
 const h = head;
 const adultsOfLine = (s: GameState) => Object.values(s.people).filter((p) => alive(p) && !p.inLaw && age(s, p) >= 20 && (p.id === s.headId || isDescendantOf(s, p, h(s))));
 const descendants = (s: GameState) => Object.values(s.people).filter((p) => alive(p) && isDescendantOf(s, p, h(s)));
-const minors = (s: GameState, lo = 0, hi = 19) => descendants(s).filter((p) => age(s, p) >= lo && age(s, p) <= hi);
+// 자녀 교육 대상: 대학생·직장인·기혼이 된 아이는 빠진다
+const minors = (s: GameState, lo = 0, hi = 19) => descendants(s).filter((p) => age(s, p) >= lo && age(s, p) <= hi && !isStudent(p) && !p.spouseId && (!p.job || p.job === 'none'));
 const mood = (p: Person, d: number) => (p.happiness = clamp(p.happiness + d, 0, 100));
 const bond = (s: GameState, p: Person, d: number) => {
   const q = spouseOf(s, p);
@@ -1355,7 +1357,7 @@ ACTIONS.push({
   desc: '아이 성향에 가장 잘 맞는 분야로 체험학습을 보낸다 · 그 분야 관심↑ 행복↑',
   ap: 1,
   cost: 50,
-  targets: (s) => Object.values(s.people).filter((p) => alive(p) && isDescendantOf(s, p, h(s)) && age(s, p) >= 7 && age(s, p) <= 18),
+  targets: (s) => Object.values(s.people).filter((p) => alive(p) && isDescendantOf(s, p, h(s)) && age(s, p) >= 7 && age(s, p) <= 18 && !isStudent(p)),
   run: (s, t) => {
     const p = t!;
     const f = fitCats(p, 3);

@@ -4,6 +4,9 @@
 // 말풍선, 장면마다 2~3가지 연출이 있어 같은 종류의 사건도 매번 조금씩 다르다. 시대에 따라 집·색감이 바뀐다.
 // 80×40 픽셀을 그려 크게 늘려 보여 준다.
 
+import type { Person } from '../core/types';
+import { bustGrid } from './bust';
+
 type C = string;
 const W = 80;
 const H = 40;
@@ -92,7 +95,13 @@ type Pose = 'stand' | 'up' | 'out' | 'hold' | 'wave';
 const BODY = ['..hhhh..', '.hhhhhh.', 'hhhhhhhh', 'hssssssh', '.ssssss.', '.ssssss.', '..ssss..', '.cccccc.', '.cccccc.', '.pppppp.', '.kk..kk.'];
 const BODY_KID = ['..hhhh..', '.hhhhhh.', 'hhhhhhhh', 'hssssssh', '.ssssss.', '.ssssss.', '..ssss..', '.cccccc.', '.kk..kk.'];
 /** x,y: 머리 꼭대기 왼쪽. 2배 크기 (16×22, 아이 16×18) */
+/** 초상화 합성 모드: 장면 속 꼬마 인물 대신 표정·말풍선만 받아 두었다가 초상화로 그린다 */
+let capture: { faces: Face[]; emotes: Emote[] } | null = null;
 function chibi(x: number, y: number, L: Looks, face: Face = 'normal', pose: Pose = 'stand', flip = false) {
+  if (capture) {
+    capture.faces.push(face);
+    return;
+  }
   const rows = L.kid ? BODY_KID : BODY;
   const armY = y + 14;
   // 팔 (몸보다 먼저, 외곽선까지)
@@ -177,13 +186,17 @@ const GLYPH: Record<Emote, [string[], C]> = {
   '…': [['...', '...', '...', '...', 'x.x'], '#555'],
 };
 function bubble(x: number, y: number, e: Emote) {
+  if (capture) {
+    capture.emotes.push(e);
+    return;
+  }
   rect(x - 1, y - 1, 7, 7, OUT);
   rect(x, y, 5, 5, '#ffffff');
   px(x + 1, y + 5, OUT), px(x + 1, y + 6, OUT), px(x + 2, y + 5, '#ffffff');
   const [g, c] = GLYPH[e];
   spr(x + 1, y, g, { x: c });
 }
-const sweat = (x: number, y: number) => spr(x, y, ['.b', 'bb', 'bb'], { b: '#8ad0ff' });
+const sweat = (x: number, y: number) => capture || spr(x, y, ['.b', 'bb', 'bb'], { b: '#8ad0ff' });
 const sparkle = (x: number, y: number, c = '#fff4a0') => (px(x, y, c), px(x - 1, y, c), px(x + 1, y, c), px(x, y - 1, c), px(x, y + 1, c));
 const speedLines = (c = 'rgba(255,255,255,.55)') => {
   for (let i = 0; i < 16; i++) rect(0, ri(2, H - 4), ri(10, 30), 1, c);
@@ -641,5 +654,72 @@ export function sceneURL(k: SceneKey, year: number, seed: number, looks: Looks =
   draw(k, year, looks, s % 3);
   const url = c.toDataURL();
   cache.set(key, url);
+  return url;
+}
+
+// ───────── 사건 그림: 장면 + 초상화 (인물 창과 같은 도트 크기) ─────────
+const AW = 96;
+const AH = 48;
+const art = new Map<string, string>();
+/** 장면(80×40)을 96×48 판 가운데에 놓고 하늘·땅을 가장자리로 이어 붙인 뒤, 주인공(과 상대)의 48×48 초상화를 사건 표정으로 세운다 */
+export function sceneArtURL(k: SceneKey, year: number, seed: number, people: { p: Person; age: number }[], blink = false): string {
+  const s = Math.abs(seed);
+  const key = `${k}:${year}:${s % 12}:${people.map((x) => x.p.id + ':' + x.age).join(',')}:${blink}`;
+  const hit = art.get(key);
+  if (hit) return hit;
+  // 1) 장면 (사람 빼고)
+  const bg = document.createElement('canvas');
+  bg.width = W;
+  bg.height = H;
+  ctx = bg.getContext('2d')!;
+  rnd = (s % 12) * 7919 + 17;
+  const got: { faces: Face[]; emotes: Emote[] } = { faces: [], emotes: [] };
+  capture = got;
+  try {
+    draw(k, year, DEFAULT, s % 3);
+  } finally {
+    capture = null;
+  }
+  // 2) 넓은 판에 장면을 놓고 가장자리를 늘여 채운다
+  const c = document.createElement('canvas');
+  c.width = AW;
+  c.height = AH;
+  const x2 = c.getContext('2d')!;
+  x2.imageSmoothingEnabled = false;
+  const ox = (AW - W) / 2;
+  const oy = AH - H;
+  x2.drawImage(bg, 0, 0, W, 1, ox, 0, W, oy); // 위 하늘
+  x2.drawImage(bg, ox, oy);
+  x2.drawImage(bg, 0, 0, 1, H, 0, oy, ox, H); // 왼쪽
+  x2.drawImage(bg, W - 1, 0, 1, H, ox + W, oy, ox, H); // 오른쪽
+  x2.drawImage(c, ox, 0, 1, oy, 0, 0, ox, oy);
+  x2.drawImage(c, ox + W - 1, 0, 1, oy, ox + W, 0, ox, oy);
+  // 3) 초상화: 주인공은 왼쪽, 상대는 오른쪽에서 마주 본다
+  const faces = got.faces.length ? got.faces : ['normal' as Face];
+  const put = (who: { p: Person; age: number }, face: Face, bx: number, flip: boolean) => {
+    const g = bustGrid(who.p, who.age, year, face, blink && (face === 'normal' || face === 'sad' || face === 'angry' || face === 'smug' || face === 'shock'));
+    // 바닥에 그림자
+    x2.fillStyle = 'rgba(0,0,0,.18)';
+    x2.fillRect(bx + 8, AH - 2, 32, 2);
+    for (let y = 0; y < 48; y++)
+      for (let x = 0; x < 48; x++) {
+        const col = g[y][flip ? 47 - x : x];
+        if (col) {
+          x2.fillStyle = col;
+          x2.fillRect(bx + x, y + (AH - 48), 1, 1);
+        }
+      }
+  };
+  const lead = people[0];
+  if (lead) put(lead, faces[0], -4, false);
+  if (people[1] && faces.length > 1) put(people[1], faces[1], AW - 44, true);
+  // 4) 말풍선은 주인공 머리 옆에
+  const e = got.emotes[0];
+  if (e) {
+    ctx = x2;
+    bubble(38, 3, e);
+  }
+  const url = c.toDataURL();
+  art.set(key, url);
   return url;
 }

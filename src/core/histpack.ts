@@ -6,7 +6,7 @@
 
 import { chance, pick } from './rng';
 import { gate, iga, type Choice, type Ctx, type EventDef } from './ev-util';
-import { addFlag, age, check, clamp, fullName, hasFlag, householder, mark, parentsOf } from './people';
+import { addFlag, age, alive, check, clamp, fullName, hasFlag, householder, mark, parentsOf } from './people';
 import { wageIndex } from './pay';
 import { homeOf } from './housing';
 import { formatWon, isNominal, setMoneyYear } from './economy';
@@ -743,10 +743,9 @@ export const HIST_ACTIONS: ActionDef[] = [
     desc: '"더하기 빼기~" 주산·암산은 은행·회사 취직의 무기 (1960~1990, 지능·성적)',
     ap: 1,
     who: 'any',
-    show: (s) => inHistory(s) && s.year < 1991,
+    show: (s) => inHistory(s) && s.year < 1991 && !!kidIn(s, 7, 15),
     run: (s) => {
-      const h = s.people[s.headId];
-      const kid = age(s, h) < 20 ? h : Object.values(s.people).find((p) => p.birthYear && age(s, p) >= 7 && age(s, p) <= 15 && parentsOf(s, p).some((q) => q.id === h.id));
+      const kid = kidIn(s, 7, 15);
       if (!kid) return '주산 가르칠 아이가 없다.';
       householder(s).cash -= Math.round(15 * wi(s));
       up(kid, 'int', 1);
@@ -762,10 +761,9 @@ export const HIST_ACTIONS: ActionDef[] = [
     desc: '동네 태권도장. 국기(國技)이자 방과 후 돌봄 (1970~, 근력·성품)',
     ap: 1,
     who: 'any',
-    show: (s) => inHistory(s) && s.year >= 1970 && s.year < 2000,
+    show: (s) => inHistory(s) && s.year >= 1970 && s.year < 2000 && !!kidIn(s, 6, 14),
     run: (s) => {
-      const h = s.people[s.headId];
-      const kid = age(s, h) < 20 ? h : Object.values(s.people).find((p) => age(s, p) >= 6 && age(s, p) <= 14 && parentsOf(s, p).some((q) => q.id === h.id));
+      const kid = kidIn(s, 6, 14);
       if (!kid) return '도장에 보낼 아이가 없다.';
       householder(s).cash -= Math.round(12 * wi(s));
       up(kid, 'str', 1);
@@ -774,6 +772,14 @@ export const HIST_ACTIONS: ActionDef[] = [
     },
   },
 ];
+
+/** 학원 보낼 아이: 가주 본인이 그 나이면 본인, 아니면 그 나이의 자녀 */
+function kidIn(s: GameState, lo: number, hi: number): Person | undefined {
+  const h = s.people[s.headId];
+  const ok = (p: Person) => alive(p) && age(s, p) >= lo && age(s, p) <= hi;
+  if (ok(h)) return h;
+  return Object.values(s.people).find((p) => ok(p) && parentsOf(s, p).some((q) => q.id === h.id));
+}
 
 /** 인생 사건 카드에서 쓸 시대 판 교체 (없으면 현대판) */
 export function histOverride(s: GameState, defId: string): EventDef | undefined {

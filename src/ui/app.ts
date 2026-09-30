@@ -80,8 +80,8 @@ import {
 } from '../core/sim';
 import type { Difficulty } from '../core/sim';
 import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, MarketKey, Person, Sex, WillMode } from '../core/types';
-import { portraitURL, looksOf } from '../render/portrait';
-import { sceneFor, sceneURL } from '../render/scene';
+import { portraitURL } from '../render/portrait';
+import { sceneArtURL, sceneFor } from '../render/scene';
 import { bustURL } from '../render/bust';
 import { commEvent, pcOf, phoneOf, type CommKind } from '../core/devices';
 
@@ -111,6 +111,8 @@ interface UIState {
   /** 업적 탭에서 펼친 목록 (카드 도감·시너지) */
   open?: Record<string, boolean>;
   confirmReset?: boolean;
+  /** 가문이 끝난 뒤 연대기를 보는 중 (결과 창을 잠시 내린다) */
+  overLog?: boolean;
   setup: { surname: string; sex: Sex; origin: Difficulty | 'random'; era?: 'modern' | 'history' };
 }
 
@@ -301,7 +303,26 @@ export function mount(el: HTMLElement) {
 
 // ─────────────────────────── 렌더 ───────────────────────────
 
+/** 그리다 오류가 나면 옛 창(닫히는 중이라 투명한 창)이 화면을 덮어 클릭을 먹는다: 문제 된 창을 치우고 다시 그린다 */
 function render() {
+  try {
+    renderInner();
+  } catch (e) {
+    console.error(e);
+    const g = ui.game;
+    if (g?.rewards?.length) g.rewards.shift();
+    ui.outcome = ui.report = undefined;
+    ui.cardView = ui.honorView = undefined;
+    try {
+      renderInner();
+    } catch (e2) {
+      console.error(e2);
+      root.querySelectorAll('.modal').forEach((m) => m.remove());
+    }
+  }
+}
+
+function renderInner() {
   const g = ui.game;
   if (g) setMoneyYear(g.year), setHistCur(g); // 성향(MBTI) 표시 같은 시대 판단을 화면에도
   root.classList.toggle('calm', !!prefs.calm);
@@ -330,7 +351,7 @@ function render() {
   }
   let modal = '';
   let modalKey = '';
-  if (g.gameOver) (modal = gameOverModal(g)), (modalKey = 'over');
+  if (g.gameOver && !ui.overLog) (modal = gameOverModal(g)), (modalKey = 'over');
   else if (ui.report) (modal = reportModal(ui.report)), (modalKey = 'rep' + ui.report.title);
   else if (ui.outcome) (modal = outcomeModal(ui.outcome)), (modalKey = 'out' + ui.outcome.title + ui.outcome.text);
   else if (g.rewards?.length) {
@@ -356,7 +377,8 @@ function render() {
   root.innerHTML = `
     ${header(g)}
     <main class="screen">${body}</main>
-    ${ui.tab === 'tree' || ui.tab === 'act' ? `<button class="next-year" data-action="next">${g.events.length ? `이벤트 ${g.events.length}개 ▶` : `${g.year + 1}년으로 ▶${apLeft(g) ? `<small>행동력 ${apLeft(g)} 남음</small>` : ''}`}</button>` : ''}
+    ${g.gameOver && ui.overLog ? `<button class="next-year" data-action="over-back">🏁 가문 결과로 돌아가기</button>` : ''}
+    ${!g.gameOver && (ui.tab === 'tree' || ui.tab === 'act') ? `<button class="next-year" data-action="next">${g.events.length ? `이벤트 ${g.events.length}개 ▶` : `${g.year + 1}년으로 ▶${apLeft(g) ? `<small>행동력 ${apLeft(g)} 남음</small>` : ''}`}</button>` : ''}
     ${nav()}
     ${modal}
     ${ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ''}
@@ -1150,7 +1172,7 @@ function personSheet(g: GameState, p: Person): string {
   <div class="modal" data-action="close-sheet">
     <div class="sheet" data-stop>
       <div class="sheet-head">
-        <img class="px big bust ${dead ? 'dead' : ''}" src="${bustURL(p, a, g.year)}">
+        <span class="bust-wrap anim2 ${dead ? 'dead' : ''}"><img class="px big bust" src="${bustURL(p, a, g.year)}">${dead ? '' : `<img class="px big bust blink" src="${bustURL(p, a, g.year, 'normal', true)}">`}</span>
         <div>
           <div class="sh-name">${esc(fullName(p))} ${p.id === g.headId ? '👑' : ''}</div>
           <div class="sh-sub">${esc(relationLabel(g, p))} · ${dead ? `${p.birthYear}–${p.deathYear} (향년 ${a}세)` : `${a}세 (${p.birthYear}년생)`}</div>
@@ -1189,18 +1211,18 @@ function eventModal(g: GameState): string {
   if (media) return newsModal(g, cur, media);
   const how = commEvent(cur.def.id, cur.title);
   if (how) return commModal(g, cur, how);
-  const lead = cur.portraits.find(Boolean);
-  const ports = cur.portraits
-    .filter(Boolean)
-    .slice(0, 3)
-    .map((p) => `<img class="px mid" src="${portraitURL(p, g.year - p.birthYear)}">`)
+  const who = cur.portraits.filter(Boolean).map((p) => ({ p, age: (p.deathYear ?? g.year) - p.birthYear }));
+  const ports = who
+    .slice(2, 4)
+    .map((x) => `<img class="px mid" src="${portraitURL(x.p, x.age)}">`)
     .join('');
+  const sk = sceneFor(cur.title, cur.text);
   return `
   <div class="modal">
     <div class="event">
       <div class="ev-count">${g.year}년 · 남은 이벤트 ${g.events.length}</div>
       <h3>${esc(cur.title)}</h3>
-      <div class="ev-scene"><img class="scene-img" src="${sceneURL(sceneFor(cur.title, cur.text), g.year, cur.ev.uid, lead ? looksOf(lead, g.year - lead.birthYear) : undefined)}" alt=""><div class="ev-ports on-scene">${ports}</div></div>
+      <div class="ev-scene anim2"><img class="scene-img" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2))}" alt=""><img class="scene-img blink" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2), true)}" alt="">${ports ? `<div class="ev-ports on-scene">${ports}</div>` : ''}</div>
       <p class="ev-text">${nl(cur.text)}</p>
       ${cur.choices.some((c) => c.cost) ? `<div class="ev-wallet">${wallet(g).label} <b>${formatMoney(wallet(g).amount)}</b></div>` : ''}
       <div class="choices">
@@ -2117,7 +2139,11 @@ function onClick(e: MouseEvent) {
       setTimeout(() => {
         leaving = false;
         fx.modalKey = '';
-        handle(el);
+        try {
+          handle(el);
+        } finally {
+          if (m.isConnected && m.classList.contains('leaving')) m.remove(); // 다시 그려지지 않았어도 투명한 창이 남아 클릭을 막지 않게
+        }
       }, 170);
       return;
     }
@@ -2207,7 +2233,7 @@ function handle(el: HTMLElement) {
       hasSave = false;
       ui.game = null;
       ui.report = ui.outcome = ui.sheet = undefined;
-      ui.settings = ui.confirmReset = false;
+      ui.settings = ui.confirmReset = ui.overLog = false;
       break;
     case 'view':
       ui.view = v as 'tree' | 'list';
@@ -2225,7 +2251,11 @@ function handle(el: HTMLElement) {
       savePrefs();
       if (v === '1') sfx('choose');
       break;
+    case 'over-back':
+      ui.overLog = false;
+      break;
     case 'tab':
+      if (g?.gameOver) ui.overLog = true;
       if (ui.tab !== v) window.scrollTo(0, 0); // 새 탭은 맨 위에서 시작
       ui.tab = v as Tab;
       ui.sheet = undefined;
