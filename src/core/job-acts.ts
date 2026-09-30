@@ -123,6 +123,7 @@ function runJa(s: GameState, p: Person, job: string, a: JA, boost: number): stri
     s.events.push({ uid: s.eventSeq++, defId: 'hid_risk', personId: p.id, data: { id: p.job } });
     tail += '\n⚠ 뒤탈이 났다…';
   }
+  if (kind === 'jackpot' && t === 'great' && !p.flags.includes('hid_jackpot')) p.flags.push('hid_jackpot');
   // 일 속에서 숨은 길의 단서를 만나기도 한다
   if (t === 'great') tail += jobDoor(s, p);
   const ls = lines.split('|');
@@ -138,9 +139,11 @@ function hnum(key: string): number {
   return Math.abs(x);
 }
 
-/** 직급 구간: 직급 사다리의 아래 절반은 신참, 위 절반은 고참 */
+/** 직급 구간: 직급 사다리의 아래 절반은 신참, 위 절반은 고참 (히든 직업은 햇수로) */
 function inBand(p: Person, job: string, band?: Band): boolean {
   if (!band || band === 'opp') return true;
+  // 히든 직업은 직급이 없다: 3년 안이면 입문, 넘으면 고참
+  if (job.startsWith('hj_')) return band === 'lo' ? p.jobYears < 3 : p.jobYears >= 3;
   const max = JOBS[job]?.maxLevel ?? 0;
   const mid = Math.max(1, Math.ceil(max / 2));
   return band === 'lo' ? p.jobLevel < mid : p.jobLevel >= mid;

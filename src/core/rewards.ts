@@ -62,7 +62,7 @@ export function grant(s: GameState, icon: string, title: string, text: string, r
 }
 
 /** 업적 희귀도 */
-const LEGEND = new Set(['president', 'nobel', 'chaebol', 'world_star', 'olympic_gold', 'gen10', 'bicentury', 'rich1000', 'chief_justice', 'prosecutor_general', 'billboard', 'rival_fallen']);
+const LEGEND = new Set(['president', 'nobel', 'chaebol', 'world_star', 'olympic_gold', 'gen10', 'bicentury', 'rich1000', 'chief_justice', 'prosecutor_general', 'billboard', 'rival_fallen', 'hid_hoh', 'hid_super10']);
 const SHAME = new Set(['draft_dodger', 'bankrupt', 'guarantee_victim', 'dui', 'ponzi_victim', 'forgery', 'idle3', 'noble_idle', 'gray_divorce']);
 export function achvRarity(id: string, cat: string): Rarity | undefined {
   if (SHAME.has(id)) return undefined;

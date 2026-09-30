@@ -321,4 +321,11 @@ export const ACHIEVEMENTS: Record<string, { cat: AchvCat; name: string; desc: st
   saga_run: A('인생', '42.195', '러너 이야기를 끝까지 겪다'),
   saga_redev: A('인생', '조합장님', '재개발을 끝까지 이끌다'),
   saga_hidden: A('결혼·자녀', '핏줄', '숨겨진 형제와 가족이 되다'),
+  // 히든 직업 (job-acts-hidden · stories-work-hidden)
+  hid_legend10: A('영광', '그림자의 전설', '히든 직업으로 10년을 버티다'),
+  hid_super10: A('영광', '밤을 지배한 10년', '슈퍼 히든 직업으로 10년을 버티다'),
+  hid_pair: A('가문', '비밀의 가문', '살아 있는 가족 둘이 동시에 히든 직업'),
+  hid_hoh: A('영광', '히든의 히든', '히든의 히든 직업에 오르다'),
+  hid_jackpot: A('인생', '일생일대', '히든 직업의 「일생일대」 기회에서 대박을 내다'),
+  hid_clean: A('인생', '손을 씻다', '히든 직업에서 평범한 삶으로 돌아오다'),
 };

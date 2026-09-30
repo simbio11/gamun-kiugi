@@ -34,6 +34,9 @@ import { WORK2_STORIES } from '../src/core/stories-work2';
 import { WORK3_STORIES } from '../src/core/stories-work3';
 import { WORK4_STORIES } from '../src/core/stories-work4';
 import { WORK5_STORIES } from '../src/core/stories-work5';
+import { HIDDEN_WORK_STORIES } from '../src/core/stories-work-hidden';
+import { HX } from '../src/core/job-acts-hidden';
+import { HIDDEN } from '../src/core/hidden-data';
 import { JOB_ACTS } from '../src/core/job-acts';
 import { _quest, eligible, lowly, QUEST_IDS } from '../src/core/hidden-quest';
 import { obeys, willOf } from '../src/core/autonomy';
@@ -856,6 +859,28 @@ describe('부모님 유산', () => {
     expect(thin).toEqual([]);
   });
 
+  it('히든 직업: 42개 모두 전용 행동 여섯(입문·고참·올해의 기회 둘 포함) + 직장 이야기 셋 이상', () => {
+    const thin: string[] = [];
+    for (const h of HIDDEN) {
+      const l = HX[h.id] ?? [];
+      const opp = l.filter((a) => a[6] === 'opp').length;
+      if (l.length < 6 || opp < 2 || !l.some((a) => a[6] === 'lo') || !l.some((a) => a[6] === 'hi')) thin.push(`acts:${h.id}`);
+      for (const a of l) if (a[5].split('|').length !== 4) thin.push(`lines:${h.id}:${a[1]}`);
+      const n = HIDDEN_WORK_STORIES.filter((st) => st.id.startsWith(`wk_h_${h.id}_`)).length;
+      if (n < 3) thin.push(`story:${h.id}:${n}`);
+    }
+    expect(HIDDEN.length).toBe(42);
+    expect(thin).toEqual([]);
+    // 직장 이야기는 실제로 그 직업인 사람에게 나온다
+    const s = newGame({ seed: 8, familyName: '서', sex: 'F' });
+    const h = head(s);
+    s.year += 30;
+    h.job = 'hj_gumiho';
+    const mine = HIDDEN_WORK_STORIES.filter((st) => st.cond!(s, h));
+    expect(mine.length).toBeGreaterThanOrEqual(5);
+    expect(mine.every((st) => st.id.includes('hj_gumiho'))).toBe(true);
+  });
+
   it('모든 명예의 전당 카드는 실제 플레이로 얻을 수 있다 (자동 조건 또는 정점 이벤트, 2단계까지 끝까지)', () => {
     const fail: string[] = [];
     for (const d of CARDS) {
@@ -1018,7 +1043,7 @@ describe('부모님 유산', () => {
 
   it('직업 전용 행동: 모든 일반 직업마다 전용 행동 둘 + 올해의 기회 하나', () => {
     const skip = ['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'mayor', 'landlord'];
-    const missing = JOB_IDS.filter((id) => !skip.includes(id) && (JOB_ACTS[id]?.length ?? 0) < (id.startsWith('hj_') ? 4 : 6));
+    const missing = JOB_IDS.filter((id) => !skip.includes(id) && (JOB_ACTS[id]?.length ?? 0) < 6);
     expect(missing).toEqual([]);
     for (const [id, list] of Object.entries(JOB_ACTS)) {
       expect(JOB_IDS).toContain(id);
@@ -1037,8 +1062,12 @@ describe('부모님 유산', () => {
     expect(mine().some((a) => a.name.includes('🎖'))).toBe(true); // 고참 전용
     // 히든 직업은 「내 직업」에서 전용 행동을 한다
     h.job = 'hj_magician';
+    h.jobYears = 1;
     const hid = ACTIONS.filter((a) => a.id.startsWith('ja_hj_magician_') && a.show!(s));
-    expect(hid.filter((a) => a.cat === '내 직업').length).toBe(3);
+    expect(hid.filter((a) => a.cat === '내 직업').length).toBe(4); // 둘 + 입문 전용 + 숨 고르기
+    expect(hid.some((a) => a.name.includes('🌱'))).toBe(true);
+    h.jobYears = 5;
+    expect(ACTIONS.some((a) => a.id.startsWith('ja_hj_magician_') && a.show!(s) && a.name.includes('🎖'))).toBe(true); // 3년 넘으면 고참 전용
     s.ap = 5;
     h.cash = 1e6;
     expect(doAction(s, hid.find((a) => a.cat === '내 직업')!.id).ok).toBe(true);
