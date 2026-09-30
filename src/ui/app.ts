@@ -1105,7 +1105,7 @@ function rewardModal(r: Reward): string {
   </div>`;
 }
 const g0 = () => ui.game;
-const cardArt = (d: CardDef, locked = false) => cardFrontURL(d.id, d.icon, (CARD_THEME[d.id] ?? 'power') as Theme, d.rarity, locked);
+const cardArt = (d: CardDef, locked = false) => cardFrontURL(d.id, d.icon, (CARD_THEME[d.id] ?? 'power') as Theme, d.rarity, locked, cardTier(d));
 
 /** 🃏 카드 뷰어: 실물 카드처럼 크게. 기울이면 홀로그램, 누르면 뒤집힌다 */
 function cardViewer(g: GameState, id: string): string {
@@ -1119,11 +1119,10 @@ function cardViewer(g: GameState, id: string): string {
       <div class="cv-card ${d.rarity} ${got ? '' : 'locked'}" data-action="flip-card">
         <div class="cv-face cv-front">
           <img class="cv-img" src="${cardArt(d, !got)}" alt="">
-          <div class="cv-name">${got ? d.name : '???'}</div>
-          <div class="cv-no">No.${String(cardNo(id)).padStart(3, '0')}</div>
+          <div class="cv-no">No.${String(cardNo(id)).padStart(3, '0')} · ${RARITY_NAME[d.rarity]}</div>
           ${hp ? `<img class="cv-portrait" src="${portraitURL(hp, alive(hp) ? age(g, hp) : hp.deathYear! - hp.birthYear)}" alt="">` : ''}
           <div class="cv-bottom">
-            <div class="cv-stars">${'★'.repeat(cardTier(d))}<span>${RARITY_NAME[d.rarity]}</span></div>
+            <b class="cv-title">${got ? d.name : '???'}</b>
             ${got ? `<b>${hs.map((c) => esc(fullName(g.people[c.personId]))).join(', ')}</b><small>${hs[0].year}년 획득</small>` : `<b>미획득</b><small>${esc(d.how)}</small>`}
             <em>${esc(effText(d.eff))}</em>
           </div>
@@ -1622,7 +1621,7 @@ function achvScreen(g: GameState): string {
     <h2>🃏 명예의 전당 카드 <small class="muted">${dexGot.size}/${CARDS.length}종</small></h2>
     <div class="cdex">${[...CARDS].sort((a, b) => Number(dexGot.has(b.id)) - Number(dexGot.has(a.id))).slice(0, ui.open?.dex ? 999 : 6).map((d) => {
       const who = dexGot.get(d.id);
-      return `<button class="dx ${who ? d.rarity : 'locked'}" data-action="card-view" data-id="${d.id}"><img class="dx-art" src="${cardArt(d, !who)}" alt=""><b>${d.name}</b><i class="dx-tier">${'★'.repeat(cardTier(d))}</i><small>${who ? esc(who.join(', ')) : '미획득'}</small></button>`;
+      return `<button class="dx ${who ? d.rarity : 'locked'}" data-action="card-view" data-id="${d.id}"><span class="dx-c"><img class="dx-art" src="${cardArt(d, !who)}" alt=""><i class="dx-nm">${who ? d.name : '???'}</i></span><small>${who ? esc(who.join(', ')) : '미획득'}</small></button>`;
     }).join('')}</div>
     <button class="more-btn" data-action="more" data-v="dex">${ui.open?.dex ? '▲ 접기' : `▼ 더보기 (${CARDS.length - 6}종 더)`}</button>
     <p class="fine">★ 난이도 (★★★는 2단계 도전·선행 카드). 카드 주인이 살아 있는 동안 효과가 계속된다. 3·6·10·16·24종을 모으면 세트 보상.</p>
