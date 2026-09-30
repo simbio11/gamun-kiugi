@@ -37,8 +37,8 @@ import { gearStudyMul, pcOf } from './devices';
 
 export type Tier = 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | 'X';
 export const TIERS: Record<Tier, { name: string; flag: string; tuition: number }> = {
-  S: { name: '서울대', flag: 'univ_top', tuition: 600 },
-  A: { name: '연고대', flag: 'univ_top', tuition: 950 },
+  S: { name: '한국대', flag: 'univ_top', tuition: 600 },
+  A: { name: '연희·고구려대', flag: 'univ_top', tuition: 950 },
   B: { name: '인서울', flag: 'univ_seoul', tuition: 900 },
   C: { name: '지방 거점국립대', flag: 'univ_local', tuition: 450 },
   D: { name: '지방 사립대', flag: 'univ_local', tuition: 850 },
@@ -81,14 +81,14 @@ function prog(tier: Tier, major: string, key: string, cut: number, o: Partial<Pr
 }
 // 의약
 prog('S', '의예과', 'med', 99.8, { years: 6, track: 'med_school', tuition: 1200 });
-prog('C', '의예과', 'med', 99.1, { school: '경북대', years: 6, track: 'med_school', tuition: 1100 });
-prog('A', '치의예과', 'dent', 99.2, { school: '연세대', years: 6, track: 'dent_school', tuition: 1300 });
-prog('C', '치의예과', 'dent', 98.7, { school: '전남대', years: 6, track: 'dent_school', tuition: 1000 });
-prog('D', '한의예과', 'kmd', 98.0, { school: '대구한의대', years: 6, track: 'kmd_school', tuition: 1100 });
+prog('C', '의예과', 'med', 99.1, { school: '경원대', years: 6, track: 'med_school', tuition: 1100 });
+prog('A', '치의예과', 'dent', 99.2, { school: '연희대', years: 6, track: 'dent_school', tuition: 1300 });
+prog('C', '치의예과', 'dent', 98.7, { school: '전일대', years: 6, track: 'dent_school', tuition: 1000 });
+prog('D', '한의예과', 'kmd', 98.0, { school: '달구벌한의대', years: 6, track: 'kmd_school', tuition: 1100 });
 prog('S', '수의예과', 'vet', 98.5, { years: 6, track: 'vet_school' });
-prog('C', '수의예과', 'vet', 97.0, { school: '충남대', years: 6, track: 'vet_school' });
-prog('A', '약학과', 'pharm', 98.8, { school: '연세대', years: 6, track: 'pharm_school', tuition: 1100 });
-prog('C', '약학부', 'pharm', 98.3, { school: '부산대', years: 6, track: 'pharm_school' });
+prog('C', '수의예과', 'vet', 97.0, { school: '충일대', years: 6, track: 'vet_school' });
+prog('A', '약학과', 'pharm', 98.8, { school: '연희대', years: 6, track: 'pharm_school', tuition: 1100 });
+prog('C', '약학부', 'pharm', 98.3, { school: '부일대', years: 6, track: 'pharm_school' });
 prog('B', '간호학과', 'nurse', 90, { track: 'nurse_school', tag: 'public' });
 prog('D', '간호학과', 'nurse', 72, { track: 'nurse_school', tag: 'public' });
 prog('D', '물리치료학과', 'pt', 62, { track: 'health_pt', tag: 'public' });
@@ -105,8 +105,8 @@ prog('E', '유아교육과', 'kinder', 40, { years: 3, track: 'kinder_edu', tag:
 // 특수대학
 prog('X', '치안학과 (4년 · 경위 임관)', 'police', 97, { school: '경찰대학', special: 'military', track: 'police_univ', need: { stat: 'str', min: 35 }, tag: 'public', note: '학비 국비 · 졸업 즉시 경위' });
 prog('X', '생도 (4년 · 소위 임관)', 'army', 93.5, { school: '육군사관학교', special: 'military', track: 'academy', need: { stat: 'hp', min: 45 }, tag: 'public', note: '경쟁률 약 30:1 · 학비 전액 국비' });
-prog('X', '항해학부', 'marine', 72, { school: '한국해양대', track: 'maritime', tuition: 400, tag: 'free' });
-prog('X', '항공운항학과', 'flight', 91, { school: '항공대', track: 'flight_univ', tuition: 1100, need: { stat: 'hp', min: 45 } });
+prog('X', '항해학부', 'marine', 72, { school: '국립해양대', track: 'maritime', tuition: 400, tag: 'free' });
+prog('X', '항공운항학과', 'flight', 91, { school: '대한항공대', track: 'flight_univ', tuition: 1100, need: { stat: 'hp', min: 45 } });
 // 문과
 prog('S', '경영학과', 'biz', 98.7, { tag: 'business' });
 prog('A', '경영학과', 'biz', 96.5, { tag: 'business' });
@@ -150,9 +150,9 @@ prog('C', '생명과학과', 'bio', 73);
 prog('C', '농생명과학대학', 'agri', 64, { tag: 'free' });
 prog('D', '스마트팜학과', 'agri', 42, { tag: 'business' });
 // 특별 전형 (정시 원서로는 못 간다)
-prog('X', 'KAIST 새내기과정', 'cs', 98.5, { school: 'KAIST', special: 'sci', tuition: 0 });
-prog('X', 'POSTECH 무학과', 'ee', 98.3, { school: 'POSTECH', special: 'sci', tuition: 0 });
-prog('X', 'UNIST 이공계열', 'bio', 96, { school: 'UNIST', special: 'sci', tuition: 0 });
+prog('X', 'KAST 새내기과정', 'cs', 98.5, { school: 'KAST', special: 'sci', tuition: 0 });
+prog('X', 'POSTEK 무학과', 'ee', 98.3, { school: 'POSTEK', special: 'sci', tuition: 0 });
+prog('X', 'UNISTEK 이공계열', 'bio', 96, { school: 'UNISTEK', special: 'sci', tuition: 0 });
 prog('X', '미국 명문대 경영학', 'biz', 95, { school: '해외 대학', special: 'abroad', tuition: 8000, tag: 'business' });
 prog('X', '미국 명문대 컴퓨터과학', 'cs', 96, { school: '해외 대학', special: 'abroad', tuition: 8000 });
 prog('X', '영국 대학 디자인', 'design', 85, { school: '해외 대학', special: 'abroad', tuition: 6000, tag: 'stage' });
@@ -164,11 +164,11 @@ prog('E', '자동차과', 'auto', 25, { years: 2, tag: 'free' });
 prog('E', 'IT소프트웨어과', 'itc', 38, { years: 2 });
 // 예체능 (실기 70% + 수능 30%)
 prog('S', '미술대학', 'art', 70, { track: 'art_school', practical: { stat: 'cha', need: 75 }, tag: 'stage' });
-prog('B', '미술대학', 'art', 55, { school: '홍익대', track: 'art_school', practical: { stat: 'cha', need: 62 }, tag: 'stage' });
+prog('B', '미술대학', 'art', 55, { school: '홍문대', track: 'art_school', practical: { stat: 'cha', need: 62 }, tag: 'stage' });
 prog('D', '시각디자인과', 'design', 35, { practical: { stat: 'cha', need: 48 }, tag: 'stage' });
 prog('S', '음악대학', 'music', 70, { track: 'music_school', practical: { stat: 'cha', need: 76 }, tag: 'stage' });
 prog('D', '실용음악과', 'music', 30, { track: 'music_school', practical: { stat: 'cha', need: 52 }, tag: 'stage' });
-prog('A', '연기예술학과', 'acting', 60, { school: '성균관대', practical: { stat: 'cha', need: 70 }, tag: 'stage' });
+prog('A', '연기예술학과', 'acting', 60, { school: '성균원대', practical: { stat: 'cha', need: 70 }, tag: 'stage' });
 prog('D', '연기예술과', 'acting', 30, { practical: { stat: 'cha', need: 50 }, tag: 'stage' });
 prog('S', '체육교육과', 'sport', 75, { practical: { stat: 'str', need: 72 }, tag: 'sport' });
 prog('C', '체육학과', 'sport', 45, { practical: { stat: 'str', need: 58 }, tag: 'sport' });
@@ -229,39 +229,39 @@ const MIL = { special: 'military' as const, tuition: NO_FEE, tag: 'public' as co
 prog('X', '생도 (4년 · 해군 소위 임관)', 'army', 92.5, { ...MIL, school: '해군사관학교', track: 'academy', need: { stat: 'hp', min: 48 }, note: '경쟁률 약 26:1 · 원양 순항훈련' });
 prog('X', '생도 (4년 · 공군 소위 임관)', 'army', 93, { ...MIL, school: '공군사관학교', track: 'academy_air', need: { stat: 'hp', min: 52 }, note: '조종 특기 · 신체검사 엄격' });
 prog('X', '생도 (4년 · 간호장교)', 'nurse', 92, { ...MIL, school: '국군간호사관학교', track: 'academy_nurse', need: { stat: 'hp', min: 40 }, note: '간호사 면허 + 소위 임관' });
-prog('X', '해양경찰학과 (특채)', 'police', 72, { ...MIL, school: '한국해양대', tuition: 400, track: 'coast_guard', need: { stat: 'hp', min: 45 }, note: '졸업 후 해경 간부후보' });
-prog('X', '철도운전시스템 (2년)', 'rail', 70, { school: '한국교통대 철도대학', years: 2, tuition: 350, track: 'rail', tag: 'public', note: '기관사 면허로 직행' });
-prog('X', '항해·기관학부', 'marine', 58, { school: '목포해양대', tuition: 350, track: 'maritime', tag: 'free', note: '승선 실습 · 해기사' });
-prog('X', '항공운항학과', 'flight', 84, { school: '한서대', tuition: 1100, track: 'flight_univ', need: { stat: 'hp', min: 45 }, note: '자체 비행장 · 조종사' });
+prog('X', '해양경찰학과 (특채)', 'police', 72, { ...MIL, school: '국립해양대', tuition: 400, track: 'coast_guard', need: { stat: 'hp', min: 45 }, note: '졸업 후 해경 간부후보' });
+prog('X', '철도운전시스템 (2년)', 'rail', 70, { school: '국립교통대 철도학부', years: 2, tuition: 350, track: 'rail', tag: 'public', note: '기관사 면허로 직행' });
+prog('X', '항해·기관학부', 'marine', 58, { school: '남해해양대', tuition: 350, track: 'maritime', tag: 'free', note: '승선 실습 · 해기사' });
+prog('X', '항공운항학과', 'flight', 84, { school: '한주대', tuition: 1100, track: 'flight_univ', need: { stat: 'hp', min: 45 }, note: '자체 비행장 · 조종사' });
 // 국립 특수대
-prog('X', '초등교육과', 'edu_elem', 93, { school: '서울교육대학교', track: 'edu_elem', tuition: 350, tag: 'public', note: '임용 합격률 높음' });
-prog('X', '초등교육과', 'edu_elem', 86, { school: '춘천교육대학교', track: 'edu_elem', tuition: 350, tag: 'public', note: '지역 교대' });
-prog('X', '사범대 (교원 양성 특화)', 'edu', 90, { school: '한국교원대학교', track: 'edu_school', tuition: 350, tag: 'public', note: '전원 기숙사 · 임용 강세' });
-prog('X', '스마트팜·축산 (3년)', 'agri', 48, { school: '한국농수산대학교', years: 3, tuition: NO_FEE, track: 'agri_univ', tag: 'business', note: '학비 전액 국비 · 졸업 후 영농' });
-prog('X', '문화재보존과학과', 'heritage', 70, { school: '한국전통문화대학교', tuition: 350, tag: 'public', note: '국가유산 전문가' });
-prog('X', '생활체육·경기지도', 'sport', 55, { school: '한국체육대학교', tuition: 400, practical: { stat: 'str', need: 76 }, tag: 'sport', note: '국가대표 산실' });
-// 한국예술종합학교 (수능 없이 실기 위주)
-prog('X', '미술원 조형예술과', 'art', 50, { school: '한국예술종합학교', tuition: 350, track: 'art_school', practical: { stat: 'cha', need: 80 }, tag: 'stage', note: '실기 100% 가까이' });
-prog('X', '음악원 기악과', 'music', 50, { school: '한국예술종합학교', tuition: 350, track: 'music_school', practical: { stat: 'cha', need: 82 }, tag: 'stage', note: '콩쿠르 입상자 즐비' });
-prog('X', '연극원 연기과', 'acting', 50, { school: '한국예술종합학교', tuition: 350, practical: { stat: 'cha', need: 80 }, tag: 'stage', note: '배우 사관학교' });
-prog('X', '영상원 영화과', 'film', 55, { school: '한국예술종합학교', tuition: 350, practical: { stat: 'cha', need: 76 }, tag: 'stage', note: '감독·촬영' });
-prog('X', '영상원 애니메이션과', 'anim', 55, { school: '한국예술종합학교', tuition: 350, practical: { stat: 'cha', need: 74 }, tag: 'stage' });
-prog('X', '무용원 실기과', 'acting', 45, { school: '한국예술종합학교', tuition: 350, practical: { stat: 'cha', need: 78 }, tag: 'stage' });
+prog('X', '초등교육과', 'edu_elem', 93, { school: '수도교육대학교', track: 'edu_elem', tuition: 350, tag: 'public', note: '임용 합격률 높음' });
+prog('X', '초등교육과', 'edu_elem', 86, { school: '강원교육대학교', track: 'edu_elem', tuition: 350, tag: 'public', note: '지역 교대' });
+prog('X', '사범대 (교원 양성 특화)', 'edu', 90, { school: '대한교원대학교', track: 'edu_school', tuition: 350, tag: 'public', note: '전원 기숙사 · 임용 강세' });
+prog('X', '스마트팜·축산 (3년)', 'agri', 48, { school: '국립농수산대학교', years: 3, tuition: NO_FEE, track: 'agri_univ', tag: 'business', note: '학비 전액 국비 · 졸업 후 영농' });
+prog('X', '문화재보존과학과', 'heritage', 70, { school: '전통문화대학교', tuition: 350, tag: 'public', note: '국가유산 전문가' });
+prog('X', '생활체육·경기지도', 'sport', 55, { school: '대한체육대학교', tuition: 400, practical: { stat: 'str', need: 76 }, tag: 'sport', note: '국가대표 산실' });
+// 대한예술종합학교 (수능 없이 실기 위주)
+prog('X', '미술원 조형예술과', 'art', 50, { school: '대한예술종합학교', tuition: 350, track: 'art_school', practical: { stat: 'cha', need: 80 }, tag: 'stage', note: '실기 100% 가까이' });
+prog('X', '음악원 기악과', 'music', 50, { school: '대한예술종합학교', tuition: 350, track: 'music_school', practical: { stat: 'cha', need: 82 }, tag: 'stage', note: '콩쿠르 입상자 즐비' });
+prog('X', '연극원 연기과', 'acting', 50, { school: '대한예술종합학교', tuition: 350, practical: { stat: 'cha', need: 80 }, tag: 'stage', note: '배우 사관학교' });
+prog('X', '영상원 영화과', 'film', 55, { school: '대한예술종합학교', tuition: 350, practical: { stat: 'cha', need: 76 }, tag: 'stage', note: '감독·촬영' });
+prog('X', '영상원 애니메이션과', 'anim', 55, { school: '대한예술종합학교', tuition: 350, practical: { stat: 'cha', need: 74 }, tag: 'stage' });
+prog('X', '무용원 실기과', 'acting', 45, { school: '대한예술종합학교', tuition: 350, practical: { stat: 'cha', need: 78 }, tag: 'stage' });
 // 이공 특성화 (영재·과학고 특별전형)
-prog('X', '기초교육학부', 'bio', 95.5, { school: 'GIST', special: 'sci', tuition: 0, note: '전원 장학 · 광주' });
-prog('X', '기초학부', 'ee', 95, { school: 'DGIST', special: 'sci', tuition: 0, note: '무학과 융복합' });
-prog('X', '에너지공학부', 'ee', 94.5, { school: '한국에너지공대 (KENTECH)', special: 'sci', tuition: 0, note: '나주 · 에너지 특화' });
+prog('X', '기초교육학부', 'bio', 95.5, { school: 'G-TECH', special: 'sci', tuition: 0, note: '전원 장학 · 광주' });
+prog('X', '기초학부', 'ee', 95, { school: 'D-TECH', special: 'sci', tuition: 0, note: '무학과 융복합' });
+prog('X', '에너지공학부', 'ee', 94.5, { school: '미래에너지공대 (K-TECH)', special: 'sci', tuition: 0, note: '나주 · 에너지 특화' });
 // 이름 있는 학과들 (정시)
-prog('A', '반도체시스템공학과 (계약학과)', 'ee', 97.8, { school: '성균관대', note: '대기업 채용 연계' });
-prog('A', '연극영화학과', 'acting', 60, { school: '중앙대', practical: { stat: 'cha', need: 72 }, tag: 'stage' });
-prog('A', '통번역학과', 'lang', 94, { school: '한국외대', tag: 'free' });
-prog('B', '조리과학과', 'cook', 82, { school: '경희대', tag: 'free', note: '호텔·외식 명문' });
-prog('B', '호텔관광경영학과', 'hotel', 83, { school: '세종대', tag: 'free' });
-prog('B', '공업디자인학과', 'design', 50, { school: '국민대 조형대', practical: { stat: 'cha', need: 64 }, tag: 'stage' });
-prog('B', '패션디자인학과', 'fashion', 50, { school: '홍익대', practical: { stat: 'cha', need: 66 }, tag: 'stage' });
-prog('B', '영상애니메이션학과', 'anim', 45, { school: '세종대', practical: { stat: 'cha', need: 60 }, tag: 'stage' });
-prog('B', '게임소프트웨어학과', 'game', 84, { school: '인서울 게임학과', tag: 'study' });
-prog('D', '글로벌외식조리 (영어 수업)', 'cook', 44, { school: '우송대 솔브릿지', tuition: 1100, tag: 'free', note: '해외 셰프 교수진' });
+prog('A', '반도체시스템공학과 (계약학과)', 'ee', 97.8, { school: '성균원대', note: '대기업 채용 연계' });
+prog('A', '연극영화학과', 'acting', 60, { school: '중도대', practical: { stat: 'cha', need: 72 }, tag: 'stage' });
+prog('A', '통번역학과', 'lang', 94, { school: '국제외대', tag: 'free' });
+prog('B', '조리과학과', 'cook', 82, { school: '경혜대', tag: 'free', note: '호텔·외식 명문' });
+prog('B', '호텔관광경영학과', 'hotel', 83, { school: '세원대', tag: 'free' });
+prog('B', '공업디자인학과', 'design', 50, { school: '시민대 조형대', practical: { stat: 'cha', need: 64 }, tag: 'stage' });
+prog('B', '패션디자인학과', 'fashion', 50, { school: '홍문대', practical: { stat: 'cha', need: 66 }, tag: 'stage' });
+prog('B', '영상애니메이션학과', 'anim', 45, { school: '세원대', practical: { stat: 'cha', need: 60 }, tag: 'stage' });
+prog('B', '게임소프트웨어학과', 'game', 84, { school: '수도권 게임학과', tag: 'study' });
+prog('D', '글로벌외식조리 (영어 수업)', 'cook', 44, { school: '우성대 솔브릿지', tuition: 1100, tag: 'free', note: '해외 셰프 교수진' });
 prog('D', '호텔외식조리학과', 'cook', 40, { tag: 'free' });
 prog('D', '패션산업학과', 'fashion', 40, { tag: 'stage' });
 prog('D', '항공정비학과', 'auto', 40, { tag: 'free' });
@@ -271,14 +271,14 @@ prog('D', '문화재·관광학과', 'heritage', 36, { tag: 'free' });
 prog('C', '해양경찰학과', 'police', 62, { tag: 'public' });
 prog('C', '항공교통물류학과', 'marine', 58, { tag: 'free' });
 // 전문대 (실무형)
-prog('E', '자동화·전기·반도체장비 (2년)', 'auto', 12, { school: '한국폴리텍대학', years: 2, tuition: 250, tag: 'free', note: '학비 저렴 · 취업률 높음' });
-prog('E', '컴퓨터정보계열 (주문식 교육)', 'itc', 40, { school: '영진전문대', years: 3, tag: 'study', note: '대기업 협약반' });
-prog('E', '연기과', 'acting', 30, { school: '서울예술대학교', years: 3, practical: { stat: 'cha', need: 66 }, tag: 'stage', note: '방송·예능인 배출' });
-prog('E', '실용음악과', 'music', 30, { school: '서울예술대학교', years: 3, track: 'music_school', practical: { stat: 'cha', need: 64 }, tag: 'stage' });
-prog('E', '문예창작과', 'media', 34, { school: '서울예술대학교', years: 3, tag: 'stage' });
-prog('E', '시각디자인과', 'design', 28, { school: '계원예술대학교', years: 3, practical: { stat: 'cha', need: 52 }, tag: 'stage' });
-prog('E', '방송영상과', 'film', 26, { school: '동아방송예술대학교', years: 2, practical: { stat: 'cha', need: 48 }, tag: 'stage' });
-prog('E', '만화·애니메이션·게임', 'anim', 24, { school: '청강문화산업대학교', years: 3, practical: { stat: 'cha', need: 46 }, tag: 'stage', note: '웹툰 작가 산실' });
+prog('E', '자동화·전기·반도체장비 (2년)', 'auto', 12, { school: '대한폴리텍대학', years: 2, tuition: 250, tag: 'free', note: '학비 저렴 · 취업률 높음' });
+prog('E', '컴퓨터정보계열 (주문식 교육)', 'itc', 40, { school: '영성전문대', years: 3, tag: 'study', note: '대기업 협약반' });
+prog('E', '연기과', 'acting', 30, { school: '남산예술대학교', years: 3, practical: { stat: 'cha', need: 66 }, tag: 'stage', note: '방송·예능인 배출' });
+prog('E', '실용음악과', 'music', 30, { school: '남산예술대학교', years: 3, track: 'music_school', practical: { stat: 'cha', need: 64 }, tag: 'stage' });
+prog('E', '문예창작과', 'media', 34, { school: '남산예술대학교', years: 3, tag: 'stage' });
+prog('E', '시각디자인과', 'design', 28, { school: '계성예술대학교', years: 3, practical: { stat: 'cha', need: 52 }, tag: 'stage' });
+prog('E', '방송영상과', 'film', 26, { school: '동방방송예술대학교', years: 2, practical: { stat: 'cha', need: 48 }, tag: 'stage' });
+prog('E', '만화·애니메이션·게임', 'anim', 24, { school: '청운문화산업대학교', years: 3, practical: { stat: 'cha', need: 46 }, tag: 'stage', note: '웹툰 작가 산실' });
 prog('E', '조리과학과', 'cook', 22, { years: 2, tag: 'free' });
 prog('E', '호텔관광과', 'hotel', 26, { years: 2, tag: 'free' });
 prog('E', '패션디자인과', 'fashion', 24, { years: 2, tag: 'stage' });
@@ -289,34 +289,34 @@ prog('E', '철도운전과', 'rail', 30, { years: 2, tag: 'public' });
 prog('E', '세무회계과', 'biz', 24, { years: 2, tag: 'business' });
 // 해외 대학 (영어·에세이·인터뷰. 학비·생활비 합쳐 연 만원 단위)
 const AB = { special: 'abroad' as const };
-prog('X', '경제학 (Harvard)', 'econ', 99, { ...AB, school: '미국 하버드대', tuition: 12000, tag: 'business', note: '합격률 3%대' });
-prog('X', '컴퓨터과학 (Stanford)', 'cs', 98.5, { ...AB, school: '미국 스탠퍼드대', tuition: 12000, note: '실리콘밸리 한복판' });
-prog('X', '전기·컴퓨터공학 (MIT)', 'ee', 98.5, { ...AB, school: '미국 MIT', tuition: 12000 });
-prog('X', 'PPE (철학·정치·경제)', 'admin', 97, { ...AB, school: '영국 옥스퍼드대', years: 3, tuition: 9000, tag: 'public', note: '3년제 · 튜토리얼' });
-prog('X', '자연과학 (Natural Sciences)', 'bio', 97, { ...AB, school: '영국 케임브리지대', years: 3, tuition: 9000 });
-prog('X', '경제학부', 'econ', 94, { ...AB, school: '일본 도쿄대', tuition: 2500, note: '일본어 필수' });
-prog('X', '컴퓨팅학부', 'cs', 93, { ...AB, school: '싱가포르국립대 (NUS)', tuition: 5000, note: '아시아 1위권' });
-prog('X', '공학부', 'ee', 90, { ...AB, school: '중국 칭화대', tuition: 2500, note: '중국어 필수' });
-prog('X', '기계공학', 'mech', 88, { ...AB, school: '독일 뮌헨공대 (TUM)', tuition: 3000, note: '독일어 · 학비 비교적 저렴' });
-prog('X', '상경대 (Sauder)', 'biz', 85, { ...AB, school: '캐나다 UBC', tuition: 6000, tag: 'business' });
-prog('X', '간호학', 'nurse', 78, { ...AB, school: '호주 시드니대', years: 3, tuition: 6000, tag: 'public', note: '현지 취업·이민 루트' });
+prog('X', '경제학 (Harvard)', 'econ', 99, { ...AB, school: '미국 하버대', tuition: 12000, tag: 'business', note: '합격률 3%대' });
+prog('X', '컴퓨터과학 (Stanford)', 'cs', 98.5, { ...AB, school: '미국 스탠포트대', tuition: 12000, note: '실리콘밸리 한복판' });
+prog('X', '전기·컴퓨터공학 (MIT)', 'ee', 98.5, { ...AB, school: '미국 M-TECH', tuition: 12000 });
+prog('X', 'PPE (철학·정치·경제)', 'admin', 97, { ...AB, school: '영국 옥스포트대', years: 3, tuition: 9000, tag: 'public', note: '3년제 · 튜토리얼' });
+prog('X', '자연과학 (Natural Sciences)', 'bio', 97, { ...AB, school: '영국 케임브릿대', years: 3, tuition: 9000 });
+prog('X', '경제학부', 'econ', 94, { ...AB, school: '일본 동도대', tuition: 2500, note: '일본어 필수' });
+prog('X', '컴퓨팅학부', 'cs', 93, { ...AB, school: '싱가포르국립대 (S-NUS)', tuition: 5000, note: '아시아 1위권' });
+prog('X', '공학부', 'ee', 90, { ...AB, school: '중국 청화대', tuition: 2500, note: '중국어 필수' });
+prog('X', '기계공학', 'mech', 88, { ...AB, school: '독일 바이에른공대 (TUM)', tuition: 3000, note: '독일어 · 학비 비교적 저렴' });
+prog('X', '상경대 (Sauder)', 'biz', 85, { ...AB, school: '캐나다 BC국립대', tuition: 6000, tag: 'business' });
+prog('X', '간호학', 'nurse', 78, { ...AB, school: '호주 시드니국립대', years: 3, tuition: 6000, tag: 'public', note: '현지 취업·이민 루트' });
 prog('X', '2년 후 4년제 편입', 'biz', 50, { ...AB, school: '미국 커뮤니티 칼리지', years: 2, tuition: 3000, tag: 'business', note: '문턱 낮음 · 편입 루트' });
 // 해외 전문학교 (요리·디자인·예술: 실력·관심·돈이 필요. 수능과 무관)
 const VOC = { special: 'voc' as const };
-prog('X', '그랑 디플로마 (요리·제과)', 'cook', 60, { ...VOC, school: '프랑스 르 꼬르동 블루 파리', years: 1, tuition: 9500, elite: 'service', track: 'culinary', tag: 'free', note: '학비 약 6만 유로' });
-prog('X', '조리예술 학사', 'cook', 66, { ...VOC, school: '미국 CIA 요리학교', years: 4, tuition: 8000, elite: 'service', track: 'culinary', tag: 'free', note: '뉴욕 하이드파크' });
-prog('X', '조리사 본과', 'cook', 50, { ...VOC, school: '일본 츠지조리사전문학교', years: 1, tuition: 2500, elite: 'service', track: 'culinary', tag: 'free', note: '오사카 · 일식·프렌치' });
-prog('X', '이탈리아 요리 마스터', 'cook', 55, { ...VOC, school: '이탈리아 ICIF 요리학교', years: 1, tuition: 3500, elite: 'service', track: 'culinary', tag: 'free', note: '현지 레스토랑 인턴' });
-prog('X', '호텔경영 학사', 'hotel', 70, { ...VOC, school: '스위스 EHL 로잔 호텔학교', years: 4, tuition: 9000, elite: 'service', track: 'hotel_school', tag: 'business', note: '세계 1위 호텔스쿨' });
-prog('X', '커뮤니케이션 디자인', 'design', 72, { ...VOC, school: '미국 파슨스 디자인스쿨', tuition: 9000, elite: 'media', tag: 'stage', note: '학비 연 6만 달러' });
-prog('X', '패션디자인', 'fashion', 74, { ...VOC, school: '영국 센트럴 세인트 마틴', years: 3, tuition: 6500, elite: 'media', tag: 'stage', note: '런던 · 맥퀸 모교' });
-prog('X', '파인아트·일러스트', 'art', 74, { ...VOC, school: '미국 RISD', tuition: 9000, elite: 'media', track: 'art_school', tag: 'stage' });
-prog('X', '패션머천다이징 (2년)', 'fashion', 58, { ...VOC, school: '미국 뉴욕 FIT', years: 2, tuition: 5000, elite: 'media', tag: 'stage' });
-prog('X', '현대음악·작곡', 'music', 70, { ...VOC, school: '미국 버클리 음대', tuition: 9000, elite: 'media', track: 'music_school', tag: 'stage', note: 'K팝 작곡가 다수' });
-prog('X', '피아노·성악', 'music', 86, { ...VOC, school: '미국 줄리어드', tuition: 9000, elite: 'media', track: 'music_school', tag: 'stage', note: '합격률 한 자릿수' });
-prog('X', '애니메이션 (2년)', 'anim', 50, { ...VOC, school: '일본 도쿄 애니메이션 전문학교', years: 2, tuition: 2000, elite: 'media', tag: 'stage' });
-prog('X', '영화 연출 (1년)', 'film', 55, { ...VOC, school: '미국 뉴욕 필름 아카데미', years: 1, tuition: 6000, elite: 'media', tag: 'stage' });
-prog('X', '게임 디자인 (1년)', 'game', 55, { ...VOC, school: '캐나다 밴쿠버 필름스쿨', years: 1, tuition: 5000, elite: 'tech', tag: 'stage' });
+prog('X', '그랑 디플로마 (요리·제과)', 'cook', 60, { ...VOC, school: '프랑스 르 코르동 블루 파리', years: 1, tuition: 9500, elite: 'service', track: 'culinary', tag: 'free', note: '학비 약 6만 유로' });
+prog('X', '조리예술 학사', 'cook', 66, { ...VOC, school: '미국 AIC 요리학교', years: 4, tuition: 8000, elite: 'service', track: 'culinary', tag: 'free', note: '뉴욕 하이드파크' });
+prog('X', '조리사 본과', 'cook', 50, { ...VOC, school: '일본 오사카 츠지조리학교', years: 1, tuition: 2500, elite: 'service', track: 'culinary', tag: 'free', note: '오사카 · 일식·프렌치' });
+prog('X', '이탈리아 요리 마스터', 'cook', 55, { ...VOC, school: '이탈리아 FIC 요리학교', years: 1, tuition: 3500, elite: 'service', track: 'culinary', tag: 'free', note: '현지 레스토랑 인턴' });
+prog('X', '호텔경영 학사', 'hotel', 70, { ...VOC, school: '스위스 로잔호텔학교', years: 4, tuition: 9000, elite: 'service', track: 'hotel_school', tag: 'business', note: '세계 1위 호텔스쿨' });
+prog('X', '커뮤니케이션 디자인', 'design', 72, { ...VOC, school: '미국 파슨 디자인스쿨', tuition: 9000, elite: 'media', tag: 'stage', note: '학비 연 6만 달러' });
+prog('X', '패션디자인', 'fashion', 74, { ...VOC, school: '영국 세인트 마틴 스쿨', years: 3, tuition: 6500, elite: 'media', tag: 'stage', note: '런던 · 맥퀸 모교' });
+prog('X', '파인아트·일러스트', 'art', 74, { ...VOC, school: '미국 RIS 디자인스쿨', tuition: 9000, elite: 'media', track: 'art_school', tag: 'stage' });
+prog('X', '패션머천다이징 (2년)', 'fashion', 58, { ...VOC, school: '미국 뉴욕 FIT 패션스쿨', years: 2, tuition: 5000, elite: 'media', tag: 'stage' });
+prog('X', '현대음악·작곡', 'music', 70, { ...VOC, school: '미국 버클리 음악스쿨', tuition: 9000, elite: 'media', track: 'music_school', tag: 'stage', note: 'K팝 작곡가 다수' });
+prog('X', '피아노·성악', 'music', 86, { ...VOC, school: '미국 줄리어 음악학교', tuition: 9000, elite: 'media', track: 'music_school', tag: 'stage', note: '합격률 한 자릿수' });
+prog('X', '애니메이션 (2년)', 'anim', 50, { ...VOC, school: '일본 도쿄 아니메 전문학교', years: 2, tuition: 2000, elite: 'media', tag: 'stage' });
+prog('X', '영화 연출 (1년)', 'film', 55, { ...VOC, school: '미국 뉴욕 시네마 아카데미', years: 1, tuition: 6000, elite: 'media', tag: 'stage' });
+prog('X', '게임 디자인 (1년)', 'game', 55, { ...VOC, school: '캐나다 밴쿠버 시네마스쿨', years: 1, tuition: 5000, elite: 'tech', tag: 'stage' });
 
 // ───────── 실명 대학 확장 (수시·정시 공통. 합격선은 대략적인 입결 서열을 게임용으로 단순화) ─────────
 type UniMajor = [string, string, number, Partial<Program>?];
@@ -327,68 +327,68 @@ const BIZ: Partial<Program> = { tag: 'business' };
 const PUB: Partial<Program> = { tag: 'public' };
 const STG: Partial<Program> = { tag: 'stage' };
 // 상위권
-uni('A', '연세대', 96.5, [['경영학과', 'biz', 0.5, BIZ], ['컴퓨터과학과', 'cs', 0.3], ['의예과', 'med', 3.2, { years: 6, track: 'med_school', tuition: 1300 }], ['언론홍보영상학부', 'media', -0.8, STG], ['간호학과', 'nurse', -4, { track: 'nurse_school', ...PUB }]]);
-uni('A', '고려대', 96.3, [['경영학과', 'biz', 0.5, BIZ], ['전기전자공학부', 'ee', 0.2], ['행정학과', 'admin', -0.3, PUB], ['식품자원경제학과', 'agri', -3, { tag: 'free' }], ['보건정책관리학부', 'welfare', -3, PUB]]);
-uni('A', '서강대', 95.3, [['경제학과', 'econ', 0], ['컴퓨터공학과', 'cs', 0.2], ['신문방송학과', 'media', -0.3, STG]]);
-uni('A', '성균관대', 95.5, [['글로벌경영학과', 'biz', 0.3, BIZ], ['소프트웨어학과', 'cs', 0.6], ['약학과', 'pharm', 2.8, { years: 6, track: 'pharm_school', tuition: 1100 }]]);
-uni('A', '한양대', 95.2, [['기계공학부', 'mech', 0], ['건축학부 (5년)', 'arch', 0, { years: 5, ...STG }], ['경영학부', 'biz', 0.2, BIZ], ['연극영화학과', 'acting', -35, { practical: { stat: 'cha', need: 72 }, ...STG }]]);
+uni('A', '연희대', 96.5, [['경영학과', 'biz', 0.5, BIZ], ['컴퓨터과학과', 'cs', 0.3], ['의예과', 'med', 3.2, { years: 6, track: 'med_school', tuition: 1300 }], ['언론홍보영상학부', 'media', -0.8, STG], ['간호학과', 'nurse', -4, { track: 'nurse_school', ...PUB }]]);
+uni('A', '고구려대', 96.3, [['경영학과', 'biz', 0.5, BIZ], ['전기전자공학부', 'ee', 0.2], ['행정학과', 'admin', -0.3, PUB], ['식품자원경제학과', 'agri', -3, { tag: 'free' }], ['보건정책관리학부', 'welfare', -3, PUB]]);
+uni('A', '서광대', 95.3, [['경제학과', 'econ', 0], ['컴퓨터공학과', 'cs', 0.2], ['신문방송학과', 'media', -0.3, STG]]);
+uni('A', '성균원대', 95.5, [['글로벌경영학과', 'biz', 0.3, BIZ], ['소프트웨어학과', 'cs', 0.6], ['약학과', 'pharm', 2.8, { years: 6, track: 'pharm_school', tuition: 1100 }]]);
+uni('A', '한도대', 95.2, [['기계공학부', 'mech', 0], ['건축학부 (5년)', 'arch', 0, { years: 5, ...STG }], ['경영학부', 'biz', 0.2, BIZ], ['연극영화학과', 'acting', -35, { practical: { stat: 'cha', need: 72 }, ...STG }]]);
 // 인서울 중상위
-uni('B', '중앙대', 92, [['경영학부', 'biz', 0.5, BIZ], ['약학부', 'pharm', 6, { years: 6, track: 'pharm_school', tuition: 1100 }], ['공공인재학부', 'admin', 0, PUB], ['첨단소재공학과', 'ee', 0]]);
-uni('B', '경희대', 91.5, [['한의예과', 'kmd', 7, { years: 6, track: 'kmd_school', tuition: 1100 }], ['호텔경영학과', 'hotel', -1, { tag: 'free' }], ['경영학과', 'biz', 0.3, BIZ], ['간호학과', 'nurse', -1, { track: 'nurse_school', ...PUB }]]);
-uni('B', '한국외대', 91, [['LT학부 (통번역)', 'lang', 0.5, { tag: 'free' }], ['국제통상학과', 'econ', 0, BIZ], ['Language & Diplomacy', 'admin', 0.3, PUB]]);
-uni('B', '서울시립대', 91.5, [['세무학과', 'biz', 0, BIZ], ['도시행정학과', 'admin', 0, PUB], ['전자전기컴퓨터공학부', 'ee', 0], ['조경학과', 'agri', -3, { tag: 'free' }]], { tuition: 250 });
-uni('B', '이화여대', 91, [['경영학부', 'biz', 0, BIZ], ['초등교육과', 'edu_elem', 1, { track: 'edu_school', ...PUB }], ['간호학부', 'nurse', -1, { track: 'nurse_school', ...PUB }]], { sex: 'F' });
-uni('B', '건국대', 88.5, [['수의예과', 'vet', 8, { years: 6, track: 'vet_school' }], ['부동산학과', 'econ', -0.5, BIZ], ['경영학과', 'biz', 0, BIZ], ['스마트ICT융합공학과', 'cs', 0]]);
-uni('B', '동국대', 88, [['경찰행정학부', 'police', 1.5, PUB], ['연극학부', 'acting', -30, { practical: { stat: 'cha', need: 70 }, ...STG }], ['경영학과', 'biz', 0, BIZ], ['컴퓨터공학전공', 'cs', 0]]);
-uni('B', '홍익대', 87.5, [['건축학부 (5년)', 'arch', 0, { years: 5, ...STG }], ['경영학부', 'biz', -0.5, BIZ], ['게임소프트웨어전공', 'game', 0]]);
-uni('B', '숙명여대', 87, [['경영학부', 'biz', 0, BIZ], ['약학부', 'pharm', 9, { years: 6, track: 'pharm_school', tuition: 1100 }], ['미디어학부', 'media', 0, STG]], { sex: 'F' });
-uni('B', '국민대', 85.5, [['자동차공학과', 'mech', 0], ['경영학부', 'biz', 0, BIZ], ['소프트웨어학부', 'cs', 0.5]]);
-uni('B', '숭실대', 85, [['컴퓨터학부', 'cs', 0.5], ['AI융합학부', 'cs', 0], ['경영학부', 'biz', -0.5, BIZ], ['사회복지학부', 'welfare', -2, PUB]]);
-uni('B', '세종대', 84.5, [['호텔관광외식경영', 'hotel', 0, { tag: 'free' }], ['항공시스템공학과', 'mech', 0], ['만화애니메이션텍', 'anim', -40, { practical: { stat: 'cha', need: 60 }, ...STG }]]);
-uni('B', '광운대', 83.5, [['전자공학과', 'ee', 0], ['로봇학부', 'mech', 0], ['미디어커뮤니케이션학부', 'media', -1, STG]]);
-uni('B', '명지대', 81.5, [['경영정보학과', 'biz', 0, BIZ], ['건축학부', 'arch', 0, STG], ['영화뮤지컬학부', 'film', -35, { practical: { stat: 'cha', need: 62 }, ...STG }]]);
-uni('B', '서울과학기술대', 84, [['기계시스템디자인공학과', 'mech', 0], ['컴퓨터공학과', 'cs', 0.5], ['안경광학과', 'clinical', -3, PUB]], { tuition: 450 });
-uni('B', '인하대', 85, [['항공우주공학과', 'mech', 1], ['물류학과', 'marine', 0, BIZ], ['의예과', 'med', 13.5, { years: 6, track: 'med_school', tuition: 1200 }]]);
-uni('B', '아주대', 84.5, [['의예과', 'med', 14, { years: 6, track: 'med_school', tuition: 1200 }], ['소프트웨어학과', 'cs', 0], ['경영학과', 'biz', -0.5, BIZ]]);
+uni('B', '중도대', 92, [['경영학부', 'biz', 0.5, BIZ], ['약학부', 'pharm', 6, { years: 6, track: 'pharm_school', tuition: 1100 }], ['공공인재학부', 'admin', 0, PUB], ['첨단소재공학과', 'ee', 0]]);
+uni('B', '경혜대', 91.5, [['한의예과', 'kmd', 7, { years: 6, track: 'kmd_school', tuition: 1100 }], ['호텔경영학과', 'hotel', -1, { tag: 'free' }], ['경영학과', 'biz', 0.3, BIZ], ['간호학과', 'nurse', -1, { track: 'nurse_school', ...PUB }]]);
+uni('B', '국제외대', 91, [['LT학부 (통번역)', 'lang', 0.5, { tag: 'free' }], ['국제통상학과', 'econ', 0, BIZ], ['Language & Diplomacy', 'admin', 0.3, PUB]]);
+uni('B', '수도시립대', 91.5, [['세무학과', 'biz', 0, BIZ], ['도시행정학과', 'admin', 0, PUB], ['전자전기컴퓨터공학부', 'ee', 0], ['조경학과', 'agri', -3, { tag: 'free' }]], { tuition: 250 });
+uni('B', '이원여대', 91, [['경영학부', 'biz', 0, BIZ], ['초등교육과', 'edu_elem', 1, { track: 'edu_school', ...PUB }], ['간호학부', 'nurse', -1, { track: 'nurse_school', ...PUB }]], { sex: 'F' });
+uni('B', '건원대', 88.5, [['수의예과', 'vet', 8, { years: 6, track: 'vet_school' }], ['부동산학과', 'econ', -0.5, BIZ], ['경영학과', 'biz', 0, BIZ], ['스마트ICT융합공학과', 'cs', 0]]);
+uni('B', '동도대', 88, [['경찰행정학부', 'police', 1.5, PUB], ['연극학부', 'acting', -30, { practical: { stat: 'cha', need: 70 }, ...STG }], ['경영학과', 'biz', 0, BIZ], ['컴퓨터공학전공', 'cs', 0]]);
+uni('B', '홍문대', 87.5, [['건축학부 (5년)', 'arch', 0, { years: 5, ...STG }], ['경영학부', 'biz', -0.5, BIZ], ['게임소프트웨어전공', 'game', 0]]);
+uni('B', '숙원여대', 87, [['경영학부', 'biz', 0, BIZ], ['약학부', 'pharm', 9, { years: 6, track: 'pharm_school', tuition: 1100 }], ['미디어학부', 'media', 0, STG]], { sex: 'F' });
+uni('B', '시민대', 85.5, [['자동차공학과', 'mech', 0], ['경영학부', 'biz', 0, BIZ], ['소프트웨어학부', 'cs', 0.5]]);
+uni('B', '숭덕대', 85, [['컴퓨터학부', 'cs', 0.5], ['AI융합학부', 'cs', 0], ['경영학부', 'biz', -0.5, BIZ], ['사회복지학부', 'welfare', -2, PUB]]);
+uni('B', '세원대', 84.5, [['호텔관광외식경영', 'hotel', 0, { tag: 'free' }], ['항공시스템공학과', 'mech', 0], ['만화애니메이션텍', 'anim', -40, { practical: { stat: 'cha', need: 60 }, ...STG }]]);
+uni('B', '광원대', 83.5, [['전자공학과', 'ee', 0], ['로봇학부', 'mech', 0], ['미디어커뮤니케이션학부', 'media', -1, STG]]);
+uni('B', '명진대', 81.5, [['경영정보학과', 'biz', 0, BIZ], ['건축학부', 'arch', 0, STG], ['영화뮤지컬학부', 'film', -35, { practical: { stat: 'cha', need: 62 }, ...STG }]]);
+uni('B', '수도과학기술대', 84, [['기계시스템디자인공학과', 'mech', 0], ['컴퓨터공학과', 'cs', 0.5], ['안경광학과', 'clinical', -3, PUB]], { tuition: 450 });
+uni('B', '인화대', 85, [['항공우주공학과', 'mech', 1], ['물류학과', 'marine', 0, BIZ], ['의예과', 'med', 13.5, { years: 6, track: 'med_school', tuition: 1200 }]]);
+uni('B', '아진대', 84.5, [['의예과', 'med', 14, { years: 6, track: 'med_school', tuition: 1200 }], ['소프트웨어학과', 'cs', 0], ['경영학과', 'biz', -0.5, BIZ]]);
 // 지방 거점국립대 (지역인재·지역균형 전형이 강하다)
 const LOC: Partial<Program> = { tuition: 450 };
-uni('C', '부산대', 79, [['경영학과', 'biz', 1, BIZ], ['기계공학부', 'mech', 1], ['의예과', 'med', 20, { years: 6, track: 'med_school', tuition: 1100 }], ['간호학과', 'nurse', 3, { track: 'nurse_school', ...PUB }], ['사범대 (국어교육)', 'edu', 3, { track: 'edu_school', ...PUB }]], LOC);
-uni('C', '경북대', 78, [['전자공학부', 'ee', 2], ['행정학부', 'admin', 0, PUB], ['수의예과', 'vet', 17, { years: 6, track: 'vet_school' }], ['간호학과', 'nurse', 3, { track: 'nurse_school', ...PUB }]], LOC);
-uni('C', '전남대', 76, [['의예과', 'med', 22.5, { years: 6, track: 'med_school', tuition: 1100 }], ['경영학부', 'biz', 0, BIZ], ['농업생명과학대학', 'agri', -6, { tag: 'free' }]], LOC);
-uni('C', '충남대', 76, [['약학과', 'pharm', 20, { years: 6, track: 'pharm_school' }], ['자율운항시스템공학과', 'mech', 0], ['행정학부', 'admin', 0, PUB]], LOC);
-uni('C', '전북대', 74, [['간호학과', 'nurse', 4, { track: 'nurse_school', ...PUB }], ['IT지능정보공학과', 'cs', 0], ['동물생명공학과', 'agri', -5, { tag: 'free' }]], LOC);
-uni('C', '강원대', 70, [['산림과학부', 'agri', -4, { tag: 'free' }], ['수의예과', 'vet', 25, { years: 6, track: 'vet_school' }], ['관광경영학과', 'hotel', -3, { tag: 'free' }]], LOC);
-uni('C', '충북대', 71, [['수의예과', 'vet', 25, { years: 6, track: 'vet_school' }], ['소프트웨어학과', 'cs', 2], ['사회복지학과', 'welfare', -4, PUB]], LOC);
-uni('C', '경상국립대', 68, [['항공우주공학부', 'mech', 2], ['농업경제학과', 'agri', -4, { tag: 'free' }], ['간호학과', 'nurse', 5, { track: 'nurse_school', ...PUB }]], LOC);
-uni('C', '제주대', 64, [['해양생명과학과', 'agri', -2, { tag: 'free' }], ['관광경영학과', 'hotel', 0, { tag: 'free' }], ['초등교육과 (교대)', 'edu_elem', 18, { track: 'edu_elem', ...PUB }]], LOC);
-uni('C', '부경대', 68, [['해양생산시스템관리학부', 'marine', -3, { tag: 'free' }], ['식품공학과', 'bio', 0], ['경영학부', 'biz', 0, BIZ]], LOC);
-uni('C', '한국교통대', 58, [['항공운항학과', 'flight', 20, { track: 'flight_univ', tuition: 900, need: { stat: 'hp', min: 45 } }], ['철도경영물류학과', 'rail', 0, PUB]], LOC);
+uni('C', '부일대', 79, [['경영학과', 'biz', 1, BIZ], ['기계공학부', 'mech', 1], ['의예과', 'med', 20, { years: 6, track: 'med_school', tuition: 1100 }], ['간호학과', 'nurse', 3, { track: 'nurse_school', ...PUB }], ['사범대 (국어교육)', 'edu', 3, { track: 'edu_school', ...PUB }]], LOC);
+uni('C', '경원대', 78, [['전자공학부', 'ee', 2], ['행정학부', 'admin', 0, PUB], ['수의예과', 'vet', 17, { years: 6, track: 'vet_school' }], ['간호학과', 'nurse', 3, { track: 'nurse_school', ...PUB }]], LOC);
+uni('C', '전일대', 76, [['의예과', 'med', 22.5, { years: 6, track: 'med_school', tuition: 1100 }], ['경영학부', 'biz', 0, BIZ], ['농업생명과학대학', 'agri', -6, { tag: 'free' }]], LOC);
+uni('C', '충일대', 76, [['약학과', 'pharm', 20, { years: 6, track: 'pharm_school' }], ['자율운항시스템공학과', 'mech', 0], ['행정학부', 'admin', 0, PUB]], LOC);
+uni('C', '전선대', 74, [['간호학과', 'nurse', 4, { track: 'nurse_school', ...PUB }], ['IT지능정보공학과', 'cs', 0], ['동물생명공학과', 'agri', -5, { tag: 'free' }]], LOC);
+uni('C', '강일대', 70, [['산림과학부', 'agri', -4, { tag: 'free' }], ['수의예과', 'vet', 25, { years: 6, track: 'vet_school' }], ['관광경영학과', 'hotel', -3, { tag: 'free' }]], LOC);
+uni('C', '충선대', 71, [['수의예과', 'vet', 25, { years: 6, track: 'vet_school' }], ['소프트웨어학과', 'cs', 2], ['사회복지학과', 'welfare', -4, PUB]], LOC);
+uni('C', '경상제일대', 68, [['항공우주공학부', 'mech', 2], ['농업경제학과', 'agri', -4, { tag: 'free' }], ['간호학과', 'nurse', 5, { track: 'nurse_school', ...PUB }]], LOC);
+uni('C', '탐라국립대', 64, [['해양생명과학과', 'agri', -2, { tag: 'free' }], ['관광경영학과', 'hotel', 0, { tag: 'free' }], ['초등교육과 (교대)', 'edu_elem', 18, { track: 'edu_elem', ...PUB }]], LOC);
+uni('C', '해동수산대', 68, [['해양생산시스템관리학부', 'marine', -3, { tag: 'free' }], ['식품공학과', 'bio', 0], ['경영학부', 'biz', 0, BIZ]], LOC);
+uni('C', '국립교통대', 58, [['항공운항학과', 'flight', 20, { track: 'flight_univ', tuition: 900, need: { stat: 'hp', min: 45 } }], ['철도경영물류학과', 'rail', 0, PUB]], LOC);
 // 지방 사립·수도권 중위권
-uni('D', '가천대', 62, [['의예과', 'med', 36, { years: 6, track: 'med_school', tuition: 1200 }], ['간호학과', 'nurse', 8, { track: 'nurse_school', ...PUB }], ['게임영상학과', 'game', 0], ['경찰안보학과', 'police', 2, PUB]]);
-uni('D', '단국대', 60, [['치의예과', 'dent', 37, { years: 6, track: 'dent_school', tuition: 1300 }], ['공연영화학부', 'film', -30, { practical: { stat: 'cha', need: 60 }, ...STG }], ['경영학부', 'biz', 0, BIZ]]);
-uni('D', '영남대', 55, [['약학부', 'pharm', 41, { years: 6, track: 'pharm_school', tuition: 1100 }], ['새마을국제개발학과', 'admin', -3, PUB], ['기계공학부', 'mech', 0]]);
-uni('D', '계명대', 50, [['패션마케팅학과', 'fashion', 0, STG], ['의예과', 'med', 47, { years: 6, track: 'med_school', tuition: 1200 }], ['호텔경영학과', 'hotel', 0, { tag: 'free' }]]);
-uni('D', '동아대', 48, [['경찰학과', 'police', 3, PUB], ['조경학과', 'agri', 0, { tag: 'free' }], ['경영학과', 'biz', 0, BIZ]]);
-uni('D', '조선대', 46, [['치의예과', 'dent', 50, { years: 6, track: 'dent_school', tuition: 1200 }], ['간호학과', 'nurse', 16, { track: 'nurse_school', ...PUB }], ['항공우주공학과', 'mech', 0]]);
-uni('D', '한림대', 45, [['의예과', 'med', 53, { years: 6, track: 'med_school', tuition: 1200 }], ['사회복지학부', 'welfare', 0, PUB], ['미디어스쿨', 'media', 0, STG]]);
-uni('D', '순천향대', 44, [['의예과', 'med', 54, { years: 6, track: 'med_school', tuition: 1200 }], ['물리치료학과', 'pt', 6, { track: 'health_pt', ...PUB }], ['관광경영학과', 'hotel', 0, { tag: 'free' }]]);
-uni('D', '원광대', 42, [['한의예과', 'kmd', 55, { years: 6, track: 'kmd_school', tuition: 1100 }], ['경찰행정학과', 'police', 4, PUB], ['원예산업학과', 'agri', 0, { tag: 'free' }]]);
-uni('D', '인제대', 42, [['의예과', 'med', 55.5, { years: 6, track: 'med_school', tuition: 1200 }], ['임상병리학과', 'clinical', 4, { track: 'health_clinical', ...PUB }], ['물리치료학과', 'pt', 6, { track: 'health_pt', ...PUB }]]);
-uni('D', '대구대', 38, [['특수교육과', 'edu', 10, { track: 'edu_school', ...PUB }], ['재활심리학과', 'welfare', 0, PUB], ['컴퓨터정보공학부', 'cs', 0]]);
-uni('D', '한남대', 36, [['경영학과', 'biz', 0, BIZ], ['건축학과 (5년)', 'arch', 2, { years: 5, ...STG }], ['경찰학과', 'police', 3, PUB]]);
-uni('D', '울산대', 50, [['조선해양공학부', 'mech', 3], ['의예과', 'med', 49, { years: 6, track: 'med_school', tuition: 1200 }], ['화학공학부', 'bio', 1]]);
+uni('D', '가원대', 62, [['의예과', 'med', 36, { years: 6, track: 'med_school', tuition: 1200 }], ['간호학과', 'nurse', 8, { track: 'nurse_school', ...PUB }], ['게임영상학과', 'game', 0], ['경찰안보학과', 'police', 2, PUB]]);
+uni('D', '단원대', 60, [['치의예과', 'dent', 37, { years: 6, track: 'dent_school', tuition: 1300 }], ['공연영화학부', 'film', -30, { practical: { stat: 'cha', need: 60 }, ...STG }], ['경영학부', 'biz', 0, BIZ]]);
+uni('D', '영선대', 55, [['약학부', 'pharm', 41, { years: 6, track: 'pharm_school', tuition: 1100 }], ['새마을국제개발학과', 'admin', -3, PUB], ['기계공학부', 'mech', 0]]);
+uni('D', '계성대', 50, [['패션마케팅학과', 'fashion', 0, STG], ['의예과', 'med', 47, { years: 6, track: 'med_school', tuition: 1200 }], ['호텔경영학과', 'hotel', 0, { tag: 'free' }]]);
+uni('D', '동일대', 48, [['경찰학과', 'police', 3, PUB], ['조경학과', 'agri', 0, { tag: 'free' }], ['경영학과', 'biz', 0, BIZ]]);
+uni('D', '조원대', 46, [['치의예과', 'dent', 50, { years: 6, track: 'dent_school', tuition: 1200 }], ['간호학과', 'nurse', 16, { track: 'nurse_school', ...PUB }], ['항공우주공학과', 'mech', 0]]);
+uni('D', '한원대', 45, [['의예과', 'med', 53, { years: 6, track: 'med_school', tuition: 1200 }], ['사회복지학부', 'welfare', 0, PUB], ['미디어스쿨', 'media', 0, STG]]);
+uni('D', '순화향대', 44, [['의예과', 'med', 54, { years: 6, track: 'med_school', tuition: 1200 }], ['물리치료학과', 'pt', 6, { track: 'health_pt', ...PUB }], ['관광경영학과', 'hotel', 0, { tag: 'free' }]]);
+uni('D', '원명대', 42, [['한의예과', 'kmd', 55, { years: 6, track: 'kmd_school', tuition: 1100 }], ['경찰행정학과', 'police', 4, PUB], ['원예산업학과', 'agri', 0, { tag: 'free' }]]);
+uni('D', '인선대', 42, [['의예과', 'med', 55.5, { years: 6, track: 'med_school', tuition: 1200 }], ['임상병리학과', 'clinical', 4, { track: 'health_clinical', ...PUB }], ['물리치료학과', 'pt', 6, { track: 'health_pt', ...PUB }]]);
+uni('D', '달구벌대', 38, [['특수교육과', 'edu', 10, { track: 'edu_school', ...PUB }], ['재활심리학과', 'welfare', 0, PUB], ['컴퓨터정보공학부', 'cs', 0]]);
+uni('D', '한선대', 36, [['경영학과', 'biz', 0, BIZ], ['건축학과 (5년)', 'arch', 2, { years: 5, ...STG }], ['경찰학과', 'police', 3, PUB]]);
+uni('D', '울성대', 50, [['조선해양공학부', 'mech', 3], ['의예과', 'med', 49, { years: 6, track: 'med_school', tuition: 1200 }], ['화학공학부', 'bio', 1]]);
 // 전문대 (실무·취업 중심)
-uni('E', '명지전문대', 28, [['사회복지과', 'welfare', 0, { years: 2, ...PUB }], ['유아교육과', 'kinder', 4, { years: 3, track: 'kinder_edu', ...PUB }], ['전자공학과', 'itc', 0, { years: 2 }]]);
-uni('E', '인하공업전문대', 35, [['항공운항서비스과', 'air', 6, { years: 2, tag: 'free' }], ['항공기계과', 'auto', 0, { years: 2, tag: 'free' }], ['컴퓨터시스템과', 'itc', 0, { years: 3 }]]);
-uni('E', '대림대', 22, [['자동차과', 'auto', 0, { years: 2, tag: 'free' }], ['보건의료행정과', 'welfare', 0, { years: 3, ...PUB }]]);
-uni('E', '동양미래대', 30, [['로봇소프트웨어과', 'itc', 0, { years: 3 }], ['경영학과', 'biz', 0, { years: 2, ...BIZ }]]);
-uni('E', '영남이공대', 25, [['간호학과', 'nurse', 20, { years: 4, track: 'nurse_school', ...PUB }], ['뷰티스타일리스트', 'beauty', -3, { years: 2, ...STG }], ['기계계열 (대기업 반)', 'auto', 0, { years: 2, tag: 'free' }]]);
-uni('E', '경복대', 20, [['치위생과', 'clinical', 5, { years: 3, ...PUB }], ['호텔조리과', 'cook', 0, { years: 2, tag: 'free' }]]);
-uni('E', '백석예술대', 22, [['실용음악과', 'music', 8, { years: 2, track: 'music_school', practical: { stat: 'cha', need: 55 }, ...STG }], ['외식산업학부', 'cook', 0, { years: 2, tag: 'free' }]]);
+uni('E', '명진전문대', 28, [['사회복지과', 'welfare', 0, { years: 2, ...PUB }], ['유아교육과', 'kinder', 4, { years: 3, track: 'kinder_edu', ...PUB }], ['전자공학과', 'itc', 0, { years: 2 }]]);
+uni('E', '인화공업전문대', 35, [['항공운항서비스과', 'air', 6, { years: 2, tag: 'free' }], ['항공기계과', 'auto', 0, { years: 2, tag: 'free' }], ['컴퓨터시스템과', 'itc', 0, { years: 3 }]]);
+uni('E', '대성기술대', 22, [['자동차과', 'auto', 0, { years: 2, tag: 'free' }], ['보건의료행정과', 'welfare', 0, { years: 3, ...PUB }]]);
+uni('E', '미래기술전문대', 30, [['로봇소프트웨어과', 'itc', 0, { years: 3 }], ['경영학과', 'biz', 0, { years: 2, ...BIZ }]]);
+uni('E', '영성이공대', 25, [['간호학과', 'nurse', 20, { years: 4, track: 'nurse_school', ...PUB }], ['뷰티스타일리스트', 'beauty', -3, { years: 2, ...STG }], ['기계계열 (대기업 반)', 'auto', 0, { years: 2, tag: 'free' }]]);
+uni('E', '경복보건대', 20, [['치위생과', 'clinical', 5, { years: 3, ...PUB }], ['호텔조리과', 'cook', 0, { years: 2, tag: 'free' }]]);
+uni('E', '백운예술대', 22, [['실용음악과', 'music', 8, { years: 2, track: 'music_school', practical: { stat: 'cha', need: 55 }, ...STG }], ['외식산업학부', 'cook', 0, { years: 2, tag: 'free' }]]);
 
 
 // ───────── 의·치·한·약·수의: 실제로 그 학과가 있는 대학만, 합격선은 대략적인 입결 서열 ─────────
-// (서강대·국민대·홍익대 등은 의약계열이 없다. 성균관대는 의대·약대, 경희대는 의·치·한·약, 원광대는 의·치·한·약이 모두 있다)
+// (서광대·시민대·홍문대 등은 의약계열이 없다. 성균원대는 의대·약대, 경혜대는 의·치·한·약, 원명대는 의·치·한·약이 모두 있다)
 const MD = { years: 6, track: 'med_school', tuition: 1200 };
 const DD = { years: 6, track: 'dent_school', tuition: 1300 };
 const KD = { years: 6, track: 'kmd_school', tuition: 1100 };
@@ -396,22 +396,22 @@ const PD = { years: 6, track: 'pharm_school', tuition: 1100 };
 const VD = { years: 6, track: 'vet_school', tuition: 900 };
 const REAL_MED: [Tier, string, string, string, number, Partial<Program>][] = [
   // 의예과
-  ['A', '성균관대', '의예과', 'med', 99.7, MD], ['A', '가톨릭대', '의예과', 'med', 99.6, MD], ['A', '고려대', '의예과', 'med', 99.5, MD], ['A', '한양대', '의예과', 'med', 99.4, MD],
-  ['B', '경희대', '의예과', 'med', 99.3, MD], ['B', '중앙대', '의예과', 'med', 99.3, MD], ['B', '이화여대', '의예과', 'med', 99.1, { ...MD, sex: 'F' }],
-  ['C', '충남대', '의예과', 'med', 99.0, MD], ['C', '전북대', '의예과', 'med', 98.9, MD], ['C', '충북대', '의예과', 'med', 98.9, MD], ['C', '경상국립대', '의예과', 'med', 98.8, MD], ['C', '강원대', '의예과', 'med', 98.7, MD], ['C', '제주대', '의예과', 'med', 98.6, MD],
-  ['D', '원광대', '의예과', 'med', 98.8, MD], ['D', '조선대', '의예과', 'med', 98.8, MD], ['D', '단국대', '의예과', 'med', 98.9, MD], ['D', '동아대', '의예과', 'med', 98.8, MD], ['D', '건양대', '의예과', 'med', 98.7, MD],
-  ['D', '을지대', '의예과', 'med', 98.8, MD], ['D', '고신대', '의예과', 'med', 98.6, MD], ['D', '대구가톨릭대', '의예과', 'med', 98.7, MD], ['D', '연세대(미래)', '의예과', 'med', 98.9, MD], ['D', '건국대(글로컬)', '의예과', 'med', 98.8, MD],
+  ['A', '성균원대', '의예과', 'med', 99.7, MD], ['A', '성모대', '의예과', 'med', 99.6, MD], ['A', '고구려대', '의예과', 'med', 99.5, MD], ['A', '한도대', '의예과', 'med', 99.4, MD],
+  ['B', '경혜대', '의예과', 'med', 99.3, MD], ['B', '중도대', '의예과', 'med', 99.3, MD], ['B', '이원여대', '의예과', 'med', 99.1, { ...MD, sex: 'F' }],
+  ['C', '충일대', '의예과', 'med', 99.0, MD], ['C', '전선대', '의예과', 'med', 98.9, MD], ['C', '충선대', '의예과', 'med', 98.9, MD], ['C', '경상제일대', '의예과', 'med', 98.8, MD], ['C', '강일대', '의예과', 'med', 98.7, MD], ['C', '탐라국립대', '의예과', 'med', 98.6, MD],
+  ['D', '원명대', '의예과', 'med', 98.8, MD], ['D', '조원대', '의예과', 'med', 98.8, MD], ['D', '단원대', '의예과', 'med', 98.9, MD], ['D', '동일대', '의예과', 'med', 98.8, MD], ['D', '건명대', '의예과', 'med', 98.7, MD],
+  ['D', '을문대', '의예과', 'med', 98.8, MD], ['D', '고선대', '의예과', 'med', 98.6, MD], ['D', '달구벌성모대', '의예과', 'med', 98.7, MD], ['D', '연희대(원주)', '의예과', 'med', 98.9, MD], ['D', '건원대(충주)', '의예과', 'med', 98.8, MD],
   // 치의예과
-  ['S', '서울대', '치의예과', 'dent', 99.3, DD], ['B', '경희대', '치의예과', 'dent', 98.9, DD], ['C', '경북대', '치의예과', 'dent', 98.9, DD], ['C', '부산대', '치의학과', 'dent', 98.9, DD], ['C', '강릉원주대', '치의예과', 'dent', 98.3, DD], ['D', '원광대', '치의예과', 'dent', 98.4, DD],
+  ['S', '한국대', '치의예과', 'dent', 99.3, DD], ['B', '경혜대', '치의예과', 'dent', 98.9, DD], ['C', '경원대', '치의예과', 'dent', 98.9, DD], ['C', '부일대', '치의학과', 'dent', 98.9, DD], ['C', '강릉제일대', '치의예과', 'dent', 98.3, DD], ['D', '원명대', '치의예과', 'dent', 98.4, DD],
   // 한의예과
-  ['B', '동국대(WISE)', '한의예과', 'kmd', 98.3, KD], ['D', '가천대', '한의예과', 'kmd', 98.3, KD], ['D', '동의대', '한의예과', 'kmd', 97.8, KD], ['D', '대전대', '한의예과', 'kmd', 97.8, KD],
-  ['D', '상지대', '한의예과', 'kmd', 97.6, KD], ['D', '세명대', '한의예과', 'kmd', 97.5, KD], ['D', '우석대', '한의예과', 'kmd', 97.5, KD],
+  ['B', '동도대(경주)', '한의예과', 'kmd', 98.3, KD], ['D', '가원대', '한의예과', 'kmd', 98.3, KD], ['D', '동선대', '한의예과', 'kmd', 97.8, KD], ['D', '대일대', '한의예과', 'kmd', 97.8, KD],
+  ['D', '상원대', '한의예과', 'kmd', 97.6, KD], ['D', '세진대', '한의예과', 'kmd', 97.5, KD], ['D', '우원대', '한의예과', 'kmd', 97.5, KD],
   // 약학
-  ['S', '서울대', '약학계열', 'pharm', 99.0, PD], ['A', '고려대(세종)', '약학과', 'pharm', 98.2, PD], ['A', '가톨릭대', '약학과', 'pharm', 98.3, PD], ['B', '경희대', '약학과', 'pharm', 98.5, PD], ['B', '이화여대', '약학부', 'pharm', 98.6, { ...PD, sex: 'F' }],
-  ['B', '동국대', '약학과', 'pharm', 98.0, PD], ['C', '경북대', '약학과', 'pharm', 98.2, PD], ['C', '전남대', '약학과', 'pharm', 98.0, PD], ['D', '원광대', '약학과', 'pharm', 97.5, PD], ['D', '조선대', '약학과', 'pharm', 97.4, PD],
-  ['D', '계명대', '약학과', 'pharm', 97.4, PD], ['D', '인제대', '약학과', 'pharm', 97.3, PD],
+  ['S', '한국대', '약학계열', 'pharm', 99.0, PD], ['A', '고구려대(세종)', '약학과', 'pharm', 98.2, PD], ['A', '성모대', '약학과', 'pharm', 98.3, PD], ['B', '경혜대', '약학과', 'pharm', 98.5, PD], ['B', '이원여대', '약학부', 'pharm', 98.6, { ...PD, sex: 'F' }],
+  ['B', '동도대', '약학과', 'pharm', 98.0, PD], ['C', '경원대', '약학과', 'pharm', 98.2, PD], ['C', '전일대', '약학과', 'pharm', 98.0, PD], ['D', '원명대', '약학과', 'pharm', 97.5, PD], ['D', '조원대', '약학과', 'pharm', 97.4, PD],
+  ['D', '계성대', '약학과', 'pharm', 97.4, PD], ['D', '인선대', '약학과', 'pharm', 97.3, PD],
   // 수의예과
-  ['C', '전남대', '수의예과', 'vet', 96.8, VD], ['C', '전북대', '수의예과', 'vet', 96.8, VD], ['C', '경상국립대', '수의예과', 'vet', 96.5, VD], ['C', '제주대', '수의예과', 'vet', 96.3, VD],
+  ['C', '전일대', '수의예과', 'vet', 96.8, VD], ['C', '전선대', '수의예과', 'vet', 96.8, VD], ['C', '경상제일대', '수의예과', 'vet', 96.5, VD], ['C', '탐라국립대', '수의예과', 'vet', 96.3, VD],
 ];
 /**
  * 정시 고증: 의치한약수 정원을 합치면 수험생 상위 1.4% 안팎이다.
@@ -422,9 +422,9 @@ const MED_CUT = (key: string, cut: number) =>
 for (const [tier, school, major, key, cut, o] of REAL_MED) prog(tier, major, key, Math.round(MED_CUT(key, cut) * 100) / 100, { school, ...o });
 /** 앞서 만든 의약계열 합격선을 실제 서열에 맞춘다 */
 const REAL_CUT: Record<string, number> = {
-  '연세대 의예과': 99.7, '인하대 의예과': 99.2, '아주대 의예과': 99.3, '부산대 의예과': 99.2, '전남대 의예과': 99.0, '가천대 의예과': 99.1, '계명대 의예과': 98.9, '한림대 의예과': 99.0,
-  '순천향대 의예과': 98.9, '인제대 의예과': 98.8, '울산대 의예과': 99.6, '단국대 치의예과': 98.5, '조선대 치의예과': 98.5, '경희대 한의예과': 99.0, '원광대 한의예과': 98.2,
-  '성균관대 약학과': 98.8, '중앙대 약학부': 98.5, '숙명여대 약학부': 97.8, '충남대 약학과': 98.0, '영남대 약학부': 97.6, '건국대 수의예과': 97.5, '경북대 수의예과': 97.0, '강원대 수의예과': 96.5, '충북대 수의예과': 96.5,
+  '연희대 의예과': 99.7, '인화대 의예과': 99.2, '아진대 의예과': 99.3, '부일대 의예과': 99.2, '전일대 의예과': 99.0, '가원대 의예과': 99.1, '계성대 의예과': 98.9, '한원대 의예과': 99.0,
+  '순화향대 의예과': 98.9, '인선대 의예과': 98.8, '울성대 의예과': 99.6, '단원대 치의예과': 98.5, '조원대 치의예과': 98.5, '경혜대 한의예과': 99.0, '원명대 한의예과': 98.2,
+  '성균원대 약학과': 98.8, '중도대 약학부': 98.5, '숙원여대 약학부': 97.8, '충일대 약학과': 98.0, '영선대 약학부': 97.6, '건원대 수의예과': 97.5, '경원대 수의예과': 97.0, '강일대 수의예과': 96.5, '충선대 수의예과': 96.5,
 };
 for (const pr of P) {
   const nm = (pr.school ?? '') + ' ' + pr.major;
@@ -435,21 +435,21 @@ for (const pr of P) {
 
 // 이름 없던 상·중위권 학과마다 실제로 그 학과가 있는 대학을 직접 짝지었다 [학교, 실제 학과명]
 const REAL_MAP: Record<string, [string, string?]> = {
-  'B|간호학과': ['중앙대'], 'B|사범대 (국어교육)': ['동국대', '국어교육과'], 'C|사범대 (영어교육)': ['경북대', '영어교육과'],
-  'A|경영학과': ['서강대', '경영학부'], 'B|경영학과': ['광운대', '경영학부'], 'C|경영학과': ['충남대', '경영학부'],
-  'A|경제학과': ['성균관대'], 'C|경제학과': ['전남대', '경제학부'], 'A|자유전공 (법학)': ['고려대', '자유전공학부'], 'B|법학과': ['국민대', '법학부'],
-  'B|행정학과': ['건국대'], 'C|행정학과': ['전북대'], 'A|미디어학부': ['고려대'], 'B|신문방송학과': ['중앙대', '미디어커뮤니케이션학부'],
-  'A|영어영문학과': ['고려대'], 'B|중어중문학과': ['한국외대', '중국언어문화학부'], 'C|사회복지학과': ['전북대'],
-  'A|컴퓨터학과': ['고려대'], 'B|소프트웨어학과': ['세종대'], 'C|컴퓨터공학과': ['부산대', '정보컴퓨터공학부'], 'A|반도체공학과 (계약학과)': ['고려대', '반도체공학과'],
-  'C|전자공학과': ['충북대', '전자공학부'], 'A|기계공학부': ['연세대'], 'B|기계공학과': ['숭실대', '기계공학부'], 'C|기계공학과': ['경상국립대', '기계공학부'],
-  'A|건축학과 (5년제)': ['고려대', '건축학과'], 'B|건축학과 (5년제)': ['세종대', '건축학과'], 'C|생명과학과': ['경북대', '생명과학부'], 'C|농생명과학대학': ['경북대', '농업생명과학대학'],
-  'C|체육학과': ['충남대'], 'B|회계학과': ['숭실대'], 'C|무역학과': ['부산대', '무역학부'], 'A|정치외교학과': ['연세대'], 'B|심리학과': ['중앙대'],
-  'C|경찰행정학과': ['동국대(WISE)', '경찰행정학부'], 'B|광고홍보학과': ['국민대', '미디어·광고학부'], 'C|문예창작학과': ['명지대'], 'C|일어일문학과': ['부산대'],
-  'B|국어국문학과': ['동국대'], 'C|사학과': ['충남대'], 'C|철학과': ['경북대'], 'B|통계학과': ['동국대'], 'A|데이터사이언스학과': ['한양대', '데이터사이언스학부'],
-  'C|정보보안학과': ['순천향대', '정보보호학과'], 'B|화학공학과': ['인하대'], 'C|화학과': ['부산대'], 'B|신소재공학과': ['인하대'], 'C|전기공학과': ['부산대'],
-  'B|항공우주공학과': ['한국항공대', '항공우주및기계공학부'], 'C|조선해양공학과': ['부산대'], 'C|도시공학과': ['경상국립대'], 'C|토목공학과': ['충남대'],
-  'B|식품영양학과': ['경희대'], 'C|산림환경학과': ['강원대', '산림환경과학대학'], 'C|해양생명과학과': ['부경대', '해양생물학과'], 'C|외식조리학과': ['전주대', '외식산업학과'],
-  'B|체육학과 (스포츠산업)': ['국민대', '스포츠산업레저학과'], 'C|무용학과': ['부산대'], 'C|해양경찰학과': ['목포해양대', '해양경찰학부'], 'C|항공교통물류학과': ['한국항공대', '항공교통물류학부'],
+  'B|간호학과': ['중도대'], 'B|사범대 (국어교육)': ['동도대', '국어교육과'], 'C|사범대 (영어교육)': ['경원대', '영어교육과'],
+  'A|경영학과': ['서광대', '경영학부'], 'B|경영학과': ['광원대', '경영학부'], 'C|경영학과': ['충일대', '경영학부'],
+  'A|경제학과': ['성균원대'], 'C|경제학과': ['전일대', '경제학부'], 'A|자유전공 (법학)': ['고구려대', '자유전공학부'], 'B|법학과': ['시민대', '법학부'],
+  'B|행정학과': ['건원대'], 'C|행정학과': ['전선대'], 'A|미디어학부': ['고구려대'], 'B|신문방송학과': ['중도대', '미디어커뮤니케이션학부'],
+  'A|영어영문학과': ['고구려대'], 'B|중어중문학과': ['국제외대', '중국언어문화학부'], 'C|사회복지학과': ['전선대'],
+  'A|컴퓨터학과': ['고구려대'], 'B|소프트웨어학과': ['세원대'], 'C|컴퓨터공학과': ['부일대', '정보컴퓨터공학부'], 'A|반도체공학과 (계약학과)': ['고구려대', '반도체공학과'],
+  'C|전자공학과': ['충선대', '전자공학부'], 'A|기계공학부': ['연희대'], 'B|기계공학과': ['숭덕대', '기계공학부'], 'C|기계공학과': ['경상제일대', '기계공학부'],
+  'A|건축학과 (5년제)': ['고구려대', '건축학과'], 'B|건축학과 (5년제)': ['세원대', '건축학과'], 'C|생명과학과': ['경원대', '생명과학부'], 'C|농생명과학대학': ['경원대', '농업생명과학대학'],
+  'C|체육학과': ['충일대'], 'B|회계학과': ['숭덕대'], 'C|무역학과': ['부일대', '무역학부'], 'A|정치외교학과': ['연희대'], 'B|심리학과': ['중도대'],
+  'C|경찰행정학과': ['동도대(경주)', '경찰행정학부'], 'B|광고홍보학과': ['시민대', '미디어·광고학부'], 'C|문예창작학과': ['명진대'], 'C|일어일문학과': ['부일대'],
+  'B|국어국문학과': ['동도대'], 'C|사학과': ['충일대'], 'C|철학과': ['경원대'], 'B|통계학과': ['동도대'], 'A|데이터사이언스학과': ['한도대', '데이터사이언스학부'],
+  'C|정보보안학과': ['순화향대', '정보보호학과'], 'B|화학공학과': ['인화대'], 'C|화학과': ['부일대'], 'B|신소재공학과': ['인화대'], 'C|전기공학과': ['부일대'],
+  'B|항공우주공학과': ['대한항공대', '항공우주및기계공학부'], 'C|조선해양공학과': ['부일대'], 'C|도시공학과': ['경상제일대'], 'C|토목공학과': ['충일대'],
+  'B|식품영양학과': ['경혜대'], 'C|산림환경학과': ['강일대', '산림환경과학대학'], 'C|해양생명과학과': ['해동수산대', '해양생물학과'], 'C|외식조리학과': ['전주일대', '외식산업학과'],
+  'B|체육학과 (스포츠산업)': ['시민대', '스포츠산업레저학과'], 'C|무용학과': ['부일대'], 'C|해양경찰학과': ['남해해양대', '해양경찰학부'], 'C|항공교통물류학과': ['대한항공대', '항공교통물류학부'],
 };
 for (const pr of P) {
   const m = !pr.school && REAL_MAP[pr.tier + '|' + pr.major];
@@ -460,12 +460,12 @@ for (const pr of P) {
 }
 // 상위권·중위권·거점국립대는 실제 대학 (공학 계열이 없는 학교엔 공학을 붙이지 않는다), 하위권·전문대만 가상 이름
 const ENG_KEYS = new Set(['cs', 'ee', 'mech', 'arch', 'bio']);
-const NO_ENG = new Set(['한국외대']);
-const LAW_UNDERGRAD = new Set(['국민대', '숭실대', '광운대', '명지대', '홍익대']);
+const NO_ENG = new Set(['국제외대']);
+const LAW_UNDERGRAD = new Set(['시민대', '숭덕대', '광원대', '명진대', '홍문대']);
 const REAL_POOL: Partial<Record<Tier, string[]>> = {
-  A: ['연세대', '고려대', '서강대', '성균관대', '한양대'],
-  B: ['중앙대', '경희대', '한국외대', '서울시립대', '건국대', '동국대', '홍익대', '국민대', '숭실대', '세종대', '광운대', '명지대', '인하대', '아주대'],
-  C: ['부산대', '경북대', '전남대', '충남대', '전북대', '강원대', '충북대', '경상국립대', '제주대'],
+  A: ['연희대', '고구려대', '서광대', '성균원대', '한도대'],
+  B: ['중도대', '경혜대', '국제외대', '수도시립대', '건원대', '동도대', '홍문대', '시민대', '숭덕대', '세원대', '광원대', '명진대', '인화대', '아진대'],
+  C: ['부일대', '경원대', '전일대', '충일대', '전선대', '강일대', '충선대', '경상제일대', '탐라국립대'],
 };
 {
   const taken = new Set(P.map((pr) => (pr.school ?? '') + '|' + pr.major));
@@ -506,10 +506,10 @@ export const PROGRAMS: Record<string, Program> = Object.fromEntries(P.map((p) =>
 // ───────── 시대: 그해에 없던 학교·학과는 고를 수 없다 ─────────
 /** 개교(또는 학부 신입생을 처음 뽑은) 해 */
 const SCHOOL_FROM: Record<string, number> = {
-  KAIST: 1986, POSTECH: 1987, UNIST: 2009, GIST: 2010, DGIST: 2014, '한국에너지공대 (KENTECH)': 2022, 한국예술종합학교: 1993, 서울예술대학교: 1962,
-  한국체육대학교: 1977, 한국교원대학교: 1985, 한국전통문화대학교: 2000, 청강문화산업대학교: 1996, 영진전문대: 1977, 동아방송예술대학교: 1991,
-  '우송대 솔브릿지': 2007, 한국폴리텍대학: 2006, 한국농수산대학교: 1997, '한국교통대 철도대학': 2012, 한서대: 1992, 대구한의대: 1981, 세종대: 1978,
-  '인서울 게임학과': 2001, '국민대 조형대': 1975,
+  KAST: 1986, POSTEK: 1987, UNISTEK: 2009, 'G-TECH': 2010, 'D-TECH': 2014, '미래에너지공대 (K-TECH)': 2022, 대한예술종합학교: 1993, 남산예술대학교: 1962,
+  대한체육대학교: 1977, 대한교원대학교: 1985, 전통문화대학교: 2000, 청운문화산업대학교: 1996, 영성전문대: 1977, 동방방송예술대학교: 1991,
+  '우성대 솔브릿지': 2007, 대한폴리텍대학: 2006, 국립농수산대학교: 1997, '국립교통대 철도학부': 2012, 한주대: 1992, 달구벌한의대: 1981, 세원대: 1978,
+  '수도권 게임학과': 2001, '시민대 조형대': 1975,
 };
 /** 학과(전공)가 흔해진 해 */
 const KEY_FROM: Record<string, number> = { cs: 1975, itc: 1988, game: 2001, anim: 1996, beauty: 1993, air: 1994, hotel: 1983, welfare: 1982, fashion: 1980, design: 1968, pt: 1979, radio: 1965, clinical: 1965, emt: 1995, film: 1964, cook: 1990, heritage: 2000 };
@@ -879,7 +879,7 @@ export function susiChance(s: GameState, p: Person, pr: Program, type: SusiType,
   const w = Math.max(0.35, (100 - pr.cut) * 0.3) * (d.luck ?? 1);
   let c = 1 / (1 + Math.exp(-(v - pr.cut) / w));
   // 정원 외 전형(기회균형·농어촌·고른기회)은 등급으로 따진다: 같은 대학 일반 전형보다 몇 등급 낮아도 붙는다.
-  // 지방 의대 기균은 내신 2등급 초반이 반반(0.6등급 우대), 서울대는 0.25등급 남짓만 우대
+  // 지방 의대 기균은 내신 2등급 초반이 반반(0.6등급 우대), 한국대는 0.25등급 남짓만 우대
   if (type === 'opp' || type === 'rural' || type === 'equal') {
     const tierBonus = MEDICAL.has(pr.key) ? 0.58 : ({ S: 0.25, A: 0.37, B: 0.5 } as Record<string, number>)[pr.tier] ?? 0.55;
     const bonus = tierBonus * (type === 'opp' ? 1 : type === 'rural' ? 0.95 : 0.9);
@@ -1309,7 +1309,7 @@ const path: EventDef = {
       { label: '📝 정시 원서 쓰기 (가·나·다군 3장)', run: (x) => ((x.ev.data.stage = 'apply'), { text: '', keep: true }) },
       ...(c.s.era === 'history' && c.s.year < 1996 ? [] : [{ label: `📚 수시 6장 (교과·종합·지역균형·기회균형·농어촌·논술·특기자) ${susiN}/6`, run: (x: Ctx) => ((x.ev.data.stage = 'susi'), { text: '', keep: true as const }) }]),
       ...(hasFlag(p, 'high_sci') || hasFlag(p, 'gifted_center') || hasFlag(p, 'olympiad') || hasFlag(p, 'abroad') || hasFlag(p, 'high_lang') || spendable(c.s) >= 40000
-        ? [{ label: '🧪🌏 특별 전형 (KAIST·GIST / 해외 대학·요리·디자인 학교)', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]
+        ? [{ label: '🧪🌏 특별 전형 (KAST·G-TECH / 해외 대학·요리·디자인 학교)', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]
         : [{ label: '🌏 해외 요리·디자인·음악 전문학교', run: (x: Ctx) => ((x.ev.data.stage = 'special'), { text: '', keep: true as const }) }]),
       { label: `🎖 사관학교·경찰대 (별도 지원 ${mil}/2)`, run: (x) => ((x.ev.data.stage = 'mil'), { text: '', keep: true }) },
       { label: '🎨 예체능 실기 전형', run: (x) => ((x.ev.data.stage = 'art'), { text: '', keep: true }) },

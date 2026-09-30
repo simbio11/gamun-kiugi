@@ -21,7 +21,7 @@ const PROF_TIERS = [
   { id: 'D', name: '지방 사립대', need: 18, fame: 1 },
   { id: 'C', name: '지방 거점국립대', need: 30, fame: 2 },
   { id: 'B', name: '인서울 대학', need: 42, fame: 3 },
-  { id: 'S', name: '서울대·KAIST', need: 56, fame: 5 },
+  { id: 'S', name: '한국대·KAST', need: 56, fame: 5 },
 ];
 /** 임용 경쟁력: 논문 + 지능 + 학벌 + 해외 경험 + 인맥 */
 export function profScore(p: Person): number {

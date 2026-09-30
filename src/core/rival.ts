@@ -500,7 +500,7 @@ const HOSTILE: Move[] = [
       rv(s).fame += 3;
       const kids = Object.values(s.people).filter((p) => alive(p) && isMainline(s, p) && age(s, p) >= 10 && age(s, p) <= 25);
       for (const k of kids) k.happiness = clamp(k.happiness - 3, 0, 100);
-      return `${R(s)} 자녀가 ${pick(s, ['서울대 의대에 수석 합격', '국가대표에 발탁', '대기업 최연소 임원이 됐다', '사법시험 수석을 했다', '해외 명문대 장학생이 됐다'])}. 동네 현수막이 걸렸다.${kids.length ? ' 우리 아이들이 비교당한다.' : ''}`;
+      return `${R(s)} 자녀가 ${pick(s, ['한국대 의대에 수석 합격', '국가대표에 발탁', '대기업 최연소 임원이 됐다', '사법시험 수석을 했다', '해외 명문대 장학생이 됐다'])}. 동네 현수막이 걸렸다.${kids.length ? ' 우리 아이들이 비교당한다.' : ''}`;
     },
   },
   { // 대규모 투자

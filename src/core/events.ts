@@ -297,7 +297,7 @@ const high: EventDef = {
         tag: 'study',
         run: (x) => {
           if (check(x.s, x.p.actual.int + (hasFlag(x.p, 'gifted_center') ? 8 : 0) + (hasFlag(x.p, 'olympiad') ? 8 : 0), 66, 5))
-            return addFlag(x.p, 'high_sci'), addFlag(x.p, 'high_elite'), `과학고 합격! 조기 졸업하고 KAIST로 가는 길이 열린다.` + applyDesire(x, 'study');
+            return addFlag(x.p, 'high_sci'), addFlag(x.p, 'high_elite'), `과학고 합격! 조기 졸업하고 KAST로 가는 길이 열린다.` + applyDesire(x, 'study');
           return `불합격. 일반고로 진학했다.`;
         },
       },
