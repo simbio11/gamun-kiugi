@@ -1388,3 +1388,14 @@ body:has(.cv-modal) .cdex * { animation-play-state: paused !important; }
 /* 인물 창 큰 초상화: 192×192 매끈한 확대본을 크게 */
 .bust-wrap { width: 168px; height: 168px; }
 img.px.big.bust { width: 168px; height: 168px; image-rendering: auto; }
+
+/* 가문 앨범: 폴라로이드 사진 */
+.album-row { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 10px; scroll-snap-type: x mandatory; }
+.album-photo { flex: none; margin: 0; padding: 6px 6px 4px; background: #fbf8f0; border-radius: 3px; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); transform: rotate(-1.5deg); cursor: pointer; scroll-snap-align: start; }
+.album-photo:nth-child(2n) { transform: rotate(1.2deg); }
+.album-photo img { display: block; height: 96px; width: auto; image-rendering: pixelated; }
+.album-photo figcaption { font-size: 10px; color: #3a3028; text-align: center; margin-top: 4px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.album-photo figcaption small { display: block; font-size: 9px; color: #8a7a68; }
+.album-photo.big { transform: none; margin: 4px auto 10px; max-width: 100%; }
+.album-photo.big img { height: auto; width: min(100%, 420px); }
+.album-photo.big figcaption { max-width: none; font-size: 12px; }

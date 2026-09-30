@@ -1170,6 +1170,54 @@ describe('부모님 유산', () => {
     expect(more.length).toBeGreaterThan(250);
   });
 
+  it('가족 앨범: 가족사진을 찍으면 그날 살아 있는 식구가 앨범에 남고, 돌잔치 같은 날 사진을 권한다', async () => {
+    const { homeFolks } = await import('../src/core/photos');
+    const s = newGame({ seed: 31, familyName: '한', sex: 'M' });
+    const h = head(s);
+    s.year += 25;
+    s.ap = 5;
+    h.cash = 1e5;
+    const r = doAction(s, 'photo_family');
+    expect(r.ok).toBe(true);
+    expect(r.text).toContain('[[photo:1]]');
+    expect(s.photos?.[0].ids.length).toBe(homeFolks(s).length);
+    expect(doAction(s, 'photo_family').ok).toBe(false); // 한 해 한 번
+    for (const id of ['pho_dol', 'pho_wedding', 'pho_grad', 'pho_hwangap', 'pho_newborn']) expect(EVENTS[id], id).toBeDefined();
+  });
+
+  it('슈퍼 히든의 새 사연: 텐프로는 강남 집, 카지노 퀸은 카지노 세 번, 흡혈 적성은 백신을 거부하면 바로', async () => {
+    const { SUPER_ROUTES } = await import('../src/core/super-hidden');
+    const s = newGame({ seed: 44, familyName: '정', sex: 'F' });
+    const p = head(s);
+    s.year += 24;
+    p.birthYear = s.year - 25;
+    p.sex = 'F';
+    p.job = 'none';
+    p.flags = p.flags.filter((f) => f !== 'student');
+    for (const k of ['str', 'int', 'cha', 'hp'] as const) p.actual[k] = 80;
+    p.actual.mor = 30;
+    const madam = SUPER_ROUTES.find((r) => r.id === 'hj_madam')!;
+    const bunny = SUPER_ROUTES.find((r) => r.id === 'hj_bunny')!;
+    expect(bunny.ready(s, p)).toBe(false);
+    for (let i = 0; i < 3; i++) {
+      s.events = [{ uid: s.eventSeq++, defId: 'gt_casino', personId: p.id }];
+      resolveChoice(s, 0);
+    }
+    expect(p.flags).toContain('casino_addict');
+    expect(bunny.ready(s, p)).toBe(true);
+    s.assets.push({ id: 'gn', kind: 'apt_seoul', ownerId: p.id, value: 100000 } as never);
+    expect(madam.ready(s, p)).toBe(true);
+    p.actual.mor = 50;
+    expect(madam.ready(s, p)).toBe(false); // 도덕 35 이하만
+    // 흡혈 적성: 세 장면 끝에 바로 핏빛 후작부인
+    p.traits = [...(p.traits ?? []), 'blood_thirst'];
+    for (const st of [0, 1, 2]) {
+      s.events = [{ uid: s.eventSeq++, defId: 'gt_vamp', personId: p.id, data: { st } }];
+      resolveChoice(s, 0);
+    }
+    expect(p.job).toBe('hj_vampire');
+  });
+
   it('슈퍼 히든 직업 9종: 3단계 퀘스트 체인과 카드·도감 등록 검증', () => {
     const superJobIds = [
       'hj_madam',

@@ -86,6 +86,8 @@ import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, Marke
 import { portraitURL } from '../render/portrait';
 import { sceneArtURL, sceneFor } from '../render/scene';
 import { bustHiURL } from '../render/bust';
+import { photoURL } from '../render/photo';
+import { PHOTO_NAME } from '../core/photos';
 import { commEvent, pcOf, phoneOf, type CommKind } from '../core/devices';
 
 type Tab = 'tree' | 'act' | 'policy' | 'assets' | 'log' | 'achv';
@@ -1419,7 +1421,12 @@ function outcomeModal(o: { title: string; text: string }): string {
   <div class="modal" data-action="ok-outcome">
     <div class="event ${tier}" data-stop>
       <h3>${esc(o.title)}</h3>
-      <p class="ev-text">${richText(o.text)}</p>
+      ${(() => {
+        const m = o.text.match(/\[\[photo:(\d+)\]\]\n?/);
+        const gg = g0();
+        const pic = m && gg ? photoHTML(gg, Number(m[1]), true) : '';
+        return `${pic}<p class="ev-text">${richText(o.text.replace(/\[\[photo:\d+\]\]\n?/, ''))}</p>`;
+      })()}
       <button class="btn primary" data-action="ok-outcome">계속</button>
     </div>
   </div>`;
@@ -2132,9 +2139,20 @@ function vehicleCard(g: GameState): string {
   </section>`;
 }
 
+/** 앨범 사진 한 장 (폴라로이드) */
+function photoHTML(g: GameState, id: number, big = false): string {
+  const ph = (g.photos ?? []).find((x) => x.id === id);
+  if (!ph) return '';
+  return `<figure class="album-photo${big ? ' big' : ''}" data-action="view-photo" data-id="${ph.id}"><img src="${photoURL(g, ph)}" alt=""><figcaption>${esc(ph.title)}<small>${ph.year}년 · ${PHOTO_NAME[ph.kind]}</small></figcaption></figure>`;
+}
+
 function logScreen(g: GameState): string {
   const items = g.log.slice(-400).reverse();
-  return `<section class="card log">${items
+  const photos = [...(g.photos ?? [])].reverse();
+  const album = photos.length
+    ? `<section class="card album"><h2>📷 가문 앨범 <small class="muted">${photos.length}장</small></h2><div class="album-row">${photos.slice(0, ui.open?.album ? 999 : 8).map((ph) => photoHTML(g, ph.id)).join('')}</div>${photos.length > 8 ? `<button class="more-btn" data-action="more" data-v="album">${ui.open?.album ? '▲ 접기' : `▼ 전체 보기 (${photos.length}장)`}</button>` : ''}</section>`
+    : `<section class="card album"><h2>📷 가문 앨범</h2><p class="fine">행동 탭 「가족」에서 가족사진을 찍거나, 돌잔치·결혼식·졸업식·환갑 같은 날 사진을 남기면 여기에 모인다.</p></section>`;
+  return album + `<section class="card log">${items
     .map((l) => (l.text.startsWith('──') ? `<h4>${esc(l.text.replace(/─/g, '').trim())}</h4>` : `<div class="lg ${l.kind ?? ''}">${esc(l.text)}</div>`))
     .join('')}</section>`;
 }
@@ -2706,6 +2724,11 @@ function handle(el: HTMLElement) {
     case 'ok-outcome':
       ui.outcome = undefined;
       break;
+    case 'view-photo': {
+      const ph = g?.photos?.find((x) => x.id === Number(id));
+      if (ph && !ui.outcome) ui.outcome = { title: `📷 ${ph.title}`, text: `[[photo:${ph.id}]]\n${ph.year}년 · ${PHOTO_NAME[ph.kind]} · ${ph.ids.length}명` };
+      break;
+    }
     case 'lifestyle':
       g!.policy.lifestyle = v as Lifestyle;
       break;

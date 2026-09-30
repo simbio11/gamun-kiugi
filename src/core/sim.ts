@@ -52,6 +52,7 @@ import { superHiddenYear } from './super-hidden';
 import { gateYear } from './super-gates';
 import { commEvent } from './devices';
 import { pathYear } from './hidden-paths';
+import { photoYear } from './photos';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -417,6 +418,7 @@ export function simulateYear(s: GameState): void {
   for (const m of hiddenYear(s)) log(s, m, 'life');
   gateYear(s);
   pathYear(s);
+  photoYear(s);
   for (const m of superHiddenYear(s)) log(s, m, 'life');
   trackPeak(s);
   scandalYear(s);
