@@ -718,12 +718,31 @@ export function susiFields(p: Person): string[] {
   return [...keys];
 }
 
-/** 수시에서 보는 '실질 백분위': 성적 + 활동 + 기회균형(저소득) + 지역인재(지방 대학) */
+/**
+ * 전형 우대: 백분위에 점수를 더하는 게 아니라 "상위 몇 %"를 k배로 줄여 준다.
+ * 상위 3%인 학생이 기회균형(k 0.55)이면 상위 1.65%처럼 본다. 위로 갈수록 우대 폭이 작아져
+ * 3등급이 의대에 붙는 일은 없다. (실제 기회균형 의대 합격자도 내신 1점대 초중반)
+ */
+const favor = (v: number, k: number) => clamp(100 - (100 - v) * k, 0, 99.99);
+
+/** 수시에서 보는 '실질 백분위': 성적 + 활동 + 지역인재(지방 대학) */
 export function susiPct(s: GameState, p: Person, pct: number, pr?: Program): number {
   const hood = hoodOf(s, p).hood;
-  let v = pct + Math.min(6, activityOf(p) * 0.4);
-  if (pr && pr.tier === 'C' && (hood === 'local' || hasFlag(p, 'local_talent'))) v += 4; // 지역인재 전형
-  return clamp(v, 0, 99.99);
+  let k = 1 - Math.min(0.3, activityOf(p) * 0.02);
+  if (pr && pr.tier === 'C' && (hood === 'local' || hasFlag(p, 'local_talent'))) k *= 0.85; // 지역인재 전형
+  return favor(pct, k);
+}
+
+/** 의약학 계열 (의·치·한·약·수의) */
+export const MEDICAL = new Set(['med', 'dent', 'kmd', 'pharm', 'vet']);
+/**
+ * 의약학 수시의 수능 최저학력기준 (백분위로 단순화).
+ * 교과·종합·논술은 대개 3합4~5(≈ 백분위 95), 서울 최상위는 4합5(≈ 97), 기회균형·농어촌·고른기회는 3합6 안팎(≈ 90)
+ */
+function medMin(type: SusiType, pr: Program): number | undefined {
+  if (!MEDICAL.has(pr.key)) return undefined;
+  if (type === 'opp' || type === 'rural' || type === 'equal') return 90;
+  return pr.tier === 'S' || pr.tier === 'A' ? 97 : 95;
 }
 
 
@@ -773,16 +792,24 @@ interface SusiDef {
   keys?: string[];
 }
 export const SUSI: Record<SusiType, SusiDef> = {
-  gyo: { icon: '📘', name: '학생부교과', desc: '내신 성적만 본다. 과외 없이 학교 수업에 충실했다면 가장 확실한 길', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], score: (s, p) => naesinPct(s, p) + 1, min: { S: 75, A: 65, B: 45 } },
-  hak: { icon: '📚', name: '학생부종합', desc: '동아리·봉사·반장 등 학교생활 전체와 전공 적합성', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], score: (s, p, pct, pr) => susiPct(s, p, Math.max(pct, naesinPct(s, p) - 4), pr) },
-  region: { icon: '🏫', name: '지역균형 (학교장 추천)', desc: '학교마다 추천받은 내신 최상위 몇 명만. 강남보다 일반고가 유리', tiers: ['S', 'A', 'B', 'C'], deny: (s, p) => (naesin(s, p) < 62 ? '내신 최상위만 학교장 추천' : undefined), score: (s, p) => naesinPct(s, p) + 5, min: { S: 70, A: 60 } },
-  opp: { icon: '🤝', name: '기회균형 (저소득층)', desc: '기초생활수급·차상위 가정 학생을 정원 외로 뽑는다. 합격선이 크게 낮다', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], deny: (s, p) => (['poor', 'modest'].includes(hoodOf(s, p).hood) || s.origin === 'poor' || hasFlag(p, 'welfare') ? undefined : '저소득 가정만'), score: (s, p, pct) => Math.max(pct, naesinPct(s, p)) + 13 },
-  rural: { icon: '🌾', name: '농어촌 특별전형', desc: '읍·면 지역에서 6년 이상 다닌 학생. 정원 외 선발', tiers: ['S', 'A', 'B', 'C', 'D'], deny: (s, p) => (hoodOf(s, p).hood === 'local' || hasFlag(p, 'local_talent') || hasFlag(p, 'rural') ? undefined : '농어촌 거주자만'), score: (s, p, pct) => Math.max(pct, naesinPct(s, p)) + 9 },
-  equal: { icon: '🕊', name: '고른기회 (한부모·자립준비청년 등)', desc: '부모를 잃었거나 한부모 가정, 보훈·다문화 가정 학생', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], deny: (s, p) => (parentGone(s, p) || hasFlag(p, 'multicultural') ? undefined : '해당 가정만'), score: (s, p, pct) => Math.max(pct, naesinPct(s, p)) + 10 },
+  gyo: { icon: '📘', name: '학생부교과', desc: '내신 성적만 본다. 과외 없이 학교 수업에 충실했다면 가장 확실한 길', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], score: (s, p) => naesinPct(s, p), min: { S: 75, A: 65, B: 45 } },
+  hak: { icon: '📚', name: '학생부종합', desc: '동아리·봉사·반장 등 학교생활 전체와 전공 적합성', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], score: (s, p, pct, pr) => susiPct(s, p, naesinPct(s, p) * 0.75 + pct * 0.25, pr) },
+  region: { icon: '🏫', name: '지역균형 (학교장 추천)', desc: '학교마다 추천받은 내신 최상위 몇 명만. 강남보다 일반고가 유리', tiers: ['S', 'A', 'B', 'C'], deny: (s, p) => (naesin(s, p) < 62 ? '내신 최상위만 학교장 추천' : undefined), score: (s, p) => favor(naesinPct(s, p), 0.85), min: { S: 70, A: 60 } },
+  opp: { icon: '🤝', name: '기회균형 (저소득층)', desc: '기초생활수급·차상위 가정 학생을 정원 외로 뽑는다. 합격선이 크게 낮다', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], deny: (s, p) => (['poor', 'modest'].includes(hoodOf(s, p).hood) || s.origin === 'poor' || hasFlag(p, 'welfare') ? undefined : '저소득 가정만'), score: (s, p) => favor(naesinPct(s, p), 0.6) },
+  rural: { icon: '🌾', name: '농어촌 특별전형', desc: '읍·면 지역에서 6년 이상 다닌 학생. 정원 외 선발', tiers: ['S', 'A', 'B', 'C', 'D'], deny: (s, p) => (hoodOf(s, p).hood === 'local' || hasFlag(p, 'local_talent') || hasFlag(p, 'rural') ? undefined : '농어촌 거주자만'), score: (s, p) => favor(naesinPct(s, p), 0.7) },
+  equal: { icon: '🕊', name: '고른기회 (한부모·자립준비청년 등)', desc: '부모를 잃었거나 한부모 가정, 보훈·다문화 가정 학생', tiers: ['S', 'A', 'B', 'C', 'D', 'E'], deny: (s, p) => (parentGone(s, p) || hasFlag(p, 'multicultural') ? undefined : '해당 가정만'), score: (s, p) => favor(naesinPct(s, p), 0.65) },
   essay: { icon: '✍️', name: '논술', desc: '내신·수능보다 글 한 편. 경쟁률 수십 대 1, 운도 크다. 역전의 기회', tiers: ['S', 'A', 'B', 'C'], luck: 2.6, score: (_s, p) => 100 / (1 + Math.exp(-(p.actual.int * 0.65 + studyOf(p) * 0.35 - 62) / 7)), min: { S: 65, A: 55 } },
-  talent: { icon: '🏅', name: '특기자 (어학·SW·과학·체육)', desc: '올림피아드·어학 성적·수상 실적이 있는 학생', tiers: ['S', 'A', 'B', 'C'], keys: ['lang', 'cs', 'ee', 'bio', 'mech', 'sport', 'econ'], deny: (_s, p) => (['high_lang', 'olympiad', 'high_sci', 'gifted_center', 'high_sport'].some((f) => hasFlag(p, f)) || markOf(p, 'sport') >= 5 ? undefined : '수상·특기 실적 필요'), score: (_s, _p, pct) => pct + 14 },
+  talent: { icon: '🏅', name: '특기자 (어학·SW·과학·체육)', desc: '올림피아드·어학 성적·수상 실적이 있는 학생', tiers: ['S', 'A', 'B', 'C'], keys: ['lang', 'cs', 'ee', 'bio', 'mech', 'sport', 'econ'], deny: (_s, p) => (['high_lang', 'olympiad', 'high_sci', 'gifted_center', 'high_sport'].some((f) => hasFlag(p, f)) || markOf(p, 'sport') >= 5 ? undefined : '수상·특기 실적 필요'), score: (_s, _p, pct) => favor(pct, 0.55) },
 };
 export const SUSI_TYPES = Object.keys(SUSI) as SusiType[];
+
+/** 표준정규 누적분포 (수시 결과를 엮을 때) */
+function phi(x: number): number {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989423 * Math.exp((-x * x) / 2);
+  const q = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return x > 0 ? 1 - q : q;
+}
 
 /** 수시 합격 확률 */
 export function susiChance(s: GameState, p: Person, pr: Program, type: SusiType, pct: number): number {
@@ -792,9 +819,9 @@ export function susiChance(s: GameState, p: Person, pr: Program, type: SusiType,
   const v = d.score(s, p, pct, pr);
   const w = Math.max(0.35, (100 - pr.cut) * 0.3) * (d.luck ?? 1);
   let c = 1 / (1 + Math.exp(-(v - pr.cut) / w));
-  if (d.luck) c = Math.min(c, 0.55); // 논술은 아무리 잘 써도 절반 운
-  const need = d.min?.[pr.tier];
-  if (need && pct < need) c *= 0.12; // 수능 최저 미달
+  if (d.luck) c = Math.min(c, MEDICAL.has(pr.key) ? 0.06 : 0.55); // 논술은 아무리 잘 써도 절반 운. 의대 논술은 경쟁률 수백 대 1
+  const need = Math.max(d.min?.[pr.tier] ?? 0, medMin(type, pr) ?? 0);
+  if (need && pct < need) c *= MEDICAL.has(pr.key) ? 0.03 : 0.12; // 수능 최저 미달
   return c;
 }
 
@@ -1063,12 +1090,15 @@ const path: EventDef = {
       label: `📮 원서 마감 · 결과 보기 (${apps.length}곳)`,
       disabled: !apps.length,
       run: (x) => {
+        // 수시 원서들은 한 사람의 내신·면접으로 평가받으니 결과가 서로 엮인다 (공통 운 z + 원서별 운)
+        const z = normal(x.s, 0, 1);
         x.ev.data.results = apps.map((raw) => {
           const parts = raw.includes(':') ? raw.split(':') : ['j', raw];
           const kind = parts[0];
           const id = parts[parts.length - 1];
           const pr = PROGRAMS[id];
           const c = kind === 's' ? susiChance(x.s, x.p, pr, (parts.length > 2 ? parts[1] : 'hak') as SusiType, x.ev.data.pct) : kind === 'x' || kind === 'm' ? specialChance(x.s, x.p, pr) : admitChance(x.p, pr, x.ev.data.pct);
+          if (kind === 's') return [id, c > 0 && phi(Math.sqrt(0.7) * z + Math.sqrt(0.3) * normal(x.s, 0, 1)) < c];
           return [id, chance(x.s, c)];
         });
         x.ev.data.stage = 'result';
