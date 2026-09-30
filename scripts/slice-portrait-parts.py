@@ -170,6 +170,11 @@ def sheet_cells(kind, a):
         cols, rows = lines_gray(a, 0, 512, 110)
     elif kind == 'mouths':
         cols, rows = lines_gray(a, 512, W, 120)
+    elif kind.startswith('outfit-m'):
+        # 남성 복장 시트(1024×572): 16×8 칸, 회색 가는 격자선 — 위치를 재어 적었다 (마지막 행은 그림 아래에서 잘림)
+        step = (1016 - 20) / 16
+        cols = [[round(20 + i * step) - 1, round(20 + i * step) + 1] for i in range(17)]
+        rows = [[y - 1, y + 1] for y in (34, 103, 172, 241, 312, 381, 446, 511)] + [[H - 1, H - 1]]
     elif kind.startswith('outfit'):
         if kind in WHITE_SHEETS or kind in HAS_HEAD:  # 헤더가 검지 않은 시트 — 칸 위치는 다른 복장 시트와 같다
             x0, y0 = 27, 72
@@ -187,7 +192,7 @@ def sheet_cells(kind, a):
             for r in range(len(rows) - 1) for c in range(len(cols) - 1)]
 
 
-WHITE_SHEETS = ('outfit-f-special', 'outfit-f-uniform')
+WHITE_SHEETS = ('outfit-f-special', 'outfit-f-uniform', 'outfit-m-uniform', 'outfit-m-special', 'outfit-m-age')
 ALT_OF = {'outfit-f-alt': 'outfit-f', 'outfit-f-ya-alt': 'outfit-f-ya'}  # 거의 같은 시트 — 다른 칸만 남긴다
 HAS_HEAD = ('outfit-f-ya', 'outfit-f-ya-alt')  # 얼굴·머리까지 그려진 전신(상반신) 초상 시트
 
@@ -232,6 +237,9 @@ def main(src):
         ('outfit-f-ya-alt', 'outfit-f-ya-alt.webp'),
         ('outfit-f-special', 'outfit-f-special.webp'),
         ('outfit-f-uniform', 'outfit-f-uniform.webp'),
+        ('outfit-m-uniform', 'outfit-m-uniform.webp'),
+        ('outfit-m-special', 'outfit-m-special.webp'),
+        ('outfit-m-age', 'outfit-m-age.webp'),  # 행이 위→아래로 나이순(아기~노인), 일부 칸은 머리까지 그려짐
     ]
     manifest = {}
     ear_cells = set()
@@ -293,6 +301,10 @@ def main(src):
                     m['age'] = OUTFIT_ROWS.get(k, OUTFIT_ROWS['outfit-f'])[r]
                 if k in HAS_HEAD:
                     m['hasHead'] = True
+                if k == 'outfit-m-age':
+                    # 목만 있는 칸과 머리까지 있는 칸이 섞여 있다: 칸 위쪽 30%가 비었으면(0) 목만, 머리가 있으면 55~390픽셀
+                    m['hasHead'] = bool((rgba[:int(rgba.shape[0] * 0.3), :, 3] > 0).sum() > 40)
+                    m['ageRank'] = r
                 meta.append(m)
             manifest[k] = meta
             print('  →', k, len(items))

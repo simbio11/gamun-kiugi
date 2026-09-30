@@ -16558,5 +16558,5259 @@
     79
    ]
   }
+ ],
+ "outfit-m-uniform": [
+  {
+   "file": "outfit-m-uniform/000.png",
+   "row": 0,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/001.png",
+   "row": 0,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/002.png",
+   "row": 0,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/003.png",
+   "row": 0,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/004.png",
+   "row": 0,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/005.png",
+   "row": 0,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/006.png",
+   "row": 0,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    8,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/007.png",
+   "row": 0,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/008.png",
+   "row": 0,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/009.png",
+   "row": 0,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/010.png",
+   "row": 0,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/011.png",
+   "row": 0,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/012.png",
+   "row": 0,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/013.png",
+   "row": 0,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/014.png",
+   "row": 0,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/015.png",
+   "row": 0,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/016.png",
+   "row": 1,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/017.png",
+   "row": 1,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/018.png",
+   "row": 1,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/019.png",
+   "row": 1,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/020.png",
+   "row": 1,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/021.png",
+   "row": 1,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/022.png",
+   "row": 1,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/023.png",
+   "row": 1,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/024.png",
+   "row": 1,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/025.png",
+   "row": 1,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/026.png",
+   "row": 1,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/027.png",
+   "row": 1,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/028.png",
+   "row": 1,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/029.png",
+   "row": 1,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/030.png",
+   "row": 1,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/031.png",
+   "row": 1,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/032.png",
+   "row": 2,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    5,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/033.png",
+   "row": 2,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    6,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/034.png",
+   "row": 2,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    6,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/035.png",
+   "row": 2,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    6,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/036.png",
+   "row": 2,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    5,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/037.png",
+   "row": 2,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    6,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/038.png",
+   "row": 2,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    6,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/039.png",
+   "row": 2,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    6,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/040.png",
+   "row": 2,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    6,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/041.png",
+   "row": 2,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    6,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/042.png",
+   "row": 2,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    6,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/043.png",
+   "row": 2,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    6,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/044.png",
+   "row": 2,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    6,
+    5,
+    54,
+    53
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/045.png",
+   "row": 2,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    5,
+    55,
+    53
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/046.png",
+   "row": 2,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    5,
+    54,
+    53
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/047.png",
+   "row": 2,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    5,
+    54,
+    53
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/048.png",
+   "row": 3,
+   "col": 0,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    6,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/049.png",
+   "row": 3,
+   "col": 1,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    7,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/050.png",
+   "row": 3,
+   "col": 2,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    7,
+    55,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/051.png",
+   "row": 3,
+   "col": 3,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    7,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/052.png",
+   "row": 3,
+   "col": 4,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    6,
+    54,
+    59
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/053.png",
+   "row": 3,
+   "col": 5,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    7,
+    55,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/054.png",
+   "row": 3,
+   "col": 6,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    7,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/055.png",
+   "row": 3,
+   "col": 7,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    7,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/056.png",
+   "row": 3,
+   "col": 8,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    7,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/057.png",
+   "row": 3,
+   "col": 9,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    7,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/058.png",
+   "row": 3,
+   "col": 10,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    7,
+    55,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/059.png",
+   "row": 3,
+   "col": 11,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    7,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/060.png",
+   "row": 3,
+   "col": 12,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    7,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/061.png",
+   "row": 3,
+   "col": 13,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    6,
+    55,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/062.png",
+   "row": 3,
+   "col": 14,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    6,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/063.png",
+   "row": 3,
+   "col": 15,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    6,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/064.png",
+   "row": 4,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/065.png",
+   "row": 4,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/066.png",
+   "row": 4,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/067.png",
+   "row": 4,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/068.png",
+   "row": 4,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/069.png",
+   "row": 4,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/070.png",
+   "row": 4,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/071.png",
+   "row": 4,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/072.png",
+   "row": 4,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/073.png",
+   "row": 4,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/074.png",
+   "row": 4,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/075.png",
+   "row": 4,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/076.png",
+   "row": 4,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/077.png",
+   "row": 4,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/078.png",
+   "row": 4,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/079.png",
+   "row": 4,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/080.png",
+   "row": 5,
+   "col": 0,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/081.png",
+   "row": 5,
+   "col": 1,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/082.png",
+   "row": 5,
+   "col": 2,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/083.png",
+   "row": 5,
+   "col": 3,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    2,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/084.png",
+   "row": 5,
+   "col": 4,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    2,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/085.png",
+   "row": 5,
+   "col": 5,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    2,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/086.png",
+   "row": 5,
+   "col": 6,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/087.png",
+   "row": 5,
+   "col": 7,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    2,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/088.png",
+   "row": 5,
+   "col": 8,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    2,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/089.png",
+   "row": 5,
+   "col": 9,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/090.png",
+   "row": 5,
+   "col": 10,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/091.png",
+   "row": 5,
+   "col": 11,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/092.png",
+   "row": 5,
+   "col": 12,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/093.png",
+   "row": 5,
+   "col": 13,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/094.png",
+   "row": 5,
+   "col": 14,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/095.png",
+   "row": 5,
+   "col": 15,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/096.png",
+   "row": 6,
+   "col": 0,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/097.png",
+   "row": 6,
+   "col": 1,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/098.png",
+   "row": 6,
+   "col": 2,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/099.png",
+   "row": 6,
+   "col": 3,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/100.png",
+   "row": 6,
+   "col": 4,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/101.png",
+   "row": 6,
+   "col": 5,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/102.png",
+   "row": 6,
+   "col": 6,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/103.png",
+   "row": 6,
+   "col": 7,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/104.png",
+   "row": 6,
+   "col": 8,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/105.png",
+   "row": 6,
+   "col": 9,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/106.png",
+   "row": 6,
+   "col": 10,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    49
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/107.png",
+   "row": 6,
+   "col": 11,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/108.png",
+   "row": 6,
+   "col": 12,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/109.png",
+   "row": 6,
+   "col": 13,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/110.png",
+   "row": 6,
+   "col": 14,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/111.png",
+   "row": 6,
+   "col": 15,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/112.png",
+   "row": 7,
+   "col": 0,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/113.png",
+   "row": 7,
+   "col": 1,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/114.png",
+   "row": 7,
+   "col": 2,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    55,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/115.png",
+   "row": 7,
+   "col": 3,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/116.png",
+   "row": 7,
+   "col": 4,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/117.png",
+   "row": 7,
+   "col": 5,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    55,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/118.png",
+   "row": 7,
+   "col": 6,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/119.png",
+   "row": 7,
+   "col": 7,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/120.png",
+   "row": 7,
+   "col": 8,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/121.png",
+   "row": 7,
+   "col": 9,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/122.png",
+   "row": 7,
+   "col": 10,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    55,
+    49
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/123.png",
+   "row": 7,
+   "col": 11,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/124.png",
+   "row": 7,
+   "col": 12,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/125.png",
+   "row": 7,
+   "col": 13,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    55,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/126.png",
+   "row": 7,
+   "col": 14,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-uniform/127.png",
+   "row": 7,
+   "col": 15,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    54,
+    50
+   ]
+  }
+ ],
+ "outfit-m-special": [
+  {
+   "file": "outfit-m-special/000.png",
+   "row": 0,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    2,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/001.png",
+   "row": 0,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    2,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/002.png",
+   "row": 0,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/003.png",
+   "row": 0,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/004.png",
+   "row": 0,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/005.png",
+   "row": 0,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/006.png",
+   "row": 0,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/007.png",
+   "row": 0,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/008.png",
+   "row": 0,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/009.png",
+   "row": 0,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/010.png",
+   "row": 0,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/011.png",
+   "row": 0,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/012.png",
+   "row": 0,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    8,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/013.png",
+   "row": 0,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/014.png",
+   "row": 0,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/015.png",
+   "row": 0,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    8,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/016.png",
+   "row": 1,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/017.png",
+   "row": 1,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/018.png",
+   "row": 1,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/019.png",
+   "row": 1,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/020.png",
+   "row": 1,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/021.png",
+   "row": 1,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/022.png",
+   "row": 1,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/023.png",
+   "row": 1,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/024.png",
+   "row": 1,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/025.png",
+   "row": 1,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/026.png",
+   "row": 1,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/027.png",
+   "row": 1,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/028.png",
+   "row": 1,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/029.png",
+   "row": 1,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/030.png",
+   "row": 1,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/031.png",
+   "row": 1,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    7,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/032.png",
+   "row": 2,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/033.png",
+   "row": 2,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/034.png",
+   "row": 2,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/035.png",
+   "row": 2,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/036.png",
+   "row": 2,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/037.png",
+   "row": 2,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/038.png",
+   "row": 2,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/039.png",
+   "row": 2,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/040.png",
+   "row": 2,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/041.png",
+   "row": 2,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/042.png",
+   "row": 2,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/043.png",
+   "row": 2,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/044.png",
+   "row": 2,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/045.png",
+   "row": 2,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/046.png",
+   "row": 2,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/047.png",
+   "row": 2,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/048.png",
+   "row": 3,
+   "col": 0,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/049.png",
+   "row": 3,
+   "col": 1,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/050.png",
+   "row": 3,
+   "col": 2,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    55,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/051.png",
+   "row": 3,
+   "col": 3,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/052.png",
+   "row": 3,
+   "col": 4,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/053.png",
+   "row": 3,
+   "col": 5,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    55,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/054.png",
+   "row": 3,
+   "col": 6,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/055.png",
+   "row": 3,
+   "col": 7,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/056.png",
+   "row": 3,
+   "col": 8,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/057.png",
+   "row": 3,
+   "col": 9,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/058.png",
+   "row": 3,
+   "col": 10,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    55,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/059.png",
+   "row": 3,
+   "col": 11,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/060.png",
+   "row": 3,
+   "col": 12,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/061.png",
+   "row": 3,
+   "col": 13,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    55,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/062.png",
+   "row": 3,
+   "col": 14,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/063.png",
+   "row": 3,
+   "col": 15,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ]
+  },
+  {
+   "file": "outfit-m-special/064.png",
+   "row": 4,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/065.png",
+   "row": 4,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/066.png",
+   "row": 4,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/067.png",
+   "row": 4,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/068.png",
+   "row": 4,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/069.png",
+   "row": 4,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/070.png",
+   "row": 4,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/071.png",
+   "row": 4,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/072.png",
+   "row": 4,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/073.png",
+   "row": 4,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/074.png",
+   "row": 4,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/075.png",
+   "row": 4,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/076.png",
+   "row": 4,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/077.png",
+   "row": 4,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    55,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/078.png",
+   "row": 4,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/079.png",
+   "row": 4,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    4,
+    54,
+    58
+   ]
+  },
+  {
+   "file": "outfit-m-special/080.png",
+   "row": 5,
+   "col": 0,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/081.png",
+   "row": 5,
+   "col": 1,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/082.png",
+   "row": 5,
+   "col": 2,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/083.png",
+   "row": 5,
+   "col": 3,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/084.png",
+   "row": 5,
+   "col": 4,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/085.png",
+   "row": 5,
+   "col": 5,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/086.png",
+   "row": 5,
+   "col": 6,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/087.png",
+   "row": 5,
+   "col": 7,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/088.png",
+   "row": 5,
+   "col": 8,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/089.png",
+   "row": 5,
+   "col": 9,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/090.png",
+   "row": 5,
+   "col": 10,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/091.png",
+   "row": 5,
+   "col": 11,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/092.png",
+   "row": 5,
+   "col": 12,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/093.png",
+   "row": 5,
+   "col": 13,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/094.png",
+   "row": 5,
+   "col": 14,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/095.png",
+   "row": 5,
+   "col": 15,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/096.png",
+   "row": 6,
+   "col": 0,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/097.png",
+   "row": 6,
+   "col": 1,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/098.png",
+   "row": 6,
+   "col": 2,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/099.png",
+   "row": 6,
+   "col": 3,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/100.png",
+   "row": 6,
+   "col": 4,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/101.png",
+   "row": 6,
+   "col": 5,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/102.png",
+   "row": 6,
+   "col": 6,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/103.png",
+   "row": 6,
+   "col": 7,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/104.png",
+   "row": 6,
+   "col": 8,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/105.png",
+   "row": 6,
+   "col": 9,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/106.png",
+   "row": 6,
+   "col": 10,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/107.png",
+   "row": 6,
+   "col": 11,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/108.png",
+   "row": 6,
+   "col": 12,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/109.png",
+   "row": 6,
+   "col": 13,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/110.png",
+   "row": 6,
+   "col": 14,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/111.png",
+   "row": 6,
+   "col": 15,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ]
+  },
+  {
+   "file": "outfit-m-special/112.png",
+   "row": 7,
+   "col": 0,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/113.png",
+   "row": 7,
+   "col": 1,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/114.png",
+   "row": 7,
+   "col": 2,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    55,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/115.png",
+   "row": 7,
+   "col": 3,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/116.png",
+   "row": 7,
+   "col": 4,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/117.png",
+   "row": 7,
+   "col": 5,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    55,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/118.png",
+   "row": 7,
+   "col": 6,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/119.png",
+   "row": 7,
+   "col": 7,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/120.png",
+   "row": 7,
+   "col": 8,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/121.png",
+   "row": 7,
+   "col": 9,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/122.png",
+   "row": 7,
+   "col": 10,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    55,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/123.png",
+   "row": 7,
+   "col": 11,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/124.png",
+   "row": 7,
+   "col": 12,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/125.png",
+   "row": 7,
+   "col": 13,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    55,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/126.png",
+   "row": 7,
+   "col": 14,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  },
+  {
+   "file": "outfit-m-special/127.png",
+   "row": 7,
+   "col": 15,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    2,
+    54,
+    50
+   ]
+  }
+ ],
+ "outfit-m-age": [
+  {
+   "file": "outfit-m-age/000.png",
+   "row": 0,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    6,
+    13,
+    48,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/001.png",
+   "row": 0,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    6,
+    13,
+    49,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/002.png",
+   "row": 0,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    4,
+    12,
+    51,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/003.png",
+   "row": 0,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    2,
+    4,
+    52,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/004.png",
+   "row": 0,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    2,
+    29,
+    52,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/005.png",
+   "row": 0,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    2,
+    28,
+    52,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/006.png",
+   "row": 0,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    28,
+    51,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/007.png",
+   "row": 0,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    2,
+    28,
+    52,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/008.png",
+   "row": 0,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    3,
+    29,
+    51,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/009.png",
+   "row": 0,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    3,
+    29,
+    51,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/010.png",
+   "row": 0,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    4,
+    32,
+    51,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/011.png",
+   "row": 0,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    3,
+    31,
+    51,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/012.png",
+   "row": 0,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    4,
+    32,
+    50,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/013.png",
+   "row": 0,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    4,
+    31,
+    51,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/014.png",
+   "row": 0,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    2,
+    29,
+    52,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/015.png",
+   "row": 0,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    3,
+    32,
+    51,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 0
+  },
+  {
+   "file": "outfit-m-age/016.png",
+   "row": 1,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    26,
+    53,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/017.png",
+   "row": 1,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    2,
+    25,
+    53,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/018.png",
+   "row": 1,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    28,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/019.png",
+   "row": 1,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    23,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/020.png",
+   "row": 1,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    25,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/021.png",
+   "row": 1,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    25,
+    55,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/022.png",
+   "row": 1,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    26,
+    52,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/023.png",
+   "row": 1,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    25,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/024.png",
+   "row": 1,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    26,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/025.png",
+   "row": 1,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    25,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/026.png",
+   "row": 1,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    25,
+    55,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/027.png",
+   "row": 1,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    22,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/028.png",
+   "row": 1,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    25,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/029.png",
+   "row": 1,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    26,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/030.png",
+   "row": 1,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    24,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/031.png",
+   "row": 1,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    27,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 1
+  },
+  {
+   "file": "outfit-m-age/032.png",
+   "row": 2,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/033.png",
+   "row": 2,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/034.png",
+   "row": 2,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/035.png",
+   "row": 2,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/036.png",
+   "row": 2,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/037.png",
+   "row": 2,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/038.png",
+   "row": 2,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/039.png",
+   "row": 2,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    23,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/040.png",
+   "row": 2,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/041.png",
+   "row": 2,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/042.png",
+   "row": 2,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    23,
+    55,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/043.png",
+   "row": 2,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/044.png",
+   "row": 2,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/045.png",
+   "row": 2,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/046.png",
+   "row": 2,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/047.png",
+   "row": 2,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 2
+  },
+  {
+   "file": "outfit-m-age/048.png",
+   "row": 3,
+   "col": 0,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ],
+   "hasHead": true,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/049.png",
+   "row": 3,
+   "col": 1,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ],
+   "hasHead": true,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/050.png",
+   "row": 3,
+   "col": 2,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    55,
+    60
+   ],
+   "hasHead": true,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/051.png",
+   "row": 3,
+   "col": 3,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ],
+   "hasHead": true,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/052.png",
+   "row": 3,
+   "col": 4,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/053.png",
+   "row": 3,
+   "col": 5,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/054.png",
+   "row": 3,
+   "col": 6,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ],
+   "hasHead": true,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/055.png",
+   "row": 3,
+   "col": 7,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    21,
+    54,
+    60
+   ],
+   "hasHead": false,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/056.png",
+   "row": 3,
+   "col": 8,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    21,
+    54,
+    60
+   ],
+   "hasHead": false,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/057.png",
+   "row": 3,
+   "col": 9,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    18,
+    54,
+    60
+   ],
+   "hasHead": false,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/058.png",
+   "row": 3,
+   "col": 10,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    21,
+    55,
+    60
+   ],
+   "hasHead": false,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/059.png",
+   "row": 3,
+   "col": 11,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ],
+   "hasHead": true,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/060.png",
+   "row": 3,
+   "col": 12,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    22,
+    54,
+    60
+   ],
+   "hasHead": false,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/061.png",
+   "row": 3,
+   "col": 13,
+   "w": 56,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    55,
+    60
+   ],
+   "hasHead": true,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/062.png",
+   "row": 3,
+   "col": 14,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ],
+   "hasHead": true,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/063.png",
+   "row": 3,
+   "col": 15,
+   "w": 55,
+   "h": 61,
+   "bbox": [
+    1,
+    1,
+    54,
+    60
+   ],
+   "hasHead": true,
+   "ageRank": 3
+  },
+  {
+   "file": "outfit-m-age/064.png",
+   "row": 4,
+   "col": 0,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    16,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/065.png",
+   "row": 4,
+   "col": 1,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    17,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/066.png",
+   "row": 4,
+   "col": 2,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    25,
+    55,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/067.png",
+   "row": 4,
+   "col": 3,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/068.png",
+   "row": 4,
+   "col": 4,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/069.png",
+   "row": 4,
+   "col": 5,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/070.png",
+   "row": 4,
+   "col": 6,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/071.png",
+   "row": 4,
+   "col": 7,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    23,
+    54,
+    58
+   ],
+   "hasHead": false,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/072.png",
+   "row": 4,
+   "col": 8,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/073.png",
+   "row": 4,
+   "col": 9,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/074.png",
+   "row": 4,
+   "col": 10,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/075.png",
+   "row": 4,
+   "col": 11,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/076.png",
+   "row": 4,
+   "col": 12,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/077.png",
+   "row": 4,
+   "col": 13,
+   "w": 56,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    55,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/078.png",
+   "row": 4,
+   "col": 14,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/079.png",
+   "row": 4,
+   "col": 15,
+   "w": 55,
+   "h": 59,
+   "bbox": [
+    1,
+    1,
+    54,
+    58
+   ],
+   "hasHead": true,
+   "ageRank": 4
+  },
+  {
+   "file": "outfit-m-age/080.png",
+   "row": 5,
+   "col": 0,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/081.png",
+   "row": 5,
+   "col": 1,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    4,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/082.png",
+   "row": 5,
+   "col": 2,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/083.png",
+   "row": 5,
+   "col": 3,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/084.png",
+   "row": 5,
+   "col": 4,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/085.png",
+   "row": 5,
+   "col": 5,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    3,
+    55,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/086.png",
+   "row": 5,
+   "col": 6,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/087.png",
+   "row": 5,
+   "col": 7,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/088.png",
+   "row": 5,
+   "col": 8,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    19,
+    54,
+    54
+   ],
+   "hasHead": false,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/089.png",
+   "row": 5,
+   "col": 9,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    18,
+    54,
+    54
+   ],
+   "hasHead": false,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/090.png",
+   "row": 5,
+   "col": 10,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    18,
+    55,
+    54
+   ],
+   "hasHead": false,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/091.png",
+   "row": 5,
+   "col": 11,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/092.png",
+   "row": 5,
+   "col": 12,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/093.png",
+   "row": 5,
+   "col": 13,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/094.png",
+   "row": 5,
+   "col": 14,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/095.png",
+   "row": 5,
+   "col": 15,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 5
+  },
+  {
+   "file": "outfit-m-age/096.png",
+   "row": 6,
+   "col": 0,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/097.png",
+   "row": 6,
+   "col": 1,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/098.png",
+   "row": 6,
+   "col": 2,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/099.png",
+   "row": 6,
+   "col": 3,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/100.png",
+   "row": 6,
+   "col": 4,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/101.png",
+   "row": 6,
+   "col": 5,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/102.png",
+   "row": 6,
+   "col": 6,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/103.png",
+   "row": 6,
+   "col": 7,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/104.png",
+   "row": 6,
+   "col": 8,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/105.png",
+   "row": 6,
+   "col": 9,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/106.png",
+   "row": 6,
+   "col": 10,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/107.png",
+   "row": 6,
+   "col": 11,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/108.png",
+   "row": 6,
+   "col": 12,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/109.png",
+   "row": 6,
+   "col": 13,
+   "w": 56,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    55,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/110.png",
+   "row": 6,
+   "col": 14,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/111.png",
+   "row": 6,
+   "col": 15,
+   "w": 55,
+   "h": 55,
+   "bbox": [
+    1,
+    1,
+    54,
+    54
+   ],
+   "hasHead": true,
+   "ageRank": 6
+  },
+  {
+   "file": "outfit-m-age/112.png",
+   "row": 7,
+   "col": 0,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    54,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/113.png",
+   "row": 7,
+   "col": 1,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    54,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/114.png",
+   "row": 7,
+   "col": 2,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    55,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/115.png",
+   "row": 7,
+   "col": 3,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    54,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/116.png",
+   "row": 7,
+   "col": 4,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    54,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/117.png",
+   "row": 7,
+   "col": 5,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    55,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/118.png",
+   "row": 7,
+   "col": 6,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    54,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/119.png",
+   "row": 7,
+   "col": 7,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    54,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/120.png",
+   "row": 7,
+   "col": 8,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    20,
+    54,
+    50
+   ],
+   "hasHead": false,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/121.png",
+   "row": 7,
+   "col": 9,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    20,
+    54,
+    50
+   ],
+   "hasHead": false,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/122.png",
+   "row": 7,
+   "col": 10,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    55,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/123.png",
+   "row": 7,
+   "col": 11,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    54,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/124.png",
+   "row": 7,
+   "col": 12,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    54,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/125.png",
+   "row": 7,
+   "col": 13,
+   "w": 56,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    55,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/126.png",
+   "row": 7,
+   "col": 14,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    54,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  },
+  {
+   "file": "outfit-m-age/127.png",
+   "row": 7,
+   "col": 15,
+   "w": 55,
+   "h": 51,
+   "bbox": [
+    1,
+    1,
+    54,
+    50
+   ],
+   "hasHead": true,
+   "ageRank": 7
+  }
  ]
 }
