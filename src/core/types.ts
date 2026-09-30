@@ -277,7 +277,9 @@ export interface GameState {
   /** 명예 상점에서 산 혜택 단계 */
   perks?: Record<string, number>;
   /** 명예의 전당 카드 */
-  cards?: { id: string; personId: string; year: number }[];
+  cards?: { id: string; personId: string; year: number; sex?: 'M' | 'F' }[];
+  /** 히든 카드 활성 성별 (같은 카드를 다른 성별 당사자가 얻으면 갱신) */
+  hiddenCardSex?: Record<string, 'M' | 'F'>;
   /** 가문이 받은 훈장 */
   honors?: { id: string; personId: string; year: number }[];
   /** 가문 스캔들 위험 (0~100): 돈 되는 지름길을 쓸수록 쌓인다 */

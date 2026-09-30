@@ -744,11 +744,14 @@ export function doAction(s: GameState, id: string, targetId?: string): { ok: boo
   if (a.targets && (!t || !a.targets(s).includes(t))) return { ok: false, text: '대상을 골라주세요' };
   const why = a.blocked?.(s, t);
   if (why) return { ok: false, text: why };
+  const used = (s.actUsed ??= {});
+  if (a.cat === '올해의 기회' && Object.keys(used).some((k) => ACTIONS.find((x) => x.id === k)?.cat === '올해의 기회')) {
+    return { ok: false, text: '올해의 할 일(기회)은 한 해에 1개만 선택할 수 있습니다.' };
+  }
   if (a.cost && spendable(s) < a.cost) return { ok: false, text: '돈이 부족하다' };
   if (a.cost) pay(s, householder(s), a.cost);
   s.ap = apLeft(s) - a.ap;
   // 같은 걸 한 해에 여러 번: 두 번째 60%, 세 번째 35%… 그리고 지친다
-  const used = (s.actUsed ??= {});
   const rep = used[id] ?? 0;
   used[id] = rep + 1;
   setFatigue([1, 0.6, 0.35, 0.2][Math.min(3, rep)]);

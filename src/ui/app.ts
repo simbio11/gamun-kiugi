@@ -51,7 +51,8 @@ import { willLine, willOf } from '../core/autonomy';
 import { buyPerk, HONORS, PERKS, perkCost, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
-import { hiddenCardHTML } from './hidden-card';
+import { hiddenCardHTML, hiddenArt } from './hidden-card';
+import { HIDDEN_BY_ID, isSuperHidden } from '../core/hidden-data';
 import { cardBackURL, cardFrontURL, crestURL, customFrames, medalURL, type Theme } from '../render/cardart';
 import { familyScore, lifeGrade, lifeParts } from '../core/score';
 import { pendingAffairs } from '../core/fate';
@@ -109,6 +110,8 @@ interface UIState {
   assetSub?: string;
   /** 크게 보고 있는 명예의 전당 카드 */
   cardView?: string;
+  /** 크게 보고 있는 카드의 성별 토글 */
+  viewerSex?: 'M' | 'F';
   /** 훈장 보기: g.honors 인덱스 */
   honorView?: number;
   /** 업적 탭에서 펼친 목록 (카드 도감·시너지) */
@@ -116,6 +119,8 @@ interface UIState {
   confirmReset?: boolean;
   /** 가문이 끝난 뒤 연대기를 보는 중 (결과 창을 잠시 내린다) */
   overLog?: boolean;
+  /** 행동력 남았을 때 턴 넘김 경고 모달 */
+  apWarnModal?: { ap: number };
   setup: { surname: string; sex: Sex; origin: Difficulty | 'random'; era?: 'modern' | 'history' };
 }
 
@@ -149,15 +154,13 @@ function load(): GameState | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     const g = raw ? migrate(JSON.parse(raw) as GameState) : null;
-    if (g && typeof window !== 'undefined') {
-      const pms = new URLSearchParams(window.location.search);
-      if (pms.get('all_cards') === '1' || pms.has('unlock')) {
-        const p = head(g);
-        g.cards = CARDS.map((c) => ({ id: c.id, personId: p.id, year: g.year }));
-        (ui.open ??= {})['dex'] = true;
-        (ui.open ??= {})['hdex'] = true;
-        (ui.open ??= {})['syn'] = true;
-      }
+    if (g) {
+      const p = head(g);
+      // 검수 요청: 모든 카드 해금 버전
+      g.cards = CARDS.map((c) => ({ id: c.id, personId: p.id, year: g.year }));
+      (ui.open ??= {})['dex'] = true;
+      (ui.open ??= {})['hdex'] = true;
+      (ui.open ??= {})['syn'] = true;
     }
     return g;
   } catch {
@@ -302,7 +305,16 @@ export function mount(el: HTMLElement) {
     return r;
   };
   hasSave = !!ui.game;
-  ui.game = null;
+  // 검수 요청: 모든 카드가 해금된 상태로 게임을 바로 띄운다
+  if (!ui.game) {
+    ui.game = newGame({ familyName: '김', sex: 'M' });
+    const p = head(ui.game);
+    ui.game.cards = CARDS.map((c) => ({ id: c.id, personId: p.id, year: ui.game!.year }));
+    (ui.open ??= {})['dex'] = true;
+    (ui.open ??= {})['hdex'] = true;
+    (ui.open ??= {})['syn'] = true;
+    hasSave = true;
+  }
   root.addEventListener('click', onClick);
   root.addEventListener('touchstart', () => {}, { passive: true }); // iOS에서 :active 눌림 효과 켜기
   root.addEventListener('input', onInput);
@@ -336,6 +348,30 @@ function render() {
   }
 }
 
+function apWarnModalHTML(ap: number): string {
+  return `
+  <div class="modal" data-action="close-ap-warn">
+    <div class="event" data-stop style="max-width:340px;text-align:center;padding:24px 20px;">
+      <div style="font-size:36px;margin-bottom:8px;">⚡</div>
+      <h3 style="margin:0 0 10px;font-size:18px;">행동력이 남아 있습니다</h3>
+      <p class="ev-text" style="font-size:14px;line-height:1.6;color:#e8e0d5;">
+        아직 사용하지 않은 행동력이 <b>${ap}</b> 남았습니다.<br>
+        올해의 할 일을 더 하지 않고 다음 해로 넘어가시겠습니까?
+      </p>
+      <div style="margin:16px 0 18px;font-size:12px;color:#aaa;display:flex;align-items:center;justify-content:center;">
+        <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;user-select:none;">
+          <input type="checkbox" id="chk-suppress-ap-warn" style="accent-color:#e04070;width:15px;height:15px;">
+          해당 경고를 다시는 표시하지 않음
+        </label>
+      </div>
+      <div class="row2" style="display:flex;gap:10px;">
+        <button class="btn ghost" data-action="close-ap-warn" style="flex:1;">행동하러 가기</button>
+        <button class="btn primary" data-action="confirm-next-turn" style="flex:1;">턴 넘기기</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderInner() {
   const g = ui.game;
   if (g) setMoneyYear(g.year), setHistCur(g); // 성향(MBTI) 표시 같은 시대 판단을 화면에도
@@ -366,6 +402,7 @@ function renderInner() {
   let modal = '';
   let modalKey = '';
   if (g.gameOver && !ui.overLog) (modal = gameOverModal(g)), (modalKey = 'over');
+  else if (ui.apWarnModal) (modal = apWarnModalHTML(ui.apWarnModal.ap)), (modalKey = 'apwarn');
   else if (ui.report) (modal = reportModal(ui.report)), (modalKey = 'rep' + ui.report.title);
   else if (ui.outcome) (modal = outcomeModal(ui.outcome)), (modalKey = 'out' + ui.outcome.title + ui.outcome.text);
   else if (g.rewards?.length) {
@@ -1383,17 +1420,33 @@ function outcomeModal(o: { title: string; text: string }): string {
   </div>`;
 }
 
-/** 🎁 보상 팝업: 희귀도마다 빛깔과 효과가 다르다 */
+/** 🎁 보상 팝업: 희귀도마다 빛깔과 효과가 다르다 (히든 카드는 그림자 걷힘 연출) */
 function rewardModal(r: Reward): string {
-  const sparks = r.rarity === 'common' ? 0 : r.rarity === 'rare' ? 8 : r.rarity === 'epic' ? 14 : 22;
+  const isHidden = !!(r.card && CARD[r.card]?.hidden);
+  const isSuper = isHidden && isSuperHidden(r.card!);
+  const sparks = isSuper ? 36 : isHidden ? 24 : r.rarity === 'common' ? 0 : r.rarity === 'rare' ? 8 : r.rarity === 'epic' ? 14 : 22;
+  const p = r.personId && g0()?.people[r.personId] ? g0()!.people[r.personId] : undefined;
+  const cardSex = p?.sex ?? (g0()?.hiddenCardSex?.[r.card!] || 'F');
+
   return `
-  <div class="modal reward-bg ${r.rarity}" data-action="ok-reward">
-    <div class="event reward ${r.rarity}" data-stop>
+  <div class="modal reward-bg ${r.rarity} ${isHidden ? 'is-hidden-bg' : ''} ${isSuper ? 'is-super-bg' : ''}" data-action="ok-reward">
+    <div class="event reward ${r.rarity} ${isHidden ? 'hid-reward-event' : ''} ${isSuper ? 'super-reward-event' : ''}" data-stop>
       <div class="rw-burst">${Array.from({ length: sparks }, (_, i) => `<i style="--a:${Math.round((360 / sparks) * i)}deg;--d:${(i % 5) * 60}ms"></i>`).join('')}</div>
-      <div class="rw-rarity">${RARITY_NAME[r.rarity]}</div>
+      ${isSuper ? '<div class="super-shockwave"></div><div class="super-shockwave sw2"></div>' : isHidden ? '<div class="hid-shockwave"></div>' : ''}
+      <div class="rw-rarity ${isSuper ? 'super-rarity' : ''}">${isSuper ? '👑 SUPER HIDDEN 👑' : isHidden ? '✦ HIDDEN JOB ✦' : RARITY_NAME[r.rarity]}</div>
       ${
-        r.card && CARD[r.card]?.hidden
-          ? `<div class="hcard hidden-hc">${cardImg(CARD[r.card], false, 'hc-art')}</div><div class="hc-eff">🌑 히든 직업 달성! ${esc(effText(CARD[r.card].eff))}</div>`
+        isHidden
+          ? `<div class="hcard-reveal-box ${isSuper ? 'super-box' : ''}">
+              <div class="hcard hidden-hc ${isSuper ? 'super-hc' : ''}">${cardImg(CARD[r.card!], false, 'hc-art', cardSex)}</div>
+              <div class="hid-shadow-veil ${isSuper ? 'veil-super' : ''}">
+                <div class="veil-darkness">
+                  <div class="veil-silhouette">${isSuper ? '👑' : '?'}</div>
+                  <div class="veil-mist"></div>
+                </div>
+                <div class="veil-blade"></div>
+              </div>
+            </div>
+            <div class="hc-eff">${isSuper ? '👑 초월의 히든 직업(슈퍼 히든) 달성!' : '🌑 히든 직업 달성!'} ${esc(effText(CARD[r.card!].eff))}</div>`
           : r.card && CARD[r.card]
           ? `<div class="hcard ${r.rarity}">${cardImg(CARD[r.card], false, 'hc-art')}<div class="hc-title">${CARD[r.card].name}</div><div class="hc-name">${r.personId && g0()?.people[r.personId] ? esc(fullName(g0()!.people[r.personId])) : ''}</div><i class="hc-shine"></i></div><div class="hc-eff">${esc(effText(CARD[r.card].eff))}</div>`
           : r.grade
@@ -1403,7 +1456,7 @@ function rewardModal(r: Reward): string {
       <h3>${esc(r.title)}</h3>
       <p class="ev-text">${nl(r.text)}</p>
       ${r.pts ? `<div class="rw-pts">+${r.pts} <b>✦</b> 명예</div>` : ''}
-      <button class="btn primary rw-take" data-action="ok-reward">${r.rarity === 'legend' ? '영광을 받든다!' : '받기!'}</button>
+      <button class="btn primary rw-take" data-action="ok-reward">${isSuper ? '초월의 영광을 받든다!' : r.rarity === 'legend' ? '영광을 받든다!' : '받기!'}</button>
       ${g0()?.rewards && g0()!.rewards!.length > 1 ? `<button class="btn ghost rw-all" data-action="ok-reward-all">모두 받기 (${g0()!.rewards!.length - 1}개 더)</button>` : ''}
     </div>
   </div>`;
@@ -1420,13 +1473,23 @@ const HIDDEN_CARDS = CARDS.filter((d) => d.hidden);
 const NORMAL_CARDS = CARDS.filter((d) => !d.hidden);
 const cardArt = (d: CardDef, locked = false, frame = 0) => cardFrontURL(d.id, d.icon, (CARD_THEME[d.id] ?? 'power') as Theme, d.rarity, locked, cardTier(d), frame);
 /** 움직이는 카드(여러 장)는 겹쳐 놓고 번갈아 보여 준다 */
-const cardImg = (d: CardDef, locked: boolean, cls: string) => {
+const cardImg = (d: CardDef, locked: boolean, cls: string, forceSex?: 'M' | 'F') => {
   if (d.hidden) {
     // 히든 카드: 가진 사람의 성별 그림으로, 움직이는 효과와 함께
     const gg = g0();
+    let sex: 'M' | 'F' | undefined = forceSex;
+    if (!sex && gg) {
+      if (gg.hiddenCardSex?.[d.id]) {
+        sex = gg.hiddenCardSex[d.id];
+      } else {
+        const c = [...(gg.cards ?? [])].reverse().find((x) => x.id === d.id);
+        const p = c ? gg.people[c.personId] : undefined;
+        sex = c?.sex ?? p?.sex;
+      }
+    }
     const c = gg?.cards?.find((x) => x.id === d.id);
     const p = c ? gg!.people[c.personId] : undefined;
-    return hiddenCardHTML(d.id, { sex: p?.sex, seed: p ? p.birthYear : 0, locked, cls: `${cls}-h` });
+    return hiddenCardHTML(d.id, { sex: sex ?? p?.sex, seed: p ? p.birthYear : 0, locked, cls: `${cls}-h` });
   }
   // 전설 직업 카드: 플레이어가 준 그림을 명예의 전당 카드 틀 안에 (천천히 위아래로 훑으며 전신을 보여 준다)
   const la = LEGEND_ART[d.id];
@@ -1436,18 +1499,26 @@ const cardImg = (d: CardDef, locked: boolean, cls: string) => {
   return `<span class="gif3">${Array.from({ length: n }, (_, i) => `<img class="${cls}${i ? ` gf gf${i}` : ''}" src="${cardArt(d, false, i)}" alt="">`).join('')}</span>`;
 };
 
-/** 🃏 카드 뷰어: 실물 카드처럼 크게. 기울이면 홀로그램, 누르면 뒤집힌다 */
+/** 🃏 카드 뷰어: 실물 카드처럼 크게. 기울이면 홀로그램, 누르면 뒤집힌다 (공략법 제공) */
 function cardViewer(g: GameState, id: string): string {
   const d = CARD[id];
   const hs = (g.cards ?? []).filter((c) => c.id === id);
   const got = hs.length > 0;
+  const isHidden = !!d.hidden;
+  const isSuper = isHidden && isSuperHidden(id);
+  const activeSex: 'M' | 'F' = ui.viewerSex ?? g.hiddenCardSex?.[id] ?? hs[hs.length - 1]?.sex ?? 'F';
   const hp = got ? g.people[hs[0].personId] : undefined;
+  const hj = HIDDEN_BY_ID[id];
+  const hasArtM = !!hiddenArt(id, 'M');
+  const hasArtF = !!hiddenArt(id, 'F');
+  const hasBothSex = hasArtM && hasArtF;
+
   return `
   <div class="modal cv-modal" data-action="close-card">
     <div class="cv-wrap">
-      <div class="cv-card ${d.rarity} ${got ? '' : 'locked'}" data-stop>
+      <div class="cv-card ${d.rarity} ${got ? '' : 'locked'} ${isSuper ? 'is-super' : ''}" data-stop>
         <div class="cv-face cv-front${d.hidden ? ' cv-hidden' : ''}">
-          ${cardImg(d, !got, 'cv-img')}${d.hidden ? '<!--' : ''}
+          ${cardImg(d, !got, 'cv-img', isHidden ? activeSex : undefined)}${d.hidden ? '<!--' : ''}
           <div class="cv-no">No.${String(cardNo(id)).padStart(3, '0')} · ${RARITY_NAME[d.rarity]}</div>
           ${hp ? `<img class="cv-portrait" src="${portraitURL(hp, alive(hp) ? age(g, hp) : hp.deathYear! - hp.birthYear)}" alt="">` : ''}
           <div class="cv-bottom">
@@ -1459,19 +1530,41 @@ function cardViewer(g: GameState, id: string): string {
         </div>
         <div class="cv-face cv-back">
           <img class="cv-img" src="${cardBackURL(d.rarity)}" alt="">
-          <div class="cv-back-top">명예의 전당 · ${RARITY_NAME[d.rarity]}</div>
+          <div class="cv-back-top">명예의 전당 · ${isSuper ? '슈퍼 히든' : isHidden ? '히든 직업' : RARITY_NAME[d.rarity]}</div>
           <div class="cv-crest">${esc(g.familyName)}</div>
           <div class="cv-back-bottom">
             <b>${d.hidden && !got ? 'HIDDEN JOB' : d.name}</b>
-            ${d.hidden && !got ? '' : `<small>${esc(d.how)}</small>`}
+            ${
+              d.hidden
+                ? `<div class="cv-guide-box">
+                    <div class="cv-guide-title">📜 ${d.name} 공략법</div>
+                    <div class="cv-guide-body">${esc(hj?.strategy || d.how)}</div>
+                    ${got && hs.length ? `<div class="cv-owners-list">달성자: ${hs.map((c) => `${c.sex === 'M' ? '♂' : '♀'} ${esc(fullName(g.people[c.personId]))} (${c.year}년)`).join(' · ')}</div>` : ''}
+                  </div>`
+                : `<small>${esc(d.how)}</small>`
+            }
             ${got || !d.hidden ? `<em class="cv-eff" style="display:block;margin-top:6px;color:#ffe08a;font-weight:bold;font-size:12px;">✨ ${esc(effText(d.eff))}</em>` : ''}
             ${d.honor && HONORS[d.honor] ? `<small>🎖 ${HONORS[d.honor].name}</small>` : ''}
           </div>
         </div>
       </div>
+      <div class="cv-ctrl-bar" data-stop>
+        ${
+          isHidden && hasBothSex
+            ? `<button class="cv-ctrl-btn ${activeSex === 'M' ? 'active' : ''}" data-action="toggle-card-sex" data-id="${id}" data-v="M">♂ 남성 카드</button>
+               <button class="cv-ctrl-btn ${activeSex === 'F' ? 'active' : ''}" data-action="toggle-card-sex" data-id="${id}" data-v="F">♀ 여성 카드</button>`
+            : ''
+        }
+        <button class="cv-ctrl-btn" data-action="flip-card">🔄 카드 뒤집기 (공략법)</button>
+        ${
+          isHidden
+            ? `<button class="cv-ctrl-btn" style="background:#551133;color:#ff99bb;border-color:#ff3366;" data-action="preview-reward" data-id="${id}">🎬 획득 연출 보기</button>`
+            : ''
+        }
+      </div>
       <div class="cv-hint">
         ${got ? `<div style="background:rgba(20,15,10,0.9);padding:8px 14px;border-radius:10px;margin-bottom:8px;color:#ffe08a;border:1px solid rgba(255,224,138,0.5);font-size:12px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.6);"><b style="color:#fff;">✨ [가문 지속 효과]</b><br>${esc(effText(d.eff))}</div>` : ''}
-        ↔ 카드를 옆으로 밀어 돌려 보세요 · 바깥을 누르면 닫혀요
+        ↔ 카드를 누르거나 뒤집기 버튼으로 공략법을 확인하세요
       </div>
     </div>
   </div>`;
@@ -1846,8 +1939,12 @@ function actionsScreen(g: GameState): string {
   const isFit = (a: (typeof list)[number]) => !!a.fit && fits.has(a.fit);
   const row = (a: (typeof list)[number]) => {
     const targets = a.targets?.(g) ?? [];
-    const blocked = a.blocked?.(g, targets[0]);
+    let blocked = a.blocked?.(g, targets[0]);
     const used = g.actUsed?.[a.id] ?? 0;
+    const oppAlreadyDone = a.cat === '올해의 기회' && Object.keys(g.actUsed ?? {}).some((k) => ACTIONS.find((x) => x.id === k)?.cat === '올해의 기회');
+    if (!blocked) {
+      if (a.cat === '올해의 기회' && oppAlreadyDone) blocked = '올해의 할 일(기회) 완료 (한 해 1개 제한)';
+    }
     const disabled = ap < a.ap || !!blocked || (a.cost ?? 0) > money;
     const why = blocked ?? ((a.cost ?? 0) > money ? '돈 부족' : ap < a.ap ? '행동력 부족' : used ? `올해 ${used}번 · 효과↓` : '');
     return `<div class="act ${disabled ? 'off' : ''} ${isFit(a) ? 'fit' : ''}">
@@ -1863,7 +1960,7 @@ function actionsScreen(g: GameState): string {
   };
   return `
   <section class="ap-bar">
-    <div><b>올해 할 일</b> <small>${STAGE_NAMES[stageOf(g, head(g))]}${!['none', 'parttime', 'pension'].includes(me0.job) ? ` · ${esc(jobShort(g, me0))}` : TRACK_NAMES[mainT ?? ''] ? ` · ${TRACK_NAMES[mainT!]}` : ''}${sideJ ? ` · 겸직 ${esc(JOBS[sideJ]?.name ?? '')}` : ''}</small></div>
+    <div><b>올해의 할 일</b> <small>${STAGE_NAMES[stageOf(g, head(g))]}${!['none', 'parttime', 'pension'].includes(me0.job) ? ` · ${esc(jobShort(g, me0))}` : TRACK_NAMES[mainT ?? ''] ? ` · ${TRACK_NAMES[mainT!]}` : ''}${sideJ ? ` · 겸직 ${esc(JOBS[sideJ]?.name ?? '')}` : ''}</small></div>
     <span class="ap" title="행동력: 생활 수준 검소 2·보통 3·호화 4${car ? ` + 탈것 ${car}` : ''}">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, apMax(g) - ap))}</span>
   </section>
   ${jobTabs}
@@ -2246,6 +2343,20 @@ function onClick(e: MouseEvent) {
   handle(el);
 }
 
+function advanceTurn(g: GameState) {
+  const start = g.log.length;
+  const gen = g.generation;
+  simulateYear(g);
+  if (g.generation > gen) track(`generation-${g.generation}`, `${g.generation}대 도달`);
+  if (g.gameOver) track('gameover', '게임 오버');
+  if (g.year % 10 === 0) track(`played-${g.year}`, `${g.year}년 도달`);
+  const lines = g.log.slice(start).filter((l) => !l.text.startsWith('──')).map((l) => l.text);
+  ui.report = { title: `📜 ${g.year}년`, lines };
+  ui.tab = 'tree'; // 새해는 가계도에서 맞는다
+  ui.sheet = undefined;
+  window.scrollTo(0, 0);
+}
+
 function handle(el: HTMLElement) {
   const a = el.dataset.action!;
   const v = el.dataset.v!;
@@ -2411,10 +2522,42 @@ function handle(el: HTMLElement) {
       break;
     case 'card-view':
       ui.cardView = id;
+      ui.viewerSex = undefined;
       break;
     case 'close-card':
       ui.cardView = ui.honorView = undefined;
+      ui.viewerSex = undefined;
       break;
+    case 'toggle-card-sex':
+      ui.viewerSex = v as 'M' | 'F';
+      break;
+    case 'flip-card': {
+      const cardEl = root.querySelector<HTMLElement>('.cv-card');
+      if (cardEl) {
+        const cur = spinOf(cardEl);
+        const next = Math.round(cur / 180) % 2 === 0 ? 180 : 0;
+        cardEl.style.setProperty('--spin', `${next}deg`);
+      }
+      break;
+    }
+    case 'preview-reward': {
+      if (!g) break;
+      const p = head(g);
+      const isSuper = isSuperHidden(id);
+      (g.rewards ??= []).unshift({
+        id: (g.eventSeq = (g.eventSeq ?? 0) + 1),
+        icon: CARD[id]?.icon ?? '✨',
+        title: `${isSuper ? '👑 슈퍼 히든' : '🌑 히든'} 직업 달성: ${CARD[id]?.name ?? id}`,
+        text: `${fullName(p)}이(가) ${isSuper ? '초월의 슈퍼 히든' : '전설의 히든'} 직업에 올랐다!`,
+        rarity: isSuper ? 'legend' : 'epic',
+        card: id,
+        personId: p.id,
+        pts: isSuper ? 100 : 50,
+      });
+      ui.cardView = undefined;
+      ui.viewerSex = undefined;
+      break;
+    }
     case 'lease': {
       const a = g!.assets.find((x) => x.id === id);
       if (a) ui.toast = setLease(g!, a, v as Lease) || undefined;
@@ -2455,21 +2598,31 @@ function handle(el: HTMLElement) {
       else (ui.toast = r.text), sfx('error');
       break;
     }
-    case 'next':
+    case 'next': {
       if (!g) break;
       if (!g.events.length) {
-        const start = g.log.length;
-        const gen = g.generation;
-        simulateYear(g);
-        if (g.generation > gen) track(`generation-${g.generation}`, `${g.generation}대 도달`);
-        if (g.gameOver) track('gameover', '게임 오버');
-        if (g.year % 10 === 0) track(`played-${g.year}`, `${g.year}년 도달`);
-        const lines = g.log.slice(start).filter((l) => !l.text.startsWith('──')).map((l) => l.text);
-        ui.report = { title: `📜 ${g.year}년`, lines };
-        ui.tab = 'tree'; // 새해는 가계도에서 맞는다
-        ui.sheet = undefined;
-        window.scrollTo(0, 0);
+        const ap = apLeft(g);
+        const suppress = typeof localStorage !== 'undefined' && localStorage.getItem('suppress_ap_warn') === '1';
+        if (ap > 0 && !suppress) {
+          ui.apWarnModal = { ap };
+          break;
+        }
+        advanceTurn(g);
       }
+      break;
+    }
+    case 'confirm-next-turn': {
+      if (!g) break;
+      const chk = document.getElementById('chk-suppress-ap-warn') as HTMLInputElement | null;
+      if (chk?.checked && typeof localStorage !== 'undefined') {
+        localStorage.setItem('suppress_ap_warn', '1');
+      }
+      ui.apWarnModal = undefined;
+      advanceTurn(g);
+      break;
+    }
+    case 'close-ap-warn':
+      ui.apWarnModal = undefined;
       break;
     case 'ok-report':
       ui.report = undefined;

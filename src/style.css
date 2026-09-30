@@ -1040,3 +1040,268 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 .lg-shine { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, transparent 35%, rgba(255,240,180,.35) 48%, transparent 60%); background-size: 300% 100%; animation: lg-shine 5s linear infinite; mix-blend-mode: screen; }
 @keyframes lg-shine { from { background-position: 150% 0; } to { background-position: -150% 0; } }
 .calm .lg-art, .calm .lg-shine { animation: none; }
+
+/* ── 슈퍼 히든 카드 전용 테두리 및 비주얼 (초강력 크림슨-골드-프리즈마틱 불꽃) ── */
+.hid-card.is-super {
+  background: conic-gradient(from var(--ha, 0deg), #ff0044, #ff6600, #ffe600, #ff0055, #9900ff, #00f0ff, #ff0044);
+  box-shadow: 0 0 18px #ff0055, 0 0 40px #ff6600, 0 0 65px rgba(255, 0, 85, .55);
+}
+.hid-card.is-super.locked {
+  background: linear-gradient(135deg, #441020, #1a050c);
+  box-shadow: 0 0 14px rgba(255, 0, 70, .45);
+}
+.hid-card.is-super .hid-pl-in {
+  border: 1.5px solid #ff2a6d;
+  background: linear-gradient(180deg, #300812, #140207);
+  box-shadow: inset 0 0 0 1px #80102a, inset 0 0 12px rgba(255, 40, 90, .4), 0 0 14px rgba(255, 40, 90, .6);
+}
+.hid-card.is-super .hid-pl-in b {
+  background: linear-gradient(90deg, #ff80a0, #ffd700, #ff2a6d);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hid-card.is-super .hid-pl-in span {
+  background: linear-gradient(180deg, #fff0f5 0%, #ff4070 45%, #ffd700 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.8));
+}
+.hid-card.is-super .hid-orn {
+  background: linear-gradient(135deg, #ffe600, #ff0055);
+  box-shadow: 0 0 9px #ff0055;
+}
+.hid-card.is-super .hid-medal {
+  background: radial-gradient(circle at 35% 30%, #fff0f5, #ff0055 55%, #590016);
+  box-shadow: 0 0 0 2px #260009, 0 0 16px #ff0055;
+  color: #fff;
+}
+
+/* ── 히든 카드 획득 연출: 어두운 그림자가 쓱 걷히며 실물 등장 ── */
+.reward-bg.is-hidden-bg {
+  background: radial-gradient(circle at 50% 40%, rgba(130, 40, 220, .5), rgba(8, 4, 16, .88));
+}
+.reward-bg.is-super-bg {
+  background: radial-gradient(circle at 50% 40%, rgba(255, 10, 70, .6), rgba(40, 10, 30, .65), rgba(5, 0, 8, .94));
+}
+.event.reward.hid-reward-event {
+  box-shadow: 0 0 0 3px #b06aff, 0 0 50px rgba(176, 106, 255, .8);
+}
+.event.reward.super-reward-event {
+  box-shadow: 0 0 0 3px #ff0055, 0 0 70px rgba(255, 0, 85, .95), inset 0 0 25px rgba(255, 100, 0, .2);
+  animation: rw-pop .55s cubic-bezier(.2, 1.6, .4, 1) both, super-rumble 0.6s ease-in-out;
+}
+@keyframes super-rumble {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.03) translate(-3px, 2px); }
+  35% { transform: scale(1.02) translate(3px, -2px); }
+  55% { transform: scale(1.03) translate(-2px, -2px); }
+  75% { transform: scale(1.01) translate(2px, 1px); }
+}
+
+.rw-rarity.super-rarity {
+  color: #ff3366;
+  text-shadow: 0 0 12px #ff0055, 0 0 25px #ffd700;
+  font-weight: 900;
+  letter-spacing: .15em;
+}
+
+/* 충격파 링 */
+.hid-shockwave, .super-shockwave {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 50px;
+  height: 50px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 5;
+}
+.hid-shockwave {
+  border: 3px solid #b06aff;
+  box-shadow: 0 0 30px #b06aff, inset 0 0 20px #b06aff;
+  animation: shockwave-expand 1.8s .35s ease-out forwards;
+}
+.super-shockwave {
+  border: 4px solid #ff0055;
+  box-shadow: 0 0 35px #ff0055, 0 0 70px #ffd700;
+  animation: shockwave-expand 2s .3s ease-out forwards;
+}
+.super-shockwave.sw2 {
+  border-color: #ffd700;
+  animation-delay: .55s;
+}
+@keyframes shockwave-expand {
+  0% { width: 30px; height: 30px; opacity: 1; transform: translate(-50%, -50%) scale(0.4); }
+  100% { width: 600px; height: 600px; opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
+}
+
+/* 그림자 걷힘 무대 */
+.hcard-reveal-box {
+  position: relative;
+  width: 190px;
+  margin: 12px auto 14px;
+  border-radius: 12px;
+}
+.hcard-reveal-box .hcard.hidden-hc {
+  position: relative;
+  z-index: 10;
+  animation: card-unveil-pop 2.4s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+
+/* 어두운 그림자 베일 */
+.hid-shadow-veil {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 25;
+  animation: veil-wipe 2.4s cubic-bezier(0.2, 0.85, 0.3, 1) forwards;
+}
+@keyframes veil-wipe {
+  0%, 25% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+  26% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+  72% {
+    clip-path: inset(0 0 0 100%);
+    opacity: 1;
+  }
+  80% {
+    clip-path: inset(0 0 0 100%);
+    opacity: 0;
+  }
+  100% {
+    clip-path: inset(0 0 0 100%);
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.veil-darkness {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 45%, #241238, #0a0412 85%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.veil-super .veil-darkness {
+  background: radial-gradient(circle at 50% 45%, #3a0818, #0c0106 85%);
+}
+.veil-silhouette {
+  font-size: 64px;
+  font-weight: 900;
+  color: rgba(190, 140, 255, .4);
+  text-shadow: 0 0 20px rgba(170, 100, 255, .8);
+  animation: veil-pulse 1.3s ease-in-out infinite;
+}
+.veil-super .veil-silhouette {
+  color: rgba(255, 60, 110, .5);
+  text-shadow: 0 0 28px rgba(255, 30, 90, 1);
+}
+@keyframes veil-pulse {
+  0%, 100% { transform: scale(1); opacity: .7; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+.veil-mist {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at bottom, rgba(140, 70, 220, .3), transparent 70%);
+}
+.veil-super .veil-mist {
+  background: radial-gradient(ellipse at bottom, rgba(255, 40, 90, .4), transparent 70%);
+}
+
+/* 쓱 걷어내는 찬란한 빛의 칼날 */
+.veil-blade {
+  position: absolute;
+  top: -15%;
+  bottom: -15%;
+  width: 28px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.95), #ffd76a, transparent);
+  box-shadow: 0 0 24px #ffffff, 0 0 45px #ffd76a;
+  transform: skewX(-10deg);
+  animation: blade-sweep 2.4s cubic-bezier(.2, .85, .3, 1) forwards;
+}
+.veil-super .veil-blade {
+  background: linear-gradient(90deg, transparent, #ffffff, #ff2a6d, #ffd700, transparent);
+  box-shadow: 0 0 30px #ffffff, 0 0 55px #ff0055, 0 0 80px #ff9e00;
+}
+@keyframes blade-sweep {
+  0%, 22% { left: -25%; opacity: 0; }
+  26% { left: -10%; opacity: 1; }
+  72% { left: 105%; opacity: 1; }
+  78% { left: 115%; opacity: 0; }
+  100% { left: 115%; opacity: 0; }
+}
+
+@keyframes card-unveil-pop {
+  0%, 25% { transform: scale(0.93); filter: brightness(0.65); }
+  56% { transform: scale(1.1); filter: brightness(1.3) saturate(1.25); }
+  76% { transform: scale(0.98); filter: brightness(1.1); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+/* 카드 뷰어 공략법 및 조작 도구 */
+.cv-guide-box {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(20, 10, 30, .85);
+  border: 1px solid #c9a44a;
+  border-radius: 6px;
+  text-align: left;
+}
+.cv-guide-title {
+  color: #ffd76a;
+  font-weight: bold;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.cv-guide-body {
+  color: #e6dcff;
+  font-size: 10px;
+  line-height: 1.45;
+}
+.cv-owners-list {
+  margin-top: 5px;
+  font-size: 9px;
+  color: #ffb8d0;
+  border-top: 1px dashed rgba(255,255,255,.2);
+  padding-top: 4px;
+}
+.cv-ctrl-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 10px;
+}
+.cv-ctrl-btn {
+  padding: 5px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+  background: #2a1c36;
+  color: #ffd76a;
+  border: 1px solid #7a4ab0;
+  cursor: pointer;
+  transition: background .15s;
+}
+.cv-ctrl-btn:hover {
+  background: #3e2850;
+}
+.cv-ctrl-btn.active {
+  background: #ff0055;
+  color: #fff;
+  border-color: #ff80a0;
+  font-weight: bold;
+}

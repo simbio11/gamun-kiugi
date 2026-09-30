@@ -3,7 +3,7 @@
 //   · 아직 못 얻은 카드는 흐릿하고 어두운 배경 위 새까만 실루엣
 //   · 직업마다 다른 입자 효과: 보케·지폐·촛불·마법 가루·카드·나뭇잎·비·스캔라인·불씨·연기…
 //   · 히든 전용 테두리: 무지개빛 금테 + 광채 + 빛 스침
-import { HIDDEN_BY_ID, type HiddenFx, type HiddenJob } from '../core/hidden-data';
+import { HIDDEN_BY_ID, isSuperHidden, type HiddenFx, type HiddenJob } from '../core/hidden-data';
 
 const FILES = import.meta.glob('../assets/hidden/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const NAMED = Object.entries(FILES).map(([k, v]) => [k.split('/').pop()!.replace('.webp', ''), v] as const);
@@ -68,19 +68,20 @@ function particles(fx: HiddenFx): string {
 export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; locked?: boolean; cls?: string } = {}): string {
   const h: HiddenJob | undefined = HIDDEN_BY_ID[id];
   if (!h) return '';
+  const superJob = isSuperHidden(id);
   const pickSex = o.sex ?? ([...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 2 ? 'M' : 'F');
   const a = hiddenArt(id, pickSex, o.seed ?? 0) ?? hiddenArt(id, pickSex === 'F' ? 'M' : 'F', o.seed ?? 0);
   if (o.locked)
     // 아직 모르는 직업: 흐릿하고 어두운 배경 위 새까만 실루엣. 이름은 숨기고 수수께끼만
-    return `<div class="hid-card locked ${o.cls ?? ''}"><div class="hid-stage">${
+    return `<div class="hid-card locked ${superJob ? 'is-super' : ''} ${o.cls ?? ''}"><div class="hid-stage">${
       a ? `<img class="hid-back" src="${a.src}" alt=""><img class="hid-img hid-blur" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-sil" src="${a.fig}" alt="">` : ''}` : ''
-    }<div class="hid-q">?</div></div><div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in only"><b>HIDDEN JOB</b></div><i class="hid-orn r"></i><em class="hid-medal">?</em></div></div>`;
+    }<div class="hid-q">?</div></div><div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in only"><b>${superJob ? 'SUPER HIDDEN' : 'HIDDEN JOB'}</b></div><i class="hid-orn r"></i><em class="hid-medal">${superJob ? '👑' : '?'}</em></div></div>`;
   const art = a
     ? `<img class="hid-back" src="${a.src}" alt=""><div class="hid-pan"><img class="hid-img hid-bg" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-fig" src="${a.fig}" alt="">` : ''}</div>`
     : `<div class="hid-q">${h.icon}<small>그림 준비 중</small></div>`;
-  return `<div class="hid-card fx-${h.fx} ${o.cls ?? ''}" style="--hc:${h.color}">
+  return `<div class="hid-card fx-${h.fx} ${superJob ? 'is-super' : ''} ${o.cls ?? ''}" style="--hc:${h.color}">
     <div class="hid-stage">${art}<div class="hid-fx">${particles(h.fx)}</div><i class="hid-shine"></i></div>
-    <div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in"><b>✦ HIDDEN JOB ✦</b><span>${h.name}</span></div><i class="hid-orn r"></i><em class="hid-medal">${h.icon}</em></div>
+    <div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in"><b>${superJob ? '👑 SUPER HIDDEN 👑' : '✦ HIDDEN JOB ✦'}</b><span>${h.name}</span></div><i class="hid-orn r"></i><em class="hid-medal">${h.icon}</em></div>
     <i class="hid-glint g1"></i><i class="hid-glint g2"></i><i class="hid-glint g3"></i>
   </div>`;
 }
