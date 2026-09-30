@@ -271,6 +271,14 @@ export const WORK_STORIES: Story[] = [
     { label: '도전한다', mark: { risk: 2 }, text: '', roll: ['str', 60, [{ promo: 1, fame: 5, cash: 10000 }, '주전 확보! 유니폼이 한국에서 불티나게 팔린다.'], [{ hap: -6 }, '벤치만 지키다 1년 만에 돌아왔다.']] },
     { label: '국내 최고 대우로 남는다', text: 'FA 대박. 연봉 두 배.', eff: { cash: 5000 } },
   ] },
+  { id: 'wk_chess_match', title: '명인과의 사투', age: [18, 60], w: 1, cond: J('chess_player'), text: '국제 대회에서 세계적인 체스 마스터와 마주쳤다. 5시간째 수가 이어지고 있다.', choices: [
+    { label: '승부수를 던진다', mark: { risk: 2 }, text: '', roll: ['int', 60, [{ promo: 1, fame: 4, cash: 3000 }, '환상적인 룩 희생으로 체크메이트! 대회 최고의 명국으로 선정됐다.'], [{ hap: -5 }, '마지막 수순 착각으로 기권패했다.']] },
+    { label: '안전하게 무승부로 끈다', text: '상대와 무승부에 합의했다. 레이팅 방어 성공.', eff: { fame: 1 } },
+  ] },
+  { id: 'wk_chess_simul', title: '다면기 행사', age: [20, 65], w: 0.8, cond: J('chess_player'), text: '{n}에게 30인 동시 다면기 초청이 왔다. 팬들과 영재 유망주들이 기다리고 있다.', choices: [
+    { label: '전승을 노린다', mark: { fame: 2 }, text: '', roll: ['int', 62, [{ fame: 3, cash: 2000, hap: 5 }, '30전 30승 전승! 언론에 대서특필되었다.'], [{ hp: -5 }, '한 판을 패배하며 씁쓸하게 마쳤다.']] },
+    { label: '친선과 지도에 집중한다', text: '아이들에게 친절히 조언하며 체스 보급에 힘썼다.', eff: { mor: 3, hap: 4 } },
+  ] },
   { id: 'wk_coach', title: '제자', age: [30, 70], w: 0.8, cond: J('coach', 'trainer', 'gamer'), text: '{n}이(가) 가르치는 선수 중 재능은 있는데 가정 형편이 어려운 아이가 있다. 그만두려 한다.', choices: [
     { label: '후원자를 찾아준다', mark: { kind: 2 }, text: '', roll: ['cha', 45, [{ fame: 2, mor: 3 }, '10년 뒤 그 아이가 국가대표가 됐다. 인터뷰에서 {n}의 이름을 불렀다.'], [{ mor: 2 }, '후원자는 못 찾았지만 아이는 끝까지 운동을 했다.']] },
     { label: '현실을 받아들인다', text: '아이는 떠났다.', eff: { hap: -3 } },

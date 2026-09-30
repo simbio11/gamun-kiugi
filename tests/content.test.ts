@@ -3,7 +3,7 @@ import { ACHIEVEMENTS, EXAMS, JOBS, JOB_IDS, TRAITS } from '../src/core/data';
 import { MAJOR_JOBS, PROGRAMS, admitChance, recommend, suneung } from '../src/core/school';
 import { MISSIONS } from '../src/core/missions';
 import { deathChance } from '../src/core/growth';
-import { age, head, parentsOf } from '../src/core/people';
+import { addTrait, age, head, parentsOf } from '../src/core/people';
 import { currentEvent, migrate, newGame, resolveChoice, simulateYear } from '../src/core/sim';
 import { EVENTS } from '../src/core/registry';
 import { STORY_COUNT } from '../src/core/stories';
@@ -40,6 +40,7 @@ import { HIDDEN, SUPER_HIDDEN_IDS, isSuperHidden } from '../src/core/hidden-data
 import { JOB_ACTS } from '../src/core/job-acts';
 import { _quest, eligible, lowly, QUEST_IDS } from '../src/core/hidden-quest';
 import { obeys, willOf } from '../src/core/autonomy';
+import { gateYear } from '../src/core/super-gates';
 
 describe('콘텐츠 무결성', () => {
   it('직업 100개 이상, 모든 참조가 유효', () => {
@@ -869,7 +870,7 @@ describe('부모님 유산', () => {
       const n = HIDDEN_WORK_STORIES.filter((st) => st.id.startsWith(`wk_h_${h.id}_`)).length;
       if (n < 3) thin.push(`story:${h.id}:${n}`);
     }
-    expect(HIDDEN.length).toBe(30);
+    expect(HIDDEN.length).toBe(31);
     expect(thin).toEqual([]);
     // 직장 이야기는 실제로 그 직업인 사람에게 나온다
     const s = newGame({ seed: 8, familyName: '서', sex: 'F' });
@@ -1385,5 +1386,40 @@ describe('부모님 유산', () => {
       }
     }
     expect(w.job).toBe(god);
+  });
+
+  it('여성 체스 그랜드마스터: 적성검사 체스 신동 발현 → 체스 선수 고유 루트 → 35세 유지 시 슈퍼 히든 등극', () => {
+    const s = newGame({ seed: 333, familyName: '이', sex: 'F' });
+    const h = head(s);
+    h.sex = 'F';
+    h.birthYear = s.year - 15;
+    h.traits = [];
+
+    // 1. 적성검사 시 체스 신동 발현 (4% 확률 로직 검증)
+    addTrait(h, 'chess_prodigy');
+    expect(h.traits).toContain('chess_prodigy');
+
+    // 2. 14~25세 시 체스 선수 고유 루트 이벤트 등장
+    s.events = [];
+    gateYear(s);
+    expect(s.events.some((e) => e.defId === 'gt_chess_prodigy')).toBe(true);
+    resolveChoice(s, 0); // 1번 선택지: 프로 체스 선수 데뷔
+    expect(h.job).toBe('chess_player');
+    expect(h.flags).toContain('route:chess_player');
+
+    // 3. 35세 미만일 땐 아직 그랜드마스터 이벤트 미발생
+    s.events = [];
+    gateYear(s);
+    expect(s.events.some((e) => e.defId === 'gt_chess_master')).toBe(false);
+
+    // 4. 35세 도달 및 체스 선수 유지 시 그랜드마스터 등극 이벤트 발생
+    s.events = [];
+    h.birthYear = s.year - 35;
+    gateYear(s);
+    expect(s.events.some((e) => e.defId === 'gt_chess_master')).toBe(true);
+    resolveChoice(s, 0); // 그랜드마스터 왕관을 쓴다
+    expect(h.job).toBe('hj_chess_master');
+    expect(h.flags).toContain('hidden:hj_chess_master');
+    expect(isSuperHidden('hj_chess_master')).toBe(true);
   });
 });

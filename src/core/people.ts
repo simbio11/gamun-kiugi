@@ -332,8 +332,9 @@ export function mark(p: Person, key: string, n = 1) {
 export const markOf = (p: Person | undefined, key: string) => p?.marks?.[key] ?? 0;
 
 /** 성격 부여: 기존 성격과 반대되는 건 건너뜀 */
-function addTrait(list: string[], id: string) {
-  if (list.includes(id) || list.some((t) => TRAITS[t].opp === id)) return;
+export function addTrait(target: string[] | Person, id: string) {
+  const list = Array.isArray(target) ? target : (target.traits ??= []);
+  if (list.includes(id) || list.some((t) => TRAITS[t]?.opp === id)) return;
   list.push(id);
 }
 

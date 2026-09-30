@@ -34,6 +34,7 @@ export const SUPER_HIDDEN_IDS = new Set([
   'hj_godmother',
   'hj_private_jet',
   'hj_underground_dealer',
+  'hj_chess_master',
   ...HOH_IDS,
 ]);
 
@@ -71,6 +72,8 @@ export const HIDDEN: HiddenJob[] = [
   // ── 슈퍼 히든 (프라이빗 제트 전속 승무원 · 비밀 카지노의 딜러) ──
   { id: 'hj_private_jet', name: '프라이빗 제트 전속 승무원', label: '프라이빗 제트', icon: '✈️', pay: 68000, color: '#1e3250', fx: 'city', eff: { cash: 6500, fame: 5, hap: 6, hp: 3 }, hint: '은은한 조명의 전용기, 구름 위의 샴페인.', strategy: '20~32세 여성, 매력 68+, 지능 60+ → 3단계 미션: VVIP 전담 면접 → 대양 횡단 야간 비행 → 단 한 명을 위한 전속 계약' },
   { id: 'hj_underground_dealer', name: '비밀 카지노의 딜러 (도박의 왕)', label: '언더그라운드 카지노', icon: '🂡', pay: 75000, color: '#3a1a4a', fx: 'cards', eff: { cash: 8000, fame: 6, hap: 4, heat: -2 }, hint: '초록 펠트 테이블, 보라 네온, 그리고 돈이 아닌 약속.', strategy: '20세 이상 남성, 친구의 카지노 권유를 받아 3번 방문하면 중독되어 전직 (안 가면 10년에 1번씩 추천)' },
+  // ── 슈퍼 히든 (여성 체스 그랜드마스터) ──
+  { id: 'hj_chess_master', name: '여성 체스 그랜드마스터', label: '체스 그랜드마스터', icon: '♟️', pay: 88000, color: '#1a2a44', fx: 'magic', eff: { cash: 9000, fame: 8, hap: 6, kid: 'int', study: 6 }, hint: '64칸의 반상, 차가운 눈빛, 그리고 킹을 쓰러뜨리는 마지막 수.', strategy: '어릴 때 적성검사에서 4% 확률로 [체스 신동] 적성 발현 → 체스 선수 고유 루트 전직 후 35세까지 유지' },
   // ── 슈퍼 히든 (밤의 대부 · 밤의 대모: 남녀 한 쌍, 도감 맨 아래) ──
   { id: 'hj_mafia', name: '밤의 대부', icon: '🥃', pay: 60000, color: '#2a1a1a', fx: 'smoke', eff: { cash: 6000, fame: 6, heat: 4, kid: 'str' }, hint: '도시의 밤을 쥔 반지. 도박판·밀수판에서 이름을 날린 자에게 부름이 온다.', strategy: '28세 이상 남성 · 매력 56 이상이면서 위험·속임수 성향(또는 타짜·밀매상 이력, 숨은 길 완주) → 3단계: 대부의 부름 → 가문 전쟁 → 도시의 왕' },
   { id: 'hj_godmother', name: '밤의 대모', icon: '🖤', pay: 55000, color: '#3a0f22', fx: 'smoke', eff: { cash: 5500, hap: 6, fame: 5, heat: 3 }, hint: '뒷방의 회중시계와 아무도 모르는 장부. 조직을 낳고 키운 손.', strategy: '28세 이상 여성 · 매력 56 이상이면서 위험·속임수 성향(또는 타짜·밀매상 이력, 숨은 길 완주) → 3단계: 대모의 부름 → 다섯 가문의 중재 → 밤의 어머니' },

@@ -81,6 +81,7 @@ import {
   parentsOf,
   freshName,
   randomName,
+  addTrait,
 } from './people';
 import type { AssetKind, GameState, MarketKey, Person, Sex, WillMode } from './types';
 
@@ -1189,6 +1190,15 @@ export function aptitudeTest(s: GameState, id: string): string {
   p.potentialKnown = true;
   for (const t of p.talents) t.discovered = true;
   addFlag(p, 'tested');
+
+  // 체스 신동: 여성 아이가 적성검사를 받을 때 4% 확률로 발현
+  if (p.sex === 'F' && !p.traits?.includes('chess_prodigy') && chance(s, 0.04)) {
+    addTrait(p, 'chess_prodigy');
+    p.actual.int = clamp(p.actual.int + 8, 0, 100);
+    p.potential.int = clamp(p.potential.int + 10, 0, 100);
+    return `✨ 경이로운 발견! 정밀 적성검사 결과, ${fullName(p)}에게서 [체스 신동]의 천재적 적성이 발현되었다! 64칸 판 위에서 수십 수를 앞서 내다보는 전설적인 수읽기다. (지능 +8)`;
+  }
+
   return p.talents.length ? '정밀 적성검사 결과, 숨은 재능과 잠재력이 모두 드러났다.' : '정밀 적성검사 결과: 뚜렷한 재능은 없다. 잠재력은 확인되었다.';
 }
 

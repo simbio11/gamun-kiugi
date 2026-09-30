@@ -58,9 +58,10 @@ export const TRAITS: Record<string, TraitDef> = {
   hypnotic_eye: { name: '맑은 눈', desc: '사람의 마음을 읽는 또렷한 눈빛 (선천 희귀 특성)', good: true },
   blood_thirst: { name: '밤의 체질', desc: '햇빛이 버겁고, 밤이 되면 살아난다 (선천 1% · 슈퍼 히든 핏빛 후작부인의 쉬운 길)', good: true },
   dark_artist: { name: '예술의 손', desc: '남다른 미적 감각 (선천 희귀 특성)', good: true },
+  chess_prodigy: { name: '체스 신동', desc: '64칸 판 위에서 수십 수를 내다보는 천재적인 두뇌 (적성검사 4% 발현 · 슈퍼 히든 체스 그랜드마스터 열쇠)', good: true },
 };
 export const SUPER_RARE_TRAIT_IDS = ['speed_demon', 'hypnotic_eye', 'dark_artist'] as const;
-export const TRAIT_IDS = Object.keys(TRAITS).filter((k) => !SUPER_RARE_TRAIT_IDS.includes(k as any) && k !== 'blood_thirst');
+export const TRAIT_IDS = Object.keys(TRAITS).filter((k) => !SUPER_RARE_TRAIT_IDS.includes(k as any) && k !== 'blood_thirst' && k !== 'chess_prodigy');
 
 export const TAG_NAMES: Record<CareerTag, string> = {
   study: '공부로 성공',

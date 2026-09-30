@@ -35,9 +35,10 @@ export function goodCar(s: GameState, p: Person): boolean {
 export const GATE_READY: Record<string, (s: GameState, p: Person) => boolean> = {
   hj_drifter: (s, p) => F(p) && A(s, p) >= 19 && (p.traits?.includes('speed_demon') ?? false) && goodCar(s, p),
   hj_timetraveler: (_s, p) => F(p) && hasFlag(p, 'time_awake'),
+  hj_chess_master: (s, p) => F(p) && p.job === 'chess_player' && (p.traits?.includes('chess_prodigy') ?? false) && A(s, p) >= 35,
 };
 /** 옛 조건을 버리고 새 사연만으로 여는 직업 (나머지는 "새 사연 또는 옛 조건") */
-export const GATE_ONLY = new Set(['hj_drifter']);
+export const GATE_ONLY = new Set(['hj_drifter', 'hj_chess_master']);
 
 /** 슈퍼 히든으로 바로 전직 (쉬운 길) */
 function grantSuper(s: GameState, p: Person, id: string): string {
@@ -69,6 +70,14 @@ export function gateYear(s: GameState): void {
     }
     // ⏳ 시간이 멈춘다: 지능 78+ · 직급이 높을 때, 드물게
     if (F(p) && free(p) && !hasFlag(p, 'time_awake') && p.actual.int >= 78 && p.jobLevel >= 3 && chance(s, 0.05)) push(s, 'gt_time', p);
+    // ♟️ 체스 신동: 14~25세에 프로 체스 선수 고유 루트 제의
+    if (F(p) && p.traits?.includes('chess_prodigy') && p.job !== 'chess_player' && !hasFlag(p, 'route:chess_player') && !hasFlag(p, 'chess_hobby') && !p.job.startsWith('hj_') && a >= 14 && a <= 25) {
+      push(s, 'gt_chess_prodigy', p);
+    }
+    // 👑 여성 체스 그랜드마스터: 체스 선수로 35세까지 유지 시 전직
+    if (F(p) && p.job === 'chess_player' && (p.traits?.includes('chess_prodigy') ?? false) && a >= 35 && !p.job.startsWith('hj_')) {
+      push(s, 'gt_chess_master', p);
+    }
   }
 }
 
@@ -112,4 +121,48 @@ const time: EventDef = {
     { label: '과로 탓이다', run: () => '푹 자고 나니 괜찮아졌다. 아마도.' },
   ],
 };
-export const GATE_EVENTS: EventDef[] = [vamp, time];
+
+const chessProdigy: EventDef = {
+  id: 'gt_chess_prodigy',
+  title: () => '♟️ [고유 루트] 체스 신동의 제의',
+  valid: (c) => alive(c.p) && F(c.p) && (c.p.traits?.includes('chess_prodigy') ?? false) && !hasFlag(c.p, 'route:chess_player') && !c.p.job.startsWith('hj_'),
+  text: (c) => `${fullName(c.p)}은(는) 반상 위에서 이미 기성 프로 마스터들을 압도하는 수읽기를 뽐내고 있다. 국제 체스 연맹과 공식 후원사에서 프로 전향을 강력히 제안해 왔다.\n\n"이 재능은 한 세대에 한 번 나올까 말까 한 천재성입니다. 프로 체스 선수의 길로 들어서십시오."`,
+  choices: () => [
+    {
+      label: '🏆 프로 체스 선수로 데뷔한다 (고유 루트 전직)',
+      run: (x) => {
+        x.p.job = 'chess_player';
+        x.p.jobLevel = 0;
+        x.p.jobYears = 0;
+        x.p.flags = x.p.flags.filter((f) => f !== 'student');
+        addFlag(x.p, 'route:chess_player');
+        x.p.happiness = clamp(x.p.happiness + 20, 0, 100);
+        x.p.actual.int = clamp(x.p.actual.int + 6, 0, 100);
+        x.s.fame += 3;
+        return `${fullName(x.p)}은(는) 프로 체스 선수의 길을 선택했다! 64칸 판 위에서 전설적인 행보가 시작된다. (지능 +6 · 가문 명성 +3)`;
+      },
+    },
+    {
+      label: '📚 체스는 취미로만 두고 일반적인 학업을 이어간다',
+      run: (x) => {
+        addFlag(x.p, 'chess_hobby');
+        return '체스는 어디까지나 취미로만 남겨두기로 했다.';
+      },
+    },
+  ],
+};
+
+const chessMaster: EventDef = {
+  id: 'gt_chess_master',
+  title: () => '👑 여성 체스 그랜드마스터 (FIDE Grandmaster)',
+  valid: (c) => alive(c.p) && F(c.p) && c.p.job === 'chess_player' && (c.p.traits?.includes('chess_prodigy') ?? false) && !c.p.job.startsWith('hj_'),
+  text: (c) => `어린 시절부터 35세가 된 지금까지 수십 년간 64칸의 반상 위에서 세계적인 거장들과 사투를 벌여 온 ${fullName(c.p)}.\n\n마침내 세계 체스 연맹(FIDE) 공식 최고 권위이자 인류 지성의 정점을 상징하는 「여성 체스 그랜드마스터」의 자리에 등극했다!`,
+  choices: () => [
+    {
+      label: '👑 영광의 그랜드마스터 왕관을 쓴다',
+      run: (x) => '👑 반상 위의 절대적인 지배자! 전설의 여성 체스 그랜드마스터로 등극했다!' + grantSuper(x.s, x.p, 'hj_chess_master'),
+    },
+  ],
+};
+
+export const GATE_EVENTS: EventDef[] = [vamp, time, chessProdigy, chessMaster];
