@@ -102,6 +102,7 @@ const DEFAULT_MARKET: Record<MarketKey, number> = { apt_seoul: 250000, apt_local
 /** 예전 버전 세이브를 현재 형식으로 */
 export function migrate(s: GameState): GameState {
   bindState(s);
+  s.achievements ??= [];
   // 보상 시스템 이전 저장: 이미 이룬 업적만큼 명예를 채워 준다 (팝업 없이)
   if (s.gloryTotal === undefined) {
     const pts = { common: 5, rare: 12, epic: 30, legend: 80 } as const;
@@ -111,6 +112,13 @@ export function migrate(s: GameState): GameState {
     }, 0);
     s.glory = s.gloryTotal = t;
   }
+  s.cards ??= [];
+  s.honors ??= [];
+  s.perks ??= {};
+  s.rewards ??= [];
+  s.scandal ??= 0;
+  s.cleanYears ??= 0;
+  s.storySeen ??= {};
   const v = s.version as number;
   if (v < 2) {
     s.market = { ...DEFAULT_MARKET, ...s.market };

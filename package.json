@@ -7,10 +7,9 @@
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
-    "build:pages": "tsc --noEmit && vite build && rm -rf docs/assets && cp -r dist/. docs/ && touch docs/.nojekyll",
+    "build:pages": "tsc --noEmit && vite build && node -e \"const fs = require('fs'); fs.rmSync('docs/assets', {recursive: true, force: true}); fs.cpSync('dist', 'docs', {recursive: true}); fs.writeFileSync('docs/.nojekyll', '');\"",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "deploy:cf": "npm run build:pages && npx wrangler pages deploy docs --project-name gamun-kiugi --branch main"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

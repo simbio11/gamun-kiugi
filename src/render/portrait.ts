@@ -12,8 +12,9 @@ export function stageOf(age: number): Stage {
 /** 장면 그림(scene.ts)에서 그 사람처럼 그리려고: 머리·피부·옷 색 */
 export function looksOf(p: Person, age: number): { hair: string; skin: string; cloth: string; female: boolean; kid: boolean; old: boolean } {
   const st = stageOf(age);
+  const year = p.birthYear !== undefined ? p.birthYear + age : 2025;
   return {
-    ...bustColors(p, age, p.birthYear + age),
+    ...bustColors(p, age, year),
     female: p.sex === 'F',
     kid: st === 'child' || st === 'baby',
     old: st === 'elder',
@@ -21,6 +22,7 @@ export function looksOf(p: Person, age: number): { hair: string; skin: string; c
 }
 
 export function portraitURL(p: Person, age: number): string {
-  return bustSmallURL(p, age, p.birthYear + age);
+  const year = p.birthYear !== undefined ? p.birthYear + age : 2025;
+  return bustSmallURL(p, age, year);
 }
 
