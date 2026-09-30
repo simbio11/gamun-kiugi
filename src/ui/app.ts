@@ -606,9 +606,15 @@ function card(g: GameState, p: Person, extra = ''): string {
   const small = ui.zoom === 'small';
   const likely = !isHead && !g.heirId && !dead && fx.likelyHeir === p.id;
   const jb = jobBadge(g, p);
-  const nCards = (g.cards ?? []).filter((c) => c.personId === p.id).length;
-  const badges = [jb ? `<i title="${jb[1]}">${jb[0]}</i>` : '', likely ? '<i title="후계자 유력">⚡</i>' : '', nCards ? `<i title="명예의 전당 카드 ${nCards}장">🃏${nCards > 1 ? nCards : ''}</i>` : ''].join('');
-  return `<button class="pc ${dead ? 'dead' : ''} ${isHead ? 'head' : ''} ${p.inLaw ? 'inlaw' : ''} ${extra}" data-action="person" data-id="${p.id}">
+  const myCards = (g.cards ?? []).filter((c) => c.personId === p.id).map((c) => CARD[c.id]).filter(Boolean);
+  const RANK_R = { common: 0, rare: 1, epic: 2, legend: 3 } as const;
+  const best = myCards.sort((a, b) => RANK_R[b.rarity] - RANK_R[a.rarity])[0];
+  const nHonors = (g.honors ?? []).filter((h) => h.personId === p.id).length;
+  const badges = [jb ? `<i title="${jb[1]}">${jb[0]}</i>` : '', likely ? '<i title="후계자 유력">⚡</i>' : '', best ? `<i class="bd-card ${best.rarity}" title="명예의 전당 ${myCards.map((c) => c.name).join(', ')}">${best.icon}${myCards.length > 1 ? `<sup>${myCards.length}</sup>` : ''}</i>` : ''].join('');
+  const aura = best ? `aura-${best.rarity}` : '';
+  return `<button class="pc ${dead ? 'dead' : ''} ${isHead ? 'head' : ''} ${p.inLaw ? 'inlaw' : ''} ${aura} ${nHonors ? 'honored' : ''} ${extra}" data-action="person" data-id="${p.id}">
+    ${best ? `<span class="aura"></span>${best.rarity === 'legend' ? '<span class="sparkle"><i></i><i></i><i></i><i></i></span>' : ''}` : ''}
+    ${nHonors ? `<span class="medal" title="훈장 ${nHonors}개">🎖${nHonors > 1 ? `<sup>${nHonors}</sup>` : ''}</span>` : ''}
     ${badges ? `<span class="pc-badges">${badges}</span>` : ''}
     ${isHead ? '<span class="crown">👑</span>' : heir ? '<span class="crown">★</span>' : ''}
     ${pending ? '<span class="bang">!</span>' : ''}
