@@ -30,6 +30,7 @@ import { awardCard, cardYear, CARDS, SUMMITS, SYNERGIES, activeSynergies } from 
 import { familyScore, lifeReport } from '../src/core/score';
 import { WORK_STORIES } from '../src/core/stories-work';
 import { WORK2_STORIES } from '../src/core/stories-work2';
+import { JOB_ACTS } from '../src/core/job-acts';
 import { obeys, willOf } from '../src/core/autonomy';
 
 describe('콘텐츠 무결성', () => {
@@ -1007,5 +1008,25 @@ describe('부모님 유산', () => {
     s.events = [{ uid: s.eventSeq++, defId: 'scandal_break', personId: h.id }];
     resolveChoice(s, 2); // 모르쇠
     expect(s.fame).toBeLessThan(50);
+  });
+
+  it('직업 전용 행동: 모든 일반 직업마다 전용 행동 둘 + 올해의 기회 하나', () => {
+    const skip = ['none', 'parttime', 'pension', 'politician', 'minister', 'president', 'mayor', 'landlord'];
+    const missing = JOB_IDS.filter((id) => !skip.includes(id) && !id.startsWith('hj_') && (JOB_ACTS[id]?.length ?? 0) < 3);
+    expect(missing).toEqual([]);
+    for (const [id, list] of Object.entries(JOB_ACTS)) {
+      expect(JOB_IDS).toContain(id);
+      for (const a of list) expect(a[5].split('|').length).toBe(4);
+    }
+    const s = newGame({ seed: 11, familyName: '한', sex: 'F' });
+    const h = head(s);
+    s.year += 30;
+    h.job = 'film_director';
+    h.jobLevel = 1;
+    const mine = ACTIONS.filter((a) => a.id.startsWith('ja_film_director_') && a.cat === '내 직업');
+    expect(mine.length).toBe(2);
+    expect(mine.every((a) => a.show!(s))).toBe(true);
+    const r = doAction(s, mine[0].id);
+    expect(r.ok).toBe(true);
   });
 });

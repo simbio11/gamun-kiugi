@@ -10,6 +10,7 @@ import { SIDE_JOBS, sideJobOf, sideTrackOf, TRACK_ACTIONS, trackOf } from './tra
 import { reverseMortgageRate } from './welfare';
 import { vehicleAP } from './vehicle';
 import { oppActions } from './opportunities';
+import { jobActions } from './job-acts';
 import { bonusAP } from './rewards';
 import { CAREER_ACTIONS } from './career';
 import { RIVAL_ACTIONS } from './rival';
@@ -42,7 +43,7 @@ const fillName = (t: string, n: string) => t.replace(/\{n\}\{이\}/g, iga(n)).re
 
 const TRIP_PLACES = ['제주도', '강릉', '부산', '경주', '여수', '가평 펜션', '속초', '오사카', '다낭', '방콕', '캠핑장', '전주 한옥마을'];
 
-export type ActionCat = '올해의 기회' | '가족' | '진로·자기계발' | '자녀 교육' | '재산' | '사회';
+export type ActionCat = '올해의 기회' | '내 직업' | '가족' | '진로·자기계발' | '자녀 교육' | '재산' | '사회';
 
 /** 인생 단계: 단계마다 할 수 있는 일이 다르다 */
 export type Stage = 'little' | 'elem' | 'teen' | 'univ' | 'prep' | 'adult' | 'senior';
@@ -1313,7 +1314,7 @@ const STAGE_ACTIONS: ActionDef[] = [
   },
 ];
 // 올해의 기회: 목록 맨 앞 (분류 칩도 맨 앞에 선다)
-ACTIONS.unshift(...oppActions((s) => stageOf(s, h(s))));
+ACTIONS.unshift(...oppActions((s) => stageOf(s, h(s))), ...jobActions());
 ACTIONS.push(...HIST_ACTIONS, ...DEVICE_ACTIONS, ...SPACE_ACTIONS, ...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, ...MONEY_ACTIONS, ...AUTONOMY_ACTIONS, {
   id: 'license',
   cat: '진로·자기계발',

@@ -1802,7 +1802,9 @@ function actionsScreen(g: GameState): string {
   const me0 = head(g);
   const sideT = sideTrackOf(me0);
   const mainT = trackOf(g, me0);
-  const sideOnly = (a: (typeof all)[number]) => !!sideT && !!a.tracks?.includes(sideT) && !a.tracks.includes(mainT ?? '');
+  const sj0 = sideJobOf(me0);
+  // 겸직 탭: 겸직 트랙 행동 + 겸직 직업 전용 행동
+  const sideOnly = (a: (typeof all)[number]) => !!sideT && ((!!a.tracks?.includes(sideT) && !a.tracks.includes(mainT ?? '')) || (!!sj0 && sj0 !== me0.job && a.id.startsWith(`ja_${sj0}_`)));
   const onSide = !!sideT && !!ui.actSide;
   const list = sideT ? all.filter((a) => (onSide ? sideOnly(a) : !sideOnly(a))) : all;
   const sideJ = sideJobOf(me0);
