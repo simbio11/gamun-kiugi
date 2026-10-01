@@ -1,7 +1,7 @@
 // 보상: 업적·훈장·출세·승리마다 "명예(✦)"가 쌓이고, 등급이 오르고, 명예 상점에서 가문을 영구히 강하게 만든다.
 // 큰 순간은 팝업으로 축하한다 (s.rewards 에 쌓아 두면 화면이 하나씩 보여 준다).
 
-import type { GameState, Person } from './types';
+import type { GameState, Person, StatKey } from './types';
 import { fullName, isMainline } from './people';
 
 import { ERA_HONORS } from './cards-era';
@@ -125,12 +125,13 @@ export function buyPerk(s: GameState, id: string): { ok: boolean; text: string }
 }
 
 /** 능력치는 잠재력(+한계 돌파)을 넘지 못한다: 여러 효과가 겹쳐 넘친 것은 해마다 되돌린다 */
-export function capStats(s: GameState) {
+export function capStats(s: GameState, bonus?: (p: Person) => Partial<Record<StatKey, number>>) {
   for (const p of Object.values(s.people)) {
     if (p.deathYear) continue;
     const extra = p.overcap ?? 0;
+    const b = bonus?.(p) ?? {};
     for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) {
-      const cap = Math.min(100, p.potential[k] + extra);
+      const cap = Math.min(100, p.potential[k] + extra + (b[k] ?? 0));
       if (p.actual[k] > cap) p.actual[k] = cap;
     }
   }

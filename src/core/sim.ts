@@ -30,7 +30,7 @@ import { rivalYear } from './rival';
 import { careerYear, ministerLeaves, presidentLeaves } from './career';
 import { achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
-import { cardYear } from './cards';
+import { cardCapBonus, cardYear } from './cards';
 import { scandalYear } from './scandal';
 import { assignWoes, woeYear, woesOf, WOES } from './woes';
 import { eggForKids, eggYear, scheduleEggs } from './nestegg';
@@ -454,7 +454,7 @@ export function simulateYear(s: GameState): void {
   for (const m of eraYear(s)) log(s, m, 'market');
   for (const m of rivalYear(s, familyTotal(s))) log(s, m, 'life');
   for (const m of careerYear(s)) log(s, m, 'life');
-  cardYear(s);
+  for (const m of cardYear(s)) log(s, m, 'life');
   for (const m of hiddenYear(s)) log(s, m, 'life');
   gateYear(s);
   pathYear(s);
@@ -472,7 +472,7 @@ export function simulateYear(s: GameState): void {
   inlawYear(s);
   autonomyYear(s);
   perkYear(s, wageIndex(s.year));
-  capStats(s);
+  capStats(s, cardCapBonus(s));
 
   retirementAndGraduation(s);
   deaths(s);

@@ -6,6 +6,7 @@ import { gate, schedule, type Choice, type Ctx, type EventDef } from './ev-util'
 import { age, alive, check, checkOdds, clamp, fullName, hasFlag, isMainline, parentsOf } from './people';
 import { JOBS } from './data';
 import { wageIndex } from './pay';
+import { formatMoney } from './economy';
 import { awardHonor, diffMod, grant, type Rarity } from './rewards';
 import { MORE_CARDS, MORE_SUMMITS } from './cards-more';
 import { homeCity } from './stories-politics';
@@ -98,14 +99,15 @@ export const cardTitle = (id: string, year: number) => cardNameAt(CARD[id]?.name
 
 export function effText(e: CardEff): string {
   const S: Record<StatKey, string> = { str: '근력', int: '지능', cha: '매력', mor: '도덕성', hp: '건강' };
+  const sg = (n: number) => (n > 0 ? '+' + n : '−' + -n);
   return [
-    e.fame && `해마다 명성 +${e.fame}`,
+    e.fame && `해마다 명성 ${sg(e.fame)}`,
     e.cash && `해마다 ${e.cash >= 10000 ? e.cash / 10000 + '억' : e.cash + '만'} 원 수입`,
     e.kid && `아이들 ${S[e.kid]} +1/년`,
-    e.study && `아이들 성적 +${e.study}/년`,
-    e.hp && `온 가족 건강 +${e.hp}/년`,
-    e.hap && `온 가족 행복 +${e.hap}/년`,
-    e.heat && `세무조사 위험 −${e.heat}/년`,
+    e.study && `아이들 성적 ${sg(e.study)}/년`,
+    e.hp && `온 가족 건강 ${sg(e.hp)}/년`,
+    e.hap && `온 가족 행복 ${sg(e.hap)}/년`,
+    e.heat && (e.heat > 0 ? `세무조사 위험 −${e.heat}/년` : `세무조사 위험 +${-e.heat}/년`),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -314,8 +316,26 @@ const summitDef = (sm: Summit): EventDef => ({
 });
 export const CARD_EVENTS: EventDef[] = SUMMITS.map(summitDef);
 
+/** 카드 힘으로 넓어지는 능력치 한도: 살아 있는 카드·시너지의 건강 효과 ×2 (최대 +20), 아이 능력치 효과 +6 */
+export function cardCapBonus(s: GameState): (p: Person) => Partial<Record<StatKey, number>> {
+  const effs: CardEff[] = [];
+  for (const c of s.cards ?? []) {
+    const holder = s.people[c.personId];
+    const e = CARD[c.id]?.eff;
+    if (holder && alive(holder) && e) effs.push(e);
+  }
+  for (const sy of activeSynergies(s)) effs.push(sy.eff);
+  const hp = Math.min(20, effs.reduce((t, e) => t + Math.max(0, e.hp ?? 0) * 2, 0));
+  const kid: Partial<Record<StatKey, number>> = {};
+  for (const e of effs) if (e.kid) kid[e.kid] = 6;
+  return (p) => {
+    if (!isMainline(s, p)) return {};
+    return age(s, p) < 20 ? { ...kid, hp: Math.max(hp, kid.hp ?? 0) } : { hp };
+  };
+}
+
 /** 해마다: 자동 카드 · 정점 이벤트 · 카드 효과 */
-export function cardYear(s: GameState): void {
+export function cardYear(s: GameState): string[] {
   const seen = (s.storySeen ??= {});
   // 가주의 부모·조부모도 제 직업에서 정점에 오를 수 있다
   const h0 = s.people[s.headId];
@@ -346,30 +366,61 @@ export function cardYear(s: GameState): void {
     cands.splice(cands.findIndex(([x, q]) => x === sm && q === p), 1);
   }
   // 효과: 카드 주인이 살아 있는 동안
+  // 건강·아이 능력치는 타고난 한계(potential)를 카드 힘으로 조금 넘을 수 있다 (cardCapBonus) — 안 그러면 이미 한계에 닿은 어른에겐 아무 효과가 없다
+  const capB = cardCapBonus(s);
   const kids = Object.values(s.people).filter((p) => alive(p) && isMainline(s, p) && age(s, p) < 20);
   const fam = Object.values(s.people).filter((p) => alive(p) && isMainline(s, p));
+  const sum = { fame: 0, cash: 0, hp: 0, hap: 0, kid: 0, study: 0, heat: 0 };
   const apply = (e: CardEff, holder: Person) => {
-    if (e.fame) s.fame += e.fame;
-    if (e.cash) holder.cash += Math.round(e.cash * wageIndex(s.year));
-    if (e.kid) for (const k of kids) k.actual[e.kid] = Math.min(Math.max(k.potential[e.kid], k.actual[e.kid]), k.actual[e.kid] + 1);
-    if (e.study) for (const k of kids) if (age(s, k) >= 8) k.study = clamp((k.study ?? 40) + e.study, 0, 100);
-    if (e.hp) for (const q of fam) q.actual.hp = clamp(q.actual.hp + e.hp, 0, Math.max(q.potential.hp, q.actual.hp));
+    if (e.fame) (s.fame += e.fame), (sum.fame += e.fame);
+    if (e.cash) {
+      const m = Math.round(e.cash * wageIndex(s.year));
+      holder.cash += m;
+      sum.cash += m;
+    }
+    if (e.kid) for (const k of kids) {
+      const cap = Math.min(100, k.potential[e.kid] + (k.overcap ?? 0) + (capB(k)[e.kid] ?? 0));
+      if (k.actual[e.kid] < cap) (k.actual[e.kid] += 1), sum.kid++;
+    }
+    if (e.study) for (const k of kids) if (age(s, k) >= 8) (k.study = clamp((k.study ?? 40) + e.study, 0, 100)), (sum.study += e.study);
+    if (e.hp) {
+      for (const q of fam) {
+        const cap = e.hp > 0 ? Math.max(q.actual.hp, Math.min(100, q.potential.hp + (q.overcap ?? 0) + (capB(q).hp ?? 0))) : 100;
+        q.actual.hp = clamp(q.actual.hp + e.hp, 0, cap);
+      }
+      sum.hp += e.hp;
+    }
     if (e.hap) for (const q of fam) q.happiness = clamp(q.happiness + e.hap, 0, 100);
-    if (e.heat) s.taxHeat = Math.max(0, s.taxHeat - e.heat);
+    if (e.hap) sum.hap += e.hap;
+    if (e.heat) (s.taxHeat = Math.max(0, s.taxHeat - e.heat)), (sum.heat += e.heat);
   };
+  let n = 0;
   for (const c of s.cards ?? []) {
     const holder = s.people[c.personId];
     const e = CARD[c.id]?.eff;
-    if (holder && alive(holder) && e) apply(e, holder);
+    if (holder && alive(holder) && e) apply(e, holder), n++;
   }
   // 시너지
-  for (const sy of activeSynergies(s)) {
+  const syn = activeSynergies(s);
+  for (const sy of syn) {
     apply(sy.eff, s.people[s.headId]);
     if (seen['syn:' + sy.id] === undefined) {
       seen['syn:' + sy.id] = s.year;
       grant(s, sy.icon, `가문 시너지 발동: ${sy.name}`, `${sy.desc} — 두 분야의 정점이 한 시대에 모였다!\n효과 (함께 살아 있는 동안): ${effText(sy.eff)}`, 'legend');
     }
   }
+  if (!n && !syn.length) return [];
+  const sg = (x: number) => (x > 0 ? '+' + x : '−' + -x);
+  const parts = [
+    sum.fame && `명성 ${sg(Math.round(sum.fame * 10) / 10)}`,
+    sum.cash && `수입 ${formatMoney(sum.cash)}`,
+    sum.hp && `건강 ${sg(sum.hp)}`,
+    sum.hap && `행복 ${sg(sum.hap)}`,
+    sum.kid && `아이들 능력치 +${sum.kid}`,
+    sum.study && `아이들 성적 +${sum.study}`,
+    sum.heat && `세무 주목 ${sg(-sum.heat)}`,
+  ].filter(Boolean);
+  return parts.length ? [`🃏 명예의 전당 카드 ${n}장${syn.length ? ` · 시너지 ${syn.length}` : ''} 효과: ${parts.join(' · ')}`] : [];
 }
 
 /** 카드 그림 테마 (render/cardart.ts) */

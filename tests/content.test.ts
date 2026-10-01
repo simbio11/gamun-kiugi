@@ -1535,3 +1535,23 @@ describe('대형 이벤트 (미니게임)', () => {
     expect(per).toBeLessThan(4);
   });
 });
+
+describe('명예의 전당 카드 효과', () => {
+  it('히든·슈퍼 히든 카드의 건강 효과는 잠재력 한도에 막혀 사라지지 않고, 해마다 효과가 기록된다', () => {
+    const s = newGame({ seed: 7, familyName: '김', sex: 'F', origin: 'middle' });
+    for (let y = 0; y < 30; y++) {
+      simulateYear(s);
+      let n = 0;
+      while (currentEvent(s) && n++ < 50) resolveChoice(s, 0);
+    }
+    const h = s.people[s.headId];
+    h.actual.hp = h.potential.hp; // 이미 한계에 닿은 어른
+    h.job = 'hj_vampire';
+    h.jobLevel = 1;
+    awardCard(s, h, 'hj_vampire');
+    s.events = [];
+    simulateYear(s);
+    expect(h.actual.hp).toBeGreaterThan(h.potential.hp);
+    expect(cardYear(s).join('')).toContain('명예의 전당 카드');
+  });
+});
