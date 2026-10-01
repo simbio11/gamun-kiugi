@@ -90,7 +90,7 @@ export interface Person {
 }
 
 export type RealEstateKind = 'apt_seoul' | 'apt_local' | 'land';
-export type AssetKind = RealEstateKind | 'building' | 'stock' | 'coin' | 'art' | 'vehicle';
+export type AssetKind = RealEstateKind | 'building' | 'stock' | 'coin' | 'art' | 'vehicle' | 'treasure';
 /** 사는 집: 자가·전세·월세 (살림을 맡은 사람에게 붙는다) */
 export interface Home {
   type: 'own' | 'jeonse' | 'wolse' | 'parents';
@@ -118,6 +118,8 @@ export interface Asset {
   value: number;
   /** 예술품: 위작 여부 (감정·매각 전까지 숨김) */
   fake?: boolean;
+  /** 현물 자산: 어떤 물건인가 (treasure.ts) */
+  item?: string;
   /** 산 값·산 해 (양도세 계산) */
   cost?: number;
   bought?: number;
@@ -230,6 +232,8 @@ export interface GameState {
   fame: number;
   /** 부동산은 한 채 가격, 주식·코인·예술품은 지수 (시작 = 100) */
   market: Record<MarketKey, number>;
+  /** 원화 금값 지수 (2025=100, 그 뒤로 해마다 움직인다) */
+  gold?: number;
   /** 작년 대비 변동률 (UI 표시용) */
   marketChange: Partial<Record<MarketKey, number>>;
   policy: Policy;

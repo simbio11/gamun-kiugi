@@ -773,7 +773,7 @@ export function marketYear(s: GameState): string[] {
     s.marketChange[k] = r[k];
   }
   for (const a of s.assets) {
-    if (a.kind === 'vehicle') continue; // 탈것은 vehicleYear에서 감가
+    if (a.kind === 'vehicle' || a.kind === 'treasure') continue; // 탈것은 vehicleYear에서 감가, 현물은 treasureYear에서
     // 예술품은 작품마다 따로 논다
     // 부동산은 매물마다 성격이 다르다 (시장 민감도·입지 프리미엄·변동성)
     // 부동산은 주식·코인보다 덜 출렁이지만 단지마다 조금씩 다르게 움직인다 (기본 ±2~3%)

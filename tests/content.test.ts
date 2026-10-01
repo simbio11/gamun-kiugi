@@ -1450,3 +1450,31 @@ describe('국빈급 환자 (의술의 신 · 침술의 신)', () => {
     }
   });
 });
+
+describe('현물 자산 (금·은·보석)', () => {
+  it('골드바는 금값을 따라가고, 보석은 되팔면 반값 가까이, 해가 지나도 값이 망가지지 않는다', async () => {
+    const tr = await import('../src/core/treasure');
+    const { sellAsset } = await import('../src/core/sim');
+    expect(tr.goldHist(1980)).toBeGreaterThan(tr.goldHist(1970));
+    expect(tr.goldHist(2010)).toBeGreaterThan(tr.goldHist(2000));
+    const s = newGame({ seed: 71, familyName: '금', sex: 'M' });
+    const h = head(s);
+    h.cash = 100000;
+    expect(tr.buyTreasure(s, 'gold_100').ok).toBe(true);
+    expect(tr.buyTreasure(s, 'diamond').ok).toBe(true);
+    const gold = s.assets.find((a) => a.item === 'gold_100')!;
+    const dia = s.assets.find((a) => a.item === 'diamond')!;
+    expect(tr.treasureSellValue(dia)).toBeLessThan(dia.value * 0.6);
+    for (let y = 0; y < 8; y++) {
+      s.events = [];
+      simulateYear(s);
+    }
+    for (const a of s.assets.filter((x) => x.kind === 'treasure')) expect(Number.isFinite(a.value) && a.value > 0).toBe(true);
+    expect(s.gold).toBeGreaterThan(0);
+    if (s.assets.includes(gold)) {
+      const cash = h.cash;
+      sellAsset(s, gold.id);
+      expect(h.cash - cash).toBe(tr.treasureSellValue(gold));
+    }
+  });
+});

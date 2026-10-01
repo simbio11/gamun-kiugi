@@ -173,6 +173,7 @@ export const ASSESS_RATIO: Record<AssetKind, number> = {
   coin: 1,
   art: 0.5,
   vehicle: 1,
+  treasure: 1,
 };
 export const ASSET_NAMES: Record<AssetKind, string> = {
   apt_seoul: '강남 아파트',
@@ -183,6 +184,7 @@ export const ASSET_NAMES: Record<AssetKind, string> = {
   coin: '코인',
   art: '예술품',
   vehicle: '자동차',
+  treasure: '현물 (금·보석)',
 };
 export const ASSET_ICONS: Record<AssetKind, string> = {
   apt_seoul: '🏙',
@@ -193,6 +195,7 @@ export const ASSET_ICONS: Record<AssetKind, string> = {
   coin: '🪙',
   art: '🖼',
   vehicle: '🚗',
+  treasure: '💰',
 };
 export const REAL_ESTATE: readonly AssetKind[] = ['apt_seoul', 'apt_local', 'land', 'building'];
 

@@ -10,6 +10,7 @@ import { wageIndex } from '../core/pay';
 import { buyPower, MAINTAIN, MARGIN_RATE, stockQuote } from '../core/leverage';
 import { fitCats, interestSummary, temperamentLine } from '../core/interests';
 import { JOB_CATS } from '../core/jobs';
+import { buyTreasure, goldIndex, treasureOf, treasurePrice, treasureSellValue, TREASURE_BY_ID, TREASURES } from '../core/treasure';
 import { buyVehicle, canDrive, modelOf, myVehicles, vehicleAP, vehiclePrice, vehicleTax, VEHICLES } from '../core/vehicle';
 import {
   ACHIEVEMENTS,
@@ -1790,7 +1791,7 @@ function policyScreen(g: GameState): string {
 
 /** 자산 한 줄: 이름·시세·빚, 실거주면 표시 */
 function assetRow(a: Asset, sellable: boolean, live = false): string {
-  return `<div class="arow"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}${live ? ' <b class="tag home">실거주</b>' : ''}</span><span>${formatMoney(a.value)}${liab(a) ? ` <small class="neg">(빚 ${formatMoney(liab(a))})</small>` : ''} ${sellable ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>`;
+  return `<div class="arow"><span>${treasureOf(a)?.icon ?? ASSET_ICONS[a.kind]} ${esc(a.name)}${a.kind === "treasure" && a.prev ? ` ${pct(a.value / a.prev - 1)}` : ""}${live ? ' <b class="tag home">실거주</b>' : ''}</span><span>${formatMoney(a.value)}${liab(a) ? ` <small class="neg">(빚 ${formatMoney(liab(a))})</small>` : ''} ${sellable ? `<button class="mini" data-action="sell" data-id="${a.id}">매도</button>` : ''}</span></div>`;
 }
 
 const pct = (v?: number) => (v === undefined ? '' : `<small class="${v >= 0 ? 'up' : 'down'}">${v >= 0 ? '▲' : '▼'}${Math.abs(v * 100).toFixed(1)}%</small>`);
@@ -1864,7 +1865,7 @@ function assetsScreen(g: GameState): string {
       ? `<section class="card">
     <h2>투자 시장 <small class="muted">가주 명의로 매수</small></h2>
     ${(() => {
-      const held = mine.filter((a) => a.kind === 'stock' || a.kind === 'coin' || a.kind === 'art');
+      const held = mine.filter((a) => a.kind === 'stock' || a.kind === 'coin' || a.kind === 'art' || a.kind === 'treasure');
       return held.length ? `<h4 class="sub">💼 내 투자</h4>${held.map((a) => assetRow(a, true)).join('')}` : '';
     })()}
     <div class="mkt">${(REAL_ESTATE as AssetKind[]).map((k) => `<span>${ASSET_ICONS[k]} ${ASSET_NAMES[k].replace('강남 ', '서울 ')} ${pct(g.marketChange[k as MarketKey])}</span>`).join('')}</div>
@@ -1886,6 +1887,12 @@ function assetsScreen(g: GameState): string {
       (tier, i) => `<div class="arow"><span>${tier.name}</span><span>${formatMoney(artPrice(g, i))} <button class="mini" data-action="buy" data-v="art" data-amt="${i}" ${canBuy(g, 'art', artPrice(g, i)) ? '' : 'disabled'}>구입</button></span></div>`,
     ).join('')}
     <p class="fine">상속세 평가는 감정가의 50% → 절세 수단. 대신 위작일 수 있다 (비쌀수록 위험). 감정이나 매각 때 드러난다.</p>
+    <h4 class="sub">💰 현물 자산 · 금·은·보석 (금 지수 ${Math.round(goldIndex(g) * 10) / 10}, 2025년=100)</h4>
+    ${TREASURES.filter((x) => !x.from || g.year >= x.from).map((x) => {
+      const price = treasurePrice(g, x);
+      return `<div class="arow"><span>${x.icon} ${esc(x.name)}<br><small class="muted">${esc(x.note)}</small></span><span class="buy-c"><b>${formatMoney(price)}</b><button class="mini" data-action="buy-t" data-id="${x.id}" ${head(g).cash >= price ? '' : 'disabled'}>구입</button></span></div>`;
+    }).join('')}
+    <p class="fine">금·은은 금값을 따라가고(1980년 오일쇼크·2008년 금융위기·2020년대 금값 랠리처럼), 보석·시계·와인은 물건마다 따로 움직인다. 되팔 땐 매입가 차이만큼 깎인다(골드바 2~4%, 보석 40~50%). 보석·시계는 드물게 도둑맞을 수 있다. 상속세는 시가로 매긴다.</p>
   </section>`
       : ''
   }
@@ -2216,6 +2223,12 @@ function tradeAsk(g: GameState, a: string, id: string, v?: string, amt?: string)
     const tax = vehicleTax(price, m);
     return { a, id, icon: m.icon, title: `${m.name}을(를) 살까?`, lines: [`차값 ${formatMoney(price)} + 취득세 ${formatMoney(tax)}`, `합계 ${formatMoney(price + tax)}`, `유지비 해마다 약 ${formatMoney(Math.round(m.upkeep * wageIndex(g.year)))}`], sell: false };
   }
+  if (a === 'buy-t') {
+    const x = TREASURE_BY_ID[id];
+    if (!x) return undefined;
+    const price = treasurePrice(g, x);
+    return { a, id, icon: x.icon, title: `${x.name}을(를) 살까?`, lines: [`값 ${formatMoney(price)}`, `되팔면 약 ${formatMoney(Math.round(price * (1 - x.spread)))} (매입가 차이 ${Math.round(x.spread * 100)}%)`, x.note], sell: false };
+  }
   if (a === 'buy-l') {
     const l = g.listings?.find((x) => x.id === id);
     if (!l) return undefined;
@@ -2230,7 +2243,7 @@ function tradeAsk(g: GameState, a: string, id: string, v?: string, amt?: string)
   if (a === 'sell') {
     const x = g.assets.find((y) => y.id === id);
     if (!x || x.kind === 'stock' || x.kind === 'coin') return undefined;
-    return { a, id, icon: ASSET_ICONS[x.kind] ?? '🏷', title: `${x.name}을(를) 팔까?`, lines: [`지금 시세 ${formatMoney(x.value)}`, ...(liab(x) ? [`갚아야 할 빚 ${formatMoney(liab(x))}`] : []), isRealty(x) ? '양도세·중개수수료를 떼고 받는다' : '팔면 되돌릴 수 없다'], sell: true };
+    return { a, id, icon: treasureOf(x)?.icon ?? ASSET_ICONS[x.kind] ?? '🏷', title: `${x.name}을(를) 팔까?`, lines: [`지금 시세 ${formatMoney(x.value)}`, ...(x.kind === 'treasure' ? [`손에 쥐는 돈 약 ${formatMoney(treasureSellValue(x))}`] : []), ...(liab(x) ? [`갚아야 할 빚 ${formatMoney(liab(x))}`] : []), isRealty(x) ? '양도세·중개수수료를 떼고 받는다' : '팔면 되돌릴 수 없다'], sell: true };
   }
   void v;
   void amt;
@@ -2559,7 +2572,7 @@ function handle(el: HTMLElement) {
   const g = ui.game;
 
   // 큰 거래는 확인 창을 거친다
-  if (g && !el.dataset.ok && ['buy-car', 'buy-l', 'buy-home', 'sell'].includes(a)) {
+  if (g && !el.dataset.ok && ['buy-car', 'buy-l', 'buy-home', 'buy-t', 'sell'].includes(a)) {
     const ask = tradeAsk(g, a, id, v, el.dataset.amt);
     if (ask) {
       ui.trade = ask;
@@ -2813,6 +2826,12 @@ function handle(el: HTMLElement) {
       ui.toast = '🃏 [테스트] 모든 명예의 전당 & 히든 카드 해금!';
       sfx('fanfare');
       save();
+      break;
+    }
+    case 'buy-t': {
+      const r = buyTreasure(g!, id);
+      if (r.ok) ui.outcome = { title: '💰 현물 자산', text: r.text };
+      else (ui.toast = r.text), sfx('error');
       break;
     }
     case 'buy-car': {

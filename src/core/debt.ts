@@ -90,12 +90,12 @@ export function debtYear(s: GameState): string[] {
 
 /** 급매로 팔 투자 부동산 (순자산 큰 것부터) */
 const investments = (s: GameState, p: Person) => s.assets.filter((a) => household(s, p).some((x) => x.id === a.ownerId) && isRealty(a) && !isPrimary(s, a)).sort((a, b) => b.value - liab(b) - (a.value - liab(a)));
-const liquids = (s: GameState, p: Person) => s.assets.filter((a) => household(s, p).some((x) => x.id === a.ownerId) && (a.kind === 'stock' || a.kind === 'coin' || a.kind === 'art'));
+const liquids = (s: GameState, p: Person) => s.assets.filter((a) => household(s, p).some((x) => x.id === a.ownerId) && (a.kind === 'stock' || a.kind === 'coin' || a.kind === 'art' || a.kind === 'treasure'));
 
 function sellLiquids(s: GameState, p: Person): number {
   let got = 0;
   for (const a of liquids(s, p)) {
-    const v = a.fake ? Math.round(a.value * 0.05) : Math.round(a.value * (a.kind === 'art' ? 0.8 : 0.99));
+    const v = a.fake ? Math.round(a.value * 0.05) : Math.round(a.value * (a.kind === 'art' ? 0.8 : a.kind === 'treasure' ? 0.7 : 0.99));
     s.people[a.ownerId].cash += v;
     got += v;
     s.assets = s.assets.filter((x) => x.id !== a.id);

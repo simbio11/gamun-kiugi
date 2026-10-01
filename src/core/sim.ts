@@ -55,6 +55,7 @@ import { pathYear } from './hidden-paths';
 import { photoYear } from './photos';
 import { relicYear } from './relics';
 import { vipCureYear } from './vip-cure';
+import { treasureSellValue, treasureYear } from './treasure';
 import { HIDDEN, HIDDEN_BY_ID, isHoH, isSuperHidden } from './hidden-data';
 const STARTER_SUPER = HIDDEN.filter((h) => isSuperHidden(h.id) && !isHoH(h.id)).map((h) => h.id);
 const STARTER_HIDDEN = HIDDEN.filter((h) => !isSuperHidden(h.id) && h.id !== 'hj_hermit').map((h) => h.id);
@@ -438,6 +439,7 @@ export function simulateYear(s: GameState): void {
   for (const m of debtYear(s)) log(s, m, 'money');
   for (const m of autoGiftYear(s, (to, amt) => giveGift(s, head(s), to, amt).ok)) log(s, m, 'money');
   for (const m of marketYear(s)) log(s, m, 'market');
+  for (const m of treasureYear(s)) log(s, m, 'market');
   for (const m of leverageYear(s)) log(s, m, 'money');
   // 우리 가족이 대통령이면, 실제 역사·미래 뉴스 속 "대통령" 기사는 빼고 우리 대통령 소식으로
   const ourPres = Object.values(s.people).find((p) => alive(p) && p.job === 'president');
@@ -1266,7 +1268,7 @@ export function sellAsset(s: GameState, assetId: string): string {
     return `${a.name} 매도 → ${formatMoney(r.got)}` + (r.tax ? ` · 양도세 ${formatMoney(r.tax)} (${r.note})` : r.note ? ` · ${r.note}` : '') + (moved ? ` · ${moved}` : '');
   }
   const fake = exposeFakes(s, [a]).length > 0;
-  const got = Math.round(a.value * (a.kind === 'stock' || a.kind === 'coin' ? 1 - TRADE_FEE : 1));
+  const got = a.kind === 'treasure' ? treasureSellValue(a) : Math.round(a.value * (a.kind === 'stock' || a.kind === 'coin' ? 1 - TRADE_FEE : 1));
   if (a.ownerId === 'family') s.familyCash += got;
   else s.people[a.ownerId].cash += got;
   s.assets = s.assets.filter((x) => x.id !== assetId);
