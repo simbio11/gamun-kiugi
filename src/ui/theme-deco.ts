@@ -69,6 +69,21 @@ export const SPR: Record<string, Grid> = {
   web: S(['w...w...w', '.w..w..w.', '..wwwww..', 'wwwkwkwww', '..wwwww..', '.w..w..w.', 'w...w...w'], { w: 'rgba(220,220,230,.7)', k: 'rgba(0,0,0,0)' }),
   noodle: S(['.sss.', 's.s.s', 'rrrrr', 'rwwwr', '.rrr.'], { s: '#e0e0e0', r: '#d03030', w: '#f8f0e0' }),
   candle: S(['.y.', '.o.', 'www', 'www', 'www', 'www'], { y: '#fff0a0', o: '#ff9020', w: '#efe6d0' }),
+  // ── 집안 형편 테마 마스코트 (두 칸이면 번갈아 움직인다) ──
+  rat: S(['..........', '.gg.......', 'gggg..ggg.', 'ggkgggggggt', '.ggggggggt.', '..p..p.p...'], { g: '#7a7a82', k: '#101010', t: '#c09098', p: '#c09098' }),
+  rat2: S(['..........', '.gg.......', 'gggg..ggg.', 'ggkggggggg.', '.gggggggg.t', '.p..p..p..t'], { g: '#7a7a82', k: '#101010', t: '#c09098', p: '#c09098' }),
+  fan: S(['..bbb..', '.b.b.b.', 'bbbcbbb', '.b.b.b.', '..bbb..', '...w...', '...w...', '...w...', '.wwwww.'], { b: '#8ac8f0', c: '#ffffff', w: '#e8e8e8' }),
+  fan2: S(['.b...b.', '..bbb..', '.bbcbb.', '..bbb..', '.b...b.', '...w...', '...w...', '...w...', '.wwwww.'], { b: '#8ac8f0', c: '#ffffff', w: '#e8e8e8' }),
+  cooker: S(['..s....', '...s...', '..s....', '.wwwww.', 'wrrrrrw', 'wwwwwww', 'wwgwwww', '.wwwww.'], { s: 'rgba(255,255,255,.8)', w: '#f0f0f0', r: '#c03030', g: '#40c040' }),
+  cooker2: S(['...s...', '..s....', '...s...', '.wwwww.', 'wrrrrrw', 'wwwwwww', 'wwwwgww', '.wwwww.'], { s: 'rgba(255,255,255,.8)', w: '#f0f0f0', r: '#c03030', g: '#40c040' }),
+  aircon: S(['wwwww', 'wbbbw', 'wwwww', 'wgggw', 'wgggw', 'wgggw', 'wwwww', 'wwwww', 'wwwww'], { w: '#f8f8f8', b: '#40c0ff', g: '#d0d6dc' }),
+  aircon2: S(['wwwww', 'wBBBw', 'wwwww', 'wgggw', 'wgggw', 'wgggw', 'wwwww', 'wwwww', 'wwwww'], { w: '#f8f8f8', B: '#a0e8ff', g: '#d0d6dc' }),
+  chandelier: S(['...y...', '.yyyyy.', 'y.y.y.y', 'w.w.w.w', '.......'], { y: '#e8c060', w: '#fff8d0' }),
+  chandelier2: S(['...y...', '.yyyyy.', 'y.y.y.y', '.w.w.w.', 'w.....w'], { y: '#e8c060', w: '#ffffff' }),
+  trophy: S(['yyyyyyy', 'yyWyyyy', '.yyyyy.', '..yyy..', '...y...', '..bbb..', '.bbbbb.'], { y: '#f0c040', W: '#fff8c0', b: '#5a3a24' }),
+  trophy2: S(['yyyyyyy', 'yyyyyWy', '.yyyyy.', '..yyy..', '...y...', '..bbb..', '.bbbbb.'], { y: '#f0c040', W: '#fff8c0', b: '#5a3a24' }),
+  goldpile: S(['....yy....', '...yWyy...', '..yyyyyy..', '.yyyWyyyy.', 'yyyyyyyyyy', 'dddddddddd'], { y: '#f0c040', W: '#fff8c0', d: '#a07810' }),
+  goldpile2: S(['....yy....', '...yyyW...', '..yWyyyy..', '.yyyyyyWy.', 'yyyyyyyyyy', 'dddddddddd'], { y: '#f0c040', W: '#fff8c0', d: '#a07810' }),
   fedora: S(['..kkkk..', '.kkkkkk.', '.krrrrk.', 'kkkkkkkk'], { k: '#1a1a1a', r: '#7a1a1a' }),
 };
 
@@ -301,3 +316,18 @@ export function decoVars(jobId: string): Record<string, string> {
 }
 export const decoOver = (jobId: string) => DECO[jobId]?.over ?? '';
 export const decoEdge = (jobId: string) => DECO[jobId]?.edge ?? '';
+
+/** 두 칸 그림을 가로로 이어 붙인 스프라이트 시트 (steps(2) 애니메이션용) */
+export function sheetURL(a: string, b: string): string {
+  const A = SPR[a];
+  const B = SPR[b];
+  const w = Math.max(...A.rows.map((r) => r.length), ...B.rows.map((r) => r.length));
+  const h = Math.max(A.rows.length, B.rows.length);
+  const pad = (rows: string[]) => Array.from({ length: h }, (_, i) => (rows[i] ?? '').padEnd(w, '.'));
+  const ra = pad(A.rows);
+  const rb = pad(B.rows);
+  const pal = { ...A.pal };
+  // 두 번째 그림 색은 대문자/소문자가 겹칠 수 있어 그대로 합친다 (같은 글자는 같은 색으로 맞춰 둠)
+  Object.assign(pal, B.pal);
+  return pixURL({ rows: ra.map((r, i) => r + rb[i]), pal });
+}

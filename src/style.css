@@ -1673,3 +1673,21 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 /* 슈퍼 히든 영상이 준비될 때까지 베일을 붙잡아 둔다 (hidden-card.ts) */
 .hcard-reveal-box.vid-wait .hid-shadow-veil, .hcard-reveal-box.vid-wait .veil-blade, .hcard-reveal-box.vid-wait .hidden-hc { animation-play-state: paused; }
 .hcard-reveal-box.vid-wait .veil-silhouette::after { content: '…'; display: block; font-size: 18px; animation: big-pulse 1s ease-in-out infinite; }
+
+/* ───────── 집안 형편 테마 (theme.ts WEALTH · render/room.ts) ───────── */
+#app[data-theme="wealth"] { background: transparent !important; }
+.theme-bg.wealth .tb-room { position: absolute; inset: 0; background-size: cover; background-position: 50% 0; image-rendering: pixelated; }
+.theme-bg.wealth .tb-pat { background: linear-gradient(180deg, rgba(0, 0, 0, .05) 0%, rgba(0, 0, 0, .18) 30%, rgba(0, 0, 0, .38) 100%); }
+#app[data-theme="wealth"] .top { background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 78%, transparent), color-mix(in srgb, var(--bg) 40%, transparent)); text-shadow: 0 1px 2px rgba(0, 0, 0, .85); }
+/* 턴 넘기기 버튼 위에 앉은 마스코트 (두 칸 번갈아) */
+#app[data-theme="wealth"] .next-year::before { --mw: 36px; content: ''; position: absolute; right: 18px; top: -33px; width: var(--mw); height: 34px; background: var(--mascot) 0 100% / calc(var(--mw) * 2) auto no-repeat; image-rendering: pixelated; pointer-events: none; animation: mascot-step .9s steps(2) infinite; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); }
+#app[data-tier="0"] .next-year::before { --mw: 26px; height: 16px; top: -16px; animation: mascot-step .25s steps(2) infinite, rat-walk 9s ease-in-out infinite; }
+#app[data-tier="1"] .next-year::before { animation-duration: .18s; }
+#app[data-tier="6"] .next-year::before { --mw: 40px; height: 26px; top: -25px; animation-duration: 1.4s; }
+@keyframes mascot-step { to { background-position-x: calc(var(--mw) * -2); } }
+@keyframes rat-walk { 0% { right: 18px; transform: scaleX(1); } 45% { right: calc(100% - 50px); transform: scaleX(1); } 50% { right: calc(100% - 50px); transform: scaleX(-1); } 95% { right: 18px; transform: scaleX(-1); } 100% { right: 18px; transform: scaleX(1); } }
+/* 목록 첫 카드 귀퉁이에도 살짝 (반지하는 쥐가 빼꼼) */
+#app[data-theme="wealth"] .screen > .card:first-of-type { position: relative; }
+#app[data-theme="wealth"] .screen > .card:first-of-type::after { --mw: 18px; content: ''; position: absolute; right: 8px; bottom: -3px; width: var(--mw); height: 16px; background: var(--mascot) 0 100% / calc(var(--mw) * 2) auto no-repeat; image-rendering: pixelated; pointer-events: none; opacity: .9; animation: mascot-step 1.6s steps(2) infinite; }
+#app[data-tier="0"] .screen > .card:first-of-type::after { animation: mascot-step .3s steps(2) infinite, rat-peek 7s ease-in-out infinite; }
+@keyframes rat-peek { 0%, 60%, 100% { transform: translateX(0); opacity: 0; } 65%, 90% { opacity: .95; } 75% { transform: translateX(-30px); } 88% { transform: translateX(-60px); } }
