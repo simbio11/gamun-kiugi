@@ -870,7 +870,7 @@ describe('부모님 유산', () => {
       const n = HIDDEN_WORK_STORIES.filter((st) => st.id.startsWith(`wk_h_${h.id}_`)).length;
       if (n < 3) thin.push(`story:${h.id}:${n}`);
     }
-    expect(HIDDEN.length).toBe(30);
+    expect(HIDDEN.length).toBe(39);
     expect(thin).toEqual([]);
     // 직장 이야기는 실제로 그 직업인 사람에게 나온다
     const s = newGame({ seed: 8, familyName: '서', sex: 'F' });
