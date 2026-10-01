@@ -6,6 +6,7 @@ import { HIDDEN_BY_ID } from './hidden-data';
 import { JOBS } from './data';
 import { age, alive, fullName, isMainline, markOf } from './people';
 import { chance } from './rng';
+import { HIDDEN_RATE, hiddenMastery, novelty } from './hidden-mastery';
 import type { GameState, Person } from './types';
 
 interface Path {
@@ -58,7 +59,7 @@ export function pathYear(s: GameState): void {
     }
     if ((seen[`hp:${p.id}`] ?? -99) > s.year - 6) continue; // 한 번 고사하면 6년은 조용
     const cands = PATHS.filter((x) => x.jobs.includes(p.job) && x.when(s, p));
-    if (cands.length && chance(s, 0.06)) {
+    if (cands.length && chance(s, 0.06 * HIDDEN_RATE * hiddenMastery(s).hid * Math.max(...cands.map((x) => novelty(s, x.id))))) { // 이미 가문에서 나온 직업이면 덜
       const x = cands[Math.floor(s.year + p.birthYear) % cands.length];
       s.events.push({ uid: s.eventSeq++, defId: 'hp_step', personId: p.id, data: { id: x.id, n: 0 } });
     }

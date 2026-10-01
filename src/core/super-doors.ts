@@ -1,10 +1,15 @@
 // 슈퍼 히든으로 가는 "다른 문": 지능·매력 기준만이 아니라 그 일과 닿아 있는 직업·재능·성격·지나온 길로도 열린다.
 //   base: 그 직업이 될 수 있는 최소 조건 (성별·나이·시대·꼭 있어야 하는 것)
-//   edge: 그 세계와 닮은 무언가 (관련 직업·재능·성격·흔적) — 있으면 해마다 3%로 첫 장면이 오고, 단계 판정이 모자라도 55%로 통과
-//   edge 가 없어도 아주 드물게(해마다 0.15%) 운명처럼 문이 열린다
+//   edge: 그 세계와 닮은 무언가 (관련 직업·재능·성격·흔적) — 있으면 해마다 1.2%(× 가문 숙련도)로 첫 장면이 오고, 단계 판정이 모자라도 55%로 통과
+//   edge 가 없어도 아주 드물게(해마다 0.15% × 가문 숙련도) 운명처럼 문이 열린다
 import type { GameState, Person, TalentId } from './types';
 import { age, hasTrait, markOf } from './people';
 import { myVehicles } from './vehicle';
+import { hiddenMastery, novelty } from './hidden-mastery';
+
+/** 해마다 첫 장면이 올 확률: 닮은 점이 있으면 / 없으면 (운) */
+export const EDGE_RATE = 0.012;
+export const LUCK_RATE = 0.0015;
 
 interface Door {
   base: (s: GameState, p: Person) => boolean;
@@ -41,7 +46,7 @@ export const DOORS: Record<string, Door> = {
   },
   hj_underground_dealer: {
     base: (s, p) => M(p) && A(s, p) >= 20 && A(s, p) <= 65 && !(s.storySeen?.['casino_refused:' + p.id] && s.year - Number(s.storySeen['casino_refused:' + p.id]) < 10),
-    edge: (_s, p) => markOf(p, 'risk') >= 2 || markOf(p, 'cheat') >= 1 || tr(p, 'gambler') || job(p, 'bartender', 'hotelier', 'hj_gambler') || tal(p, 'strategist'),
+    edge: (_s, p) => markOf(p, 'risk') >= 4 || markOf(p, 'cheat') >= 2 || tr(p, 'gambler') || job(p, 'bartender', 'hj_gambler'),
   },
   hj_chess_master: {
     base: (s, p) => F(p) && p.job === 'chess_player' && A(s, p) >= 28,
@@ -57,7 +62,7 @@ export const DOORS: Record<string, Door> = {
   },
   hj_conservator: {
     base: (s, p) => A(s, p) >= 24 && A(s, p) <= 68,
-    edge: (_s, p) => job(p, 'librarian', 'curator', 'researcher', 'painter', 'illustrator', 'professor', 'carpenter', 'translator') || tal(p, 'artist', 'craft', 'scholar') || tr(p, 'diligent', 'frugal'),
+    edge: (_s, p) => job(p, 'librarian', 'curator', 'painter', 'carpenter', 'translator') || tal(p, 'craft', 'scholar'),
   },
   hj_bodyguard: {
     base: (s, p) => A(s, p) >= 22 && A(s, p) <= 52,
@@ -89,7 +94,8 @@ export const DOORS: Record<string, Door> = {
 export function doorOpens(s: GameState, p: Person, id: string, roll: (pct: number) => boolean): boolean {
   const d = DOORS[id];
   if (!d || !d.base(s, p)) return false;
-  return d.edge(s, p) ? roll(0.03) : roll(0.0015);
+  const m = hiddenMastery(s).sup * novelty(s, id); // 가문이 슈퍼 히든을 이뤄 낼수록 문이 잘 열린다 · 이미 나온 직업은 덜
+  return d.edge(s, p) ? roll(EDGE_RATE * m) : roll(LUCK_RATE * m);
 }
 
 /** 단계 판정: 능력치가 모자라도 닮은 무언가가 있으면 55%, 없어도 10%는 운으로 통과 */

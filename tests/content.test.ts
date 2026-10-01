@@ -1354,7 +1354,7 @@ describe('부모님 유산', () => {
     expect(SUPER_HIDDEN_IDS.has(id)).toBe(true);
     const card = CARDS.find((c) => c.id === id)!;
     expect(card.rarity).toBe('legend');
-    expect(card.eff).toEqual({ cash: 6000, fame: 6, heat: 4, kid: 'str' });
+    expect(card.eff).toEqual({ cash: 6000, fame: 6, heat: 4, kid: 'str', sup: 15 }); // sup: 카드 추가 효과(EXTRA_EFF) — 슈퍼 희귀 직업 확률 +15%
     expect(JOBS[id].base).toBe(60000);
     // 2. 3단계 사연의 보상 (단계 성공금 합계)
     const r = SUPER_ROUTES.find((x) => x.id === id)!;
@@ -1605,5 +1605,23 @@ describe('명예의 전당 카드 효과', () => {
     simulateYear(s);
     expect(h.actual.hp).toBeGreaterThan(h.potential.hp);
     expect(cardYear(s).join('')).toContain('명예의 전당 카드');
+  });
+});
+
+describe('희귀 직업 숙련·카드 효과', () => {
+  it('히든 카드를 모을수록·희귀 카드 효과가 있을수록 문이 잘 열리고, 이미 나온 직업은 덜 나온다', async () => {
+    const { hiddenMastery, novelty } = await import('../src/core/hidden-mastery');
+    const { cardPassive } = await import('../src/core/cards');
+    const s = newGame({ seed: 3, familyName: '최', sex: 'M' });
+    const h = head(s);
+    const m0 = hiddenMastery(s);
+    expect(m0.hid).toBe(1);
+    expect(novelty(s, 'hj_hacker')).toBe(1);
+    awardCard(s, h, 'hj_hacker');
+    expect(novelty(s, 'hj_hacker')).toBe(0.5);
+    expect(hiddenMastery(s).hid).toBeGreaterThan(m0.hid);
+    awardCard(s, h, 'explorer');
+    expect(cardPassive(s, 'rare')).toBeGreaterThan(0);
+    expect(hiddenMastery(s).hid).toBeLessThanOrEqual(1.8 * 2);
   });
 });

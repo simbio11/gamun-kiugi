@@ -5,12 +5,16 @@
 import { HIDDEN_BY_ID, isHoH, isSuperHidden } from './hidden-data';
 import { gate, type EventDef } from './ev-util';
 import { addFlag, age, alive, clamp, fullName, isMainline, markOf } from './people';
-import { chance } from './rng';
+import { chance, next } from './rng';
 import { myVehicles } from './vehicle';
 import { formatMoney } from './economy';
 import type { GameState, Person } from './types';
 import { GATE_ONLY, GATE_READY } from './super-gates';
 import { doorOpens, stepPasses } from './super-doors';
+import { hiddenMastery, novelty } from './hidden-mastery';
+
+/** 능력치 문(ready)이 열린 사람에게 해마다 첫 장면이 올 확률 (예전 75% → 한 직업만 몰려 나왔다) */
+const STAT_RATE = 0.04;
 import { awardCard } from './cards';
 
 interface SuperStep {
@@ -219,7 +223,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     ready: (s, p) => {
       if (p.sex !== 'M' || A(s, p) < 20 || A(s, p) > 65) return false;
       // 아무 남자에게나 오던 권유 → 승부 기질이 있는 사람에게만 (한탕 성향·노름 버릇·타짜·가문 내 노름꾼)
-      const knack = markOf(p, 'risk') >= 2 || markOf(p, 'cheat') >= 1 || p.flags.includes('gambler') || p.traits?.includes('gambler') || p.job === 'hj_gambler';
+      const knack = markOf(p, 'risk') >= 3 || markOf(p, 'cheat') >= 1 || p.flags.includes('gambler') || p.traits?.includes('gambler') || p.job === 'hj_gambler';
       if (!knack || !chance(s, 0.12)) return false;
       const last = s.storySeen?.['casino_refused:' + p.id];
       if (last != null && s.year - Number(last) < 10) return false;
@@ -423,7 +427,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     id: 'hj_conservator',
     name: '고문서 복원가',
     icon: '📜',
-    ready: (s, p) => A(s, p) >= 24 && A(s, p) <= 65 && ST(p).int >= 68,
+    ready: (s, p) => A(s, p) >= 28 && A(s, p) <= 65 && ST(p).int >= 72 && ST(p).mor >= 55,
     step1: {
       title: '📜 2천년 전 파피루스 사본',
       text: '사막의 동굴에서 바스러지기 직전의 고대 파피루스 사본이 발견되었다. 숨결 하나만 잘못 닿아도 영원히 사라질 위기. 정밀한 해체 작업이 필요하다.',
@@ -690,7 +694,13 @@ export function superHiddenYear(s: GameState): string[] {
     // 이미 히든 직업이면 스킵
     if (p.job.startsWith('hj_')) continue;
 
-    for (const r of SUPER_ROUTES) {
+    // 해마다 순서를 섞는다: 늘 앞쪽 직업만 먼저 걸리지 않게
+    const order = [...SUPER_ROUTES];
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(next(s) * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    for (const r of order) {
       const f1 = `sh:${r.id}:1`;
       const f2 = `sh:${r.id}:2`;
 
@@ -716,7 +726,7 @@ export function superHiddenYear(s: GameState): string[] {
       const byStats = r.ready(s, p);
       if (byStats || doorOpens(s, p, r.id, (pct) => chance(s, pct))) {
         const hasRare = p.traits?.some((t) => ['speed_demon', 'hypnotic_eye', 'dark_artist'].includes(t));
-        if ((hasRare || !byStats || chance(s, 0.75)) && !s.events.some((e) => e.defId === 'sh_step1' && e.personId === p.id)) {
+        if ((hasRare || !byStats || chance(s, STAT_RATE * hiddenMastery(s).sup * novelty(s, r.id))) && !s.events.some((e) => e.defId === 'sh_step1' && e.personId === p.id)) {
           s.events.push({ uid: s.eventSeq++, defId: 'sh_step1', personId: p.id, data: { id: r.id } });
           msgs.push(`✨ ${fullName(p)}에게 특별한 제안이 찾아왔다 (${r.icon} ${r.name})`);
           break;

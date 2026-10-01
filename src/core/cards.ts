@@ -28,6 +28,14 @@ export interface CardEff {
   study?: number;
   /** 해마다 세무 주목도 감소 */
   heat?: number;
+  /** (상시) 가문에 희귀(히든) 직업의 문이 열릴 확률 +% */
+  rare?: number;
+  /** (상시) 슈퍼 희귀 직업의 문이 열릴 확률 +% */
+  sup?: number;
+  /** (상시) 가족 승진 확률 +% */
+  promo?: number;
+  /** 해마다 가족 사이(가주와의 관계도·부부 애정) +n */
+  bond?: number;
 }
 export interface CardDef {
   id: string;
@@ -92,7 +100,37 @@ export const CARDS: CardDef[] = [
   ...MORE_CARDS,
   ...ERA_CARDS,
 ];
+/** 카드 효과 더하기: 명성·수입 말고도 숨은 길·승진·가족 사이를 돕는 카드들 */
+const EXTRA_EFF: Record<string, CardEff> = {
+  // 희귀 직업의 문 (그 세계를 아는 사람이 집안에 있다)
+  explorer: { rare: 15 }, spymaster: { rare: 15 }, profiler: { rare: 10 }, heritage_master: { rare: 10 }, cardinal: { rare: 8, bond: 1 },
+  hj_tarot: { rare: 12 }, hj_shaman: { rare: 12 }, hj_nomad: { rare: 12 }, hj_adventurer: { rare: 12 }, hj_magician: { rare: 10 }, hj_exorcist: { rare: 10 },
+  hj_spy: { rare: 10, sup: 5 }, hj_thief: { rare: 10 }, hj_gambler: { rare: 8, sup: 5 }, hj_smuggler: { rare: 8 }, hj_hermit: { rare: 6 },
+  // 슈퍼 희귀 직업의 문
+  hj_stargazer: { sup: 20 }, hj_pope: { sup: 15, bond: 1 }, hj_mafia: { sup: 15 }, hj_godmother: { sup: 15 }, hj_detective: { sup: 10, rare: 8 },
+  hj_art_investigator: { sup: 10 }, hj_conservator: { sup: 8 }, first_contact: { sup: 20 }, star_voyager: { sup: 15 }, great_author: { sup: 10 },
+  un_sg: { sup: 10 }, cannes: { sup: 8 }, astronaut: { sup: 8 }, maestro: { sup: 8, rare: 5 },
+  // 승진 (집안에 길을 먼저 간 사람)
+  chaebol: { promo: 15 }, ceo: { promo: 10 }, chief_of_staff: { promo: 10 }, bok_governor: { promo: 10 }, scholar: { promo: 10 }, minister: { promo: 8 },
+  national_coach: { promo: 8 }, sales_king: { promo: 8 }, engineer_award: { promo: 6 }, best_teacher: { promo: 5 }, model_civil: { promo: 5 }, pro_license: { promo: 6 },
+  founder_myth: { promo: 10 }, venture_myth: { promo: 6 }, export_tower: { promo: 6 },
+  // 가족 사이
+  proud_parent: { bond: 1 }, filial: { bond: 1 }, centenarian: { bond: 1 }, good_heart: { bond: 1 }, national_mc: { bond: 1 }, hj_natural: { bond: 1 }, philanthropist: { bond: 1 },
+};
+for (const c of CARDS) if (EXTRA_EFF[c.id]) c.eff = { ...c.eff, ...EXTRA_EFF[c.id] };
+
 export const CARD = Object.fromEntries(CARDS.map((c) => [c.id, c])) as Record<string, CardDef>;
+
+/** 살아 있는 카드 주인(과 시너지)이 주는 상시 효과의 합 (rare·sup·promo) */
+export function cardPassive(s: GameState, key: 'rare' | 'sup' | 'promo'): number {
+  let n = 0;
+  for (const c of s.cards ?? []) {
+    const h = s.people[c.personId];
+    if (h && alive(h)) n += CARD[c.id]?.eff[key] ?? 0;
+  }
+  for (const sy of activeSynergies(s)) n += sy.eff[key] ?? 0;
+  return Math.min(n, key === 'promo' ? 40 : 100); // 너무 쌓이지 않게
+}
 setCardNamer((id) => CARD[id]?.name ?? id);
 /** 그 카드를 받은 해의 이름 (1980년대의 "은막의 스타") */
 export const cardTitle = (id: string, year: number) => cardNameAt(CARD[id]?.name ?? id, id, year);
@@ -108,6 +146,10 @@ export function effText(e: CardEff): string {
     e.hp && `온 가족 건강 ${sg(e.hp)}/년`,
     e.hap && `온 가족 행복 ${sg(e.hap)}/년`,
     e.heat && (e.heat > 0 ? `세무조사 위험 −${e.heat}/년` : `세무조사 위험 +${-e.heat}/년`),
+    e.rare && `희귀 직업 확률 +${e.rare}%`,
+    e.sup && `슈퍼 희귀 직업 확률 +${e.sup}%`,
+    e.promo && `가족 승진 확률 +${e.promo}%`,
+    e.bond && `가족 사이 +${e.bond}/년`,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -370,7 +412,7 @@ export function cardYear(s: GameState): string[] {
   const capB = cardCapBonus(s);
   const kids = Object.values(s.people).filter((p) => alive(p) && isMainline(s, p) && age(s, p) < 20);
   const fam = Object.values(s.people).filter((p) => alive(p) && isMainline(s, p));
-  const sum = { fame: 0, cash: 0, hp: 0, hap: 0, kid: 0, study: 0, heat: 0 };
+  const sum = { fame: 0, cash: 0, hp: 0, hap: 0, kid: 0, study: 0, heat: 0, bond: 0 };
   const apply = (e: CardEff, holder: Person) => {
     if (e.fame) (s.fame += e.fame), (sum.fame += e.fame);
     if (e.cash) {
@@ -393,6 +435,13 @@ export function cardYear(s: GameState): string[] {
     if (e.hap) for (const q of fam) q.happiness = clamp(q.happiness + e.hap, 0, 100);
     if (e.hap) sum.hap += e.hap;
     if (e.heat) (s.taxHeat = Math.max(0, s.taxHeat - e.heat)), (sum.heat += e.heat);
+    if (e.bond) {
+      for (const q of fam) {
+        if (q.id !== s.headId) q.affinity = clamp(q.affinity + e.bond, -100, 100);
+        if (q.spouseId && q.bond !== undefined) q.bond = clamp(q.bond + e.bond, 0, 100);
+      }
+      sum.bond += e.bond;
+    }
   };
   let n = 0;
   for (const c of s.cards ?? []) {
@@ -418,6 +467,7 @@ export function cardYear(s: GameState): string[] {
     sum.hap && `행복 ${sg(sum.hap)}`,
     sum.kid && `아이들 능력치 +${sum.kid}`,
     sum.study && `아이들 성적 +${sum.study}`,
+    sum.bond && `가족 사이 +${sum.bond}`,
     sum.heat && `세무 주목 ${sg(-sum.heat)}`,
   ].filter(Boolean);
   return parts.length ? [`🃏 명예의 전당 카드 ${n}장${syn.length ? ` · 시너지 ${syn.length}` : ''} 효과: ${parts.join(' · ')}`] : [];

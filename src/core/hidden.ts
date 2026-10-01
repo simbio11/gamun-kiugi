@@ -1,6 +1,7 @@
 // 히든 직업이 되는 숨은 길. 어렵지는 않지만 드물다.
 // 세 갈래로 찾아온다: ① 평범한 길 위의 갑작스런 사건 ② 능력치·흔적이 채워졌을 때 ③ 가족 중 누군가의 직업 덕분에.
 // 조건을 채웠는데 기회가 아직 안 왔으면, 가끔 연대기에 수수께끼 같은 힌트가 남는다.
+import { HIDDEN_RATE, hiddenMastery, novelty } from './hidden-mastery';
 import { HIDDEN_BY_ID } from './hidden-data';
 import { gate, type EventDef } from './ev-util';
 import { addFlag, age, alive, clamp, fullName, hasTrait, isMainline, markOf, parentsOf, siblingsOf, spouseOf } from './people';
@@ -50,7 +51,7 @@ const ROUTES: Route[] = [
   { id: 'hj_cult', when: (s, p) => A(s, p) >= 28 && st(p).cha >= 60 && st(p).mor <= 48, kin: job('clergy'), p: 0.025, title: '🔮 추종자들',
     offer: '{n}의 말을 들으려고 사람들이 모인다. 작은 모임이 커져 "선생님"이라 부르는 이들이 백 명을 넘었다. 누군가 "우리만의 교회를 세우자"고 한다.',
     yes: '교단을 세운다', yesText: '산속 수련원에 금빛 의자가 놓였다. 헌금이 쏟아진다.', noText: '"나는 그런 사람이 아니다." 모임을 해산했다.', risk: 0.06, riskText: '탈퇴 신도들이 폭로 기자회견을 열었다.' },
-  { id: 'hj_memecoin', years: [2013, 2200], when: (s, p) => A(s, p) >= 20 && A(s, p) <= 60 && myCoins(s, p) && (markOf(p, 'risk') >= 1 || hasTrait(p, 'gambler')), p: 0.05, title: '🐕 개 그림 코인',
+  { id: 'hj_memecoin', years: [2013, 2200], when: (s, p) => A(s, p) >= 20 && A(s, p) <= 60 && myCoins(s, p) && (markOf(p, 'risk') >= 1 || hasTrait(p, 'gambler')), p: 0.022, title: '🐕 개 그림 코인',
     offer: '장난삼아 산 강아지 밈코인이 하룻밤에 300배가 됐다. 커뮤니티에선 {n}을 "고래"라 부른다. 지금 팔까, 아니면 이 판의 주인공이 될까?',
     yes: '전업 코인 인플루언서가 된다', yesText: '람보르기니 사진을 올렸다. 팔로워가 백만. 인생이 밈이 됐다.', noText: '조용히 절반만 팔았다. 그래도 큰돈이다.', risk: 0.08, riskText: '코인이 99% 폭락했다. 러그풀이었다.' },
   { id: 'hj_gambler', when: (s, p) => A(s, p) >= 20 && st(p).cha >= 55 && (markOf(p, 'cheat') >= 2 || markOf(p, 'risk') >= 3 || p.flags.includes('gambler')), kin: job('hj_mafia'), p: 0.035, title: '🃏 화투판의 전설',
@@ -65,7 +66,7 @@ const ROUTES: Route[] = [
   { id: 'hj_assassin', when: (s, p) => A(s, p) >= 24 && A(s, p) <= 50 && st(p).str >= 62 && st(p).mor <= 42, kin: (q) => q.job === 'officer' || q.flags.includes('war_vet'), p: 0.02, title: '🗡 검은 봉투',
     offer: '제대 후 방황하던 {n}에게 이름 없는 봉투가 도착했다. 사진 한 장과 거액의 선금. "당신 실력을 알고 있습니다."',
     yes: '일을 받는다', yesText: '비 오는 밤, 흔적 없이. 이름 대신 별명으로 불리게 됐다.', noText: '봉투를 태웠다. 그 뒤로 누군가 지켜보는 것 같았다.', risk: 0.08, riskText: '작전이 꼬였다. 총상을 입고 숨어 지낸다.' },
-  { id: 'hj_hacker', years: [1995, 2200], when: (s, p) => A(s, p) >= 16 && st(p).int >= 70, kin: job('developer', 'security', 'data_scientist'), p: 0.03, title: '💻 해킹 대회의 초대장',
+  { id: 'hj_hacker', years: [1995, 2200], when: (s, p) => A(s, p) >= 16 && st(p).int >= 72, kin: job('developer', 'security', 'data_scientist'), p: 0.012, title: '💻 해킹 대회의 초대장',
     offer: '{n}이(가) 심심풀이로 푼 보안 문제가 다크웹 포럼에 퍼졌다. 익명의 메시지: "당신이 그 사람이군요. 우리 팀에 들어오시죠."',
     yes: '화이트? 블랙? 일단 들어간다', yesText: '모니터 여섯 대, 에너지 드링크. 전설적인 닉네임이 생겼다.', noText: '메시지를 지웠다. 그래도 손가락이 근질거린다.', risk: 0.05, riskText: '수사 기관의 추적을 받았다.' },
   { id: 'hj_spy', when: (s, p) => A(s, p) >= 25 && A(s, p) <= 50 && st(p).int >= 62 && st(p).cha >= 58, kin: job('diplomat', 'officer', 'journalist', 'translator'), p: 0.025, title: '🕶 조용한 면접',
@@ -123,13 +124,14 @@ export function hiddenYear(s: GameState): string[] {
   const seen = (s.storySeen ??= {});
   const people = Object.values(s.people).filter((p) => alive(p) && isMainline(s, p) && !p.job.startsWith('hj_'));
   const cands: [Route, Person][] = [];
+  const rate = HIDDEN_RATE * hiddenMastery(s).hid; // 가문의 숙련이 쌓일수록 문이 더 잘 열린다
   for (const p of people)
     for (const r of ROUTES) {
       if (r.years && (s.year < r.years[0] || s.year > r.years[1])) continue;
       if ((seen[`hid:${p.id}:${r.id}`] ?? -99) > s.year - 6) continue; // 거절하면 6년은 다시 안 온다
       if (!r.when(s, p)) continue;
       const boost = r.kin && kinOf(s, p).some(r.kin) ? 2.5 : 1;
-      if (chance(s, r.p * boost * lowly(p))) cands.push([r, p]);
+      if (chance(s, r.p * boost * lowly(p) * rate * novelty(s, r.id))) cands.push([r, p]);
       else if (chance(s, 0.04)) msgs.push(`🌑 ${fullName(p)}: ${HIDDEN_BY_ID[r.id].hint}`); // 수수께끼 힌트
     }
   if (cands.length) {
