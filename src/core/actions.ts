@@ -1409,8 +1409,8 @@ ACTIONS.push({
   targets: (s) => Object.values(s.people).filter((p) => alive(p) && isDescendantOf(s, p, h(s)) && age(s, p) >= 7 && age(s, p) <= 18 && !isStudent(p)),
   run: (s, t) => {
     const p = t!;
-    const f = fitCats(p, 3);
-    const cat = f.length ? f[Math.floor(next(s) * Math.min(2, f.length))] : 'office';
+    const f = fitCats(p, 2);
+    const cat = f.length ? f[Math.floor(next(s) * f.length)] : 'office';
     const name = JOB_CATS[cat as keyof typeof JOB_CATS];
     const tier = rollTier(s, p, { stat: 'cha' });
     const g = { great: 3, good: 2, meh: 1, bad: 1 }[tier];

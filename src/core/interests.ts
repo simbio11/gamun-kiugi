@@ -56,6 +56,15 @@ const TALENT_FIT: Record<string, Interest[]> = {
   star: ['media', 'sport'],
   merchant: ['biz', 'office'],
   artist: ['media', 'trade'],
+  orator: ['legal', 'office', 'media'],
+  healer: ['medical', 'edu'],
+  craft: ['trade', 'tech'],
+  linguist: ['public', 'media', 'edu'],
+  iron: ['sport', 'transport', 'public'],
+  empath: ['edu', 'medical', 'service'],
+  strategist: ['office', 'biz', 'tech'],
+  pitch: ['media'],
+  palate: ['service', 'farm'],
 };
 const STAT_FIT: Record<StatKey, Interest[]> = {
   str: ['sport', 'trade', 'transport', 'farm', 'public'],
@@ -149,7 +158,7 @@ const TRAIT_LABEL: Record<string, string> = {
 /** "사교적·리더십 아이. 사람을 이끄는 일이 잘 맞을 것 같다" */
 export function temperamentLine(p: Person): string {
   const tr = (p.traits ?? []).map((t) => TRAIT_LABEL[t]).filter(Boolean).slice(0, 3);
-  const cats = fitCats(p, 3).map((k) => JOB_CATS[k]);
+  const cats = fitCats(p, 2).map((k) => JOB_CATS[k]);
   // 근현대사 모드(2018년 전)엔 MBTI라는 말이 없었다
   const h = histCur();
   const mb = h && h.year < 2018 ? '' : mbtiLabel(p);

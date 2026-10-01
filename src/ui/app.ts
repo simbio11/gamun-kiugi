@@ -1987,7 +1987,7 @@ function actionsScreen(g: GameState): string {
   const cat = ui.actCat && cats.includes(ui.actCat as ActionCat) ? (ui.actCat as ActionCat) : cats[0];
   const money = canSpend(g);
   const car = vehicleAP(g);
-  const fits = new Set<string>(fitCats(head(g), 3));
+  const fits = new Set<string>(fitCats(head(g), 2));
   const isFit = (a: (typeof list)[number]) => !!a.fit && fits.has(a.fit);
   const row = (a: (typeof list)[number]) => {
     const targets = a.targets?.(g) ?? [];

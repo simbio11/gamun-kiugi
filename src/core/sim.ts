@@ -14,7 +14,7 @@ import { giveUsedCar } from './vehicle';
 import { debtYear } from './debt';
 import { queueFuneral } from './lifecost';
 import { DECEPTION_EVENTS } from './deception';
-import { HOBBY_AGES } from './interests';
+import { fitCats, HOBBY_AGES } from './interests';
 import { buyPower, leverageYear, stockQuote } from './leverage';
 import { bindState } from './school';
 import { STORIES } from './stories';
@@ -22,7 +22,7 @@ import { SEED_EVENTS, seedYear } from './seeds';
 import { apMax, autoGiftYear } from './actions';
 import { bondDrift } from './marks';
 import { chooseSuccessor, giveAsset, giveGift, settleEstate, transferHeadship } from './estate';
-import { CREATORS, TALENT_IDS } from './data';
+import { CREATORS, JOB_CATS, TALENT_IDS, TALENTS } from './data';
 import { exposeFakes, makeDate, marry, examScore, spendable, type Ctx } from './events';
 import { EVENTS, RANDOM_EVENTS } from './registry';
 import { eraYear } from './era';
@@ -1201,7 +1201,9 @@ export function aptitudeTest(s: GameState, id: string): string {
     return `✨ 경이로운 발견! 정밀 적성검사 결과, ${fullName(p)}에게서 [체스 신동]의 천재적 적성이 발현되었다! 64칸 판 위에서 수십 수를 앞서 내다보는 전설적인 수읽기다. (지능 +8)`;
   }
 
-  return p.talents.length ? '정밀 적성검사 결과, 숨은 재능과 잠재력이 모두 드러났다.' : '정밀 적성검사 결과: 뚜렷한 재능은 없다. 잠재력은 확인되었다.';
+  const fits = fitCats(p, 2).map((k) => JOB_CATS[k]);
+  const tal = p.talents.map((t) => `[${TALENTS[t.id].name}]`).join(' ');
+  return `정밀 적성검사 결과\n· 재능: ${tal || '뚜렷한 재능은 없다'}\n· 적성: ${fits.join(', ') || '아직 뚜렷하지 않다'}\n잠재력도 모두 확인되었다.`;
 }
 
 export const BUY_TAX = 0.04;

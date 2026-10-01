@@ -2,7 +2,7 @@ export type StatKey = 'str' | 'int' | 'cha' | 'mor' | 'hp';
 export type Stats = Record<StatKey, number>;
 export type Sex = 'M' | 'F';
 
-export type TalentId = 'genius' | 'athlete' | 'star' | 'merchant' | 'artist';
+export type TalentId = 'genius' | 'athlete' | 'star' | 'merchant' | 'artist' | 'orator' | 'healer' | 'craft' | 'linguist' | 'iron' | 'empath' | 'strategist' | 'pitch' | 'palate';
 export interface Talent {
   id: TalentId;
   discovered: boolean;

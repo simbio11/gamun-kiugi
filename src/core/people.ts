@@ -91,7 +91,7 @@ function randomStats(r: RngHolder, mean: number, sd: number): Stats {
   return st;
 }
 
-export function randomTalents(r: RngHolder, p = 0.15): Talent[] {
+export function randomTalents(r: RngHolder, p = 0.06): Talent[] {
   return TALENT_IDS.filter(() => chance(r, p)).map((id) => ({ id, discovered: false }));
 }
 

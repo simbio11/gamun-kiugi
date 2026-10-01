@@ -256,7 +256,7 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
           msg = `🏥 ${name} ${jobTitle(p)}의 길로 — 내 가게를 열었다`;
         }
       }
-      const diligent = (hasTrait(p, 'diligent') ? 1.3 : hasTrait(p, 'lazy') ? 0.6 : 1) * promoteMult(p);
+      const diligent = (hasTrait(p, 'diligent') ? 1.3 : hasTrait(p, 'lazy') ? 0.6 : 1) * promoteMult(p) * (p.talents.some((t) => TALENTS[t.id].cats?.includes(j.cat)) ? 1.25 : 1);
       const intoOpen = d?.open !== undefined && p.jobLevel + 1 === d.open;
       // 승진은 지금 직급에서 2년 이상 일한 뒤부터. 맨 꼭대기(병원장→의료재단 이사장, 사장→회장 등)는
       // 50세 넘어 그 아래 자리에서 5년 이상 버텨야 하고, 그마저도 자리 하나를 두고 다투니 확률이 절반
