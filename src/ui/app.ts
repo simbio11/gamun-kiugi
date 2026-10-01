@@ -52,6 +52,7 @@ import { willLine, willOf } from '../core/autonomy';
 import { buyPerk, HONORS, PERKS, perkCost, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
+import { applyTheme, themeBackdrop, type Theme as HeadTheme } from './theme';
 import { hiddenCardHTML, hiddenArt, initHiddenVideos } from './hidden-card';
 import { KIN_NAME, kinGap, kinOf } from '../core/inlaws';
 import { photoURL } from '../render/photo';
@@ -144,6 +145,8 @@ interface Prefs {
   sound?: boolean;
   vibe?: boolean;
   calm?: boolean;
+  /** 가주 테마 (나이·희귀 직업에 따라 화면 분위기) — 기본 켜짐 */
+  theme?: boolean;
   text?: TextSize;
   money?: 'nominal' | 'real';
 }
@@ -395,6 +398,8 @@ function renderInner() {
   root.classList.toggle('wartime', ui.game?.war?.phase === 'war');
   root.classList.toggle('text-s', prefs.text === 's');
   root.classList.toggle('text-l', prefs.text === 'l');
+  const theme = applyTheme(root, ui.game ?? undefined, prefs.theme !== false);
+  fx.theme = theme;
   if (!g) {
     root.innerHTML = titleScreen();
     return;
@@ -435,6 +440,7 @@ function renderInner() {
 
   const body = { tree: treeScreen, act: actionsScreen, policy: policyScreen, assets: assetsScreen, log: logScreen, achv: achvScreen }[ui.tab](g);
   root.innerHTML = `
+    ${themeBackdrop(fx.theme)}
     ${header(g)}
     <main class="screen">${body}</main>
     ${g.gameOver && ui.overLog ? `<button class="next-year" data-action="over-back">🏁 가문 결과로 돌아가기</button>` : ''}
@@ -520,7 +526,7 @@ function track(name: string, title = name) {
 }
 
 /** 직전 화면 상태 (애니메이션을 새로 생긴 것에만 주려고) */
-const fx: { modalKey: string; likelyHeir?: string; chips: { id: number; text: string; pts: number }[]; rewardShown?: number; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number; assetSub?: string } = { modalKey: '', chips: [] };
+const fx: { theme?: HeadTheme; modalKey: string; likelyHeir?: string; chips: { id: number; text: string; pts: number }[]; rewardShown?: number; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number; assetSub?: string } = { modalKey: '', chips: [] };
 const TAB_ORDER: Tab[] = ['tree', 'act', 'policy', 'assets', 'log', 'achv'];
 
 function titleScreen(): string {
@@ -715,6 +721,7 @@ function header(g: GameState): string {
       <div class="fam">${esc(g.familyName)}씨 ${g.generation}대 · ${esc(fullName(h))} ${age(g, h)}세</div>
       ${g.era === 'history' && g.year <= 2025 ? `<div class="fam gov">🏛 ${esc(govOf(g.year))}</div>` : `<div class="fam gov">${epochOf(g.year).icon} ${esc(epochOf(g.year).name)}</div>`}
       ${g.war ? `<div class="fam war-chip ${g.war.phase}">${esc(warChip(g))}</div>` : ''}
+      ${fx.theme && fx.theme.id !== 'prime' ? `<div class="fam theme-chip">${esc(fx.theme.label)}</div>` : ''}
       <div class="fam">명성 ${Math.round(g.fame)}${(g.scandal ?? 0) >= 10 ? ` · <span class="scandal-chip" title="가문 스캔들 위험 ${Math.round(g.scandal ?? 0)}">${scandalLabel(g.scandal ?? 0)}</span>` : ''} · <button class="rank-chip" data-action="tab" data-v="achv">${RANKS[rankOf(g)].icon} ${RANKS[rankOf(g)].name} <b>${g.glory ?? 0}✦</b></button></div>
     </div>
     <button class="top-r" data-action="tab" data-v="assets" data-sub="sum" title="자산 탭에서 내년 가계부 보기">
@@ -2053,6 +2060,7 @@ function settingsModal(g: GameState): string {
       <div class="set-row"><span>효과음</span>${seg('sound', soundOn() ? 1 : 0, [[1, '🔊 켜기'], [0, '🔇 끄기']])}</div>
       <div class="set-row"><span>진동</span>${seg('pref-vibe', vibeOn() ? 1 : 0, [[1, '📳 켜기'], [0, '끄기']])}</div>
       <div class="set-row"><span>움직임</span>${seg('pref-calm', prefs.calm ? 1 : 0, [[0, '보통'], [1, '줄이기']])}</div>
+      <div class="set-row"><span>가주 테마</span>${seg('pref-theme', prefs.theme === false ? 0 : 1, [[1, '켜기'], [0, '끄기']])}</div>
       <div class="set-row"><span>돈 표시</span>${seg('pref-money', prefs.money ?? 'nominal', [['nominal', '그해 물가'], ['real', '2025년 돈']])}</div>
       <div class="set-row"><span>글자 크기</span>${seg('pref-text', prefs.text ?? 'm', [['s', '작게'], ['m', '보통'], ['l', '크게']])}</div>
       <div class="set-row"><span>가계도 보기</span>${seg('zoom', ui.zoom, [['big', '크게'], ['mid', '보통'], ['small', '작게']])}</div>
@@ -2741,6 +2749,10 @@ function handle(el: HTMLElement) {
       setVibe(v === '1');
       savePrefs();
       if (v === '1') buzz(30);
+      break;
+    case 'pref-theme':
+      prefs.theme = v === '1';
+      savePrefs();
       break;
     case 'pref-calm':
       prefs.calm = v === '1';

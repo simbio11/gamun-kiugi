@@ -1533,3 +1533,69 @@ img.px.big.bust { width: 168px; height: 168px; image-rendering: auto; }
 @keyframes ts-coin { from { transform: rotate(var(--a)) translateY(0) scale(.4); opacity: 1; } to { transform: rotate(var(--a)) translateY(-150px) scale(1); opacity: 0; } }
 @keyframes ts-bg { 0% { opacity: 0; } 12%, 75% { opacity: 1; } 100% { opacity: 0; } }
 .calm .trade-stamp * { animation-duration: .01s !important; }
+
+/* ───────── 가주 테마 (theme.ts): 나이대 · 희귀 직업 ───────── */
+#app[data-theme] { isolation: isolate; }
+#app[data-theme]:not([data-theme=""]):not(.hist):not(.fut), #app[data-theme="job"] { background: var(--bg); }
+.top { transition: background .6s ease; }
+.theme-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.theme-bg i { position: absolute; inset: 0; }
+.theme-chip { display: inline-block; margin-top: 2px; padding: 0 6px; border-radius: 4px; background: color-mix(in srgb, var(--gold) 22%, transparent); color: var(--gold); font-size: 11px; }
+
+/* 🖍 어린이: 크레파스 하늘 — 별과 동그라미가 찍힌 도화지 밤하늘 */
+.theme-bg.kid .tb-pat { background:
+  radial-gradient(circle at 12% 18%, rgba(255, 214, 120, .35) 0 3px, transparent 4px),
+  radial-gradient(circle at 78% 12%, rgba(255, 160, 190, .3) 0 4px, transparent 5px),
+  radial-gradient(circle at 60% 70%, rgba(150, 220, 255, .28) 0 3px, transparent 4px),
+  radial-gradient(circle at 25% 82%, rgba(180, 255, 170, .25) 0 5px, transparent 6px),
+  repeating-linear-gradient(-12deg, rgba(255, 255, 255, .025) 0 6px, transparent 6px 14px),
+  linear-gradient(180deg, #34567e, #2c4a6e 60%, #3c4f7c);
+  background-size: 180px 180px, 220px 220px, 160px 160px, 240px 240px, auto, auto; animation: tb-drift 40s linear infinite; }
+
+/* 📓 10대: 칠판 위 분필 자국 + 공책 줄 */
+.theme-bg.teen .tb-pat { background:
+  repeating-linear-gradient(0deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 28px),
+  radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, .06), transparent 50%),
+  radial-gradient(ellipse at 80% 70%, rgba(255, 255, 255, .05), transparent 45%),
+  linear-gradient(180deg, #26473f, #1f3b35); }
+#app[data-theme="teen"] .card { background-image: repeating-linear-gradient(0deg, transparent 0 21px, rgba(80, 120, 170, .12) 21px 22px); }
+
+/* 🌆 20~30대: 노을 진 도시의 밤, 창문 불빛 */
+.theme-bg.youth .tb-pat { background:
+  radial-gradient(ellipse at 50% 115%, rgba(255, 140, 120, .35), transparent 55%),
+  radial-gradient(1px 1px at 15% 20%, rgba(255, 255, 255, .7), transparent),
+  radial-gradient(1px 1px at 55% 12%, rgba(255, 255, 255, .5), transparent),
+  radial-gradient(1.5px 1.5px at 85% 30%, rgba(255, 230, 200, .6), transparent),
+  linear-gradient(180deg, #1a1c3a 0%, #2a2654 55%, #4a3060 100%); }
+.theme-bg.youth .tb-pat::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 22%;
+  background: repeating-linear-gradient(90deg, #151630 0 28px, #1b1c3c 28px 46px, #12132a 46px 70px);
+  -webkit-mask: linear-gradient(transparent, #000 30%); mask: linear-gradient(transparent, #000 30%); opacity: .8; }
+
+/* 🖌 노년: 한지 결 + 먹 번짐 + 먼 산 */
+.theme-bg.elder .tb-pat { background:
+  radial-gradient(ellipse at 20% 85%, rgba(0, 0, 0, .35), transparent 50%),
+  radial-gradient(ellipse at 75% 90%, rgba(0, 0, 0, .3), transparent 55%),
+  repeating-linear-gradient(83deg, rgba(255, 255, 240, .025) 0 2px, transparent 2px 9px),
+  linear-gradient(180deg, #2b302b, #22261f); }
+#app[data-theme="elder"] .card { background-image: repeating-linear-gradient(83deg, rgba(120, 100, 60, .05) 0 1px, transparent 1px 7px); }
+
+/* 희귀 직업: 그 직업 카드 그림이 화면 뒤에 은은히 — 천천히 숨 쉰다 */
+.theme-bg.job .tb-art { background-size: cover; background-position: 50% 18%; filter: blur(1px) saturate(1.2) brightness(.72); transform: scale(1.06); animation: tb-breathe 18s ease-in-out infinite alternate;
+  -webkit-mask: linear-gradient(180deg, #000 0%, rgba(0,0,0,.85) 35%, rgba(0,0,0,.25) 70%, transparent 100%); mask: linear-gradient(180deg, #000 0%, rgba(0,0,0,.85) 35%, rgba(0,0,0,.25) 70%, transparent 100%); }
+.theme-bg.job .tb-pat { background:
+  linear-gradient(90deg, color-mix(in srgb, var(--bg) 55%, transparent), transparent 30%, transparent 70%, color-mix(in srgb, var(--bg) 55%, transparent)),
+  linear-gradient(180deg, color-mix(in srgb, var(--bg) 35%, transparent) 0%, transparent 18%, color-mix(in srgb, var(--bg) 40%, transparent) 45%, var(--bg) 85%); }
+.theme-bg.job .tb-pat::before { content: ''; position: absolute; inset: 0; background:
+  radial-gradient(2px 2px at 10% 30%, var(--gold), transparent), radial-gradient(1.5px 1.5px at 70% 20%, var(--gold), transparent),
+  radial-gradient(2px 2px at 40% 70%, var(--gold), transparent), radial-gradient(1.5px 1.5px at 85% 60%, var(--gold), transparent);
+  background-size: 260px 300px; opacity: .45; animation: tb-motes 26s linear infinite; }
+#app[data-theme="job"] .top { background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, transparent), color-mix(in srgb, var(--bg) 35%, transparent)); text-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
+#app[data-theme="job"] .card { box-shadow: 0 calc(var(--px) * -1) 0 0 var(--line), 0 var(--px) 0 0 var(--line), calc(var(--px) * -1) 0 0 0 var(--line), var(--px) 0 0 0 var(--line), 0 0 18px color-mix(in srgb, var(--gold) 25%, transparent); }
+/* 직업 분위기별 덧칠 */
+#app[data-theme-fx="rain"] .theme-bg .tb-pat::before, #app[data-theme-fx="shadow"] .theme-bg .tb-pat::before { opacity: .2; }
+#app[data-theme-fx="fire"] .theme-bg .tb-pat::before, #app[data-theme-fx="money"] .theme-bg .tb-pat::before, #app[data-theme-fx="magic"] .theme-bg .tb-pat::before { opacity: .7; }
+
+@keyframes tb-drift { to { background-position: 180px 60px, -220px 40px, 160px -80px, -240px 120px, 0 0, 0 0; } }
+@keyframes tb-breathe { from { transform: scale(1.08) translateY(0); } to { transform: scale(1.14) translateY(-1.5%); } }
+@keyframes tb-motes { to { background-position: 0 -300px, 0 -300px, 0 -300px, 0 -300px; } }
+#app.calm .theme-bg * { animation: none !important; }
