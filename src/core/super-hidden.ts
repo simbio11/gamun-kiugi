@@ -10,6 +10,7 @@ import { myVehicles } from './vehicle';
 import { formatMoney } from './economy';
 import type { GameState, Person } from './types';
 import { GATE_ONLY, GATE_READY } from './super-gates';
+import { awardCard } from './cards';
 
 interface SuperStep {
   title: string;
@@ -403,7 +404,6 @@ const step1Event: EventDef = {
     return gate(c.s, [
       {
         label: r.step1.yesLabel ?? `도전한다 (자격 확인)`,
-        odds: r.step1.check(c.p) ? r.step1.rate : 0,
         run: (x) => {
           const ok = r.step1.check(x.p) && chance(x.s, r.step1.rate);
           if (ok) {
@@ -440,7 +440,6 @@ const step2Event: EventDef = {
     return gate(c.s, [
       {
         label: r.step2.yesLabel ?? `한 단계 더 나아간다 (2단계 돌파)`,
-        odds: r.step2.check(c.p) ? r.step2.rate : 0,
         run: (x) => {
           const ok = r.step2.check(x.p) && chance(x.s, r.step2.rate);
           if (ok) {
@@ -478,7 +477,6 @@ const step3Event: EventDef = {
     return gate(c.s, [
       {
         label: r.step3.yesLabel ?? `모든 것을 걸고 정점에 선다 (최종 전직)`,
-        odds: r.step3.check(c.p) ? r.step3.rate : 0,
         run: (x) => {
           const ok = r.step3.check(x.p) && chance(x.s, r.step3.rate);
           if (ok) {
@@ -491,7 +489,8 @@ const step3Event: EventDef = {
             addFlag(x.p, 'hidden:' + id);
             x.p.happiness = clamp(x.p.happiness + 25, 0, 100);
             x.s.fame += 5;
-            return `👑 ${fill(r.step3.succText, x.p)}\n\n✨ [슈퍼 히든 해금] ${HIDDEN_BY_ID[id].icon} ${HIDDEN_BY_ID[id].name} 전직 완료! (+${formatMoney(r.step3.succMoney)})`;
+            awardCard(x.s, x.p, id, `${HIDDEN_BY_ID[id]?.name ?? id} 등극`);
+            return `👑 ${fill(r.step3.succText, x.p)}\n\n✨ [슈퍼 히든 해금] ${HIDDEN_BY_ID[id].icon} ${HIDDEN_BY_ID[id].name} 전직 완료! (+${formatMoney(r.step3.succMoney)})\n🎴 명예의 전당 카드를 획득했습니다!`;
           }
           return `아쉽게 정점의 문턱에서 물러났다. ${fill(r.step3.failText, x.p)}`;
         },

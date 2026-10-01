@@ -3,7 +3,7 @@
 
 import { chance, int, pick } from './rng';
 import { gate, schedule, type Choice, type Ctx, type EventDef } from './ev-util';
-import { age, alive, check, clamp, fullName, hasFlag, isMainline, parentsOf } from './people';
+import { age, alive, check, checkOdds, clamp, fullName, hasFlag, isMainline, parentsOf } from './people';
 import { JOBS } from './data';
 import { wageIndex } from './pay';
 import { awardHonor, diffMod, grant, type Rarity } from './rewards';
@@ -268,43 +268,49 @@ const summitDef = (sm: Summit): EventDef => ({
     const tag = total > 1 ? (stage < total ? `\n\n⚔️ ${stage}차 관문 (${total}단계 도전)` : `\n\n🔥 최종 관문! 여기서 이기면 역사에 남는다.`) : '';
     return `${sm.text(c)}${tag}\n\n🃏 성공하면 「${CARD[sm.card].name}」 카드 (${'★'.repeat(tierOf(CARD[sm.card]))}) · ${effText(CARD[sm.card].eff)}`;
   },
-  choices: (c) =>
-    gate(c.s, [sm.a, sm.b].map(([label, st, need0, win, lose]): Choice => ({
-      label,
-      req: [`${STAT_KO[st]} 판정`],
-      run: (x) => {
-        const stage = x.ev.data?.stage ?? 1;
-        const total = stagesOf(sm);
-        const rar = CARD[sm.card]?.rarity;
-        // 실패할수록 경험이 쌓여 다음 도전이 쉬워진다 (전설은 조금만). 관문이 뒤로 갈수록 어렵다
-        const tries = x.s.storySeen?.[`try:${x.p.id}:${sm.card}`] ?? 0;
-        const legendHard = rar === 'legend' ? 8 : rar === 'epic' ? 3 : 0;
-        const ease = rar === 'legend' ? Math.min(6, tries * 2) : Math.min(15, tries * 5);
-        const need = need0 - 6 + (stage - 1) * 3 + legendHard + diffMod(x.s).challenge - ease;
-        if (check(x.s, x.p.actual[st], need, 10)) {
-          if (stage < total) {
-            schedule(x.s, int(x.s, 1, 2), 'summit_' + sm.card, x.p.id, { stage: stage + 1 });
-            x.p.happiness = clamp(x.p.happiness + 6, 0, 100);
-            return `✅ ${stage}차 관문 통과! 1~2년 뒤 ${stage + 1 < total ? `${stage + 1}차 관문` : '최종 관문'}이 기다린다.`;
-          }
-          awardCard(x.s, x.p, sm.card, sm.title.replace(/^\S+ /, ''));
-          if (sm.card === 'mayor') {
-            // 국회의원직을 내려놓고 시장으로 (사는 도시)
-            x.p.flags = x.p.flags.filter((f) => !f.startsWith('mayor_of:'));
-            x.p.flags.push('mayor_of:' + homeCity(x.s, x.p), 'was_politician');
-            x.p.job = 'mayor';
-            x.p.jobLevel = 0;
-            x.p.jobYears = 0;
-          }
-          x.p.happiness = clamp(x.p.happiness + 15, 0, 100);
-          return win;
-        }
-        if (sm.card === 'national_hero' && label.startsWith('직접')) x.p.actual.hp = clamp(x.p.actual.hp - 15, 0, 100);
-        (x.s.storySeen ??= {})[`try:${x.p.id}:${sm.card}`] = tries + 1;
-        x.s.fame += 1;
-        return `${lose}\n(도전 경험이 쌓였다: 다음 도전은 조금 더 쉽다 · 명성 +1)`;
-      },
-    }))),
+  choices: (c) => {
+    const stage = c.ev.data?.stage ?? 1;
+    const total = stagesOf(sm);
+    const rar = CARD[sm.card]?.rarity;
+    const tries = c.s.storySeen?.[`try:${c.p.id}:${sm.card}`] ?? 0;
+    const legendHard = rar === 'legend' ? 8 : rar === 'epic' ? 3 : 0;
+    const ease = rar === 'legend' ? Math.min(6, tries * 2) : Math.min(15, tries * 5);
+    return gate(
+      c.s,
+      [sm.a, sm.b].map(([label, st, need0, win, lose]): Choice => {
+        const need = need0 - 6 + (stage - 1) * 3 + legendHard + diffMod(c.s).challenge - ease;
+        return {
+          label,
+          req: [`${STAT_KO[st]} 판정`],
+          odds: checkOdds(c.p.actual[st], need, 10),
+          run: (x) => {
+            if (check(x.s, x.p.actual[st], need, 10)) {
+              if (stage < total) {
+                schedule(x.s, int(x.s, 1, 2), 'summit_' + sm.card, x.p.id, { stage: stage + 1 });
+                x.p.happiness = clamp(x.p.happiness + 6, 0, 100);
+                return `✅ ${stage}차 관문 통과! 1~2년 뒤 ${stage + 1 < total ? `${stage + 1}차 관문` : '최종 관문'}이 기다린다.`;
+              }
+              awardCard(x.s, x.p, sm.card, sm.title.replace(/^\S+ /, ''));
+              if (sm.card === 'mayor') {
+                // 국회의원직을 내려놓고 시장으로 (사는 도시)
+                x.p.flags = x.p.flags.filter((f) => !f.startsWith('mayor_of:'));
+                x.p.flags.push('mayor_of:' + homeCity(x.s, x.p), 'was_politician');
+                x.p.job = 'mayor';
+                x.p.jobLevel = 0;
+                x.p.jobYears = 0;
+              }
+              x.p.happiness = clamp(x.p.happiness + 15, 0, 100);
+              return win;
+            }
+            if (sm.card === 'national_hero' && label.startsWith('직접')) x.p.actual.hp = clamp(x.p.actual.hp - 15, 0, 100);
+            (x.s.storySeen ??= {})[`try:${x.p.id}:${sm.card}`] = tries + 1;
+            x.s.fame += 1;
+            return `${lose}\n(도전 경험이 쌓였다: 다음 도전은 조금 더 쉽다 · 명성 +1)`;
+          },
+        };
+      }),
+    );
+  },
 });
 export const CARD_EVENTS: EventDef[] = SUMMITS.map(summitDef);
 
@@ -324,6 +330,10 @@ export function cardYear(s: GameState): void {
   }
   const open = (id: string) => s.year >= (CARD_FROM[id] ?? 0);
   for (const p of people) for (const d of CARDS) if (open(d.id) && d.auto?.(s, p)) awardCard(s, p, d.id);
+  // 히든 직업 보유자: 배우자(inLaw)나 방계 등 가문 내 모든 살아있는 구성원에게 소급/누락 방지 지급
+  for (const p of Object.values(s.people)) {
+    if (alive(p) && p.job.startsWith('hj_')) awardCard(s, p, p.job);
+  }
   // 정점 이벤트: 한 해에 하나
   const cands: [Summit, Person][] = [];
   for (const p of people)

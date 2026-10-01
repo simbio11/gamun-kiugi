@@ -7,6 +7,7 @@ import { addFlag, age, alive, clamp, fullName, hasFlag, isMainline, spouseOf } f
 import { chance } from './rng';
 import { modelOf, vehiclesOf, myVehicles } from './vehicle';
 import type { GameState, Person } from './types';
+import { awardCard } from './cards';
 
 const A = (s: GameState, p: Person) => age(s, p);
 const F = (p: Person) => p.sex === 'F';
@@ -48,7 +49,8 @@ function grantSuper(s: GameState, p: Person, id: string): string {
   p.happiness = clamp(p.happiness + 25, 0, 100);
   s.fame += 5;
   const h = HIDDEN_BY_ID[id];
-  return `\n\n✨ [슈퍼 히든 해금] ${h.icon} ${h.name}`;
+  awardCard(s, p, id, `${h?.name ?? id} 해금`);
+  return `\n\n✨ [슈퍼 히든 해금] ${h?.icon ?? ''} ${h?.name ?? id}\n🎴 명예의 전당 카드를 획득했습니다!`;
 }
 
 // ───────────────────────── 해마다 ─────────────────────────

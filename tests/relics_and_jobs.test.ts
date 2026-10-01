@@ -102,4 +102,69 @@ describe('직업 전용 콘텐츠 밸런스 및 가보 연계 시스템 검증',
     const hackerStory = HIDDEN_WORK_STORIES.find((st) => st.cond?.({} as any, { job: 'hj_hacker' } as any) && st.title.includes('제네시스 블록'));
     expect(hackerStory).toBeDefined();
   });
+
+  it('슈퍼 히든 및 히든 직업 전직 시 명예의 전당 카드 및 리워드 모달이 즉시 지급된다', async () => {
+    const { currentEvent } = await import('../src/core/sim');
+    const s = newGame({ seed: 777, familyName: '이', sex: 'F' });
+    const h = head(s);
+    h.birthYear = s.year - 25;
+    h.actual.cha = 85;
+    h.actual.int = 80;
+
+    // 1. 프라이빗 제트 전속 승무원 3단계 성공 전직 시뮬레이션
+    h.flags.push('sh:hj_private_jet:2');
+    s.events = [{ uid: s.eventSeq++, defId: 'sh_step3', personId: h.id, data: { id: 'hj_private_jet' } }];
+    const ev = currentEvent(s)!;
+    expect(ev).toBeDefined();
+    // 3단계 선택지에서 odds는 제거되어 없어야 함
+    expect(ev.choices[0].odds).toBeUndefined();
+
+    // 전직 선택 실행
+    const res = resolveChoice(s, 0);
+    expect(res).toContain('전직 완료');
+    expect(res).toContain('명예의 전당 카드를 획득했습니다');
+    expect(h.job).toBe('hj_private_jet');
+    // 카드 도감 즉시 획득 검증
+    expect(s.cards?.some((c) => c.id === 'hj_private_jet' && c.personId === h.id)).toBe(true);
+    // 리워드 모달 데이터 팝업 즉시 생성 검증
+    expect(s.rewards?.some((r) => r.card === 'hj_private_jet')).toBe(true);
+  });
+
+  it('판정 확률 노출 규칙: 방송사 인수 등 정점 이벤트는 odds 노출, 대형 미니게임은 미노출, 지능/도덕성 판정 스토리만 odds 노출', async () => {
+    const { currentEvent } = await import('../src/core/sim');
+    const { SUMMITS } = await import('../src/core/cards');
+    const s = newGame({ seed: 888, familyName: '박', sex: 'M' });
+    const h = head(s);
+    h.birthYear = s.year - 35;
+    h.job = 'journalist';
+    h.jobLevel = 3;
+    h.actual.int = 75;
+    h.actual.cha = 70;
+    h.actual.str = 70;
+    h.actual.mor = 70;
+    h.actual.hp = 70;
+
+    // 1. 방송사 인수 (media_mogul) 정점 이벤트: odds 노출 확인
+    const mediaSummit = SUMMITS.find((sm) => sm.card === 'media_mogul')!;
+    expect(mediaSummit).toBeDefined();
+    s.events = [{ uid: s.eventSeq++, defId: 'summit_media_mogul', personId: h.id }];
+    const summitEv = currentEvent(s)!;
+    expect(summitEv).toBeDefined();
+    expect(summitEv!.choices[0].odds).toBeDefined();
+    expect(summitEv!.choices[0].odds).toBeGreaterThan(0);
+
+    // 2. 대형 이벤트 (미니게임): odds 미노출 확인
+    const { BIGS } = await import('../src/core/big-events');
+    const s2 = newGame({ seed: 999, familyName: '최', sex: 'M' });
+    const h2 = head(s2);
+    s2.year += 30;
+    h2.birthYear = s2.year - 30;
+    for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) h2.actual[k] = 70;
+    h2.cash = 100000;
+    h2.flags.push('license');
+    s2.events = [{ uid: s2.eventSeq++, defId: 'big_ev', personId: h2.id, data: { id: BIGS[0].id, r: 0, sc: 0 } }];
+    const bigEv = currentEvent(s2);
+    expect(bigEv).toBeDefined();
+    expect(bigEv!.choices[0].odds).toBeUndefined();
+  });
 });

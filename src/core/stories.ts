@@ -180,7 +180,7 @@ function toChoice(sc: SC, p?: Person): Choice {
     label: sc.label,
     cost: sc.cost,
     req: sc.req,
-    odds: sc.roll && p ? (sc.roll[0] === 'luck' ? sc.roll[1] / 100 : checkOdds(p.actual[sc.roll[0]], sc.roll[1], 8)) : undefined,
+    odds: sc.roll && p && sc.roll[0] !== 'luck' ? checkOdds(p.actual[sc.roll[0]], sc.roll[1], 8) : undefined,
     run: (x) => {
       apply(x, sc.eff);
       if (sc.mark) for (const [k, n] of Object.entries(sc.mark)) mark(x.p, k, n);

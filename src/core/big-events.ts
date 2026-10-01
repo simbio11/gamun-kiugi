@@ -563,7 +563,6 @@ const big: EventDef = {
         .filter((o) => !o.show || o.show(c.s, c.p))
         .map((o): Choice => ({
           label: o.label,
-          odds: bigOdds(c.s, c.p, b, o),
           run: (x) => {
             const dd = x.ev.data as BigData;
             let line = o.wt;

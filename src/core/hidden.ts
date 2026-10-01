@@ -7,6 +7,7 @@ import { addFlag, age, alive, clamp, fullName, hasTrait, isMainline, markOf, par
 import { chance, pick } from './rng';
 import type { GameState, Person } from './types';
 import { lowly, QUEST_EVENTS, questYear } from './hidden-quest';
+import { awardCard } from './cards';
 
 interface Route {
   id: string;
@@ -183,7 +184,8 @@ const offer: EventDef = {
           x.p.jobYears = 0;
           addFlag(x.p, 'hidden:' + id);
           x.p.happiness = clamp(x.p.happiness + 10, 0, 100);
-          return `🌑 ${fill(ROUTE[id].yesText, x.p)}\n\n✨ 히든 직업 달성: ${HIDDEN_BY_ID[id].icon} ${HIDDEN_BY_ID[id].name}`;
+          awardCard(x.s, x.p, id, `${HIDDEN_BY_ID[id]?.name ?? id} 전직`);
+          return `🌑 ${fill(ROUTE[id].yesText, x.p)}\n\n✨ 히든 직업 달성: ${HIDDEN_BY_ID[id].icon} ${HIDDEN_BY_ID[id].name}\n🎴 명예의 전당 카드를 획득했습니다!`;
         },
       },
       { label: '거절한다', run: (x) => fill(ROUTE[x.ev.data.id].noText, x.p) },

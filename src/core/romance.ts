@@ -9,7 +9,7 @@ import { eul, eun, gate, iga, queueNext, schedule, wa, who, type Choice, type Ct
 import { coverTax, nestOf } from './nest';
 import { homeOf, moveInto, moveIntoOwned, moveTo } from './housing';
 import { isHouse } from './realty';
-import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, mark, parentsOf, relationLabel, checkOdds } from './people';
+import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, mark, parentsOf, relationLabel } from './people';
 import type { GameState, Person } from './types';
 import { deliver, setBond, type LifeDef } from './life';
 import { KIN_NAME, kinGap, kinOf, ourKin } from './inlaws';
@@ -369,7 +369,7 @@ const datingYear: EventDef = {
       case 'longdist':
         return gate(c.s, [
           { label: '주말마다 KTX 탄다', cost: 250, run: (x) => (setLove(x.p, q, love(x.p) + 6), mood(x.p, -2), '금요일 밤 기차가 일상이 됐다. 통장은 가벼워졌지만 마음은 채워진다.') },
-          { label: '영상통화로 버틴다', odds: checkOdds(c.p.actual.mor, 50, 10), run: (x) => (check(x.s, x.p.actual.mor, 50, 10) ? (setLove(x.p, q, love(x.p) + 2), '매일 밤 영상통화. 잠든 얼굴까지 봤다.') : (setLove(x.p, q, love(x.p) - 12), '통화가 점점 짧아진다.')) },
+          { label: '영상통화로 버틴다', run: (x) => (check(x.s, x.p.actual.mor, 50, 10) ? (setLove(x.p, q, love(x.p) + 2), '매일 밤 영상통화. 잠든 얼굴까지 봤다.') : (setLove(x.p, q, love(x.p) - 12), '통화가 점점 짧아진다.')) },
           propose,
           leave,
         ]);
@@ -382,7 +382,7 @@ const datingYear: EventDef = {
       case 'friends_meet':
         return gate(c.s, [
           { label: '맛있는 걸 쏜다', cost: 30, run: (x) => (check(x.s, appeal(x.s, x.p), 45, 12) ? (setLove(x.p, q, love(x.p) + 8), '친구들이 "괜찮은 사람이네" 하고 합격 도장을 찍었다.') : (setLove(x.p, q, love(x.p) - 3), '분위기가 어색했다. 친구 하나가 계속 떠봤다.')) },
-          { label: '편하게 나간다', odds: checkOdds(c.p.actual.cha, 45, 12), run: (x) => (check(x.s, x.p.actual.cha, 45, 12) ? (setLove(x.p, q, love(x.p) + 5), '금세 친해져 새벽까지 수다를 떨었다.') : (setLove(x.p, q, love(x.p) - 5), '말실수를 했다. 돌아오는 길이 조용했다.')) },
+          { label: '편하게 나간다', run: (x) => (check(x.s, x.p.actual.cha, 45, 12) ? (setLove(x.p, q, love(x.p) + 5), '금세 친해져 새벽까지 수다를 떨었다.') : (setLove(x.p, q, love(x.p) - 5), '말실수를 했다. 돌아오는 길이 조용했다.')) },
           { label: '아직 부담스럽다', run: bump(-4, '"나를 소개하기 싫은 거야?" 서운해한다.') },
         ]);
       case 'sick_partner':
@@ -400,7 +400,7 @@ const datingYear: EventDef = {
       case 'anniversary':
         return gate(c.s, [
           { label: '명품 선물', cost: 300, run: (x) => (setLove(x.p, q, love(x.p) + (chance(x.s, 0.7) ? 10 : 2)), '포장을 뜯는 손이 떨렸다. 인증샷이 SNS에 올라왔다.') },
-          { label: '손편지와 직접 만든 앨범', odds: checkOdds(c.p.actual.cha, 40, 12), run: (x) => (check(x.s, x.p.actual.cha, 40, 12) ? (setLove(x.p, q, love(x.p) + 12), '편지를 읽다 울었다. 앨범은 평생 보물이란다.') : (setLove(x.p, q, love(x.p) + 3), '정성은 느껴졌는데 글씨를 못 알아봤다.')) },
+          { label: '손편지와 직접 만든 앨범', run: (x) => (check(x.s, x.p.actual.cha, 40, 12) ? (setLove(x.p, q, love(x.p) + 12), '편지를 읽다 울었다. 앨범은 평생 보물이란다.') : (setLove(x.p, q, love(x.p) + 3), '정성은 느껴졌는데 글씨를 못 알아봤다.')) },
           { label: '까먹었다…', run: bump(-12, '자정이 지나서야 알았다. 밤새 사과 문자를 보냈다.') },
           propose,
         ]);
