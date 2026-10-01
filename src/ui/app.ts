@@ -70,7 +70,6 @@ const BIG_BANNER_MAP: Record<string, string> = {
   quiz: 'quiz',
   cook: 'cooking',
   stocks: 'stock_battle',
-  baduk: 'chess',
   debate: 'election',
 };
 /** 맞는 배너 그림이 없는 대형 이벤트는 엉뚱한 그림(수술실·요트·골프장) 대신 도트 장면을 그린다 */
@@ -99,6 +98,9 @@ const SUMMIT_BANNER_MAP: Record<string, string> = {
   summit_national_singer: 'audition',
   summit_bigtech: 'start_pitch',
   summit_hedge_fund: 'stock_battle',
+  summit_gamer_champ: 'e_sports',
+  summit_esports_owner: 'e_sports',
+  summit_cannes: 'best_actor',
 };
 
 const SCENE_ASSETS = import.meta.glob<string>('../assets/scenes/*.webp', { eager: true, import: 'default' });
