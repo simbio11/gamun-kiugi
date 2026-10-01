@@ -52,6 +52,9 @@ import { buyPerk, HONORS, PERKS, perkCost, perkLv, RANKS, RARITY_NAME, rankOf, t
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
 import { hiddenCardHTML, hiddenArt, initHiddenVideos } from './hidden-card';
+import { KIN_NAME, kinGap, kinOf } from '../core/inlaws';
+import { photoURL } from '../render/photo';
+import { PHOTO_NAME } from '../core/photos';
 import { HIDDEN_BY_ID, isSuperHidden } from '../core/hidden-data';
 import { cardBackURL, cardFrontURL, crestURL, customFrames, medalURL, type Theme } from '../render/cardart';
 import { familyScore, lifeGrade, lifeParts } from '../core/score';
@@ -1123,6 +1126,12 @@ function lifeRows(g: GameState, p: Person): string {
   if (p.spouseId && alive(p) && alive(g.people[p.spouseId]) && p.bond !== undefined) {
     const b = p.bond;
     rows.push(`<div class="sh-row"><span>금슬</span><span>${b >= 75 ? '💞 잉꼬부부' : b >= 50 ? '❤ 화목' : b >= 30 ? '😶 데면데면' : '💢 위기'} (${b})</span></div>`);
+    // 사돈댁: 배우자 집안 형편과 우리 집과의 차이
+    const inl = p.inLaw ? p : g.people[p.spouseId];
+    if (inl && kinOf(inl)) {
+      const gap = kinGap(g, inl);
+      rows.push(`<div class="sh-row"><span>${p.inLaw ? '친정·본가' : '사돈댁'}</span><span>${KIN_NAME[kinOf(inl)!]}${Math.abs(gap) >= 2 ? ' ⚠ 형편 차이 큼 (금슬이 빨리 식는다)' : gap === 0 ? ' · 형편 비슷' : ''}</span></div>`);
+    }
   }
   const tries = Number(p.flags.find((f) => f.startsWith('tries:'))?.slice(6) ?? 0);
   if (tries >= 2) rows.push(`<div class="sh-row"><span>수험</span><span>${tries}번 낙방</span></div>`);
@@ -1435,7 +1444,12 @@ function outcomeModal(o: { title: string; text: string }): string {
   <div class="modal" data-action="ok-outcome">
     <div class="event ${tier}" data-stop>
       <h3>${esc(o.title)}</h3>
-      <p class="ev-text">${richText(o.text)}</p>
+      ${(() => {
+        const m = o.text.match(/\[\[photo:(\d+)\]\]\n?/);
+        const gg = g0();
+        const pic = m && gg ? photoHTML(gg, Number(m[1]), true) : '';
+        return `${pic}<p class="ev-text">${richText(o.text.replace(/\[\[photo:\d+\]\]\n?/, ''))}</p>`;
+      })()}
       <button class="btn primary" data-action="ok-outcome">계속</button>
     </div>
   </div>`;
@@ -1569,8 +1583,11 @@ function cardViewer(g: GameState, id: string): string {
             ${
               d.hidden
                 ? `<div class="cv-guide-box">
-                    <div class="cv-guide-title">📜 ${d.name} 공략법</div>
-                    <div class="cv-guide-body">${esc(hj?.strategy || d.how)}</div>
+                    ${isSuper && !got
+                      ? `<div class="cv-guide-title">🌑 수수께끼</div>
+                    <div class="cv-guide-body">${esc(hj?.hint ?? '???')}<br><small style="opacity:.7">공략법은 카드를 얻으면 공개된다</small></div>`
+                      : `<div class="cv-guide-title">📜 ${got ? d.name : 'HIDDEN JOB'} 공략법</div>
+                    <div class="cv-guide-body">${esc(hj?.strategy || d.how)}</div>`}
                     ${got && hs.length ? `<div class="cv-owners-list">달성자: ${hs.map((c) => `${c.sex === 'M' ? '♂' : '♀'} ${esc(fullName(g.people[c.personId]))} (${c.year}년)`).join(' · ')}</div>` : ''}
                   </div>`
                 : `<small>${esc(d.how)}</small>`
@@ -2145,9 +2162,20 @@ function vehicleCard(g: GameState): string {
   </section>`;
 }
 
+/** 앨범 사진 한 장 (폴라로이드) */
+function photoHTML(g: GameState, id: number, big = false): string {
+  const ph = (g.photos ?? []).find((x) => x.id === id);
+  if (!ph) return '';
+  return `<figure class="album-photo${big ? ' big' : ''}" data-action="view-photo" data-id="${ph.id}"><img src="${photoURL(g, ph)}" alt=""><figcaption>${esc(ph.title)}<small>${ph.year}년 · ${PHOTO_NAME[ph.kind]}</small></figcaption></figure>`;
+}
+
 function logScreen(g: GameState): string {
   const items = g.log.slice(-400).reverse();
-  return `<section class="card log">${items
+  const photos = [...(g.photos ?? [])].reverse();
+  const album = photos.length
+    ? `<section class="card album"><h2>📷 가문 앨범 <small class="muted">${photos.length}장</small></h2><div class="album-row">${photos.slice(0, ui.open?.album ? 999 : 8).map((ph) => photoHTML(g, ph.id)).join('')}</div>${photos.length > 8 ? `<button class="more-btn" data-action="more" data-v="album">${ui.open?.album ? '▲ 접기' : `▼ 전체 보기 (${photos.length}장)`}</button>` : ''}</section>`
+    : `<section class="card album"><h2>📷 가문 앨범</h2><p class="fine">행동 탭 「가족」에서 가족사진을 찍거나, 돌잔치·결혼식·졸업식·환갑 같은 날 사진을 남기면 여기에 모인다.</p></section>`;
+  return album + `<section class="card log">${items
     .map((l) => (l.text.startsWith('──') ? `<h4>${esc(l.text.replace(/─/g, '').trim())}</h4>` : `<div class="lg ${l.kind ?? ''}">${esc(l.text)}</div>`))
     .join('')}</section>`;
 }
@@ -2313,6 +2341,7 @@ const spinOf = (c: HTMLElement) => parseFloat(c.style.getPropertyValue('--spin')
 function spinStart(e: PointerEvent) {
   const c = (e.target as HTMLElement)?.closest?.<HTMLElement>('.cv-card');
   if (!c) return;
+  if (coast) cancelAnimationFrame(coast), (coast = 0); // 돌고 있는 카드를 잡으면 그 자리에서 멈춘다
   spin = { c, x0: e.clientX, base: spinOf(c), last: e.clientX, t: e.timeStamp, v: 0, moved: false };
   c.classList.add('drag');
   c.setPointerCapture?.(e.pointerId);
@@ -2328,17 +2357,50 @@ function spinMove(e: PointerEvent) {
   spin.c.style.setProperty('--spin', `${(spin.base + dx * 0.75).toFixed(1)}deg`);
   spin.c.style.setProperty('--ry', '0deg');
 }
+/** 세게 튕기면 관성으로 빙글빙글: 마찰로 서서히 느려지다가, 거의 멈추면 가까운 면(앞/뒤)에 살짝 튕기듯 붙는다 */
+let coast = 0;
 function spinEnd() {
   if (!spin) return;
   const { c, base, moved, v } = spin;
   spin = null;
-  c.classList.remove('drag');
   const cur = spinOf(c);
-  let k = Math.round(cur / 180);
-  if (!moved) k = Math.round(base / 180) + 1;
-  else if (Math.abs(v) > 0.5 && k === Math.round(base / 180)) k += Math.sign(v);
-  if (k * 180 !== Math.round(base / 180) * 180) sfx('choose');
-  c.style.setProperty('--spin', `${k * 180}deg`);
+  if (!moved) {
+    c.classList.remove('drag');
+    sfx('choose');
+    c.style.setProperty('--spin', `${(Math.round(base / 180) + 1) * 180}deg`);
+    return;
+  }
+  // 손을 뗄 때 속도(px/ms) → 회전 속도(도/ms). 너무 빠르면 상한
+  let w = Math.max(-4.5, Math.min(4.5, v * 0.75));
+  if (Math.abs(w) < 0.35) {
+    // 살살 놓으면 예전처럼: 가까운 면으로 (조금 튕겼으면 다음 면)
+    c.classList.remove('drag');
+    let k = Math.round(cur / 180);
+    if (Math.abs(v) > 0.5 && k === Math.round(base / 180)) k += Math.sign(v);
+    if (k !== Math.round(base / 180)) sfx('choose');
+    c.style.setProperty('--spin', `${k * 180}deg`);
+    return;
+  }
+  let a = cur;
+  let t0 = performance.now();
+  const step = (t: number) => {
+    const dt = Math.min(40, t - t0);
+    t0 = t;
+    a += w * dt;
+    w *= Math.exp(-0.0022 * dt); // 공기 저항 같은 마찰: 세게 돌릴수록 오래·많이 돈다
+    c.style.setProperty('--spin', `${a.toFixed(1)}deg`);
+    if (Math.abs(w) > 0.25 && c.isConnected) {
+      coast = requestAnimationFrame(step);
+      return;
+    }
+    // 거의 멈췄다: 돌던 방향으로 다음 면에 붙는다 (CSS 전환이 살짝 넘쳤다 돌아오는 느낌을 준다)
+    coast = 0;
+    c.classList.remove('drag');
+    const k = w > 0 ? Math.ceil(a / 180) : Math.floor(a / 180);
+    sfx('choose');
+    c.style.setProperty('--spin', `${k * 180}deg`);
+  };
+  coast = requestAnimationFrame(step);
 }
 
 /** 카드 기울이기: 손가락·마우스 위치에 따라 3D로 기울고 홀로그램이 흐른다 */
@@ -2701,6 +2763,11 @@ function handle(el: HTMLElement) {
     case 'ok-outcome':
       ui.outcome = undefined;
       break;
+    case 'view-photo': {
+      const ph = g?.photos?.find((x) => x.id === Number(id));
+      if (ph && !ui.outcome) ui.outcome = { title: `📷 ${ph.title}`, text: `[[photo:${ph.id}]]\n${ph.year}년 · ${PHOTO_NAME[ph.kind]} · ${ph.ids.length}명` };
+      break;
+    }
     case 'lifestyle':
       g!.policy.lifestyle = v as Lifestyle;
       break;
