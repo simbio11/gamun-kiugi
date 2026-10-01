@@ -53,6 +53,7 @@ import { buyPerk, HONORS, PERKS, perkCost, perkLv, RANKS, RARITY_NAME, rankOf, t
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
 import { applyTheme, type Theme as HeadTheme } from './theme';
+import { BIG_BY_ID } from '../core/big-events';
 import { hiddenCardHTML, hiddenArt, initHiddenVideos } from './hidden-card';
 import { KIN_NAME, kinGap, kinOf } from '../core/inlaws';
 import { photoURL } from '../render/photo';
@@ -1304,6 +1305,7 @@ function personSheet(g: GameState, p: Person): string {
 
 function eventModal(g: GameState): string {
   const cur = currentEvent(g)!;
+  if (cur.def.id === 'big_ev') return bigModal(g, cur);
   const media = newsStyle(cur.def.id, g.year);
   if (media) return newsModal(g, cur, media);
   const how = commEvent(cur.def.id, cur.title);
@@ -2265,6 +2267,36 @@ function stampTrade(sell: boolean, icon: string, text: string) {
   setTimeout(() => {
     if (ui.stamp?.n === n) (ui.stamp = undefined), root.querySelector('.trade-stamp')?.remove();
   }, 1900);
+}
+
+/** 대형 이벤트(미니게임) 창: 라운드 점, 점수 막대, 지난 라운드 결과 */
+function bigModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>>): string {
+  const d = cur.ev.data as { id: string; r: number; sc: number; last?: string; stake?: boolean };
+  const b = BIG_BY_ID[d.id];
+  const p = g.people[cur.ev.personId];
+  const pct = Math.max(0, Math.min(100, (d.sc / b.goal) * 100));
+  const dots = b.rounds.map((_, i) => `<i class="${i < d.r ? 'done' : i === d.r ? 'now' : ''}"></i>`).join('');
+  const good = d.last?.startsWith('✅');
+  return `
+  <div class="modal">
+    <div class="event big-ev big-${d.id}">
+      <div class="big-top"><span class="big-icon">${b.icon}</span><div><b>${esc(b.title)}</b><small>${esc(p ? fullName(p) : '')} · ${esc(b.rounds[d.r].title)}</small></div></div>
+      <div class="big-dots">${dots}</div>
+      <div class="big-meter"><span>${esc(b.meter)}</span><div class="bm-bar"><i style="width:${pct}%"></i><em style="left:100%"></em></div><b>${d.sc}${b.id === 'stocks' ? '%' : ''} / ${b.goal}${b.id === 'stocks' ? '%' : ''}</b></div>
+      ${d.stake ? '<div class="big-stake">🔑 차 키가 걸린 승부</div>' : ''}
+      ${d.last ? `<div class="big-last ${good ? 'ok' : d.last.startsWith('❌') ? 'no' : ''}">${esc(d.last)}</div>` : ''}
+      <p class="ev-text">${nl(cur.text)}</p>
+      <div class="choices">
+        ${cur.choices
+          .map(
+            (c, i) => `<button class="choice" style="animation-delay:${140 + i * 55}ms" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
+              <span class="cl">${esc(c.label)}</span>${c.odds !== undefined ? `<span class="badges">${oddsBadge(c.odds)}</span>` : ''}
+            </button>`,
+          )
+          .join('')}
+      </div>
+    </div>
+  </div>`;
 }
 
 /** 앨범 사진 한 장 (폴라로이드) */

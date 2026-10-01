@@ -1580,16 +1580,12 @@ img.px.big.bust { width: 168px; height: 168px; image-rendering: auto; }
 #app[data-theme="elder"] .card { background-image: repeating-linear-gradient(83deg, rgba(120, 100, 60, .05) 0 1px, transparent 1px 7px); }
 
 /* 희귀 직업: 그 직업 카드 그림이 화면 뒤에 은은히 — 천천히 숨 쉰다 */
-.theme-bg.job .tb-art { background-size: cover; background-position: 50% 18%; filter: blur(1px) saturate(1.2) brightness(.72); transform: scale(1.06); animation: tb-breathe 18s ease-in-out infinite alternate;
-  -webkit-mask: linear-gradient(180deg, #000 0%, rgba(0,0,0,.85) 35%, rgba(0,0,0,.25) 70%, transparent 100%); mask: linear-gradient(180deg, #000 0%, rgba(0,0,0,.85) 35%, rgba(0,0,0,.25) 70%, transparent 100%); }
-.theme-bg.job .tb-pat { background:
-  linear-gradient(90deg, color-mix(in srgb, var(--bg) 55%, transparent), transparent 30%, transparent 70%, color-mix(in srgb, var(--bg) 55%, transparent)),
-  linear-gradient(180deg, color-mix(in srgb, var(--bg) 35%, transparent) 0%, transparent 18%, color-mix(in srgb, var(--bg) 40%, transparent) 45%, var(--bg) 85%); }
+.theme-bg.job .tb-pat { background: radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--gold) 14%, transparent), transparent 60%), linear-gradient(180deg, var(--bg2), var(--bg) 55%); }
 .theme-bg.job .tb-pat::before { content: ''; position: absolute; inset: 0; background:
   radial-gradient(2px 2px at 10% 30%, var(--gold), transparent), radial-gradient(1.5px 1.5px at 70% 20%, var(--gold), transparent),
   radial-gradient(2px 2px at 40% 70%, var(--gold), transparent), radial-gradient(1.5px 1.5px at 85% 60%, var(--gold), transparent);
   background-size: 260px 300px; opacity: .45; animation: tb-motes 26s linear infinite; }
-#app[data-theme="job"] .top { background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, transparent), color-mix(in srgb, var(--bg) 35%, transparent)); text-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
+#app[data-theme="job"] .top { background: color-mix(in srgb, var(--bg) 88%, transparent); }
 #app[data-theme="job"] .card { box-shadow: 0 calc(var(--px) * -1) 0 0 var(--line), 0 var(--px) 0 0 var(--line), calc(var(--px) * -1) 0 0 0 var(--line), var(--px) 0 0 0 var(--line), 0 0 18px color-mix(in srgb, var(--gold) 25%, transparent); }
 /* 직업 분위기별 덧칠 */
 #app[data-theme-fx="rain"] .theme-bg .tb-pat::before, #app[data-theme-fx="shadow"] .theme-bg .tb-pat::before { opacity: .2; }
@@ -1651,3 +1647,26 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 /* 카드 윗변 장식: 피가 묻어 흘러내리는(후작부인) · 덩굴(자연인·모험가) · 레이스(대모·교주) */
 #app[data-theme-job="hj_vampire"] .card::before, #app[data-theme-job="hj_natural"] .card::before, #app[data-theme-job="hj_adventurer"] .card::before, #app[data-theme-job="hj_godmother"] .card::before, #app[data-theme-job="hj_cult"] .card::before {
   content: ''; position: absolute; left: 0; right: 0; top: 0; height: 18px; background: var(--td-edge) repeat-x left top / auto 100%; pointer-events: none; opacity: .9; z-index: 1; }
+
+/* ── 대형 이벤트(미니게임) ── */
+.event.big-ev { border-top: 4px solid var(--gold); }
+.big-top { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.big-top b { display: block; font-size: 16px; }
+.big-top small { color: var(--muted); }
+.big-icon { font-size: 36px; line-height: 1; animation: tc-bob 1.6s ease-in-out infinite; }
+.big-dots { display: flex; gap: 6px; margin: 4px 0 8px; }
+.big-dots i { flex: 1; height: 6px; border-radius: 3px; background: rgba(127, 127, 127, .25); }
+.big-dots i.done { background: var(--green); }
+.big-dots i.now { background: var(--gold); animation: big-pulse 1s ease-in-out infinite; }
+.big-meter { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; font-size: 12px; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+.bm-bar { position: relative; height: 12px; background: rgba(0, 0, 0, .15); border-radius: 6px; overflow: hidden; box-shadow: inset 0 0 0 2px var(--line); }
+.bm-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--gold), #ff8a3a); transition: width .6s cubic-bezier(.2, 1.4, .4, 1); }
+.big-stake { font-size: 12px; font-weight: 700; color: #b0302a; margin-bottom: 6px; animation: big-pulse 1.4s ease-in-out infinite; }
+.big-last { padding: 8px 10px; border-radius: 6px; margin-bottom: 8px; font-weight: 700; animation: big-pop .45s cubic-bezier(.2, 1.6, .4, 1) both; }
+.big-last.ok { background: #d8f2dc; color: #1d6a2c; }
+.big-last.no { background: #fadcdc; color: #962626; animation: big-pop .45s cubic-bezier(.2, 1.6, .4, 1) both, big-shake .4s .1s; }
+.big-race .big-icon { animation: big-race .5s linear infinite; }
+@keyframes big-pulse { 50% { opacity: .55; } }
+@keyframes big-pop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes big-shake { 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+@keyframes big-race { 50% { transform: translateX(3px) rotate(-3deg); } }

@@ -1,0 +1,586 @@
+// 대형 이벤트: 미니게임처럼 여러 라운드를 거치는 큰 승부. 가주·자녀·손주에게 찾아온다.
+//   라운드마다 전략을 고르고(선택지마다 성공 확률 표시), 점수 막대가 움직이고, 마지막에 결과가 갈린다.
+//   빈도: 가족 중 해당되는 사람이 많을수록 잘 오지만, 한 해 걸러 한 번이 최대 — 5명 가족이면 대략 3년에 한 번.
+import { gate, queueNext, type Choice, type EventDef } from './ev-util';
+import { addAsset, formatMoney } from './economy';
+import { addFlag, age, alive, checkOdds, clamp, fullName, hasTalent, hasTrait, head, isDescendantOf, mark, spouseOf } from './people';
+import { grant } from './rewards';
+import { awardCard } from './cards';
+import { chance, pick } from './rng';
+import { partnerOf } from './romance';
+import { modelOf, myVehicles, vehiclesOf, VEHICLES, vehiclePrice } from './vehicle';
+import type { GameState, Person, StatKey } from './types';
+
+type Ctx = { s: GameState; p: Person };
+export interface BigOpt {
+  label: string;
+  stat?: StatKey | 'luck';
+  need?: number;
+  win?: number;
+  lose?: number;
+  /** 성공·실패 한 줄 */
+  wt: string;
+  lt?: string;
+  /** 실패하면 다친다 (건강 −) */
+  hurt?: number;
+  /** 여기서 멈추고 결과로 */
+  stop?: boolean;
+  /** 판 걸기 (레이싱: 차 키) */
+  stake?: boolean;
+  /** 성공하면 기록해 둘 값 (경매 낙찰가 등) */
+  pot?: number;
+  bonus?: (s: GameState, p: Person) => number;
+  show?: (s: GameState, p: Person) => boolean;
+}
+export interface BigRound {
+  title: string;
+  text: string;
+  opts: BigOpt[];
+}
+export interface BigDef {
+  id: string;
+  title: string;
+  icon: string;
+  /** 점수 막대 이름 · 목표 점수 */
+  meter: string;
+  goal: number;
+  ok: (s: GameState, p: Person) => boolean;
+  /** 다시 찾아오기까지 (년). 없으면 평생 한 번 */
+  again?: number;
+  bonus?: (s: GameState, p: Person) => number;
+  rounds: BigRound[];
+  end: (x: Ctx, sc: number, d: BigData) => string;
+}
+export interface BigData {
+  id: string;
+  r: number;
+  sc: number;
+  last?: string;
+  ok?: boolean;
+  stake?: boolean;
+  pot?: number;
+}
+
+const A = (s: GameState, p: Person) => age(s, p);
+const fill = (t: string, p: Person) => t.replaceAll('{n}', fullName(p));
+const working = (p: Person, jobs: string[]) => jobs.includes(p.job);
+const hap = (p: Person, d: number) => (p.happiness = clamp(p.happiness + d, 0, 100));
+
+/** 이 사람이 몰 수 있는 가장 좋은 차 (요트 제외) */
+export function bestCar(s: GameState, p: Person) {
+  const sp = spouseOf(s, head(s));
+  const mine = [...vehiclesOf(s, [p.id]), ...(p.id === s.headId || p.id === sp?.id ? myVehicles(s) : [])].filter((a) => !modelOf(a)?.yacht);
+  return mine.sort((a, b) => (modelOf(b)?.price ?? 0) - (modelOf(a)?.price ?? 0))[0];
+}
+const carTier = (s: GameState, p: Person) => {
+  const a = bestCar(s, p);
+  const m = a && modelOf(a);
+  return m ? VEHICLES.filter((v) => !v.yacht).findIndex((v) => v.id === m.id) : -1;
+};
+
+// ───────────────────────── 15개 승부 ─────────────────────────
+export const BIGS: BigDef[] = [
+  {
+    id: 'race', title: '🏁 심야의 레이스', icon: '🏁', meter: '순위', goal: 5, again: 6,
+    ok: (s, p) => A(s, p) >= 19 && A(s, p) <= 50 && p.flags.includes('license') && (carTier(s, p) >= 2 || hasTrait(p, 'speed_demon')),
+    bonus: (s, p) => Math.max(0, carTier(s, p)) * 2.5 + (hasTrait(p, 'speed_demon') ? 12 : 0),
+    rounds: [
+      { title: '도전장', text: '새벽 2시, 항구 옆 폐쇄된 도로. 튜닝카 무리가 {n}의 차를 둘러쌌다. 리더가 차 키를 흔든다. "판돈은? 자존심만? 아니면 키를 걸까?"', opts: [
+        { label: '자존심만 건다', wt: '가볍게 붙어 보기로 했다.', stop: false },
+        { label: '🔑 차 키를 건다 (이기면 상대 차, 지면 내 차를 넘긴다)', wt: '"좋아. 진짜 승부다." 두 키가 보닛 위에 놓였다.', stake: true, show: (s, p) => !!bestCar(s, p) },
+      ] },
+      { title: '출발 신호', text: '깃발을 든 사람이 두 차 사이에 섰다. 엔진이 울부짖는다.', opts: [
+        { label: '반응속도로 튀어 나간다', stat: 'str', need: 55, win: 2, lose: -1, wt: '총알처럼 튀어 나갔다! 한 차 길이 앞선다.', lt: '휠스핀! 상대가 먼저 치고 나갔다.' },
+        { label: '기어를 침착하게 맞춘다', stat: 'int', need: 48, win: 1, lose: 0, wt: '깔끔한 출발. 나란히 달린다.', lt: '반 박자 늦었다.' },
+      ] },
+      { title: '헤어핀 코너', text: '산길 헤어핀. 브레이크를 늦게 밟는 쪽이 이긴다.', opts: [
+        { label: '드리프트로 파고든다', stat: 'str', need: 62, win: 3, lose: -2, wt: '타이어 연기 속에서 인코스를 뺏었다!', lt: '꼬리가 미끄러졌다! 가드레일을 스쳤다.', hurt: 4 },
+        { label: '라인을 지킨다', stat: 'int', need: 52, win: 1, lose: 0, wt: '정석대로 빠져나왔다.', lt: '조금 밀렸다.' },
+      ] },
+      { title: '마지막 직선 · 사이렌', text: '결승선이 보인다. 멀리서 경찰 사이렌이 울린다!', opts: [
+        { label: '니트로를 쏜다', stat: 'luck', need: 45, win: 3, lose: -2, wt: '계기판 바늘이 끝까지 돌았다! 결승선 통과!', lt: '엔진이 콜록거렸다.' },
+        { label: '끝까지 밟는다', stat: 'str', need: 58, win: 2, lose: -1, wt: '한 뼘 차이로 먼저 들어왔다!', lt: '마지막에 따라잡혔다.' },
+      ] },
+    ],
+    end: (x, sc, d) => {
+      const won = sc >= 5;
+      let out = won ? `🏁 승리! 거리의 전설이 됐다. 영상이 밤새 돌았다.` : `🏁 패배. 상대의 미등만 멀어졌다.`;
+      x.s.fame += won ? 2 : 0;
+      hap(x.p, won ? 15 : -8);
+      if (d.stake) {
+        const mine = bestCar(x.s, x.p);
+        if (won) {
+          const mi = mine ? VEHICLES.findIndex((v) => v.id === modelOf(mine)?.id) : 1;
+          const m = VEHICLES.filter((v) => !v.yacht)[Math.min(8, mi + 1 + (chance(x.s, 0.3) ? 1 : 0))];
+          const a = addAsset(x.s, 'vehicle', x.p.id, vehiclePrice(x.s, m), m.name.replace(/ \((.*)급\)/, ' · $1').replace(/ \((.*)\)/, ' · $1'));
+          a.tags = [m.id];
+          out += `\n🔑 상대의 ${m.icon} ${m.name} 키를 손에 쥐었다!`;
+        } else if (mine) {
+          x.s.assets = x.s.assets.filter((a) => a.id !== mine.id);
+          out += `\n🔑 ${mine.name}의 키를 넘겼다. 걸어서 집에 갔다…`;
+        }
+      }
+      if (!won && chance(x.s, 0.3)) {
+        x.p.cash -= 300;
+        out += '\n🚔 단속에 걸렸다. 벌금 300만, 면허 정지 석 달.';
+      }
+      if (won) mark(x.p, 'risk', 1);
+      return out;
+    },
+  },
+  {
+    id: 'audition', title: '🎤 오디션 서바이벌', icon: '🎤', meter: '심사 점수', goal: 6,
+    ok: (s, p) => A(s, p) >= 15 && A(s, p) <= 28 && (p.actual.cha >= 58 || hasTalent(p, 'pitch') || hasTalent(p, 'star')),
+    bonus: (_s, p) => (hasTalent(p, 'pitch') ? 10 : 0) + (hasTalent(p, 'star') ? 8 : 0),
+    rounds: [
+      { title: '예선 · 선곡', text: '참가자 10만 명. {n}의 번호는 4,821번. 무엇을 부를까?', opts: [
+        { label: '정통 발라드', stat: 'cha', need: 55, win: 2, lose: -1, wt: '심사위원이 눈을 감고 들었다. 합격!', lt: '고음에서 삑사리가 났다.' },
+        { label: '칼군무 댄스곡', stat: 'str', need: 55, win: 2, lose: -1, wt: '무대가 터졌다. 합격!', lt: '숨이 차서 라이브가 흔들렸다.' },
+        { label: '자작곡', stat: 'int', need: 60, win: 3, lose: -1, wt: '"이거 직접 쓴 거예요?" 심사위원이 일어섰다.', lt: '곡이 낯설었는지 반응이 미지근했다.' },
+      ] },
+      { title: '본선 · 팀 미션', text: '팀 미션. 팀원끼리 파트 분배로 싸움이 났다.', opts: [
+        { label: '리더를 맡아 정리한다', stat: 'cha', need: 60, win: 2, lose: -1, wt: '팀이 하나가 됐다. 팀 1위!', lt: '팀 분위기가 끝내 안 살아났다.' },
+        { label: '킬링 파트를 노린다', stat: 'cha', need: 66, win: 3, lose: -2, wt: '그 4초가 하이라이트 영상이 됐다!', lt: '욕심낸다는 악편이 나갔다.' },
+      ] },
+      { title: '생방송 결승', text: '실시간 문자 투표. 마지막 무대다.', opts: [
+        { label: '가족에게 바치는 노래', stat: 'mor', need: 55, win: 2, lose: 0, wt: '객석이 울었다. 문자 투표 폭발!', lt: '감동은 컸지만 표는 갈렸다.' },
+        { label: '최고 난도 퍼포먼스', stat: 'cha', need: 70, win: 3, lose: -1, wt: '전설의 무대. 실시간 검색어 1위!', lt: '실수 하나가 아쉬웠다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 6) {
+        x.s.fame += 4;
+        x.p.cash += 3000;
+        hap(x.p, 20);
+        addFlag(x.p, 'audition_win');
+        if (['none', 'parttime'].includes(x.p.job) && !x.p.flags.includes('student') && A(x.s, x.p) >= 18) (x.p.job = 'singer'), (x.p.jobLevel = 1), (x.p.jobYears = 0);
+        grant(x.s, '🎤', `오디션 우승: ${fullName(x.p)}`, '데뷔 계약서에 사인했다.', 'epic');
+        return '🏆 최종 우승! 상금 3,000만 원과 데뷔 계약. 다음 날 아침, 모든 포털 메인에 이름이 걸렸다.';
+      }
+      if (sc >= 3) return (x.s.fame += 1), hap(x.p, 6), '🥉 TOP 3. 우승은 놓쳤지만 팬카페가 생겼다.';
+      return hap(x.p, -6), '탈락. 그래도 무대에 섰던 그 떨림은 오래 남았다.';
+    },
+  },
+  {
+    id: 'quiz', title: '🧠 TV 퀴즈 서바이벌', icon: '🧠', meter: '맞힌 문제', goal: 4, again: 10,
+    ok: (s, p) => A(s, p) >= 14 && A(s, p) <= 80 && p.actual.int >= 62,
+    bonus: (_s, p) => (hasTalent(p, 'genius') ? 10 : 0) + (hasTalent(p, 'linguist') ? 4 : 0),
+    rounds: [1, 2, 3, 4].map((n) => ({
+      title: `${n}단계 · 상금 ${['100만', '500만', '2,000만', '1억'][n - 1]}`,
+      text: ['첫 문제는 몸풀기. 조명이 {n}을(를) 비춘다.', '"다음 중 가장 먼저 발명된 것은?" 객석이 웅성인다.', '남은 사람은 셋. 손에 땀이 찬다.', '마지막 문제. 맞히면 1억, 틀리면 0원.'][n - 1],
+      opts: [
+        { label: '정답을 외친다 (지능)', stat: 'int' as const, need: 44 + n * 8, win: 1, lose: -9, wt: '"정답입니다!"', lt: '"…아쉽습니다." 0원.' },
+        ...(n > 1 ? [{ label: '상금을 들고 멈춘다', stop: true, wt: '여기서 멈추기로 했다.' }] : []),
+      ],
+    })),
+    end: (x, sc) => {
+      const pot = [0, 100, 500, 2000, 10000][Math.max(0, Math.min(4, sc))];
+      if (sc < 0) return hap(x.p, -5), '😵 탈락. 상금은 사라졌지만 동네에선 "그 퀴즈 나온 사람"이 됐다.';
+      x.p.cash += pot;
+      x.s.fame += sc >= 4 ? 3 : 1;
+      hap(x.p, sc >= 4 ? 20 : 8);
+      if (sc >= 4) grant(x.s, '🧠', `퀴즈 왕: ${fullName(x.p)}`, '1억 원 최종 우승', 'epic');
+      return sc >= 4 ? '🏆 1억 원 최종 우승! "인간 백과사전"이라는 별명이 붙었다.' : `💰 상금 ${formatMoney(pot)}을(를) 들고 내려왔다.`;
+    },
+  },
+  {
+    id: 'cook', title: '🍳 요리 서바이벌', icon: '🍳', meter: '심사위원 점수', goal: 6,
+    ok: (s, p) => A(s, p) >= 20 && A(s, p) <= 65 && (working(p, ['chef', 'baker', 'restaurant', 'sommelier', 'bartender', 'nutritionist']) || hasTalent(p, 'palate')),
+    bonus: (_s, p) => (hasTalent(p, 'palate') ? 12 : 0) + (p.job === 'chef' ? p.jobLevel * 2 : 0),
+    rounds: [
+      { title: '1라운드 · 재료', text: '100명의 셰프, 단 하나의 주방. 재료 창고 문이 열렸다.', opts: [
+        { label: '제철 재료로 정직하게', stat: 'int', need: 52, win: 2, lose: 0, wt: '"재료를 아는 사람이네요."', lt: '평범하다는 평.' },
+        { label: '귀한 재료로 승부', stat: 'luck', need: 55, win: 3, lose: -1, wt: '송로버섯 향이 심사석까지 퍼졌다!', lt: '재료가 요리를 이겨 버렸다.' },
+      ] },
+      { title: '2라운드 · 요리', text: '제한 시간 60분. 무엇을 만들까?', opts: [
+        { label: '어머니의 손맛, 정통 한식', stat: 'mor', need: 55, win: 2, lose: -1, wt: '심사위원이 숟가락을 내려놓지 않았다.', lt: '간이 조금 셌다.' },
+        { label: '과감한 퓨전', stat: 'int', need: 62, win: 3, lose: -2, wt: '"이런 조합은 처음이에요!"', lt: '"…무슨 맛인지 모르겠네요."' },
+      ] },
+      { title: '결승 · 플레이팅', text: '마지막 접시. 심사위원 두 명이 팔짱을 꼈다.', opts: [
+        { label: '접시에 이야기를 담는다', stat: 'cha', need: 58, win: 2, lose: 0, wt: '설명을 듣던 심사위원이 고개를 끄덕였다.', lt: '이야기가 길었다.' },
+        { label: '화려한 불쇼', stat: 'str', need: 60, win: 3, lose: -1, wt: '불꽃 속에서 완성된 접시. 스튜디오가 들썩였다!', lt: '불이 너무 셌다.', hurt: 3 },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 6) {
+        x.s.fame += 4;
+        x.p.cash += 3000;
+        hap(x.p, 20);
+        if (x.p.job === 'chef' || x.p.job === 'restaurant') x.p.jobLevel += 1;
+        grant(x.s, '🍳', `요리 서바이벌 우승: ${fullName(x.p)}`, '가게 앞에 줄이 끝이 없다.', 'epic');
+        return '🏆 우승! 상금 3,000만 원. 다음 날부터 예약이 석 달 치 꽉 찼다.';
+      }
+      return sc >= 3 ? ((x.s.fame += 1), '🥈 준우승. "그 요리사"를 찾아오는 손님이 늘었다.') : '탈락. 칼을 다시 갈았다.';
+    },
+  },
+  {
+    id: 'everest', title: '🏔 8천 미터의 꿈', icon: '🏔', meter: '고도', goal: 5,
+    ok: (s, p) => A(s, p) >= 25 && A(s, p) <= 55 && p.actual.str >= 60 && p.actual.hp >= 60,
+    bonus: (_s, p) => (hasTalent(p, 'iron') ? 12 : 0) + (hasTalent(p, 'athlete') ? 6 : 0),
+    rounds: [
+      { title: '쿰부 아이스폴', text: '베이스캠프 5,364m. 발밑에서 얼음이 갈라지는 소리가 난다.', opts: [
+        { label: '고정 로프를 따라 천천히', stat: 'str', need: 52, win: 1, lose: 0, wt: '무사히 건넜다.', lt: '시간이 오래 걸렸다.' },
+        { label: '새벽에 빠르게 돌파', stat: 'str', need: 62, win: 2, lose: -1, wt: '해 뜨기 전에 통과했다!', lt: '크레바스에 발이 빠졌다.', hurt: 8 },
+      ] },
+      { title: '캠프 4 · 폭풍', text: '7,900m. 텐트가 바람에 찢어질 듯 흔들린다.', opts: [
+        { label: '하루 기다린다', stat: 'luck', need: 60, win: 1, lose: 0, wt: '다음 날 하늘이 열렸다.', lt: '날씨가 더 나빠졌다.' },
+        { label: '그대로 강행', stat: 'hp', need: 66, win: 2, lose: -1, wt: '폭풍을 뚫었다!', lt: '동상이 왔다.', hurt: 10 },
+      ] },
+      { title: '힐러리 스텝 · 산소 부족', text: '8,790m. 정상이 손에 잡힐 듯하다. 산소통 눈금이 얼마 안 남았다.', opts: [
+        { label: '정상까지 간다', stat: 'hp', need: 70, win: 2, lose: -2, wt: '세상의 꼭대기에 섰다.', lt: '시야가 흐려졌다. 셰르파가 끌어내렸다.', hurt: 15 },
+        { label: '돌아선다 — 산은 그대로 있다', stop: true, wt: '살아서 돌아가는 것도 용기다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 5) {
+        x.s.fame += 5;
+        hap(x.p, 25);
+        addFlag(x.p, 'summit_8000');
+        grant(x.s, '🏔', `에베레스트 등정: ${fullName(x.p)}`, '정상에 가문의 이름을 적은 깃발을 꽂았다.', 'epic');
+        return '🏔 8,848m 정상! 가문의 깃발을 꽂았다. 하산 후 기자들이 공항에서 기다리고 있었다.';
+      }
+      hap(x.p, 4);
+      return '🏕 정상은 다음으로. 그래도 살아 돌아와 가족을 안았다.';
+    },
+  },
+  {
+    id: 'marathon', title: '🏃 마라톤 풀코스', icon: '🏃', meter: '기록', goal: 4, again: 6,
+    ok: (s, p) => A(s, p) >= 20 && A(s, p) <= 65 && p.actual.hp >= 50,
+    bonus: (_s, p) => (hasTalent(p, 'iron') ? 14 : 0) + (hasTalent(p, 'athlete') ? 6 : 0),
+    rounds: [
+      { title: '출발 · 10km', text: '3만 명이 광화문을 출발했다.', opts: [
+        { label: '초반부터 질주', stat: 'str', need: 60, win: 2, lose: -2, wt: '선두 그룹에 붙었다!', lt: '오버페이스. 다리가 무겁다.' },
+        { label: '내 페이스대로', stat: 'hp', need: 48, win: 1, lose: 0, wt: '호흡이 안정적이다.', lt: '생각보다 힘들다.' },
+      ] },
+      { title: '30km · 벽', text: '"마라톤은 30km부터"라는 말이 이해된다. 다리가 말을 안 듣는다.', opts: [
+        { label: '이를 악물고 버틴다', stat: 'mor', need: 58, win: 2, lose: -1, wt: '벽을 넘었다!', lt: '걷다 뛰다를 반복했다.' },
+        { label: '물과 에너지젤 보급', stat: 'int', need: 50, win: 1, lose: 0, wt: '다시 힘이 났다.', lt: '배가 아파 왔다.' },
+      ] },
+      { title: '마지막 2km', text: '결승선 아치가 보인다. 가족이 손을 흔든다.', opts: [
+        { label: '전력 스퍼트', stat: 'str', need: 60, win: 2, lose: -1, wt: '마지막 직선에서 열 명을 제쳤다!', lt: '다리에 쥐가 났다.', hurt: 3 },
+        { label: '웃으며 완주', stat: 'luck', need: 85, win: 1, lose: 0, wt: '두 팔을 번쩍 들고 결승선!', lt: '절뚝이며 들어왔다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      x.p.actual.hp = clamp(x.p.actual.hp + 2, 0, 100);
+      hap(x.p, sc >= 4 ? 18 : 8);
+      if (sc >= 5) return (x.s.fame += 2), grant(x.s, '🏃', `마라톤 서브3: ${fullName(x.p)}`, '2시간 59분 47초', 'rare'), '🏅 2시간 59분! 아마추어의 꿈, "서브3" 달성.';
+      return sc >= 2 ? '🏅 완주! 메달을 목에 걸고 가족과 사진을 찍었다.' : '🚑 32km 지점에서 기권. 내년을 기약한다.';
+    },
+  },
+  {
+    id: 'stocks', title: '📈 실전 투자 대회', icon: '📈', meter: '수익률(%)', goal: 40, again: 8,
+    ok: (s, p) => A(s, p) >= 25 && A(s, p) <= 75 && p.actual.int >= 55 && (s.assets.some((a) => a.kind === 'stock' && a.ownerId === p.id) || ['analyst', 'fund_manager', 'trader', 'banker', 'hj_trader'].includes(p.job)),
+    bonus: (_s, p) => (hasTalent(p, 'strategist') ? 10 : 0) + (hasTalent(p, 'merchant') ? 6 : 0),
+    rounds: [
+      { title: '1주차 · 장 시작', text: '증권사 실전 투자 대회. 참가자 2만 명, 시드 1억.', opts: [
+        { label: '대형주 분할 매수', stat: 'int', need: 50, win: 8, lose: -4, wt: '+8%. 안정적인 출발.', lt: '-4%. 시장이 빠졌다.' },
+        { label: '테마주 몰빵', stat: 'luck', need: 40, win: 25, lose: -20, wt: '+25%! 상한가!', lt: '-20%. 하한가…' },
+      ] },
+      { title: '2주차 · 금리 발표', text: '내일 금리 결정. 시장이 숨을 죽였다.', opts: [
+        { label: '발표 전에 판다', stat: 'int', need: 58, win: 6, lose: -2, wt: '빠지기 전에 빠져나왔다.', lt: '오히려 올랐다.' },
+        { label: '버틴다', stat: 'luck', need: 50, win: 12, lose: -10, wt: '금리 동결! 급등!', lt: '금리 인상. 급락.' },
+      ] },
+      { title: '3주차 · 공매도 세력', text: '보유 종목에 악성 루머가 돈다.', opts: [
+        { label: '재무제표를 믿고 추가 매수', stat: 'int', need: 62, win: 15, lose: -12, wt: '루머는 거짓이었다. 반등!', lt: '진짜였다.' },
+        { label: '손절', stat: 'int', need: 45, win: 2, lose: -5, wt: '피해를 줄였다.', lt: '팔자마자 올랐다.' },
+      ] },
+      { title: '마지막 날 · 동시호가', text: '순위표 3위. 마지막 30분.', opts: [
+        { label: '레버리지로 승부', stat: 'luck', need: 45, win: 20, lose: -15, wt: '종가 상한가! 순위가 뒤집혔다!', lt: '마지막에 미끄러졌다.' },
+        { label: '현금 확보하고 지킨다', stat: 'int', need: 50, win: 3, lose: 0, wt: '순위를 지켰다.', lt: '추월당했다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 40) {
+        x.p.cash += 5000;
+        x.s.fame += 3;
+        grant(x.s, '📈', `실전 투자 대회 우승: ${fullName(x.p)}`, `수익률 ${sc}%`, 'epic');
+        return `🏆 수익률 ${sc}%로 우승! 상금 5,000만 원. "여의도의 승부사"라는 기사가 났다.`;
+      }
+      if (sc > 0) return (x.p.cash += Math.round(sc * 50)), `📊 수익률 ${sc}%. 상위권 상금 ${formatMoney(Math.round(sc * 50))}.`;
+      return hap(x.p, -6), `📉 수익률 ${sc}%. 시장은 겸손을 가르쳤다.`;
+    },
+  },
+  {
+    id: 'baduk', title: '⚫ 바둑 명인전 결승', icon: '⚫', meter: '형세', goal: 5,
+    ok: (s, p) => A(s, p) >= 10 && A(s, p) <= 80 && (p.actual.int >= 68 || hasTalent(p, 'strategist')),
+    bonus: (_s, p) => (hasTalent(p, 'strategist') ? 12 : 0) + (hasTalent(p, 'genius') ? 6 : 0),
+    rounds: [
+      { title: '포석', text: '아마추어 명인전 결승. 상대는 전 연구생 출신. 첫 수를 둔다.', opts: [
+        { label: '실리를 챙긴다', stat: 'int', need: 55, win: 1, lose: 0, wt: '귀를 차지했다.', lt: '상대가 세력을 쌓았다.' },
+        { label: '중앙 세력', stat: 'int', need: 62, win: 2, lose: -1, wt: '큰 그림이 그려졌다.', lt: '집이 모자라 보인다.' },
+      ] },
+      { title: '중반 · 대마 전투', text: '상대 대마가 끊겼다. 잡으면 끝이다.', opts: [
+        { label: '대마를 사냥한다', stat: 'int', need: 68, win: 3, lose: -2, wt: '대마가 죽었다! 해설진이 탄성을 질렀다.', lt: '수가 모자랐다. 오히려 내 돌이 잡혔다.' },
+        { label: '내 약점부터 보강', stat: 'int', need: 56, win: 1, lose: 0, wt: '튼튼하게 받았다.', lt: '기회를 놓쳤다.' },
+      ] },
+      { title: '끝내기 · 초읽기', text: '"셋, 넷, 다섯…" 초읽기 소리가 귀를 찌른다.', opts: [
+        { label: '끝까지 정밀하게 계산', stat: 'int', need: 62, win: 2, lose: -1, wt: '반집을 지켰다!', lt: '계산이 꼬였다.' },
+        { label: '승부수', stat: 'luck', need: 40, win: 3, lose: -2, wt: '신의 한 수! 판이 뒤집혔다.', lt: '무리수였다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 5) return (x.s.fame += 3), (x.p.cash += 2000), grant(x.s, '⚫', `명인 등극: ${fullName(x.p)}`, '아마추어 명인전 우승', 'epic'), '🏆 반집 승! 명인 칭호와 상금 2,000만 원. 기보가 바둑 채널에서 해설됐다.';
+      return sc >= 2 ? '🥈 준우승. 복기하며 밤을 새웠다.' : '불계패. 돌을 던졌다. 그래도 좋은 바둑이었다.';
+    },
+  },
+  {
+    id: 'debate', title: '🗳 생방송 TV 토론', icon: '🗳', meter: '지지율 변화', goal: 5,
+    ok: (s, p) => A(s, p) >= 30 && A(s, p) <= 75 && (working(p, ['politician', 'mayor', 'minister', 'aide', 'lawyer', 'journalist', 'professor']) || hasTalent(p, 'orator')),
+    bonus: (_s, p) => (hasTalent(p, 'orator') ? 12 : 0),
+    rounds: [
+      { title: '첫 질문 · 집값', text: '"집값, 어떻게 잡으시겠습니까?" 사회자의 첫 질문.', opts: [
+        { label: '숫자로 정책을 설명', stat: 'int', need: 60, win: 2, lose: -1, wt: '"준비된 사람" 반응.', lt: '너무 어려웠다.' },
+        { label: '상대 정책을 공격', stat: 'cha', need: 62, win: 3, lose: -2, wt: '한 방이 클립으로 퍼졌다!', lt: '네거티브라는 비판.' },
+        { label: '서민의 이야기로', stat: 'mor', need: 55, win: 2, lose: -1, wt: '진정성이 통했다.', lt: '뻔한 이야기라는 평.' },
+      ] },
+      { title: '돌발 · 의혹 제기', text: '상대가 {n}의 과거 의혹을 꺼냈다. 카메라가 클로즈업한다.', opts: [
+        { label: '정면 돌파', stat: 'mor', need: 60, win: 2, lose: -2, wt: '"사실이 아닙니다. 자료로 말하겠습니다." 깔끔했다.', lt: '말이 꼬였다.' },
+        { label: '유머로 받아친다', stat: 'cha', need: 66, win: 3, lose: -2, wt: '방청석이 웃음바다. 밈이 됐다.', lt: '가볍다는 비판.' },
+      ] },
+      { title: '마지막 1분', text: '마지막 발언. 이 1분이 모든 걸 정한다.', opts: [
+        { label: '미래 비전', stat: 'cha', need: 62, win: 2, lose: 0, wt: '"이 사람이 그리는 나라를 보고 싶다."', lt: '공허했다.' },
+        { label: '진심 어린 다짐', stat: 'mor', need: 58, win: 2, lose: 0, wt: '눈시울이 붉어진 시청자가 많았다.', lt: '평범했다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      const pl = x.p.pol;
+      if (pl) pl.approval = clamp(pl.approval + sc * 2, 0, 100);
+      x.s.fame += Math.max(0, Math.round(sc / 2));
+      if (sc >= 5) return grant(x.s, '🗳', `토론 압승: ${fullName(x.p)}`, `지지율 +${sc * 2}%p`, 'rare'), `🏆 토론 압승! 지지율 +${sc * 2}%p. 다음 날 신문 1면.`;
+      return sc >= 0 ? `무난했다. 지지율 ${sc >= 0 ? '+' : ''}${sc * 2}%p.` : `😓 토론 참패. 지지율 ${sc * 2}%p.`;
+    },
+  },
+  {
+    id: 'flight', title: '🚑 "기내에 의사 선생님 계십니까?"', icon: '🚑', meter: '환자 상태', goal: 5, again: 10,
+    ok: (s, p) => A(s, p) >= 26 && A(s, p) <= 70 && working(p, ['doctor', 'kmd', 'nurse', 'emt', 'pharmacist', 'longevity_doc', 'bci_surgeon']),
+    bonus: (_s, p) => (hasTalent(p, 'healer') ? 12 : 0) + p.jobLevel * 2,
+    rounds: [
+      { title: '고도 1만 m', text: '태평양 상공. 승객 하나가 가슴을 움켜쥐고 쓰러졌다. 승무원이 {n}에게 달려왔다.', opts: [
+        { label: '증상을 꼼꼼히 묻는다', stat: 'int', need: 55, win: 2, lose: -1, wt: '심근경색 의심. 빠르게 판단했다.', lt: '시간이 흘렀다.' },
+        { label: '바로 활력징후부터', stat: 'int', need: 60, win: 2, lose: -1, wt: '맥박·혈압·산소포화도. 그림이 보인다.', lt: '기내 장비가 부족했다.' },
+      ] },
+      { title: '처치', text: '기내 응급 키트를 열었다. 아스피린, 니트로글리세린, 자동심장충격기.', opts: [
+        { label: '응급 처치를 시작한다', stat: 'int', need: 62, win: 3, lose: -2, wt: '환자의 얼굴에 혈색이 돌아왔다!', lt: '심정지! CPR을 시작했다.' },
+        { label: '기장에게 회항을 요청', stat: 'cha', need: 50, win: 1, lose: 0, wt: '가장 가까운 공항으로 기수를 돌렸다.', lt: '회항까지 두 시간.' },
+      ] },
+      { title: '착륙까지', text: '착륙까지 40분. 환자 곁을 지킨다.', opts: [
+        { label: '곁을 지키며 관찰', stat: 'mor', need: 55, win: 2, lose: -1, wt: '착륙과 동시에 구급대에 인계했다.', lt: '상태가 오르락내리락했다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 5) return (x.s.fame += 3), hap(x.p, 20), grant(x.s, '🚑', `하늘의 의인: ${fullName(x.p)}`, '기내 응급 환자를 살렸다', 'rare'), '✈ 환자가 살았다! 항공사가 감사패를, 승객들이 기립 박수를 보냈다. 뉴스에 나왔다.';
+      return sc >= 2 ? '환자는 무사히 병원으로 옮겨졌다. 조용히 내 자리로 돌아왔다.' : (hap(x.p, -10), '최선을 다했지만 환자는 끝내… 오래 마음에 남았다.');
+    },
+  },
+  {
+    id: 'fire', title: '🚒 불길 속으로', icon: '🚒', meter: '구조', goal: 5, again: 8,
+    ok: (s, p) => A(s, p) >= 22 && A(s, p) <= 60 && working(p, ['firefighter', 'police', 'coast_guard', 'officer', 'nco', 'emt', 'security_guard']),
+    bonus: (_s, p) => (hasTalent(p, 'iron') ? 10 : 0) + (hasTalent(p, 'athlete') ? 6 : 0),
+    rounds: [
+      { title: '진입', text: '15층 아파트에 불이 났다. 9층에 아이가 있다는 신고.', opts: [
+        { label: '계단으로 정면 진입', stat: 'str', need: 58, win: 2, lose: -1, wt: '연기를 뚫고 9층에 닿았다.', lt: '열기에 밀려 돌아섰다.', hurt: 5 },
+        { label: '옆집 베란다로 건너간다', stat: 'str', need: 66, win: 3, lose: -2, wt: '아찔한 횡단 성공!', lt: '미끄러질 뻔했다.', hurt: 10 },
+      ] },
+      { title: '구조', text: '방 안에 아이와 할머니가 있다. 산소통은 하나.', opts: [
+        { label: '아이에게 마스크를 씌우고 할머니를 업는다', stat: 'mor', need: 55, win: 2, lose: -1, wt: '둘 다 품에 안았다.', lt: '시간이 너무 걸렸다.' },
+        { label: '동료를 불러 나눠 업는다', stat: 'cha', need: 52, win: 2, lose: 0, wt: '팀워크가 빛났다.', lt: '무전이 끊겼다.' },
+      ] },
+      { title: '붕괴 직전', text: '천장에서 소리가 난다. 탈출해야 한다!', opts: [
+        { label: '전력으로 뛴다', stat: 'hp', need: 60, win: 2, lose: -2, wt: '건물을 빠져나온 순간, 뒤에서 천장이 무너졌다.', lt: '파편에 맞았다.', hurt: 15 },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 5) {
+        x.s.fame += 4;
+        hap(x.p, 20);
+        awardCard(x.s, x.p, 'national_hero', '불길 속에서 아이와 할머니를 구했다');
+        return '🦸 두 사람 모두 살았다! 아이 엄마가 {n}의 손을 잡고 울었다. 의인으로 표창을 받았다.'.replace('{n}', fullName(x.p));
+      }
+      return sc >= 2 ? '모두 구조했다. 오늘도 무사히 퇴근했다.' : (hap(x.p, -12), '구조는 했지만 큰 화상을 입었다. 오래 치료받았다.');
+    },
+  },
+  {
+    id: 'auction', title: '🏠 법원 경매 입찰', icon: '🏠', meter: '낙찰', goal: 1, again: 8,
+    ok: (s, p) => A(s, p) >= 30 && A(s, p) <= 80 && p.cash >= 20000,
+    rounds: [
+      { title: '입찰표', text: '법원 경매 법정. 감정가 4억짜리 아파트. 입찰자가 열두 명이다. 입찰표에 금액을 적는다.', opts: [
+        { label: '감정가의 70% (2억 8천)', pot: 28000, stat: 'luck', need: 25, win: 1, lose: 0, wt: '낙찰! 차순위와 30만 원 차이.', lt: '패찰. 누군가 더 썼다.' },
+        { label: '감정가의 82% (3억 3천)', pot: 33000, stat: 'luck', need: 60, win: 1, lose: 0, wt: '낙찰!', lt: '패찰.' },
+        { label: '감정가의 95% (3억 8천)', pot: 38000, stat: 'luck', need: 90, win: 1, lose: 0, wt: '낙찰! (조금 비싸게 샀다)', lt: '패찰… 이 값에도?' },
+      ] },
+      { title: '명도', text: '낙찰받은 집에 아직 사람이 산다. 내보내야 한다.', opts: [
+        { label: '이사비를 주고 협상한다', stat: 'cha', need: 50, win: 1, lose: 0, wt: '좋게 합의했다.', lt: '협상이 길어졌다. 소송까지 갔다.' },
+        { label: '법대로 강제집행', stat: 'mor', need: 40, win: 1, lose: 0, wt: '절차대로 끝냈다.', lt: '마음이 무거웠다.' },
+      ] },
+    ],
+    end: (x, sc, d) => {
+      if (sc < 1 || !d.pot) return '패찰. 보증금을 돌려받고 법정을 나왔다. 다음 물건을 찾아본다.';
+      const price = d.pot;
+      x.p.cash -= price;
+      addAsset(x.s, 'apt_local', x.p.id, 40000, '경매로 산 아파트');
+      return `🏠 낙찰! ${formatMoney(price)}에 시세 4억 아파트를 손에 넣었다.`;
+    },
+  },
+  {
+    id: 'propose', title: '💍 프러포즈 대작전', icon: '💍', meter: '설렘', goal: 5,
+    ok: (s, p) => A(s, p) >= 22 && A(s, p) <= 45 && !!p.partnerId && !p.spouseId && !!partnerOf(s, p),
+    bonus: (_s, p) => (hasTrait(p, 'flirt') ? 8 : 0) + (hasTalent(p, 'pitch') ? 4 : 0),
+    rounds: [
+      { title: '장소', text: '반지는 준비됐다. 이제 어디서?', opts: [
+        { label: '처음 만난 그 카페', stat: 'mor', need: 50, win: 2, lose: 0, wt: '"여기… 우리 처음 만난 데잖아." 눈치챘다.', lt: '공사 중이었다.' },
+        { label: '바닷가 노을', stat: 'luck', need: 60, win: 3, lose: -1, wt: '하늘이 도왔다. 완벽한 노을.', lt: '비가 쏟아졌다.' },
+      ] },
+      { title: '선물', text: '무엇을 함께 건넬까?', opts: [
+        { label: '직접 쓴 편지', stat: 'int', need: 50, win: 2, lose: 0, wt: '읽다가 눈물이 툭 떨어졌다.', lt: '맞춤법이…' },
+        { label: '둘의 사진으로 만든 영상', stat: 'cha', need: 58, win: 2, lose: 0, wt: '첫 데이트 사진이 나오자 웃음이 터졌다.', lt: '노트북이 꺼졌다.' },
+      ] },
+      { title: '한마디', text: '무릎을 꿇었다. 손이 떨린다.', opts: [
+        { label: '"평생 네 편이 될게."', stat: 'cha', need: 55, win: 2, lose: -1, wt: '"…응!"', lt: '목소리가 갈라졌다.' },
+        { label: '말없이 노래를 부른다', stat: 'cha', need: 62, win: 3, lose: -1, wt: '주변 사람들까지 박수를 쳤다!', lt: '음이 흔들렸다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      const q = partnerOf(x.s, x.p);
+      if (sc >= 4 && q) {
+        hap(x.p, 20);
+        queueNext(x.s, 'wedding', x.p.id);
+        return `💍 "응!" ${fullName(q)}이(가) 울면서 반지를 받았다. 지나가던 사람들이 박수를 쳤다. 이제 결혼 준비다!`;
+      }
+      return hap(x.p, -6), '"…조금만 더 생각해 볼게." 반지 상자가 다시 주머니로 들어갔다.';
+    },
+  },
+  {
+    id: 'fishing', title: '🎣 대물 낚시 대회', icon: '🎣', meter: '손맛', goal: 4, again: 8,
+    ok: (s, p) => A(s, p) >= 35 && A(s, p) <= 85,
+    rounds: [
+      { title: '입질', text: '새벽 5시, 갯바위 낚시 대회. 찌가 까딱인다.', opts: [
+        { label: '기다린다', stat: 'luck', need: 60, win: 1, lose: 0, wt: '찌가 쑥 들어갔다!', lt: '잔챙이였다.' },
+        { label: '미끼를 바꾼다', stat: 'int', need: 52, win: 2, lose: -1, wt: '바꾸자마자 큰 입질!', lt: '그사이 물때가 지났다.' },
+      ] },
+      { title: '대물이 걸렸다!', text: '낚싯대가 활처럼 휘었다. 줄이 비명을 지른다.', opts: [
+        { label: '힘으로 감는다', stat: 'str', need: 58, win: 2, lose: -2, wt: '조금씩 끌려온다!', lt: '줄이 터졌다…' },
+        { label: '풀었다 감았다 힘을 뺀다', stat: 'luck', need: 55, win: 1, lose: 0, wt: '녀석이 지쳐 간다.', lt: '바위 틈으로 숨었다.' },
+      ] },
+      { title: '뜰채', text: '수면 위로 은빛 등이 보였다. 엄청 크다!', opts: [
+        { label: '옆 사람에게 뜰채를 부탁', stat: 'cha', need: 48, win: 1, lose: 0, wt: '둘이 함께 들어 올렸다!', lt: '뜰채가 짧았다.' },
+        { label: '직접 뜬다', stat: 'str', need: 60, win: 2, lose: -2, wt: '한 번에 떠올렸다!', lt: '마지막에 바늘이 빠졌다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      const cm = 40 + Math.max(0, sc) * 9;
+      hap(x.p, sc >= 4 ? 15 : 5);
+      if (sc >= 4) return (x.p.cash += 300), grant(x.s, '🎣', `대물 낚시 우승: ${fullName(x.p)}`, `감성돔 ${cm}cm`, 'rare'), `🐟 감성돔 ${cm}cm! 대회 1위, 상금 300만 원. 어탁을 떠서 거실에 걸었다.`;
+      return sc >= 1 ? `🐟 ${cm}cm. 입상은 못 했지만 저녁상이 풍성했다.` : '빈 쿨러로 돌아왔다. 그래도 일출이 예뻤다.';
+    },
+  },
+  {
+    id: 'suneung', title: '📝 수능 날', icon: '📝', meter: '컨디션', goal: 5,
+    ok: (s, p) => A(s, p) === 18 && !p.flags.includes('student') && !p.flags.some((f) => f.startsWith('satday:')) && !p.job.startsWith('hj_') && ['none'].includes(p.job),
+    bonus: (_s, p) => (hasTalent(p, 'genius') ? 8 : 0) + (hasTrait(p, 'anxious') ? -8 : hasTrait(p, 'cheerful') ? 4 : 0),
+    rounds: [
+      { title: '1교시 국어', text: '수험표를 쥔 손이 차갑다. 시험지가 넘어가는 소리.', opts: [
+        { label: '비문학부터 푼다', stat: 'int', need: 55, win: 2, lose: -1, wt: '시간이 넉넉하게 남았다.', lt: '지문 하나에 15분을 썼다.' },
+        { label: '문학부터 차근차근', stat: 'mor', need: 52, win: 1, lose: 0, wt: '안정적으로 풀었다.', lt: '마지막 지문은 찍었다.' },
+      ] },
+      { title: '2교시 수학', text: '킬러 문항 하나가 길을 막는다.', opts: [
+        { label: '킬러는 버리고 검토', stat: 'int', need: 52, win: 2, lose: 0, wt: '실수 없이 마무리했다.', lt: '검토하다 답을 바꿨다…' },
+        { label: '킬러에 도전', stat: 'int', need: 68, win: 3, lose: -2, wt: '풀었다!! 손이 떨렸다.', lt: '20분을 날렸다.' },
+      ] },
+      { title: '3교시 영어 · 점심 뒤', text: '도시락을 먹고 나니 졸음이 몰려온다.', opts: [
+        { label: '찬물로 세수하고 집중', stat: 'hp', need: 50, win: 2, lose: -1, wt: '정신이 번쩍 들었다.', lt: '듣기 한 문제를 놓쳤다.' },
+        { label: '빈칸 추론 먼저', stat: 'int', need: 58, win: 2, lose: -1, wt: '어려운 것부터 해치웠다.', lt: '시간에 쫓겼다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      const b = clamp(Math.round(sc * 1.2), -6, 7);
+      x.p.flags.push('satday:' + b);
+      mark(x.p, 'study', sc >= 4 ? 1 : 0);
+      return sc >= 5 ? '🍀 컨디션 최고! 시험장을 나서며 엄마를 꼭 안았다. (수능 점수에 반영)' : sc >= 2 ? '📝 무난하게 끝냈다. 결과는 하늘에 맡긴다. (수능 점수에 반영)' : '😣 망한 것 같다… 교문 앞에서 엉엉 울었다. (수능 점수에 반영)';
+    },
+  },
+];
+export const BIG_BY_ID: Record<string, BigDef> = Object.fromEntries(BIGS.map((b) => [b.id, b]));
+
+/** 이 선택지의 성공 확률 */
+export function bigOdds(s: GameState, p: Person, b: BigDef, o: BigOpt): number | undefined {
+  if (o.stop || o.stake || !o.stat) return undefined;
+  const bonus = (b.bonus?.(s, p) ?? 0) + (o.bonus?.(s, p) ?? 0);
+  if (o.stat === 'luck') return clamp((o.need ?? 50) / 100 + bonus / 100, 0.05, 0.95);
+  return checkOdds(p.actual[o.stat] + bonus, o.need ?? 50, 8);
+}
+
+/** 가주·자녀·손주 */
+function folks(s: GameState): Person[] {
+  const h = head(s);
+  return Object.values(s.people).filter((p) => alive(p) && !p.inLaw && (p.id === h.id || isDescendantOf(s, p, h)) && A(s, p) >= 10);
+}
+
+/** 해마다: 해당되는 사람이 있으면 가끔 대형 이벤트 (한 해 걸러 한 번이 최대) */
+export function bigYear(s: GameState): void {
+  const seen = (s.storySeen ??= {});
+  if (s.year - (seen['big:last'] ?? -99) < 2) return;
+  if (s.events.some((e) => e.defId === 'big_ev')) return;
+  const pairs: [Person, BigDef][] = [];
+  for (const p of folks(s))
+    for (const b of BIGS) {
+      const last = seen[`big:${b.id}:${p.id}`];
+      if (last !== undefined && (!b.again || s.year - last < b.again)) continue;
+      if (b.ok(s, p)) pairs.push([p, b]);
+    }
+  if (!pairs.length) return;
+  // 가족(가주·자녀·손주, 10세 이상) 1명당 약 11% (5명이면 55%) · 연속으로는 안 온다 → 5명 가족 기준 약 3년에 한 번
+  if (!chance(s, Math.min(0.6, 0.11 * folks(s).length))) return;
+  // 수능은 그 해에만 오니 먼저
+  const sat = pairs.find(([, b]) => b.id === 'suneung');
+  const [p, b] = sat ?? pick(s, pairs);
+  seen['big:last'] = s.year;
+  seen[`big:${b.id}:${p.id}`] = s.year;
+  s.events.push({ uid: s.eventSeq++, defId: 'big_ev', personId: p.id, data: { id: b.id, r: 0, sc: 0 } satisfies BigData });
+}
+
+const big: EventDef = {
+  id: 'big_ev',
+  title: (c) => {
+    const b = BIG_BY_ID[c.ev.data.id];
+    const r = b.rounds[Math.min(c.ev.data.r, b.rounds.length - 1)];
+    return `${b.title} · ${r.title}`;
+  },
+  valid: (c) => alive(c.p) && !!BIG_BY_ID[c.ev.data.id],
+  text: (c) => fill(BIG_BY_ID[c.ev.data.id].rounds[c.ev.data.r].text, c.p),
+  choices: (c) => {
+    const d = c.ev.data as BigData;
+    const b = BIG_BY_ID[d.id];
+    const round = b.rounds[d.r];
+    return gate(
+      c.s,
+      round.opts
+        .filter((o) => !o.show || o.show(c.s, c.p))
+        .map((o): Choice => ({
+          label: o.label,
+          odds: bigOdds(c.s, c.p, b, o),
+          run: (x) => {
+            const dd = x.ev.data as BigData;
+            let line = o.wt;
+            if (o.stake) dd.stake = true;
+            if (o.stat) {
+              const ok = chance(x.s, bigOdds(x.s, x.p, b, o)!);
+              dd.sc += ok ? (o.win ?? 1) : (o.lose ?? 0);
+              line = ok ? `✅ ${o.wt}` : `❌ ${o.lt ?? '실패했다.'}`;
+              if (ok && o.pot) dd.pot = o.pot;
+              if (!ok && o.hurt) x.p.actual.hp = clamp(x.p.actual.hp - o.hurt, 1, 100);
+              // 퀴즈: 틀리면 그 자리에서 끝
+              if (!ok && b.id === 'quiz') dd.sc = -1;
+            }
+            dd.last = line;
+            dd.r += 1;
+            const over = o.stop || dd.r >= b.rounds.length || (b.id === 'quiz' && dd.sc < 0) || (b.id === 'auction' && dd.sc < 1 && dd.r >= 1);
+            if (!over) return { text: '', keep: true };
+            return `${line}\n\n${b.end(x, dd.sc, dd)}`;
+          },
+        })),
+    );
+  },
+};
+
+export const BIG_EVENTS: EventDef[] = [big];

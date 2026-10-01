@@ -55,6 +55,7 @@ import { pathYear } from './hidden-paths';
 import { photoYear } from './photos';
 import { relicYear } from './relics';
 import { vipCureYear } from './vip-cure';
+import { bigYear } from './big-events';
 import { treasureSellValue, treasureYear } from './treasure';
 import { HIDDEN, HIDDEN_BY_ID, isHoH, isSuperHidden } from './hidden-data';
 const STARTER_SUPER = HIDDEN.filter((h) => isSuperHidden(h.id) && !isHoH(h.id)).map((h) => h.id);
@@ -460,6 +461,7 @@ export function simulateYear(s: GameState): void {
   photoYear(s);
   relicYear(s);
   vipCureYear(s);
+  bigYear(s);
   for (const m of superHiddenYear(s)) log(s, m, 'life');
   trackPeak(s);
   scandalYear(s);

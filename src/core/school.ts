@@ -624,6 +624,7 @@ export function suneung(s: GameState, p: Person): number {
     Math.min(4, retakes * 1.5) +
     (hasTrait(p, 'anxious') ? -2 : hasTrait(p, 'cheerful') ? 1 : 0) +
     suneungBonus(p) +
+    Number(p.flags.find((f) => f.startsWith('satday:'))?.slice(7) ?? 0) + // 수능 날 컨디션 (big-events.ts)
     hoodOf(s, p).sat +
     normal(s, 0, 4);
   return Math.round(clamp(100 / (1 + Math.exp(-(raw - SUNEUNG_MID) / SUNEUNG_SCALE)), 0.1, 99.99) * 100) / 100;

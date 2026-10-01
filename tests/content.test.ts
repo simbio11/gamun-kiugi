@@ -1478,3 +1478,60 @@ describe('현물 자산 (금·은·보석)', () => {
     }
   });
 });
+
+describe('대형 이벤트 (미니게임)', () => {
+  it('15개 모두 끝까지 플레이되고, 선택지마다 확률이 보인다', async () => {
+    const { BIGS } = await import('../src/core/big-events');
+    expect(BIGS.length).toBe(15);
+    for (const b of BIGS) {
+      for (const pickIdx of [0, 1]) {
+        const s = newGame({ seed: 300 + b.id.length + pickIdx, familyName: '한', sex: 'M' });
+        const h = head(s);
+        s.year += 30;
+        h.birthYear = s.year - 30;
+        for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) h.actual[k] = 70;
+        h.cash = 100000;
+        s.events = [{ uid: s.eventSeq++, defId: 'big_ev', personId: h.id, data: { id: b.id, r: 0, sc: 0 } }];
+        let last = '';
+        for (let i = 0; i < 10 && s.events.some((e) => e.defId === 'big_ev'); i++) {
+          const cur = currentEvent(s)!;
+          expect(cur.choices.length).toBeGreaterThan(0);
+          const idx = Math.min(pickIdx, cur.choices.length - 1);
+          last = resolveChoice(s, cur.choices[idx].disabled ? 0 : idx);
+        }
+        expect(s.events.some((e) => e.defId === 'big_ev')).toBe(false);
+        expect(last.length).toBeGreaterThan(5);
+      }
+    }
+  });
+  it('가족 5명이면 대략 3년에 한 번꼴', async () => {
+    const { bigYear } = await import('../src/core/big-events');
+    const { createPerson } = await import('../src/core/people');
+    let total = 0;
+    let years = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const s = newGame({ seed, familyName: '조', sex: 'M' });
+      const h = head(s);
+      s.year += 35;
+      h.birthYear = s.year - 40;
+      h.flags.push('license');
+      for (let i = 0; i < 4; i++) {
+        const k = createPerson(s, { sex: i % 2 ? 'F' : 'M', surname: '조', birthYear: s.year - 12 - i * 3, quality: 60, grown: 1 });
+        k.fatherId = h.id;
+        h.childIds.push(k.id);
+        s.people[k.id] = k;
+      }
+      for (const p of Object.values(s.people)) for (const st of ['str', 'int', 'cha', 'mor', 'hp'] as const) p.actual[st] = Math.max(p.actual[st], 60);
+      for (let y = 0; y < 30; y++) {
+        s.year++;
+        s.events = [];
+        bigYear(s);
+        total += s.events.filter((e) => e.defId === 'big_ev').length;
+        years++;
+      }
+    }
+    const per = years / Math.max(1, total);
+    expect(per).toBeGreaterThan(2.3);
+    expect(per).toBeLessThan(4);
+  });
+});

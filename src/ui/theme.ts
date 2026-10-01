@@ -1,5 +1,5 @@
 // 가주 테마: 화면 전체 분위기가 "지금 가주"를 따라간다. (가족 직업은 상관없다 — 가주 본인만)
-//   · 가주가 히든 직업(희귀 직업)이면 → 그 직업 카드 그림이 화면 뒤에 은은히 깔리고, 카드 빛깔로 물든다
+//   · 가주가 히든 직업(희귀 직업)이면 → 그 직업 빛깔로 물들고, 직업 소품(박쥐·비행기·카드…)이 화면을 오간다
 //   · 아니면 → 나이대 테마: 크레파스(어린이) · 칠판과 공책(10대) · 청춘의 밤(20~30대) · 원목(중년, 기본) · 한지와 먹(노년)
 import { HIDDEN_BY_ID, isSuperHidden } from '../core/hidden-data';
 import { age, head } from '../core/people';
@@ -101,5 +101,6 @@ function layer(id: string, html: string, cls: string) {
 
 function bgHTML(t: Theme): string {
   if (t.id === 'prime') return '';
-  return `${t.art ? `<i class="tb-art" style="background-image:url('${t.art}')"></i>` : ''}<i class="tb-pat"></i>${t.job ? `<div class="td-sil">${silHTML(t.job)}</div>` : ''}`;
+  // 카드 그림은 깔지 않는다: 원래 화면 결 그대로, 빛깔만 바꾸고 그 직업의 소품(박쥐·비행기…)이 오간다
+  return `<i class="tb-pat"></i>${t.job ? `<div class="td-sil">${silHTML(t.job)}</div>` : ''}`;
 }
