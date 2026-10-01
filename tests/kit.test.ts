@@ -42,7 +42,7 @@ describe('부품 초상화 고르기', () => {
     expect(['4', '5', 'toddler']).toContain(atlas[girl.kind][girl.i].age);
     for (let i = 0; i < 40; i++) {
       const m = pickKit(atlas, { ...base, id: 'm' + i, sex: 'M', genes: { ...base.genes, mouth: i } }, 30, '#f2c49e').mouth;
-      expect([0, 1, 2, 4, 10]).toContain(atlas.mouths[m.i].r);
+      expect([0, 2, 4]).toContain(atlas.mouths[m.i].r);
     }
   });
 });

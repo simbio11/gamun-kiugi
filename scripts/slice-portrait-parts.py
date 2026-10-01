@@ -117,7 +117,7 @@ def drop_face(rgba, tol=26, rg=75, retry=False):
     out = rgba.copy()
     out[seen | soft, 3] = 0
     ys, xs = np.nonzero(seen | soft)
-    return out, [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1]  # 지운 얼굴 자리 = 두상을 맞출 기준
+    return out, ([int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1], [int(v) for v in col])  # 지운 얼굴 자리(두상을 맞출 기준)와 얼굴색
 
 
 def ear_score(a, x0, y0, x1, y1):
@@ -297,7 +297,7 @@ def main(src):
                 name = f'{i:03d}.png'
                 Image.fromarray(rgba, 'RGBA').save(os.path.join(d, name), optimize=True)
                 m = {'file': f'{k}/{name}', 'row': r, 'col': c, 'w': rgba.shape[1], 'h': rgba.shape[0], 'bbox': bbox}
-                if face: m['face'] = face
+                if face: m['face'], m['faceColor'] = face
                 if k in OUTFIT_ROWS or k == 'outfit-f-alt':
                     m['job'] = OUTFIT_COLS[c]
                     m['age'] = OUTFIT_ROWS.get(k, OUTFIT_ROWS['outfit-f'])[r]

@@ -67,7 +67,7 @@ def dilate(m, n):
     return m
 
 
-def hair_clean(a, f):
+def hair_clean(a, f, face_color=None):
     """헤어 시트의 민얼굴을 지운 자리에 남은 얼굴 윤곽선(턱선·볼선)과 살색·흰 테두리를 지운다.
     그대로 두면 머리색으로 다시 칠할 때 턱수염처럼 보인다."""
     c = a[..., :3].astype(int)
@@ -86,6 +86,15 @@ def hair_clean(a, f):
     skinlike = (r > g) & (g > b) & (r - b > 30) & (r > 150)
     pale = (c.min(2) > 180) & (np.ptp(c, 2) < 60)
     a[near & (skinlike | pale), 3] = 0
+    # 헤어 시트 얼굴의 귀·목 조각: 지운 얼굴과 같은 색이 얼굴 높이 근처에 남아 있으면 지운다
+    if face_color is not None:
+        # 귀 자리만: 얼굴 양옆, 얼굴 높이의 위 1/4 아래 (정수리·앞머리는 건드리지 않는다)
+        near_face = np.zeros((h, w), bool)
+        y0, y1 = f[1] + (f[3] - f[1]) // 4, min(h, f[3] + 6)
+        near_face[y0:y1, max(0, f[0] - 9):f[0] + 2] = True
+        near_face[y0:y1, max(0, f[2] - 2):min(w, f[2] + 9)] = True
+        same = np.abs(c - face_color).max(2) < 26
+        a[same & near_face, 3] = 0
     # 턱 아래 가운데(헤어 시트 얼굴의 목)는 지운다 — 다시 칠하면 목에 머리색 띠가 생긴다
     a[f[3] - 1:, f[0] + 2:f[2] - 2, 3] = 0
     # 크림색 배경 찌꺼기: 투명한 곳에 맞닿은 밝은 무채색을 두 겹 벗긴다 (다시 칠하면 새하얗게 튄다)
@@ -126,7 +135,19 @@ def fill_ratio(a):
     return float(np.mean(fr)) if fr else 0.0
 
 
-NECK = [230, 180, 140]  # 옷의 목 피부를 맞춰 두는 표준 피부색
+NECK = [230, 180, 140]  # 부품에 섞인 피부를 맞춰 두는 표준 피부색 — 조립할 때 이 색(×밝기)만 두상 피부색으로 옮긴다
+
+
+def normalize_skin(a, ref, tol=110, rows=None):
+    """피부색 ref 근처 픽셀을 표준 피부색 × 밝기비로 바꾼다 (눈두덩·코·입술 둘레·옷의 목)"""
+    if ref is None: return
+    c = a[..., :3].astype(float)
+    r, g, b = c[..., 0], c[..., 1], c[..., 2]
+    m = (a[..., 3] > 0) & (r > g) & (g > b) & (r - b > 20) & (np.sqrt(((c - ref) ** 2).sum(2)) < tol)
+    if rows is not None: m[rows:] = False
+    lum = lambda v: v[..., 0] * 0.3 + v[..., 1] * 0.59 + v[..., 2] * 0.11
+    k = np.clip(lum(c[m]) / max(1.0, lum(np.array(ref, float))), 0.4, 1.3)[:, None]
+    a[..., :3][m] = np.clip(np.array(NECK) * k, 0, 255).astype(np.uint8)
 
 
 def outfit_info(a):
@@ -172,8 +193,8 @@ def main():
             info = {'r': p['row'], 'c': p['col']}
             if kind.startswith('hair'):
                 f = p.get('face')
-                if not f or not 22 <= f[2] - f[0] <= 34: continue  # 얼굴 자리를 못 찾은 칸
-                hair_clean(a, f)
+                if not f or not 22 <= f[2] - f[0] <= 34 or not 20 <= f[3] - f[1] <= 40: continue  # 얼굴 자리를 못 찾은 칸
+                hair_clean(a, f, p.get('faceColor'))
             if kind == 'heads':
                 info.update(head_info(a))
             if kind.startswith('outfit'):
@@ -202,7 +223,9 @@ def main():
                 # 모자·헬멧·방호복 두건: 두상과 겹친다 (나이·직업 복장표는 민머리 테두리가 남아 목이 넓게 재져서 제외)
                 if info['nw'] > 24 and kind not in ('outfit-f', 'outfit-f-kid'): continue
             else:
-                info['skin'] = skin_ref(a)
+                ref = skin_ref(a)
+                normalize_skin(a, ref)
+                info['skin'] = NECK if ref else None
             if 'age' in p: info['age'] = p['age']
             if 'job' in p: info['job'] = p['job']
             items.append((a, info))

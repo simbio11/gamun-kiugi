@@ -1,6 +1,6 @@
-// 인물 창 큰 초상화 — 그려 온 부품(아틀라스)을 겹쳐 조립한다 (192×192)
+// 인물 창 큰 초상화 — 그려 온 부품(아틀라스)을 겹쳐 조립한다 (192칸에서 조립 → 96칸 도트)
 //   순서: 옷 → 두상 → 눈 → 코 → 입 → 머리카락
-//   부품마다 원래 시트의 축척이 달라서, 두상의 얼굴 폭을 기준으로 크기를 맞춘다
+//   머리카락 부품의 얼굴 자리를 기준 틀로 삼아 두상을 맞추고, 눈·코·입은 두상 얼굴 폭에 비례해 놓는다
 //   피부색이 섞인 부품(옷의 목·코·화장 눈·입술 둘레)은 두상 피부색으로, 머리카락은 유전 머리색으로 다시 칠한다
 //   부품은 처음 필요할 때 내려받는다 → 준비 전에는 null (기존 도트 초상화로 대신)
 import type { Person } from '../core/types';
@@ -8,7 +8,7 @@ import { looks96 } from './bust';
 import { pickKit, type KitAtlas, type KitPart, type KitRef } from './kitPick';
 
 const N = 192;
-const S = 2; // 두상 확대 배율 (얼굴 폭 ≈ 76px)
+const K = 2.3; // 머리카락 부품 확대 배율 (조립은 192칸에서 하고 96칸으로 줄인다)
 const BASE = `${import.meta.env.BASE_URL}portrait/`;
 
 let atlas: KitAtlas | null = null;
@@ -68,23 +68,28 @@ function partCanvas(ref: KitRef): { cv: HTMLCanvasElement; ctx: CanvasRenderingC
   return { cv, ctx, p };
 }
 
-/** 부품에 섞인 피부색(ref)과 가까운 픽셀을 목표 피부색으로 옮긴다 — 명암은 그대로 */
-function reskin(ctx: CanvasRenderingContext2D, w: number, h: number, ref: number[] | null | undefined, target: number[], tol: number, maxY = h) {
-  if (!ref) return;
+/** 부품에 섞인 피부(아틀라스를 만들 때 표준 피부색 NECK × 밝기로 맞춰 둠)를 목표 피부색 × 같은 밝기로 */
+const NECK = [230, 180, 140];
+function reskin(ctx: CanvasRenderingContext2D, w: number, h: number, target: number[]) {
   const img = ctx.getImageData(0, 0, w, h);
   const d = img.data;
-  const [dr, dg, db] = [target[0] - ref[0], target[1] - ref[1], target[2] - ref[2]];
-  for (let y = 0; y < maxY; y++)
-    for (let x = 0; x < w; x++) {
-      const k = (y * w + x) * 4;
-      if (!d[k + 3]) continue;
-      const r = d[k], g = d[k + 1], b = d[k + 2];
-      if (!(r > g && g > b && r - b > 25 && r > 70 && r - g < 90)) continue;
-      if (Math.hypot(r - ref[0], g - ref[1], b - ref[2]) >= tol) continue;
-      d[k] = r + dr;
-      d[k + 1] = g + dg;
-      d[k + 2] = b + db;
-    }
+  for (let k = 0; k < d.length; k += 4) {
+    if (!d[k + 3]) continue;
+    const m = d[k] / NECK[0];
+    if (m < 0.35 || Math.abs(d[k + 1] - NECK[1] * m) > 4 || Math.abs(d[k + 2] - NECK[2] * m) > 4) continue;
+    d[k] = target[0] * m;
+    d[k + 1] = target[1] * m;
+    d[k + 2] = target[2] * m;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+/** 코의 진한 윤곽선을 피부 그늘색으로 — 선 없이 음영만 있는 작은 코 */
+function softenOutline(ctx: CanvasRenderingContext2D, w: number, h: number, skin: number[]) {
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  for (let k = 0; k < d.length; k += 4)
+    if (d[k + 3] && Math.max(d[k], d[k + 1], d[k + 2]) < 110) for (let j = 0; j < 3; j++) d[k + j] = skin[j] * 0.72;
   ctx.putImageData(img, 0, 0);
 }
 
@@ -110,7 +115,7 @@ function recolorHair(ctx: CanvasRenderingContext2D, w: number, h: number, target
   ctx.putImageData(img, 0, 0);
 }
 
-/** 머리카락 부품의 얼굴 자리 위쪽 70%를 머리 그늘색으로 채운 판 (가운데서 번져 나가 바깥 배경은 안 칠함) */
+/** 머리카락 부품의 얼굴 자리 위쪽 70%를 피부색으로 채운 판 (가운데서 번져 나가 바깥 배경은 안 칠함) */
 function holeFill(hctx: CanvasRenderingContext2D, p: KitPart, skin: number[]): HTMLCanvasElement {
   const [x0, y0, x1, y1] = p.face!;
   const yMax = Math.round(y0 + (y1 - y0) * 0.7);
@@ -160,69 +165,85 @@ function compose(p: Person, age: number, year: number, blink: boolean): string {
   out.width = out.height = N;
   const ctx = out.getContext('2d')!;
 
+  // 기준 틀 = 머리카락 부품. 두상을 머리카락의 얼굴 자리에 맞춰 줄이고 늘린다
+  //   가로: 두상 얼굴 폭 = 얼굴 자리 폭, 세로: 정수리가 얼굴 자리 위끝(이마 선)보다 위로 올라가 머리카락 밑에 숨게
+  const Hr = partCanvas(pick.hair);
+  recolorHair(Hr.ctx, Hr.p.w, Hr.p.h, hex(L.hair.base));
+  const f = Hr.p.face!;
   const H = partCanvas(pick.head);
   const hp = H.p;
   const T = hp.skin ?? hex(L.skin.base);
-  const cx = hp.cx!, top = hp.top!, chin = hp.chin!, bot = hp.bot!, fw = hp.fw!;
-  const ox = N / 2 - cx * S;
-  const oy = 42 - top * S; // 정수리 y=42: 부푼 머리도 위가 안 잘리게
-  const X = (x: number) => ox + x * S;
-  const Y = (y: number) => oy + y * S;
-  const faceH = chin - top;
+  const hs = ((f[2] - f[0]) * 1.04) / hp.fw!;
+  const vs = Math.max(hs, Math.min(hs * 1.4, (f[3] + 1 - (f[1] - 3)) / (hp.chin! - hp.top!)));
+  const ox = N / 2 - ((f[0] + f[2]) / 2) * K;
+  const oy = Math.max(N * 0.53 - f[3] * K, 6);
+  const X = (x: number) => ox + x * K;
+  const Y = (y: number) => oy + y * K;
+  const hx = (f[0] + f[2]) / 2 - hp.cx! * hs;
+  const hy = f[3] + 1 - hp.chin! * vs;
+  const HX = (x: number) => X(hx + x * hs);
+  const HY = (y: number) => Y(hy + y * vs);
+  const kx = K * hs;
+  const ky = K * vs;
 
   // 옷: 목 윗끝을 두상 목 끝보다 조금 위에 (두상이 덮는다)
   const O = partCanvas(pick.outfit);
   const op = O.p;
-  reskin(O.ctx, op.w, op.h, op.skin, hp.neck ?? T, 90, op.skinY ?? op.h);
-  const ok = S * 1.15;
-  place(ctx, O.cv, X(cx) - op.cx! * ok, Y(bot - 4) - op.top! * ok, ok);
+  reskin(O.ctx, op.w, op.h, hp.neck ?? T);
+  const ok = kx * 1.15;
+  place(ctx, O.cv, HX(hp.cx!) - op.cx! * ok, HY(hp.bot! - 4) - op.top! * ok, ok);
 
-  // 머리카락은 미리 준비: 얼굴 자리(이마·관자놀이)가 두상보다 넓으면 빈틈이 보이니 두상 밑에 머리 그늘색을 깐다
-  const Hr = partCanvas(pick.hair);
-  recolorHair(Hr.ctx, Hr.p.w, Hr.p.h, hex(L.hair.base));
-  const f = Hr.p.face!;
-  const hk = ((S * fw) / (f[2] - f[0])) * 0.95;
-  const hx = X(cx) - ((f[0] + f[2]) / 2) * hk;
-  const hy = Y(chin) - f[3] * hk;
-  place(ctx, holeFill(Hr.ctx, Hr.p, hex(L.hair.base).map((v) => v * 0.7)), hx, hy, hk);
+  place(ctx, holeFill(Hr.ctx, Hr.p, T), X(0), Y(0), K);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(H.cv, Math.round(HX(0)), Math.round(HY(0)), Math.round(hp.w * kx), Math.round(hp.h * ky));
 
-  place(ctx, H.cv, ox, oy, S);
+  const fw = hp.fw! * kx;
+  const top = HY(hp.top!);
+  const fh = HY(hp.chin!) - top;
+  const cx = HX(hp.cx!);
 
   // 눈: 한쪽 눈 그림 → 반대쪽은 좌우로 뒤집어
   const E = partCanvas(pick.eyes);
-  reskin(E.ctx, E.p.w, E.p.h, E.p.skin, T, 60);
-  const ek = (S * fw * 0.27) / E.p.w;
-  const ey = Y(top + faceH * 0.56);
+  reskin(E.ctx, E.p.w, E.p.h, T);
+  const ek = (fw * 0.25) / E.p.w;
+  const ew = E.p.w * ek;
+  const eh = E.p.h * ek;
+  const ey = top + fh * 0.55;
   for (const side of [-1, 1]) {
-    const ex = X(cx + side * fw * 0.22);
-    const x0 = ex - (E.p.w * ek) / 2;
-    const y0 = ey - E.p.h * ek * 0.6;
+    const x0 = cx + side * fw * 0.21 - ew / 2;
+    const y0 = ey - eh * 0.55;
     if (blink) {
-      // 감은 눈: 눈자리를 피부로 덮고 속눈썹 선 하나
-      const ew = E.p.w * ek;
-      const eh = E.p.h * ek;
+      // 감은 눈: 눈썹만 남기고 눈자리를 피부로 덮은 뒤 속눈썹 선 하나
       ctx.fillStyle = `rgb(${T.join(',')})`;
-      ctx.fillRect(Math.round(x0), Math.round(y0 + eh * 0.42), Math.round(ew), Math.round(eh * 0.58));
+      ctx.fillRect(Math.round(x0), Math.round(y0 + eh * 0.4), Math.round(ew), Math.round(eh * 0.6));
       ctx.fillStyle = '#3a2622';
-      ctx.fillRect(Math.round(x0 + ew * 0.12), Math.round(ey + eh * 0.1), Math.round(ew * 0.76), 2);
+      ctx.fillRect(Math.round(x0 + ew * 0.15), Math.round(ey + eh * 0.12), Math.round(ew * 0.7), 2);
+      ctx.imageSmoothingEnabled = true;
       ctx.drawImage(E.cv, 0, 0, E.p.w, Math.round(E.p.h * 0.4), Math.round(x0), Math.round(y0), Math.round(ew), Math.round(eh * 0.4));
     } else place(ctx, E.cv, x0, y0, ek, side < 0);
   }
 
   const No = partCanvas(pick.nose);
-  reskin(No.ctx, No.p.w, No.p.h, No.p.skin, T, 120);
-  const nk = (S * fw * 0.2) / Math.max(10, No.p.w);
-  place(ctx, No.cv, X(cx) - (No.p.w * nk) / 2, Y(top + faceH * 0.74) - No.p.h * nk, nk);
+  reskin(No.ctx, No.p.w, No.p.h, T);
+  softenOutline(No.ctx, No.p.w, No.p.h, T);
+  const nk = (fw * 0.12) / No.p.w;
+  place(ctx, No.cv, cx - (No.p.w * nk) / 2, top + fh * 0.76 - No.p.h * nk, nk);
 
   const Mo = partCanvas(pick.mouth);
-  reskin(Mo.ctx, Mo.p.w, Mo.p.h, Mo.p.skin, T, 40);
-  const mk = (S * fw * 0.34) / Mo.p.w;
-  place(ctx, Mo.cv, X(cx) - (Mo.p.w * mk) / 2, Y(top + faceH * 0.87) - (Mo.p.h * mk) / 2, mk);
+  reskin(Mo.ctx, Mo.p.w, Mo.p.h, T);
+  const mk = (fw * 0.26) / Mo.p.w;
+  place(ctx, Mo.cv, cx - (Mo.p.w * mk) / 2, top + fh * 0.87 - (Mo.p.h * mk) / 2, mk);
 
-  // 머리카락: 지운 얼굴 자리의 폭·턱을 두상 얼굴에 맞춘다
-  place(ctx, Hr.cv, hx, hy, hk);
+  place(ctx, Hr.cv, X(0), Y(0), K);
 
-  return out.toDataURL();
+  // 도트 격자 통일: 크기가 제각각인 부품을 반으로 줄여 한 격자(96칸)에 맞춘다 → 화면에서는 도트 그대로 키워 보인다
+  const px = document.createElement('canvas');
+  px.width = px.height = N / 2;
+  const pc = px.getContext('2d')!;
+  pc.imageSmoothingEnabled = true;
+  pc.imageSmoothingQuality = 'high';
+  pc.drawImage(out, 0, 0, N / 2, N / 2);
+  return px.toDataURL();
 }
 
 const stage = (a: number) => (a < 3 ? 0 : a < 6 ? 1 : a < 9 ? 2 : a < 13 ? 3 : a < 15 ? 4 : a < 20 ? 5 : a < 35 ? 6 : a < 50 ? 7 : a < 65 ? 8 : a < 75 ? 9 : 10);

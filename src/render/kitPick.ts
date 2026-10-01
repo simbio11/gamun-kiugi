@@ -135,7 +135,7 @@ const M_POOL: Record<string, Cells> = {
   it: [['outfit-m-uniform', 4, [15]], ['outfit-m-uniform', 3, range(11, 15)]],
 };
 // 평상복: 셔츠·폴로·티·트레이닝 재킷 (나이별 시트의 조끼·방탄복 칸은 뺀다)
-const M_CASUAL: Cells = [['outfit-m-uniform', 3, range(11, 15)], ['outfit-m-uniform', 4, [15]], ['outfit-m-uniform', 6, range(9, 15)], ['outfit-m-age', 1, range(10, 15)]];
+const M_CASUAL: Cells = [['outfit-m-uniform', 3, range(11, 15)], ['outfit-m-uniform', 4, [15]], ['outfit-m-uniform', 6, range(9, 15)]];
 const M_KID: Cells = [['outfit-m-age', 0]];
 const M_TEEN: Cells = [['outfit-m-age', 1], ['outfit-m-age', 0]];
 
@@ -187,11 +187,21 @@ function outfitPool(atlas: KitAtlas, p: Person, age: number): KitRef[] {
   return job.length ? job : cells(atlas, M_CASUAL);
 }
 
-// 입: 11행 × 6열. 남자는 립스틱 없는 줄만, 7번째 줄(크게 벌린 입)은 평소 얼굴에 안 쓴다
-const M_MOUTH_ROWS = [0, 2, 4, 10];
-const SHOUT_ROW = 6;
-// 코: 첫 줄의 막대 코(2~5열)는 확대하면 어색해서 뺀다
-const NOSE_OK = (p: KitPart) => !(p.r === 0 && p.c >= 2);
+// 눈·코·입은 시트에서 그림이 고운 칸만 골라 쓴다 [행, 열]
+// 눈(화장 눈 시트): 홍채 색이 있는 자연스러운 눈 — 여자는 속눈썹 눈(0~6열), 남자는 굵은 눈썹 눈(8~14열)
+const EYE_F: [number, number][] = [0, 1, 2].flatMap((r) => range(0, 6).map((c) => [r, c] as [number, number]));
+const EYE_F_MAKEUP: [number, number][] = [[6, 4], [6, 5], [6, 6], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]];
+const EYE_M: [number, number][] = [0, 1, 2].flatMap((r) => range(8, 14).map((c) => [r, c] as [number, number]));
+// 코: 작고 둥근 코 (윤곽선은 조립할 때 음영으로 바꾼다)
+const NOSE: [number, number][] = [[1, 0], [1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [2, 1], [3, 0], [3, 1]];
+// 입: 남자·아이는 선·미소, 15세 이상 여자는 자연스러운 입술
+const MOUTH_PLAIN: [number, number][] = [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [2, 0], [2, 1], [4, 0]];
+const MOUTH_LIPS: [number, number][] = [[1, 0], [1, 1], [1, 2], [1, 3], [3, 0], [3, 1], [3, 3], [7, 0], [7, 1], [8, 0], [8, 1], [9, 0], [9, 1], [0, 2], [0, 3]];
+const at = (atlas: KitAtlas, kind: string, list: [number, number][]) =>
+  list.flatMap(([r, c]) => {
+    const i = atlas[kind].findIndex((q) => q.r === r && q.c === c);
+    return i < 0 ? [] : [i];
+  });
 // 두상: 4번째 줄(하트 모양 이마)은 빼고
 const HEAD_ROWS = [0, 1, 2, 4, 5, 6, 7];
 
@@ -212,18 +222,16 @@ export function pickKit(atlas: KitAtlas, p: Person, age: number, skinHex: string
   if (head < 0) head = 0;
   const hairKind = f ? 'hair-f' : 'hair-m';
   const hairN = atlas[hairKind].length;
-  // 눈: 여자는 반쯤 화장한 눈 시트에서 (같은 자리의 눈이라 모양은 유전)
-  const eyeKind = f && age >= 15 && h % 2 === 0 ? 'eyes-makeup' : 'eyes';
-  const eyes = (g.eyes * 13 + g.brows * 5) % atlas[eyeKind].length;
-  const noses = atlas.noses.flatMap((q, i) => (NOSE_OK(q) ? [i] : []));
-  const lips = f && age >= 15; // 립스틱은 15세 이상 여자만
-  const mouths = atlas.mouths.flatMap((q, i) => (q.r !== SHOUT_ROW && (lips || M_MOUTH_ROWS.includes(q.r) || (q.r === 1 && q.c < 2)) ? [i] : []));
+  const eyeList = at(atlas, 'eyes-makeup', f ? (age >= 18 && h % 3 === 0 ? EYE_F_MAKEUP : EYE_F) : EYE_M);
+  const eyes = eyeList[(g.eyes * 13 + g.brows * 5) % eyeList.length];
+  const noses = at(atlas, 'noses', NOSE);
+  const mouths = at(atlas, 'mouths', f && age >= 15 ? MOUTH_LIPS : MOUTH_PLAIN); // 립스틱은 15세 이상 여자만
   const pool = outfitPool(atlas, p, age);
   const outfit = pool.length ? pool[(h >>> 4) % pool.length] : { kind: f ? 'outfit-f' : 'outfit-m-uniform', i: 0 };
   return {
     head: { kind: 'heads', i: head },
     hair: { kind: hairKind, i: (g.hairStyle * 11 + (h >>> 9)) % hairN },
-    eyes: { kind: eyeKind, i: eyes },
+    eyes: { kind: 'eyes-makeup', i: eyes },
     nose: { kind: 'noses', i: noses[(g.face * 7 + g.skin + (h >>> 13)) % noses.length] },
     mouth: { kind: 'mouths', i: mouths[(g.mouth * 7 + (h >>> 17)) % mouths.length] },
     outfit,
