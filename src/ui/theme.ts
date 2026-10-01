@@ -5,6 +5,7 @@ import { HIDDEN_BY_ID, isSuperHidden } from '../core/hidden-data';
 import { age, head } from '../core/people';
 import type { GameState } from '../core/types';
 import { hiddenArt } from './hidden-card';
+import { decoOver, decoVars, ptcHTML, silHTML } from './theme-deco';
 
 export interface Theme {
   id: string;
@@ -13,6 +14,8 @@ export interface Theme {
   vars: Record<string, string>;
   art?: string;
   fx?: string;
+  /** 희귀 직업 id (장식용) */
+  job?: string;
 }
 
 const AGE: { max: number; id: string; label: string; vars: Record<string, string> }[] = [
@@ -58,30 +61,45 @@ export function themeOf(g: GameState): Theme {
   const hj = HIDDEN_BY_ID[h.job];
   if (hj) {
     const a = hiddenArt(h.job, h.sex) ?? hiddenArt(h.job, h.sex === 'F' ? 'M' : 'F');
-    return { id: 'job', label: `${hj.icon} ${hj.name}`, vars: jobVars(hj.color, isSuperHidden(h.job)), art: a?.src, fx: hj.fx };
+    return { id: 'job', label: `${hj.icon} ${hj.name}`, vars: { ...jobVars(hj.color, isSuperHidden(h.job)), ...decoVars(h.job) }, art: a?.src, fx: hj.fx, job: h.job };
   }
   const a = age(g, h);
   const t = AGE.find((x) => a <= x.max)!;
   return { id: t.id, label: t.label, vars: t.vars };
 }
 
-const ALL_VARS = ['--bg', '--bg2', '--panel', '--panel2', '--ink', '--muted', '--line', '--gold'];
+const ALL_VARS = ['--bg', '--bg2', '--panel', '--panel2', '--ink', '--muted', '--line', '--gold', '--td-edge', '--td-edge-h', '--td-corner'];
 let last = '';
-/** #app 에 테마를 입힌다 (바뀔 때만) */
+/** 화면에 테마를 입힌다. 색은 문서 전체(:root)에, 배경 그림·실루엣·입자는 다시 그려지지 않는 고정 층(#theme-bg·#theme-fx)에 — 클릭할 때마다 애니메이션이 처음으로 튀지 않게 */
 export function applyTheme(root: HTMLElement, g: GameState | undefined, on: boolean): Theme | undefined {
   const t = g && on ? themeOf(g) : undefined;
-  const key = t ? `${t.id}:${t.label}` : '';
+  const key = t ? `${t.id}:${t.label}:${t.art ?? ''}` : '';
   root.dataset.theme = t?.id ?? '';
   root.dataset.themeFx = t?.fx ?? '';
+  root.dataset.themeJob = t?.job ?? '';
   if (key === last) return t;
   last = key;
-  for (const v of ALL_VARS) root.style.removeProperty(v);
-  if (t) for (const [k, v] of Object.entries(t.vars)) root.style.setProperty(k, v);
+  const doc = document.documentElement;
+  for (const v of ALL_VARS) doc.style.removeProperty(v);
+  if (t) for (const [k, v] of Object.entries(t.vars)) doc.style.setProperty(k, v);
+  layer('theme-bg', t ? bgHTML(t) : '', t ? `theme-bg ${t.id} ov-${t.job ? decoOver(t.job) : ''}` : 'theme-bg');
+  layer('theme-fx', t?.job ? ptcHTML(t.job) : '', `theme-fx ov-${t?.job ? decoOver(t.job) : ''}`);
   return t;
 }
 
-/** 화면 뒤에 깔리는 배경 (희귀 직업: 카드 그림 · 나이: 무늬) */
-export function themeBackdrop(t?: Theme): string {
-  if (!t || t.id === 'prime') return '';
-  return `<div class="theme-bg ${t.id}" aria-hidden="true">${t.art ? `<i class="tb-art" style="background-image:url('${t.art}')"></i>` : ''}<i class="tb-pat"></i></div>`;
+function layer(id: string, html: string, cls: string) {
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = id;
+    el.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(el);
+  }
+  el.className = cls;
+  el.innerHTML = html;
+}
+
+function bgHTML(t: Theme): string {
+  if (t.id === 'prime') return '';
+  return `${t.art ? `<i class="tb-art" style="background-image:url('${t.art}')"></i>` : ''}<i class="tb-pat"></i>${t.job ? `<div class="td-sil">${silHTML(t.job)}</div>` : ''}`;
 }

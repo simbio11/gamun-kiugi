@@ -52,7 +52,7 @@ import { willLine, willOf } from '../core/autonomy';
 import { buyPerk, HONORS, PERKS, perkCost, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
-import { applyTheme, themeBackdrop, type Theme as HeadTheme } from './theme';
+import { applyTheme, type Theme as HeadTheme } from './theme';
 import { hiddenCardHTML, hiddenArt, initHiddenVideos } from './hidden-card';
 import { KIN_NAME, kinGap, kinOf } from '../core/inlaws';
 import { photoURL } from '../render/photo';
@@ -440,7 +440,6 @@ function renderInner() {
 
   const body = { tree: treeScreen, act: actionsScreen, policy: policyScreen, assets: assetsScreen, log: logScreen, achv: achvScreen }[ui.tab](g);
   root.innerHTML = `
-    ${themeBackdrop(fx.theme)}
     ${header(g)}
     <main class="screen">${body}</main>
     ${g.gameOver && ui.overLog ? `<button class="next-year" data-action="over-back">🏁 가문 결과로 돌아가기</button>` : ''}
