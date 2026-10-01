@@ -3,7 +3,7 @@
 // 조건을 채웠는데 기회가 아직 안 왔으면, 가끔 연대기에 수수께끼 같은 힌트가 남는다.
 import { HIDDEN_BY_ID } from './hidden-data';
 import { gate, type EventDef } from './ev-util';
-import { addFlag, age, alive, clamp, fullName, isMainline, markOf, parentsOf, siblingsOf, spouseOf } from './people';
+import { addFlag, age, alive, clamp, fullName, hasTrait, isMainline, markOf, parentsOf, siblingsOf, spouseOf } from './people';
 import { chance, pick } from './rng';
 import type { GameState, Person } from './types';
 import { lowly, QUEST_EVENTS, questYear } from './hidden-quest';
@@ -33,6 +33,9 @@ const st = (p: Person) => p.actual;
 const job = (...ids: string[]) => (q: Person) => ids.includes(q.job);
 const was = (...fl: string[]) => (q: Person) => fl.some((f) => q.flags.includes(f));
 
+/** 코인을 들고 있나: 본인 명의, 또는 가주 부부라면 집안 지갑의 코인 */
+const myCoins = (s: GameState, p: Person) => s.assets.some((a) => a.kind === 'coin' && (a.ownerId === p.id || ((p.id === s.headId || s.people[s.headId]?.spouseId === p.id) && a.ownerId === s.headId)));
+
 const ROUTES: Route[] = [
   { id: 'hj_adventurer', years: [1970, 2200], when: (s, p) => A(s, p) >= 22 && A(s, p) <= 45 && st(p).str >= 62 && st(p).hp >= 60 && markOf(p, 'risk') >= 1, kin: was('saga_hidden'), p: 0.03, title: '🧭 낡은 지도',
     offer: '벼룩시장에서 산 고서 사이에서 손으로 그린 지도가 떨어졌다. 정글 한가운데 X 표시. 탐험대가 대원을 모집한다는 광고가 같은 날 신문에 났다.',
@@ -46,7 +49,7 @@ const ROUTES: Route[] = [
   { id: 'hj_cult', when: (s, p) => A(s, p) >= 28 && st(p).cha >= 60 && st(p).mor <= 48, kin: job('clergy'), p: 0.025, title: '🔮 추종자들',
     offer: '{n}의 말을 들으려고 사람들이 모인다. 작은 모임이 커져 "선생님"이라 부르는 이들이 백 명을 넘었다. 누군가 "우리만의 교회를 세우자"고 한다.',
     yes: '교단을 세운다', yesText: '산속 수련원에 금빛 의자가 놓였다. 헌금이 쏟아진다.', noText: '"나는 그런 사람이 아니다." 모임을 해산했다.', risk: 0.06, riskText: '탈퇴 신도들이 폭로 기자회견을 열었다.' },
-  { id: 'hj_memecoin', years: [2013, 2200], when: (s, p) => A(s, p) >= 20 && s.assets.some((a) => a.ownerId === p.id && a.kind === 'coin') && markOf(p, 'risk') >= 1, p: 0.04, title: '🐕 개 그림 코인',
+  { id: 'hj_memecoin', years: [2013, 2200], when: (s, p) => A(s, p) >= 20 && A(s, p) <= 60 && myCoins(s, p) && (markOf(p, 'risk') >= 1 || hasTrait(p, 'gambler')), p: 0.05, title: '🐕 개 그림 코인',
     offer: '장난삼아 산 강아지 밈코인이 하룻밤에 300배가 됐다. 커뮤니티에선 {n}을 "고래"라 부른다. 지금 팔까, 아니면 이 판의 주인공이 될까?',
     yes: '전업 코인 인플루언서가 된다', yesText: '람보르기니 사진을 올렸다. 팔로워가 백만. 인생이 밈이 됐다.', noText: '조용히 절반만 팔았다. 그래도 큰돈이다.', risk: 0.08, riskText: '코인이 99% 폭락했다. 러그풀이었다.' },
   { id: 'hj_gambler', when: (s, p) => A(s, p) >= 20 && st(p).cha >= 55 && (markOf(p, 'cheat') >= 2 || markOf(p, 'risk') >= 3 || p.flags.includes('gambler')), kin: job('hj_mafia'), p: 0.035, title: '🃏 화투판의 전설',
