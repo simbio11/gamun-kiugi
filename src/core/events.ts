@@ -14,6 +14,7 @@ import { dreamQuote, fitCats, interestBonus, interestLevel, temperamentLine, top
 import { buyPower } from './leverage';
 import { addAsset, formatMoney, jobLabel, jobTitle, pay, personWorth, statScore } from './economy';
 import { estateTax, giveGift } from './estate';
+import { hasLicense, hasAnyLicense, getLicenses, LICENSED_JOBS, calculateReturnLevel, grantLicense } from './licenses';
 import {
   addFlag,
   age,
@@ -467,6 +468,7 @@ const exam: EventDef = {
           clearPrep(x.p);
           setJob(x.p, e.job, e.level);
           addFlag(x.p, 'passed:' + id);
+          grantLicense(x.p, e.job);
           if (triesOf(x.p) >= 4) addFlag(x.p, 'long_prep');
           x.p.happiness = clamp(x.p.happiness + 12, 0, 100);
           const n = triesOf(x.p);
@@ -510,6 +512,29 @@ function jobChoice(c: Ctx, id: string): Choice | undefined {
   if (!e || id === 'none') return;
   if (!jobOpen(c.s.era, c.s.year, id)) return; // 아직 없는 직업 · 이미 사라진 직업
   const p = c.p;
+
+  // 면허 보유자인 경우: 학교 졸업 조건 불필요, 언제든 즉시 복직 또는 개원 가능!
+  if (hasLicense(p, id)) {
+    const meta = LICENSED_JOBS[id];
+    const canOpen = meta && p.cash >= meta.openCost;
+    return {
+      label: `${j.name} (${canOpen ? '개원 / ' : ''}면허 복직)`,
+      tag: 'study',
+      req: ['국가 전문직 면허 보유'],
+      run: (x) => {
+        if (canOpen && chance(x.s, 0.5)) {
+          pay(x.s, x.p, meta.openCost);
+          setJob(x.p, id, meta.openLevel);
+          return `🏥 ${fullName(x.p)}, 자금 ${formatMoney(meta.openCost)}을 들여 개인 ${meta.name.replace(' 면허증', '').replace(' 자격증', '')} 의원/사무소를 개원했다! (원장)`;
+        }
+        const retLvl = calculateReturnLevel(x.p, id, false);
+        setJob(x.p, id, retLvl);
+        const title = j.titles?.[retLvl] ?? '전문의';
+        return `🩺 ${fullName(x.p)}, ${meta?.name ?? '국가 면허'}를 인정받아 종합병원/기관에 ${title}(으)로 복귀했다!`;
+      },
+    };
+  }
+
   const a = age(c.s, p);
   const lacks = (e.needFlags && !e.needFlags.some((f) => hasFlag(p, f))) || (e.univ && !hasUniv(p)) || (e.maxAge !== undefined && a > e.maxAge);
   const extraReq = [...(e.needNote ? [e.needNote] : []), ...(e.univ ? ['대학 졸업'] : []), ...(e.maxAge ? [`${e.maxAge}세 이하`] : [])];
@@ -658,6 +683,13 @@ const firstJob: EventDef = {
     const p = c.p;
     const major = majorOf(p);
     const cats: [string, string, () => Choice[]][] = [];
+    if (hasAnyLicense(p)) {
+      cats.push([
+        'license',
+        '🩺 국가 전문직 면허 (즉시 복직/개원)',
+        () => getLicenses(p).map((id) => jobChoice(c, id)).filter((x): x is Choice => !!x),
+      ]);
+    }
     if (major && MAJOR_JOBS[major])
       cats.push([
         'rec',

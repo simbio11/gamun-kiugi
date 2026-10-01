@@ -43,6 +43,8 @@ import { warYear } from './war';
 import { medicalYear } from './medical-events';
 import { HIST_BASE, histPrice, histRel } from './histidx';
 import { autonomyYear } from './autonomy';
+import { grantLicense, hasAnyLicense, hasLicense, getLicenses, savePreviousLevel, calculateReturnLevel, LICENSED_JOBS } from './licenses';
+import { crimeYear } from './crimes';
 import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
 import { BOSS_STORIES, selfBoss } from './boss';
@@ -465,6 +467,7 @@ export function simulateYear(s: GameState): void {
   for (const m of superHiddenYear(s)) log(s, m, 'life');
   trackPeak(s);
   scandalYear(s);
+  for (const m of crimeYear(s)) log(s, m, 'life');
   woeYear(s);
   for (const m of eggYear(s)) log(s, m, 'money');
   eggForKids(s);
@@ -681,14 +684,28 @@ function retirementAndGraduation(s: GameState) {
     if (ra && a >= ra) {
       const sev = severance(s, p);
       if (p.job !== 'none' && p.job !== 'parttime') log(s, `${fullName(p)} ${JOBS[p.job].kind === 'salary' ? '정년퇴직' : '은퇴'}${sev ? ` (퇴직금 ${formatMoney(sev)})` : ''}`, 'life');
+      if (hasAnyLicense(p)) savePreviousLevel(p, p.job, p.jobLevel);
       retireHonor(s, p);
       settlePension(p, s);
       if (p.id === s.headId) queue(s, 'pension_timing', p.id), queue(s, 'second_life', p.id);
       p.job = 'pension';
       p.flags = p.flags.filter((f) => !f.startsWith('prep:') && !f.startsWith('tries:'));
     } else if ((JOBS[p.job].kind === 'creator' || JOBS[p.job].kind === 'business' || p.job === 'politician') && a >= 78) {
+      if (hasAnyLicense(p)) savePreviousLevel(p, p.job, p.jobLevel);
       settlePension(p, s);
       p.job = 'pension';
+    }
+
+    // 전문직 면허가 있는데 무직인 경우: 방계는 자동으로 복직, 메인라인은 행동 탭 및 기회 제공
+    if (p.job === 'none' && hasAnyLicense(p) && a < 70 && !hasFlag(p, 'student') && !hasFlag(p, 'in_prison')) {
+      const lics = getLicenses(p);
+      const targetJob = lics[0];
+      if (!isMainline(s, p) && chance(s, 0.9)) {
+        p.job = targetJob;
+        p.jobLevel = calculateReturnLevel(p, targetJob, false);
+        p.jobYears = 0;
+        log(s, `🩺 ${fullName(p)}, ${LICENSED_JOBS[targetJob]?.name ?? '국가 면허'}를 살려 병원/전문기관에 복직`, 'life');
+      }
     }
   }
 }
@@ -708,6 +725,7 @@ function graduate(s: GameState, p: Person, track?: string) {
   switch (track) {
     case 'med_school':
       setJob('doctor');
+      grantLicense(p, 'doctor');
       log(s, `🩺 ${fullName(p)} 의사 면허 취득`, 'life');
       return;
     case 'law_school':
@@ -821,6 +839,7 @@ function autoExam(s: GameState, p: Person, id: string) {
     p.job = e.job;
     p.jobLevel = e.level;
     p.jobYears = 0;
+    grantLicense(p, e.job);
     log(s, `${fullName(p)} ${e.name} 합격`, 'life');
   } else if (tries >= 2 || (e.maxTries && tries + 1 >= e.maxTries)) {
     clear();
@@ -1020,6 +1039,19 @@ function adultEvents(s: GameState) {
     if (single && !p.partnerId && !hasFlag(p, 'single_life') && !pending('blind_date') && !(lastBd !== undefined && s.year - lastBd < 2) && chance(s, dateChance(a, p.id === h.id) * (p.spouseId || hasFlag(p, 'divorced') ? 0.5 : 1))) {
       (s.storySeen ??= {})['bd:' + p.id] = s.year;
       queue(s, 'blind_date', p.id, { cand: makeDate(s, p) });
+    }
+
+    // 범죄 및 유혹 이벤트 (경범죄 → 스노우볼)
+    if (!hasFlag(p, 'in_prison')) {
+      if (hasLicense(p, 'doctor') && ['doctor', 'dentist'].includes(p.job) && a >= 32 && !hasFlag(p, 'crm:medical_crime') && !pending('crm_medical_step1') && chance(s, 0.04)) {
+        queue(s, 'crm_medical_step1', p.id);
+      } else if (['business', 'salary'].includes(JOBS[p.job]?.kind) && a >= 28 && !hasFlag(p, 'crm:tax_fraud') && !pending('crm_tax_step1') && chance(s, 0.03)) {
+        queue(s, 'crm_tax_step1', p.id);
+      } else if (a >= 25 && a <= 60 && !hasFlag(p, 'crm:insider_trade') && !pending('crm_insider_step1') && chance(s, 0.03)) {
+        queue(s, 'crm_insider_step1', p.id);
+      } else if (a >= 22 && a <= 60 && !hasFlag(p, 'crm:dui_pending') && !pending('crm_dui_step1') && chance(s, 0.03)) {
+        queue(s, 'crm_dui_step1', p.id);
+      }
     }
   }
   for (const p of Object.values(s.people)) {

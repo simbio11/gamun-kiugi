@@ -165,7 +165,15 @@ export const SUPER_ROUTES: SuperRoute[] = [
     id: 'hj_private_jet',
     name: '프라이빗 제트 전속 승무원',
     icon: '✈️',
-    ready: (s, p) => p.sex === 'F' && A(s, p) >= 20 && A(s, p) <= 32 && ST(p).cha >= 68 && ST(p).int >= 60,
+    ready: (s, p) =>
+      p.sex === 'F' &&
+      A(s, p) >= 20 &&
+      A(s, p) <= 32 &&
+      ST(p).cha >= 68 &&
+      ST(p).int >= 60 &&
+      !p.flags.includes('no_private_jet') &&
+      !p.flags.includes('refused:hj_private_jet') &&
+      !s.storySeen?.['refused:hj_private_jet:' + p.id],
     step1: {
       title: '🍸 VVIP 전담 면접',
       text: '전 세계 0.001% 부호만을 태우는 프라이빗 제트 선발 면접. 단 한 번의 눈빛과 매너로 고객의 취향을 읽어야 한다.',
@@ -174,6 +182,13 @@ export const SUPER_ROUTES: SuperRoute[] = [
       succText: '{n}의 완벽한 샴페인 서빙과 침묵의 미소에 면접관이 고개를 끄덕였다. 전용기 탑승 자격을 얻었다.',
       succMoney: 4000,
       failText: '기내 돌발 상황 대처에서 아쉬운 평가를 받았다.',
+      noLabel: '전속 승무원 제의를 정중히 사양한다',
+      onNo: (x) => {
+        addFlag(x.p, 'no_private_jet');
+        addFlag(x.p, 'refused:hj_private_jet');
+        (x.s.storySeen ??= {})['refused:hj_private_jet:' + x.p.id] = 1;
+        return '전속 승무원 제의를 정중히 사양했다. 다시는 제안이 오지 않을 것이다.';
+      },
     },
     step2: {
       title: '✈️ 대양 횡단 야간 비행',
@@ -375,7 +390,8 @@ export function superHiddenYear(s: GameState): string[] {
         continue;
       }
 
-      // 1단계 미션 체크 (희귀 선천 특성 보유 시 100% 즉시 발동, 일반 슈퍼히든 75%)
+      // 1단계 미션 체크 (이미 거절한 라우트는 제외, 희귀 선천 특성 보유 시 100% 즉시 발동, 일반 슈퍼히든 75%)
+      if (s.storySeen?.['refused:' + r.id + ':' + p.id] || p.flags.includes('refused:' + r.id)) continue;
       if (r.ready(s, p)) {
         const hasRare = p.traits?.some((t) => ['speed_demon', 'hypnotic_eye', 'dark_artist'].includes(t));
         if ((hasRare || chance(s, 0.75)) && !s.events.some((e) => e.defId === 'sh_step1' && e.personId === p.id)) {
@@ -418,6 +434,8 @@ const step1Event: EventDef = {
       {
         label: r.step1.noLabel ?? '거절하고 평범하게 산다',
         run: (x) => {
+          (x.s.storySeen ??= {})['refused:' + r.id + ':' + x.p.id] = 1;
+          addFlag(x.p, 'refused:' + r.id);
           if (r.step1.onNo) return r.step1.onNo(x);
           return `도전을 고사했다. ${fullName(x.p)}의 일상은 평화롭게 흘러간다.`;
         },

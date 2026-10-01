@@ -28,6 +28,7 @@ import { fitCats } from './interests';
 import { JOB_CATS } from './jobs';
 import { wageIndex } from './pay';
 import { appealBonus } from './marks';
+import { hasAnyLicense, hasLicense, getLicenses, LICENSED_JOBS, savePreviousLevel, calculateReturnLevel, getPreviousLevel } from './licenses';
 import { addBargains } from './realty';
 import { bindState, standing, standingChange } from './school';
 import { JOBS } from './data';
@@ -60,7 +61,7 @@ export function stageOf(s: GameState, p: Person): Stage {
   if (a < 14) return 'elem';
   if (p.flags.includes('student')) return 'univ';
   if (a < 20) return 'teen';
-  if (p.flags.some((f) => f === 'retaking' || f.startsWith('prep:')) || (p.job === 'none' && a < 32 && !p.spouseId)) return 'prep';
+  if (p.flags.some((f) => f === 'retaking' || f.startsWith('prep:')) || (p.job === 'none' && a < 32 && !p.spouseId && !hasAnyLicense(p))) return 'prep';
   if (a >= 65 || p.job === 'pension') return 'senior';
   return 'adult';
 }
@@ -417,19 +418,66 @@ export const ACTIONS: ActionDef[] = [
     cat: '진로·자기계발',
     icon: '🧭',
     name: '진로 다시 고민하기',
-    desc: '지금 일을 그만두고 새 길을 찾는다 (직급은 사라진다)',
+    desc: '지금 일을 그만두고 새 길을 찾는다 (전문직 면허는 보존된다)',
     ap: 1,
     targets: (s) => adultsOfLine(s).filter((p) => age(s, p) <= 60 && !p.flags.includes('student') && !p.flags.some((f) => f.startsWith('serving:'))),
     run: (s, t) => {
       const p = t!;
+      const wasJob = p.job;
+      const wasLevel = p.jobLevel;
       const was = JOBS[p.job].name;
       const sev = severance(s, p);
+      if (hasLicense(p, wasJob)) {
+        savePreviousLevel(p, wasJob, wasLevel);
+      }
       p.job = 'none';
       p.jobLevel = 0;
       p.jobYears = 0;
       p.flags = p.flags.filter((f) => !f.startsWith('prep:') && !f.startsWith('tries:'));
       queueEv(s, 'first_job', p.id, { second: true });
       return `${fullName(p)}, ${was} 생활을 정리했다.${sev ? ` 퇴직금 ${formatMoney(sev)}을 받았다.` : ''} 이제 뭘 해볼까?`;
+    },
+  },
+  {
+    id: 'licensed_return',
+    cat: '진로·자기계발',
+    icon: '🩺',
+    name: '전문직 복직 / 개원',
+    desc: '보유한 의사·전문직 면허증으로 병원/사무소에 즉시 복직하거나 개원한다 (면허 평생 보장)',
+    ap: 1,
+    targets: (s) =>
+      adultsOfLine(s).filter(
+        (p) =>
+          hasAnyLicense(p) &&
+          ['none', 'parttime'].includes(p.job) &&
+          !p.flags.includes('student') &&
+          !p.flags.some((f) => f.startsWith('serving:') || f === 'in_prison')
+      ),
+    run: (s, t) => {
+      const p = t!;
+      const lics = getLicenses(p);
+      const targetJobId = lics[0];
+      const meta = LICENSED_JOBS[targetJobId];
+      const prevLvl = getPreviousLevel(p, targetJobId);
+
+      // 개원 자금이 있고 과거 경력이 있거나(과장/전문의) 희망 시 개원
+      if (p.cash >= meta.openCost && (prevLvl >= 2 || chance(s, 0.4))) {
+        p.cash -= meta.openCost;
+        p.job = targetJobId;
+        p.jobLevel = meta.openLevel;
+        p.jobYears = 0;
+        s.fame += 2;
+        p.happiness = clamp(p.happiness + 15, 0, 100);
+        return `🏥 ${fullName(p)}, 자금 ${formatMoney(meta.openCost)}을 투자해 개인 ${meta.name.replace(' 면허증', '').replace(' 자격증', '')} 의원/사무소를 개원했다! (원장 취임)`;
+      } else {
+        const retLevel = calculateReturnLevel(p, targetJobId, false);
+        p.job = targetJobId;
+        p.jobLevel = retLevel;
+        p.jobYears = 0;
+        p.happiness = clamp(p.happiness + 10, 0, 100);
+        const titleName = JOBS[targetJobId].titles?.[retLevel] ?? '전문의';
+        return `🩺 ${fullName(p)}, ${meta.name}을 통해 종합병원/기관에 ${titleName}(으)로 즉시 복직했다! (경력 직급 인정)`;
+      }
     },
   },
   {
