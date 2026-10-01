@@ -22,6 +22,8 @@ export interface Choice {
   disabled?: boolean;
   cost?: number;
   tag?: CareerTag;
+  /** 능력치 판정 선택지의 성공 확률 (0~1) — 선택지 옆에 작게 보여 준다 */
+  odds?: number;
   run: (c: Ctx) => string | { text: string; keep: true };
 }
 

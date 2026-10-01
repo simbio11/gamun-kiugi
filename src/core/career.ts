@@ -3,7 +3,7 @@
 
 import { chance, int, normal, pick } from './rng';
 import { gate, type Choice, type Ctx, type EventDef } from './ev-util';
-import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, isMainline, markOf } from './people';
+import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, isMainline, markOf, checkOdds } from './people';
 import { formatMoney } from './economy';
 import { wageIndex } from './pay';
 import { awardHonor, grant } from './rewards';
@@ -103,9 +103,9 @@ const ACADEMIA: { id: string; title: string; text: (c: Ctx) => string; ok: (s: G
     title: '지도교수의 갑질',
     ok: (_s, p) => p.flags.includes('track:grad_school'),
     text: (c) => `지도교수가 ${who(c)}에게 주말마다 개인 이삿짐을 나르게 한다. 졸업 논문 도장은 교수 손에 있다.`,
-    choices: () => [
+    choices: (c) => [
       { label: '참는다', run: (x) => (hap(x.p, -8), addPapers(x.p, 1), '이를 악물었다. 대신 공저 논문 한 편에 이름이 올라갔다.') },
-      { label: '대학 인권센터에 신고한다', run: (x) => (check(x.s, x.p.actual.mor, 50, 10) ? ((x.p.actual.mor = clamp(x.p.actual.mor + 3, 0, 100)), '조사 끝에 지도교수가 바뀌었다. 연구실 동료들이 박수를 쳤다.') : (addPapers(x.p, -1), hap(x.p, -10), '"증거가 부족합니다." 연구실 분위기가 싸늘해졌다.')) },
+      { label: '대학 인권센터에 신고한다', odds: checkOdds(c.p.actual.mor, 50, 10), run: (x) => (check(x.s, x.p.actual.mor, 50, 10) ? ((x.p.actual.mor = clamp(x.p.actual.mor + 3, 0, 100)), '조사 끝에 지도교수가 바뀌었다. 연구실 동료들이 박수를 쳤다.') : (addPapers(x.p, -1), hap(x.p, -10), '"증거가 부족합니다." 연구실 분위기가 싸늘해졌다.')) },
       { label: '연구실을 옮긴다', run: (x) => (hap(x.p, 4), '1년을 손해 봤지만 좋은 교수를 만났다.') },
     ],
   },
@@ -114,8 +114,8 @@ const ACADEMIA: { id: string; title: string; text: (c: Ctx) => string; ok: (s: G
     title: '톱 저널 투고',
     ok: (_s, p) => p.flags.includes('track:grad_school') || ['professor', 'researcher'].includes(p.job),
     text: (c) => `${who(c)}의 연구 결과가 심상치 않다. 세계적 학술지에 투고해 볼까?`,
-    choices: () => [
-      { label: '네이처·사이언스에 도전', run: (x) => (check(x.s, x.p.actual.int, 75, 8) ? (addPapers(x.p, 5), (x.s.fame += 4), grant(x.s, '📰', `톱 저널 게재: ${fullName(x.p)}`, '세계 최고 학술지에 논문이 실렸다. 해외 학회 초청이 쏟아진다.', 'epic'), '🎉 게재 확정! 인용이 폭발한다. (논문 +5)') : (hap(x.p, -5), '리젝. 심사위원 3번이 끝까지 반대했다.')) },
+    choices: (c) => [
+      { label: '네이처·사이언스에 도전', odds: checkOdds(c.p.actual.int, 75, 8), run: (x) => (check(x.s, x.p.actual.int, 75, 8) ? (addPapers(x.p, 5), (x.s.fame += 4), grant(x.s, '📰', `톱 저널 게재: ${fullName(x.p)}`, '세계 최고 학술지에 논문이 실렸다. 해외 학회 초청이 쏟아진다.', 'epic'), '🎉 게재 확정! 인용이 폭발한다. (논문 +5)') : (hap(x.p, -5), '리젝. 심사위원 3번이 끝까지 반대했다.')) },
       { label: '안전하게 국내 학술지에', run: (x) => (addPapers(x.p, 1), '무난히 게재됐다. (논문 +1)') },
     ],
   },
@@ -146,8 +146,8 @@ const ACADEMIA: { id: string; title: string; text: (c: Ctx) => string; ok: (s: G
     title: '스타 강의',
     ok: (_s, p) => p.job === 'professor',
     text: (c) => `${who(c)} 교수의 교양 강의가 입소문을 탔다. 방송국에서 강연 프로그램 섭외가 왔다.`,
-    choices: () => [
-      { label: '방송에 나간다', run: (x) => (check(x.s, x.p.actual.cha, 55, 10) ? ((x.s.fame += 6), (x.p.cash += 2000), '"국민 교수님"이 됐다. 책도 베스트셀러에 올랐다.') : ((x.s.fame += 1), '어려운 말만 하다 편집됐다.')) },
+    choices: (c) => [
+      { label: '방송에 나간다', odds: checkOdds(c.p.actual.cha, 55, 10), run: (x) => (check(x.s, x.p.actual.cha, 55, 10) ? ((x.s.fame += 6), (x.p.cash += 2000), '"국민 교수님"이 됐다. 책도 베스트셀러에 올랐다.') : ((x.s.fame += 1), '어려운 말만 하다 편집됐다.')) },
       { label: '연구에 집중한다', run: (x) => (addPapers(x.p, 1), '"교수는 논문으로 말한다."') },
     ],
   },
@@ -156,8 +156,8 @@ const ACADEMIA: { id: string; title: string; text: (c: Ctx) => string; ok: (s: G
     title: '표절 의혹',
     ok: (_s, p) => p.job === 'professor' && (p.papers ?? 0) >= 10,
     text: (c) => `언론이 ${who(c)} 교수의 15년 전 논문에 표절 의혹을 제기했다. 연구진실성위원회가 열린다.`,
-    choices: () => [
-      { label: '당당히 해명한다', run: (x) => (check(x.s, x.p.actual.mor, 55, 10) ? ((x.s.fame += 2), '"인용 표기 누락일 뿐" 판정. 오히려 신뢰가 쌓였다.') : (addPapers(x.p, -3), (x.s.fame = Math.max(0, x.s.fame - 8)), '일부 표절로 결론. 논문 3편이 철회됐다.')) },
+    choices: (c) => [
+      { label: '당당히 해명한다', odds: checkOdds(c.p.actual.mor, 55, 10), run: (x) => (check(x.s, x.p.actual.mor, 55, 10) ? ((x.s.fame += 2), '"인용 표기 누락일 뿐" 판정. 오히려 신뢰가 쌓였다.') : (addPapers(x.p, -3), (x.s.fame = Math.max(0, x.s.fame - 8)), '일부 표절로 결론. 논문 3편이 철회됐다.')) },
       { label: '대형 로펌을 선임한다', cost: 2000, run: (x) => (chance(x.s, 0.7) ? '"문제없음"으로 끝났다.' : (addPapers(x.p, -2), (x.s.fame = Math.max(0, x.s.fame - 5)), '로펌도 막지 못했다.')) },
     ],
   },
@@ -196,7 +196,7 @@ const POLITICS: { id: string; title: string; text: (c: Ctx) => string; ok: (s: G
     title: '기업인의 "후원"',
     ok: () => true,
     text: (c) => `지역 건설사 회장이 ${who(c)} ${c.p.job === 'president' ? '대통령' : '의원'}을 조용히 만나자고 한다. 쇼핑백 안에 현금이 가득하다. "다음 선거 때 쓰시라고…"`,
-    choices: () => [
+    choices: (c) => [
       { label: '받는다 (비자금 +5억)', run: (x) => {
         const pl = polOf(x.p);
         pl.slush += 50000;
@@ -206,7 +206,7 @@ const POLITICS: { id: string; title: string; text: (c: Ctx) => string; ok: (s: G
         return '금고가 두둑해졌다. 선거 조직을 돌릴 돈이다. …이 돈에는 꼬리표가 붙어 있다.';
       } },
       { label: '정중히 돌려보낸다', run: (x) => ((x.p.actual.mor = clamp(x.p.actual.mor + 3, 0, 100)), (polOf(x.p).approval += 2), '"마음만 받겠습니다." 소문이 나서 청렴 이미지가 생겼다.') },
-      { label: '돌려보내고 공개한다', run: (x) => (check(x.s, x.p.actual.cha, 45, 10) ? ((polOf(x.p).approval += 8), (x.s.fame += 4), '"뇌물을 거절한 정치인" 뉴스가 났다. 지지율이 뛰었다.') : ((polOf(x.p).approval -= 3), '"정치 쇼"라는 비난을 받았다.')) },
+      { label: '돌려보내고 공개한다', odds: checkOdds(c.p.actual.cha, 45, 10), run: (x) => (check(x.s, x.p.actual.cha, 45, 10) ? ((polOf(x.p).approval += 8), (x.s.fame += 4), '"뇌물을 거절한 정치인" 뉴스가 났다. 지지율이 뛰었다.') : ((polOf(x.p).approval -= 3), '"정치 쇼"라는 비난을 받았다.')) },
     ],
   },
   {
@@ -229,8 +229,8 @@ const POLITICS: { id: string; title: string; text: (c: Ctx) => string; ok: (s: G
     title: '지역구 예산 전쟁',
     ok: (_s, p) => p.job === 'politician',
     text: (c) => `예산 시즌. ${who(c)} 의원의 지역구에 KTX역·국립병원 유치가 걸려 있다. 쪽지 예산 경쟁이 치열하다.`,
-    choices: () => [
-      { label: '밤샘 협상 (매력 판정)', run: (x) => (check(x.s, x.p.actual.cha, 55, 10) ? ((polOf(x.p).approval += 12), (x.s.fame += 3), '예산 1,200억 확보! 지역구에 현수막 30개가 걸렸다.') : ((polOf(x.p).approval -= 4), '다른 지역에 밀렸다. "힘없는 의원" 소리를 들었다.')) },
+    choices: (c) => [
+      { label: '밤샘 협상 (매력 판정)', odds: checkOdds(c.p.actual.cha, 55, 10), run: (x) => (check(x.s, x.p.actual.cha, 55, 10) ? ((polOf(x.p).approval += 12), (x.s.fame += 3), '예산 1,200억 확보! 지역구에 현수막 30개가 걸렸다.') : ((polOf(x.p).approval -= 4), '다른 지역에 밀렸다. "힘없는 의원" 소리를 들었다.')) },
       { label: '정치자금으로 지역 행사를 챙긴다', run: (x) => {
         const pl = polOf(x.p);
         if (pl.fund < 3000) return '돈이 없다. 행사장에 빈손으로 갔다.';
@@ -245,8 +245,8 @@ const POLITICS: { id: string; title: string; text: (c: Ctx) => string; ok: (s: G
     title: '막말 논란',
     ok: () => true,
     text: (c) => `${who(c)}의 술자리 발언이 녹음돼 퍼졌다. 포털 실검 1위, 댓글 3만 개.`,
-    choices: () => [
-      { label: '즉시 사과한다', run: (x) => (check(x.s, x.p.actual.mor, 45, 10) ? ((polOf(x.p).approval -= 3), '진정성 있는 사과로 불길을 잡았다.') : ((polOf(x.p).approval -= 10), '"사과문도 남이 써 줬냐"는 조롱이 이어졌다.')) },
+    choices: (c) => [
+      { label: '즉시 사과한다', odds: checkOdds(c.p.actual.mor, 45, 10), run: (x) => (check(x.s, x.p.actual.mor, 45, 10) ? ((polOf(x.p).approval -= 3), '진정성 있는 사과로 불길을 잡았다.') : ((polOf(x.p).approval -= 10), '"사과문도 남이 써 줬냐"는 조롱이 이어졌다.')) },
       { label: '"악의적 편집"이라 맞선다', run: (x) => (chance(x.s, 0.3) ? ((polOf(x.p).approval += 4), '정말 앞뒤를 자른 편집이었다. 역풍이 언론사로 갔다.') : ((polOf(x.p).approval -= 15), (x.s.fame = Math.max(0, x.s.fame - 5)), '원본 파일이 공개됐다. 최악이다.')) },
     ],
   },
@@ -255,8 +255,8 @@ const POLITICS: { id: string; title: string; text: (c: Ctx) => string; ok: (s: G
     title: '국정감사 스타',
     ok: (_s, p) => p.job === 'politician',
     text: (c) => `국정감사 시즌. ${who(c)} 의원 보좌진이 대기업 비리 자료를 입수했다.`,
-    choices: () => [
-      { label: '생중계로 터뜨린다', run: (x) => (check(x.s, x.p.actual.int, 55, 10) ? ((polOf(x.p).approval += 10), (x.s.fame += 5), '"국감 스타" 탄생! 하루 만에 유튜브 조회수 300만.') : ((polOf(x.p).approval -= 5), '자료에 오류가 있었다. 역으로 공격받았다.')) },
+    choices: (c) => [
+      { label: '생중계로 터뜨린다', odds: checkOdds(c.p.actual.int, 55, 10), run: (x) => (check(x.s, x.p.actual.int, 55, 10) ? ((polOf(x.p).approval += 10), (x.s.fame += 5), '"국감 스타" 탄생! 하루 만에 유튜브 조회수 300만.') : ((polOf(x.p).approval -= 5), '자료에 오류가 있었다. 역으로 공격받았다.')) },
       { label: '기업과 조용히 "협의"한다', run: (x) => ((polOf(x.p).slush += 20000), (polOf(x.p).heat += 20), '질의가 흐지부지 끝났다. 후원금 계좌에 2억이 들어왔다.') },
     ],
   },

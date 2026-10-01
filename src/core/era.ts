@@ -6,7 +6,7 @@ import { addAsset, addHolding, formatMoney } from './economy';
 import { chance, int, next } from './rng';
 import { gate, schedule, type Choice, type Ctx, type EventDef } from './ev-util';
 import { unlock } from './achievements';
-import { addFlag, age, alive, check, clamp, fullName, head, householder, isMainline } from './people';
+import { addFlag, age, alive, check, clamp, fullName, head, householder, isMainline, checkOdds } from './people';
 import { buyPower } from './leverage';
 import type { GameState, MarketKey } from './types';
 
@@ -81,7 +81,7 @@ const ERAS: Era[] = [
       choices(c, [
         dip(c, 0.3),
         { label: '현금을 쥐고 버틴다', run: (x) => ((x.p.actual.mor = clamp(x.p.actual.mor + 1, 0, 100)), '비상금을 챙기고 허리띠를 졸랐다. 폭풍이 지나가길 기다린다.') },
-        { label: '마스크·방역 사업에 뛰어든다', cost: 2000, run: (x) => (check(x.s, x.p.actual.int, 50, 12) ? ((householder(x.s).cash += 9000), (x.s.fame += 1), '공장 라인을 잡았다! 1년 만에 9천만 원을 벌었다.') : ((householder(x.s).cash += 600), '뒤늦게 뛰어들었다. 재고만 쌓였다.')) },
+        { label: '마스크·방역 사업에 뛰어든다', cost: 2000, odds: checkOdds(c.p.actual.int, 50, 12), run: (x) => (check(x.s, x.p.actual.int, 50, 12) ? ((householder(x.s).cash += 9000), (x.s.fame += 1), '공장 라인을 잡았다! 1년 만에 9천만 원을 벌었다.') : ((householder(x.s).cash += 600), '뒤늦게 뛰어들었다. 재고만 쌓였다.')) },
         { label: '이웃에게 식료품을 나눈다', cost: 300, run: (x) => ((x.s.fame += 3), (x.p.actual.mor = clamp(x.p.actual.mor + 3, 0, 100)), '홀몸 어르신 댁에 매주 장을 봐 드렸다. 동네가 기억한다.') },
       ]),
   },
@@ -305,7 +305,7 @@ const ERAS: Era[] = [
           for (const p of allMain(x.s)) p.happiness = clamp(p.happiness + 12, 0, 100);
           return chance(x.s, 0.3) ? '4강 신화 재현! 3대가 부둥켜안고 울었다. 평생의 추억.' : '8강에서 졌지만 목이 쉬도록 응원했다. 평생의 추억.';
         } },
-        { label: '경기장 근처에서 장사를 한다', cost: 800, run: (x) => (check(x.s, x.p.actual.cha, 45, 12) ? ((householder(x.s).cash += 3500), '치킨·맥주 노점이 대박! 한 달에 3,500만 원.') : ((householder(x.s).cash += 400), '경쟁이 치열했다. 본전치기.')) },
+        { label: '경기장 근처에서 장사를 한다', cost: 800, odds: checkOdds(c.p.actual.cha, 45, 12), run: (x) => (check(x.s, x.p.actual.cha, 45, 12) ? ((householder(x.s).cash += 3500), '치킨·맥주 노점이 대박! 한 달에 3,500만 원.') : ((householder(x.s).cash += 400), '경쟁이 치열했다. 본전치기.')) },
         { label: '자원봉사를 신청한다', run: (x) => {
           for (const p of allMain(x.s)) if (age(x.s, p) >= 16 && age(x.s, p) <= 30) (p.actual.cha = clamp(p.actual.cha + 2, 0, 100)), (p.happiness = clamp(p.happiness + 6, 0, 100));
           return '젊은 가족들이 통역·안내 봉사를 했다. 외국 친구가 생겼다.';

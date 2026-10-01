@@ -403,6 +403,7 @@ const step1Event: EventDef = {
     return gate(c.s, [
       {
         label: r.step1.yesLabel ?? `도전한다 (자격 확인)`,
+        odds: r.step1.check(c.p) ? r.step1.rate : 0,
         run: (x) => {
           const ok = r.step1.check(x.p) && chance(x.s, r.step1.rate);
           if (ok) {
@@ -439,6 +440,7 @@ const step2Event: EventDef = {
     return gate(c.s, [
       {
         label: r.step2.yesLabel ?? `한 단계 더 나아간다 (2단계 돌파)`,
+        odds: r.step2.check(c.p) ? r.step2.rate : 0,
         run: (x) => {
           const ok = r.step2.check(x.p) && chance(x.s, r.step2.rate);
           if (ok) {
@@ -476,6 +478,7 @@ const step3Event: EventDef = {
     return gate(c.s, [
       {
         label: r.step3.yesLabel ?? `모든 것을 걸고 정점에 선다 (최종 전직)`,
+        odds: r.step3.check(c.p) ? r.step3.rate : 0,
         run: (x) => {
           const ok = r.step3.check(x.p) && chance(x.s, r.step3.rate);
           if (ok) {

@@ -7,7 +7,7 @@ import { addAsset, addHolding, formatMoney } from './economy';
 import { chance, int, next, normal, pick } from './rng';
 import { gate, schedule, type Choice, type Ctx, type EventDef } from './ev-util';
 import { unlock } from './achievements';
-import { addFlag, age, alive, check, clamp, fullName, head, householder, isMainline, mark, randomName, spouseOf } from './people';
+import { addFlag, age, alive, check, clamp, fullName, head, householder, isMainline, mark, randomName, spouseOf, checkOdds } from './people';
 import { JOBS } from './data';
 import { diffMod, grant } from './rewards';
 import type { ActionDef } from './actions';
@@ -189,7 +189,7 @@ const RIVAL_RANDOM: RivalDef[] = [
     text: (c) => `동창회에 ${boss(c.s)}이(가) 외제차를 타고 나타났다. "요즘 뭐 하고 지내? 우리 애는 이번에 의대 붙었어."\n모두의 눈이 ${n(c)}에게 쏠린다.`,
     choices: (c) =>
       choices(c, [
-        { label: '우리 집 자랑으로 맞받아친다', run: (x) => (check(x.s, x.p.actual.cha, 50, 10) ? (feud(x.s, 8), (x.s.fame += 1), '말발로 판을 뒤집었다. 동창들이 박수를 쳤다. 저쪽 얼굴이 벌게졌다.') : (feud(x.s, 5), (x.p.happiness = clamp(x.p.happiness - 5, 0, 100)), '자랑하다 말이 꼬였다. 집에 오는 길이 길었다.')) },
+        { label: '우리 집 자랑으로 맞받아친다', odds: checkOdds(c.p.actual.cha, 50, 10), run: (x) => (check(x.s, x.p.actual.cha, 50, 10) ? (feud(x.s, 8), (x.s.fame += 1), '말발로 판을 뒤집었다. 동창들이 박수를 쳤다. 저쪽 얼굴이 벌게졌다.') : (feud(x.s, 5), (x.p.happiness = clamp(x.p.happiness - 5, 0, 100)), '자랑하다 말이 꼬였다. 집에 오는 길이 길었다.')) },
         { label: '한턱 쏜다 (200만)', cost: 200, run: (x) => (feud(x.s, 4), (x.s.fame += 1.5), '"오늘은 내가 산다!" 2차까지 계산했다. 동창 단톡방에 이름이 오르내린다.') },
         { label: '웃고 넘긴다', run: (x) => ((x.p.happiness = clamp(x.p.happiness + 2, 0, 100)), feud(x.s, -5), '"잘됐네, 축하해." 진심인지는 본인만 안다.') },
       ]),
@@ -246,9 +246,9 @@ const RIVAL_RANDOM: RivalDef[] = [
     },
     choices: (c) =>
       choices(c, [
-        { label: '1:1 과외를 붙인다 (600만)', cost: 600, run: (x) => (check(x.s, x.p.actual.int, 55, 12) ? ((x.p.study = clamp((x.p.study ?? 40) + 8, 0, 100)), (x.p.actual.int = clamp(x.p.actual.int + 2, 0, 100)), feud(x.s, 5), `기말고사 전교 1등! ${x.ev.data.k}은(는) 2등이었다.`) : ((x.p.happiness = clamp(x.p.happiness - 6, 0, 100)), `이번에도 2등. ${x.ev.data.k}이(가) 웃으며 지나갔다.`)) },
+        { label: '1:1 과외를 붙인다 (600만)', cost: 600, odds: checkOdds(c.p.actual.int, 55, 12), run: (x) => (check(x.s, x.p.actual.int, 55, 12) ? ((x.p.study = clamp((x.p.study ?? 40) + 8, 0, 100)), (x.p.actual.int = clamp(x.p.actual.int + 2, 0, 100)), feud(x.s, 5), `기말고사 전교 1등! ${x.ev.data.k}은(는) 2등이었다.`) : ((x.p.happiness = clamp(x.p.happiness - 6, 0, 100)), `이번에도 2등. ${x.ev.data.k}이(가) 웃으며 지나갔다.`)) },
         { label: '"걔랑 비교하지 마"', run: (x) => ((x.p.happiness = clamp(x.p.happiness + 6, 0, 100)), (x.p.affinity = clamp(x.p.affinity + 4, -100, 100)), `${n(x)}의 어깨가 가벼워졌다. 공부가 오히려 즐거워졌다.`) },
-        { label: '친구가 되어 보라고 한다', run: (x) => (check(x.s, x.p.actual.cha, 40, 10) ? (feud(x.s, -12), (x.p.actual.cha = clamp(x.p.actual.cha + 2, 0, 100)), `둘이 스터디 짝꿍이 됐다. 같이 1, 2등을 나눠 가진다.`) : `"걔는 재수 없어." 설득에 실패했다.`) },
+        { label: '친구가 되어 보라고 한다', odds: checkOdds(c.p.actual.cha, 40, 10), run: (x) => (check(x.s, x.p.actual.cha, 40, 10) ? (feud(x.s, -12), (x.p.actual.cha = clamp(x.p.actual.cha + 2, 0, 100)), `둘이 스터디 짝꿍이 됐다. 같이 1, 2등을 나눠 가진다.`) : `"걔는 재수 없어." 설득에 실패했다.`) },
       ]),
   },
   {
@@ -276,8 +276,8 @@ const RIVAL_RANDOM: RivalDef[] = [
     choices: (c) =>
       choices(c, [
         { label: '대형 로펌을 쓴다 (1,500만)', cost: 1500, run: (x) => (chance(x.s, 0.65) ? ((householder(x.s).cash += 4000), feud(x.s, 15), '완승! 소송비용에 손해배상까지 받아냈다.') : (feud(x.s, 10), '패소. 담장을 1.5m 옮겼다. 분하다.')) },
-        { label: '직접 증거를 모은다', run: (x) => (check(x.s, x.p.actual.int, 55, 12) ? (feud(x.s, 8), (x.p.actual.int = clamp(x.p.actual.int + 1, 0, 100)), '1970년대 지적도를 찾아냈다! 소송이 취하됐다.') : ((householder(x.s).cash -= 1500), feud(x.s, 6), '증거가 부족했다. 합의금으로 1,500만 원을 물었다.')) },
-        { label: '막걸리 들고 찾아간다', run: (x) => (check(x.s, x.p.actual.cha, 50, 12) ? (feud(x.s, -25), '"어릴 땐 같이 멱 감던 사이 아니오." 소송이 취하됐다. 담장은 그대로.') : (feud(x.s, 5), '문전박대. 막걸리는 둘이 마셨다… 우리 부부가.')) },
+        { label: '직접 증거를 모은다', odds: checkOdds(c.p.actual.int, 55, 12), run: (x) => (check(x.s, x.p.actual.int, 55, 12) ? (feud(x.s, 8), (x.p.actual.int = clamp(x.p.actual.int + 1, 0, 100)), '1970년대 지적도를 찾아냈다! 소송이 취하됐다.') : ((householder(x.s).cash -= 1500), feud(x.s, 6), '증거가 부족했다. 합의금으로 1,500만 원을 물었다.')) },
+        { label: '막걸리 들고 찾아간다', odds: checkOdds(c.p.actual.cha, 50, 12), run: (x) => (check(x.s, x.p.actual.cha, 50, 12) ? (feud(x.s, -25), '"어릴 땐 같이 멱 감던 사이 아니오." 소송이 취하됐다. 담장은 그대로.') : (feud(x.s, 5), '문전박대. 막걸리는 둘이 마셨다… 우리 부부가.')) },
       ]),
   },
   {
@@ -290,10 +290,10 @@ const RIVAL_RANDOM: RivalDef[] = [
     },
     choices: (c) =>
       choices(c, [
-        { label: '실력으로 보여준다', run: (x) => (check(x.s, x.p.actual.int, 55, 12) ? ((x.p.jobLevel += 1), feud(x.s, 6), '분기 실적 1위. 팀장을 건너뛰고 본부장이 직접 승진시켰다!') : ((x.p.happiness = clamp(x.p.happiness - 8, 0, 100)), '밤을 새웠지만 이번엔 밀렸다.')) },
-        { label: '인사팀에 부당함을 알린다', run: (x) => (check(x.s, x.p.actual.mor, 45, 12) ? (feud(x.s, 10), '감사 결과 팀장이 교체됐다. 사내에서 조용히 영웅이 됐다.') : ((x.p.happiness = clamp(x.p.happiness - 10, 0, 100)), '"개인 감정 아니에요?" 오히려 찍혔다.')) },
+        { label: '실력으로 보여준다', odds: checkOdds(c.p.actual.int, 55, 12), run: (x) => (check(x.s, x.p.actual.int, 55, 12) ? ((x.p.jobLevel += 1), feud(x.s, 6), '분기 실적 1위. 팀장을 건너뛰고 본부장이 직접 승진시켰다!') : ((x.p.happiness = clamp(x.p.happiness - 8, 0, 100)), '밤을 새웠지만 이번엔 밀렸다.')) },
+        { label: '인사팀에 부당함을 알린다', odds: checkOdds(c.p.actual.mor, 45, 12), run: (x) => (check(x.s, x.p.actual.mor, 45, 12) ? (feud(x.s, 10), '감사 결과 팀장이 교체됐다. 사내에서 조용히 영웅이 됐다.') : ((x.p.happiness = clamp(x.p.happiness - 10, 0, 100)), '"개인 감정 아니에요?" 오히려 찍혔다.')) },
         { label: '이직을 알아본다', run: (x) => ((x.p.happiness = clamp(x.p.happiness + 2, 0, 100)), `이력서를 업데이트했다. 올해 '이직' 행동이 눈에 들어온다.`) },
-        { label: '술 한잔하며 푼다', run: (x) => (check(x.s, x.p.actual.cha, 50, 10) ? (feud(x.s, -15), (x.p.actual.cha = clamp(x.p.actual.cha + 1, 0, 100)), '"집안 일이랑 회사 일은 별개죠." 형님 동생 사이가 됐다.') : '어색한 침묵만 흘렀다.') },
+        { label: '술 한잔하며 푼다', odds: checkOdds(c.p.actual.cha, 50, 10), run: (x) => (check(x.s, x.p.actual.cha, 50, 10) ? (feud(x.s, -15), (x.p.actual.cha = clamp(x.p.actual.cha + 1, 0, 100)), '"집안 일이랑 회사 일은 별개죠." 형님 동생 사이가 됐다.') : '어색한 침묵만 흘렀다.') },
       ]),
   },
   {
@@ -340,8 +340,8 @@ const RIVAL_RANDOM: RivalDef[] = [
     text: (c) => `아파트 입주자대표 회장 선거. 상대 후보가 ${boss(c.s)}이다. 관리비 비리 의혹, 재건축 추진이 쟁점이다.`,
     choices: (c) =>
       choices(c, [
-        { label: '재건축 추진을 공약한다', run: (x) => (check(x.s, x.p.actual.cha, 55, 12) ? ((x.s.fame += 3), feud(x.s, 10), addFlag(x.p, 'apt_rep'), '당선! 단지 현수막에 이름이 걸렸다.') : (feud(x.s, 6), (x.p.happiness = clamp(x.p.happiness - 6, 0, 100)), '17표 차이 낙선. 엘리베이터에서 마주치기 싫다.')) },
-        { label: '관리비 비리를 파헤친다', run: (x) => (check(x.s, x.p.actual.int, 55, 12) ? ((x.s.fame += 4), (x.p.actual.mor = clamp(x.p.actual.mor + 2, 0, 100)), feud(x.s, 15), '회계 장부에서 3천만 원 횡령을 찾아냈다. 압도적 당선!') : ((x.s.fame -= 1), '근거 없는 폭로라며 역풍을 맞았다.')) },
+        { label: '재건축 추진을 공약한다', odds: checkOdds(c.p.actual.cha, 55, 12), run: (x) => (check(x.s, x.p.actual.cha, 55, 12) ? ((x.s.fame += 3), feud(x.s, 10), addFlag(x.p, 'apt_rep'), '당선! 단지 현수막에 이름이 걸렸다.') : (feud(x.s, 6), (x.p.happiness = clamp(x.p.happiness - 6, 0, 100)), '17표 차이 낙선. 엘리베이터에서 마주치기 싫다.')) },
+        { label: '관리비 비리를 파헤친다', odds: checkOdds(c.p.actual.int, 55, 12), run: (x) => (check(x.s, x.p.actual.int, 55, 12) ? ((x.s.fame += 4), (x.p.actual.mor = clamp(x.p.actual.mor + 2, 0, 100)), feud(x.s, 15), '회계 장부에서 3천만 원 횡령을 찾아냈다. 압도적 당선!') : ((x.s.fame -= 1), '근거 없는 폭로라며 역풍을 맞았다.')) },
         { label: '출마를 양보한다', run: (x) => (feud(x.s, -12), `${boss(x.s)}이(가) 당선됐다. 떡을 돌리러 우리 집에도 왔다.`) },
       ]),
   },
@@ -366,7 +366,7 @@ const RIVAL_RANDOM: RivalDef[] = [
     text: (c) => `${boss(c.s)}이(가) "성공한 가문의 비결" 다큐멘터리에 나왔다. 동네 식당마다 그 방송이 틀어져 있다.`,
     choices: (c) =>
       choices(c, [
-        { label: '우리도 방송국에 연락한다', run: (x) => (check(x.s, x.p.actual.cha, 55, 12) ? ((x.s.fame += 4), feud(x.s, 6), '"대를 이은 가문" 편에 출연 확정! 시청률이 저쪽보다 높았다.') : ((x.p.happiness = clamp(x.p.happiness - 4, 0, 100)), '"아직 저희 기획과는 안 맞네요." 거절당했다.')) },
+        { label: '우리도 방송국에 연락한다', odds: checkOdds(c.p.actual.cha, 55, 12), run: (x) => (check(x.s, x.p.actual.cha, 55, 12) ? ((x.s.fame += 4), feud(x.s, 6), '"대를 이은 가문" 편에 출연 확정! 시청률이 저쪽보다 높았다.') : ((x.p.happiness = clamp(x.p.happiness - 4, 0, 100)), '"아직 저희 기획과는 안 맞네요." 거절당했다.')) },
         { label: '장학금을 만든다 (2,000만)', cost: 2000, run: (x) => ((x.s.fame += 3), (x.p.actual.mor = clamp(x.p.actual.mor + 2, 0, 100)), '가문 이름을 건 장학금. 지역 신문 1면에 났다.') },
         { label: 'TV를 끈다', run: (x) => ((x.p.happiness = clamp(x.p.happiness + 1, 0, 100)), '남의 집 방송 보며 속 끓일 필요 없다.') },
       ]),
@@ -402,7 +402,7 @@ const RIVAL_RANDOM: RivalDef[] = [
       choices(c, [
         { label: '두 가문 합동 잔치를 연다 (500만)', cost: 500, run: (x) => ((x.s.fame += 2), (x.p.happiness = clamp(x.p.happiness + 8, 0, 100)), feud(x.s, -10), '동네 사람 200명이 모였다. 두 집안 어른들이 함께 건배했다.') },
         { label: '답례품을 보낸다', cost: 100, run: (x) => (feud(x.s, -5), '정성껏 답례했다. 오가는 정이 쌓인다.') },
-        { label: '공동 사업을 제안한다', run: (x) => (check(x.s, x.p.actual.int, 50, 12) ? ((householder(x.s).cash += 5000), feud(x.s, -8), '두 집안이 합작한 카페 체인이 대박! 배당금 5천만 원.') : ((householder(x.s).cash -= 1500), '사업은 접었지만 우정은 남았다. 손실 1,500만 원.')) },
+        { label: '공동 사업을 제안한다', odds: checkOdds(c.p.actual.int, 50, 12), run: (x) => (check(x.s, x.p.actual.int, 50, 12) ? ((householder(x.s).cash += 5000), feud(x.s, -8), '두 집안이 합작한 카페 체인이 대박! 배당금 5천만 원.') : ((householder(x.s).cash -= 1500), '사업은 접었지만 우정은 남았다. 손실 1,500만 원.')) },
       ]),
   },
 ];

@@ -364,6 +364,8 @@ export function addFlag(p: Person, f: string) {
 export const hasFlag = (p: Person, f: string) => p.flags.includes(f);
 
 /** 능력치 판정: 성공확률 = 시그모이드((스탯-기준)/폭) */
+/** check()가 성공할 확률 */
+export const checkOdds = (stat: number, threshold: number, width = 8, bonus = 0) => Math.min(1, Math.max(0, 1 / (1 + Math.exp(-(stat - threshold) / width)) + bonus));
 export function check(r: RngHolder, stat: number, threshold: number, width = 8, bonus = 0): boolean {
   const p = 1 / (1 + Math.exp(-(stat - threshold) / width)) + bonus;
   return next(r) < p;

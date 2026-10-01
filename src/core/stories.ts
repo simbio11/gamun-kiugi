@@ -15,7 +15,7 @@ import { POLITICS_STORIES, homeCity, pledgeOf } from './stories-politics';
 import { wageIndex } from './pay';
 import { chance, int } from './rng';
 import { eul, eun, gate, iga, schedule, type Choice, type Ctx } from './ev-util';
-import { addFlag, addHalfSibling, age, alive, check, clamp, fullName, hasFlag, hasTrait, householder, mark, markOf, parentsOf, spouseOf } from './people';
+import { addFlag, addHalfSibling, age, alive, check, checkOdds, clamp, fullName, hasFlag, hasTrait, householder, mark, markOf, parentsOf, spouseOf } from './people';
 import type { GameState, Person, StatKey } from './types';
 import type { LifeDef } from './life';
 import { MORE_STORIES } from './stories-more';
@@ -175,11 +175,12 @@ function apply(x: Ctx, e: Eff | undefined) {
   if (e.later && chance(x.s, e.later[0])) schedule(x.s, int(x.s, e.later[1], e.later[2]), e.later[3], p.id);
 }
 
-function toChoice(sc: SC): Choice {
+function toChoice(sc: SC, p?: Person): Choice {
   return {
     label: sc.label,
     cost: sc.cost,
     req: sc.req,
+    odds: sc.roll && p ? (sc.roll[0] === 'luck' ? sc.roll[1] / 100 : checkOdds(p.actual[sc.roll[0]], sc.roll[1], 8)) : undefined,
     run: (x) => {
       apply(x, sc.eff);
       if (sc.mark) for (const [k, n] of Object.entries(sc.mark)) mark(x.p, k, n);
@@ -226,7 +227,7 @@ function toLife(st: Story): LifeDef {
       (c.s.storySeen ??= {})[c.p.id + ':' + st.id] = c.s.year;
       return gate(
         c.s,
-        st.choices.filter((sc) => !sc.need || sc.need(c.s, c.p)).map(toChoice),
+        st.choices.filter((sc) => !sc.need || sc.need(c.s, c.p)).map((sc) => toChoice(sc, c.p)),
       );
     },
   };

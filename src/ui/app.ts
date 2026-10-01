@@ -1314,7 +1314,7 @@ function eventModal(g: GameState): string {
           .map(
             (c, i) => `<button class="choice" style="animation-delay:${140 + i * 55}ms" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
               <span class="cl">${esc(c.label)}</span>
-              ${c.cost || c.req?.length ? `<span class="badges">${c.cost ? `<b class="cost">💰${formatMoney(c.cost)}</b>` : ''}${c.disabled && c.cost && c.cost > wallet(g).amount ? '<b class="why">돈 부족</b>' : ''}${(c.req ?? []).map((r) => `<b>${esc(r)}</b>`).join('')}</span>` : ''}
+              ${c.cost || c.req?.length || c.odds !== undefined ? `<span class="badges">${oddsBadge(c.odds)}${c.cost ? `<b class="cost">💰${formatMoney(c.cost)}</b>` : ''}${c.disabled && c.cost && c.cost > wallet(g).amount ? '<b class="why">돈 부족</b>' : ''}${(c.req ?? []).map((r) => `<b>${esc(r)}</b>`).join('')}</span>` : ''}
             </button>`,
           )
           .join('')}
@@ -1349,7 +1349,7 @@ function commModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent
     .map(
       (c, i) => `<button class="choice" style="animation-delay:${500 + i * 70}ms" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
         <span class="cl">${esc(c.label)}</span>
-        ${c.cost || c.req?.length ? `<span class="badges">${c.cost ? `<b class="cost">💰${formatMoney(c.cost)}</b>` : ''}${c.disabled && c.cost && c.cost > wallet(g).amount ? '<b class="why">돈 부족</b>' : ''}${(c.req ?? []).map((r) => `<b>${esc(r)}</b>`).join('')}</span>` : ''}
+        ${c.cost || c.req?.length || c.odds !== undefined ? `<span class="badges">${oddsBadge(c.odds)}${c.cost ? `<b class="cost">💰${formatMoney(c.cost)}</b>` : ''}${c.disabled && c.cost && c.cost > wallet(g).amount ? '<b class="why">돈 부족</b>' : ''}${(c.req ?? []).map((r) => `<b>${esc(r)}</b>`).join('')}</span>` : ''}
       </button>`,
     )
     .join('');
@@ -2175,6 +2175,13 @@ function careerLadder(g: GameState, p: Person): string {
   const next = p.jobLevel < j.maxLevel ? ts[p.jobLevel + 1] : undefined;
   const tip = next ? `이 자리 ${yrs}년째 · 다음 ${w.verb} 「${esc(next)}」 ${yrs >= need ? '가능 (능력·성실·실적이 높을수록 잘 된다)' : `까지 최소 ${need - yrs}년 더`}` : `${w.icon} 이 길의 꼭대기에 올랐다`;
   return `<div class="sh-row rk-row"><span>${w.noun}</span><span><span class="rk-ladder">${chips}</span><small class="muted">${tip}</small></span></div>`;
+}
+
+/** 능력치 판정 선택지의 성공 확률 뱃지 */
+function oddsBadge(o?: number): string {
+  if (o === undefined) return '';
+  const pct = Math.max(1, Math.min(99, Math.round(o * 100)));
+  return `<b class="odds ${pct >= 65 ? 'hi' : pct >= 35 ? 'mid' : 'lo'}" title="성공 확률">🎲 ${pct}%</b>`;
 }
 
 /** 앨범 사진 한 장 (폴라로이드) */
