@@ -95,8 +95,70 @@ const SUMMIT_BANNER_MAP: Record<string, string> = {
   summit_national_singer: 'audition',
   summit_bigtech: 'start_pitch',
   summit_hedge_fund: 'stock_battle',
-  summit_astronaut: 'space_founder',
 };
+
+const ALBUM_ASSETS = import.meta.glob<string>('../assets/albums/*.webp', { eager: true, import: 'default' });
+
+export function albumAssetURL(key: string): string | undefined {
+  const match = Object.entries(ALBUM_ASSETS).find(([p]) => p.endsWith(`/${key}.webp`));
+  return match ? match[1] : undefined;
+}
+
+const KIND_TO_ALBUM: Record<string, string> = {
+  dol: 'album_first_birthday',
+  wedding: 'album_wedding',
+  grad: 'album_grad',
+  hwangap: 'album_sixty',
+  family: 'album_family',
+  clan: 'album_family',
+  newborn: 'album_first_birthday',
+};
+
+const SCENE_ASSETS = import.meta.glob<string>('../assets/scenes/*.webp', { eager: true, import: 'default' });
+
+export function customSceneURL(key: string): string | undefined {
+  const match = Object.entries(SCENE_ASSETS).find(([p]) => p.endsWith(`/${key}.webp`));
+  return match ? match[1] : undefined;
+}
+
+export function pickCustomScene(defId: string, title: string, text: string, year: number): string | undefined {
+  const t = title + ' ' + text + ' ' + defId;
+
+  // 1. 근현대사 역사 이벤트
+  if (/올림픽|굴렁쇠|1988/i.test(t) || (year === 1988 && /체육|올림픽/i.test(t))) return customSceneURL('hist_1988_olympic');
+  if (/IMF|외환위기|금모으기|1997/i.test(t) || (year === 1997 && /위기|구제금융/i.test(t))) return customSceneURL('hist_1997_imf');
+  if (/닷컴|벤처|IT\s?붐|PC방|스타크래프트|1999/i.test(t) || (year === 1999 && /벤처|인터넷/i.test(t))) return customSceneURL('hist_1999_dotcom');
+  if (/금융위기|서브프라임|리먼|폭락장|2008/i.test(t) || (year === 2008 && /위기|공황|폭락/i.test(t))) return customSceneURL('hist_2008_crisis');
+
+  // 2. 로맨스 & 결혼 여정
+  if (/상견례|사돈/i.test(t)) return customSceneURL('romance_inlaws');
+  if (/신혼여행|발리|하와이|허니문/i.test(t)) return customSceneURL('romance_honeymoon');
+  if (/소개팅|맞선|첫\s?데이트|비\s?오는\s?날.*카페/i.test(t)) return customSceneURL('romance_dating');
+
+  // 3. 인생 & 서민 낭만 여가
+  if (/밤낚시|좌대|저수지|찌/i.test(t)) return customSceneURL('leisure_night_fishing');
+  if (/캠핑|모닥불|텐트|불멍|은하수/i.test(t)) return customSceneURL('leisure_camping');
+  if (/재즈|위스키|바텐더|혼술/i.test(t)) return customSceneURL('leisure_jazz_bar');
+  if (/방과\s?후|교실|노을.*학교|하교/i.test(t)) return customSceneURL('life_classroom');
+  if (/포장마차|소주\s?한잔|어묵/i.test(t)) return customSceneURL('life_pojangmacha');
+  if (/선반|밀링|용접|철공소|가공/i.test(t)) return customSceneURL('life_factory');
+
+  // 4. 가문 위기 & 스캔들
+  if (/포토라인|검찰\s?출석|기자회견|플래시/i.test(t)) return customSceneURL('crisis_photoline');
+  if (/교도소|구치소|접견|면회|수감/i.test(t)) return customSceneURL('crisis_prison');
+
+  // 5. 최고급 자산 & 랜드마크
+  if (/슈퍼카|차고|페라리|포르쉐|롤스로이스/i.test(t)) return customSceneURL('asset_supercar_garage');
+  if (/요트\s?클럽|마리나|요트\s?선착장/i.test(t)) return customSceneURL('asset_yacht_marina');
+  if (/빌딩|테헤란로|랜드마크|사옥/i.test(t)) return customSceneURL('asset_gangnam_building');
+  if (/별장|인피니티풀|휴양지/i.test(t)) return customSceneURL('asset_resort_villa');
+
+  // 6. 학업 & 히든 작업실
+  if (/고시|독서실|사법시험|신림동/i.test(t)) return customSceneURL('life_gosi_room');
+  if (/위조|모작|명화\s?위조|이젤/i.test(t)) return customSceneURL('hj_forger_room');
+
+  return undefined;
+}
 import { CAPTION, newsPhotoKey, newsPhotoURL, realPhoto } from '../render/newsphoto';
 import { NEWS_CREDITS } from '../render/news-credits';
 import { hiddenCardHTML, hiddenArt, initHiddenVideos } from './hidden-card';
@@ -1363,13 +1425,18 @@ function eventModal(g: GameState): string {
   const sk = sceneFor(cur.title, cur.text);
   const summitBannerKey = SUMMIT_BANNER_MAP[cur.def.id];
   const summitBannerSrc = summitBannerKey ? eventBannerURL(summitBannerKey) : undefined;
+  const customScene = pickCustomScene(cur.def.id, cur.title, cur.text, g.year);
   return `
   <div class="modal">
     <div class="event${summitBannerSrc ? ' with-banner' : ''}">
       ${summitBannerSrc ? `<div class="ev-banner-top"><img src="${summitBannerSrc}" alt=""></div>` : ''}
       <div class="ev-count">${g.year}년 · 남은 이벤트 ${g.events.length}</div>
       <h3>${esc(cur.title)}</h3>
-      ${!summitBannerSrc ? `<div class="ev-scene anim2"><img class="scene-img" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2))}" alt=""><img class="scene-img blink" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2), true)}" alt="">${ports ? `<div class="ev-ports on-scene">${ports}</div>` : ''}</div>` : ''}
+      ${!summitBannerSrc ? (
+        customScene
+          ? `<div class="ev-scene anim2 custom-pixel-scene"><img class="scene-img" src="${customScene}" alt="">${ports ? `<div class="ev-ports on-scene">${ports}</div>` : ''}</div>`
+          : `<div class="ev-scene anim2"><img class="scene-img" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2))}" alt=""><img class="scene-img blink" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2), true)}" alt="">${ports ? `<div class="ev-ports on-scene">${ports}</div>` : ''}</div>`
+      ) : ''}
       <p class="ev-text">${nl(cur.text)}</p>
       ${cur.choices.some((c) => c.cost) ? `<div class="ev-wallet">${wallet(g).label} <b>${formatMoney(wallet(g).amount)}</b></div>` : ''}
       <div class="choices">
@@ -2362,7 +2429,10 @@ function bigModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>
 function photoHTML(g: GameState, id: number, big = false): string {
   const ph = (g.photos ?? []).find((x) => x.id === id);
   if (!ph) return '';
-  return `<figure class="album-photo${big ? ' big' : ''}" data-action="view-photo" data-id="${ph.id}"><img src="${photoURL(g, ph)}" alt=""><figcaption>${esc(ph.title)}<small>${ph.year}년 · ${PHOTO_NAME[ph.kind]}</small></figcaption></figure>`;
+  const assetKey = KIND_TO_ALBUM[ph.kind];
+  const customSrc = assetKey ? albumAssetURL(assetKey) : undefined;
+  const src = customSrc ?? photoURL(g, ph);
+  return `<figure class="album-photo${big ? ' big' : ''}" data-action="view-photo" data-id="${ph.id}"><img src="${src}" alt=""><figcaption>${esc(ph.title)}<small>${ph.year}년 · ${PHOTO_NAME[ph.kind]}</small></figcaption></figure>`;
 }
 
 function logScreen(g: GameState): string {
