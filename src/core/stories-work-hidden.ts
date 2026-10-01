@@ -2,6 +2,7 @@
 // 밤 세계·범죄 직업은 분위기와 선택의 무게만 그린다 (방법은 그리지 않는다).
 import type { Story } from './stories';
 import { buildWork, type WS } from './stories-work3';
+import { L2 } from './stories-work-hidden2';
 
 const L: WS[] = [
   // ── 히든 25 ──
@@ -158,4 +159,4 @@ const L: WS[] = [
   ['hj_space_analyst', '우주쓰레기 청소 위성 발사', '궤도상의 파편을 레이저로 떨어뜨리는 첫 실증 위성.', '시험 데이터를 면밀히 분석한다', '프로젝트가 순항했다.', { int: 3 }, '신형 랑데부 궤적을 직접 설계해 도킹 성공', 'int', 76, { fame: 6, int: 4, cash: 6000 }, '지구 궤도 청소의 선구자로 네이처 표지를 장식했다!', { cash: -2000 }, '실험 위성 센서가 오작동했다.'],
 ];
 
-export const HIDDEN_WORK_STORIES: Story[] = buildWork(L, 'h');
+export const HIDDEN_WORK_STORIES: Story[] = buildWork([...L, ...L2], 'h');

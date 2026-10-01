@@ -1068,7 +1068,7 @@ describe('부모님 유산', () => {
     h.job = 'hj_magician';
     h.jobYears = 1;
     const hid = ACTIONS.filter((a) => a.id.startsWith('ja_hj_magician_') && a.show!(s));
-    expect(hid.filter((a) => a.cat === '내 직업').length).toBe(4); // 둘 + 입문 전용 + 숨 고르기
+    expect(hid.filter((a) => a.cat === '내 직업').length).toBe(5); // 둘 + 사람 쪽 하나(job-acts-hidden2) + 입문 전용 + 숨 고르기
     expect(hid.some((a) => a.name.includes('🌱'))).toBe(true);
     h.jobYears = 5;
     expect(ACTIONS.some((a) => a.id.startsWith('ja_hj_magician_') && a.show!(s) && a.name.includes('🎖'))).toBe(true); // 3년 넘으면 고참 전용

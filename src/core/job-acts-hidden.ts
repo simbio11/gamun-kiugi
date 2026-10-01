@@ -4,6 +4,7 @@
 // [아이콘, 이름, 설명, 능력치, 종류, '대박|보람|제자리|역효과', 구간] — 구간: lo 입문 3년 안 · hi 3년 넘은 고참 · opp 올해의 기회
 import { HIDDEN } from './hidden-data';
 import type { JA } from './job-acts';
+import { HX2 } from './job-acts-hidden2';
 
 export const HX: Record<string, JA[]> = {
   // ── 히든 25 ──
@@ -332,6 +333,7 @@ export function hiddenActs(): Record<string, JA[]> {
     ];
     out[h.id] = [
       ...own,
+      ...(HX2[h.id] ?? []),
       ['🕯', '숨 고르기', '몸을 추스르고 흔적을 정리한다', 'hp', 'rest', '푹 쉬었다. 몸도 마음도 새것 같다.|한숨 돌렸다.|쉬어도 쉰 것 같지 않다.|불안해서 잠을 설쳤다.'],
     ];
   }

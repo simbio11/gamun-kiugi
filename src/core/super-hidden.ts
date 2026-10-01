@@ -217,6 +217,9 @@ export const SUPER_ROUTES: SuperRoute[] = [
     icon: '🂡',
     ready: (s, p) => {
       if (p.sex !== 'M' || A(s, p) < 20 || A(s, p) > 65) return false;
+      // 아무 남자에게나 오던 권유 → 승부 기질이 있는 사람에게만 (한탕 성향·노름 버릇·타짜·가문 내 노름꾼)
+      const knack = markOf(p, 'risk') >= 2 || markOf(p, 'cheat') >= 1 || p.flags.includes('gambler') || p.traits?.includes('gambler') || p.job === 'hj_gambler';
+      if (!knack || !chance(s, 0.12)) return false;
       const last = s.storySeen?.['casino_refused:' + p.id];
       if (last != null && s.year - Number(last) < 10) return false;
       return true;
