@@ -911,7 +911,7 @@ describe('부모님 유산', () => {
         s.year = base;
         if (!ok) {
           // 근현대사·미래 사건이 붙이는 플래그 (history.ts 파독·중동·월남·5·18, histpack 금 모으기, timeline.ts 뉴럴·달·화성)
-          const flags = ['president', 'was_minister', 'was_politician', 'nobel', 'olympic_gold', 'mideast', 'germany', 'vietnam', 'arrested80', 'gold_ring', 'neural', 'moon_worker', 'mars_settler', 'asteroid_rich', 'starship_crew', 'signal_answer', 'space_trip', 'war_hero', 'war_medic', 'war_veteran', 'rebuilder', 'uploaded', 'orbital_home', 'jf_victim', 'witness']; // 모두 이벤트에서 실제로 붙는 플래그 (대선·청문회·총선·노벨상·올림픽)
+          const flags = ['president', 'was_minister', 'was_politician', 'nobel', 'olympic_gold', 'mideast', 'germany', 'vietnam', 'arrested80', 'gold_ring', 'neural', 'moon_worker', 'mars_settler', 'asteroid_rich', 'starship_crew', 'signal_answer', 'space_trip', 'war_hero', 'war_medic', 'war_veteran', 'rebuilder', 'uploaded', 'orbital_home', 'jf_victim', 'witness', 'god_medicine', 'god_acupuncture']; // 모두 이벤트에서 실제로 붙는 플래그 (대선·청문회·총선·노벨상·올림픽)
           for (const f of flags) {
             h.flags.push(f);
             if (d.auto(s, h)) ok = true;
@@ -1421,5 +1421,32 @@ describe('부모님 유산', () => {
     expect(h.job).toBe('hj_chess_master');
     expect(h.flags).toContain('hidden:hj_chess_master');
     expect(isSuperHidden('hj_chess_master')).toBe(true);
+  });
+});
+
+describe('국빈급 환자 (의술의 신 · 침술의 신)', () => {
+  it('의사·한의사가 극비 진료에 성공하면 칭호 카드를 얻고, 약손 재능이 확률을 올린다', async () => {
+    const { cureOdds } = await import('../src/core/vip-cure');
+    for (const [job, lv, card] of [['doctor', 3, 'god_medicine'], ['kmd', 2, 'god_acupuncture']] as const) {
+      const s = newGame({ seed: 61, familyName: '허', sex: 'M' });
+      const h = head(s);
+      s.year += 40;
+      h.job = job;
+      h.jobLevel = lv;
+      for (const k of ['int', 'mor', 'cha'] as const) h.actual[k] = 95;
+      const base = cureOdds(h, false);
+      h.talents = [...h.talents.filter((t) => t.id !== 'healer'), { id: 'healer', discovered: true }];
+      expect(cureOdds(h, false)).toBeGreaterThan(base);
+      let tries = 0;
+      while (!h.flags.includes(card) && tries++ < 40) {
+        s.events = [{ uid: s.eventSeq++, defId: 'vip_cure', personId: h.id, data: { who: '방한 중인 미국 대통령' } }];
+        const cur = currentEvent(s)!;
+        expect(cur.choices[0].odds).toBeGreaterThan(0);
+        resolveChoice(s, 0);
+      }
+      expect(h.flags).toContain(card);
+      cardYear(s);
+      expect(s.cards?.some((c) => c.id === card)).toBe(true);
+    }
   });
 });

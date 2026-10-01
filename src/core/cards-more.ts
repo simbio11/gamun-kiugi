@@ -3,7 +3,7 @@ import { HIDDEN, isSuperHidden, isUltraHidden } from './hidden-data';
 // 모두 게임 안의 직업에서 출발해 "정점 이벤트"로 얻는다. 선행 카드가 필요한 것, 2단계 도전인 것도 있다.
 import type { CardDef, Summit } from './cards';
 import type { GameState, Person, StatKey } from './types';
-import { age, fullName } from './people';
+import { age, fullName, hasFlag } from './people';
 
 const ST = (p: Person, k: StatKey, v: number) => p.actual[k] >= v;
 const has = (s: GameState, p: Person, id: string) => (s.cards ?? []).some((c) => c.id === id && c.personId === p.id);
@@ -18,6 +18,9 @@ const setJob = (job: string, lv: number) => (_s: GameState, p: Person) => {
 export const MORE_CARDS: CardDef[] = [
   // 히든 직업 카드: 그 직업이 되면 얻는다 (뒷면 공략법 포함)
   ...HIDDEN.map((h): CardDef => ({ id: h.id, name: `히든: ${h.name}`, icon: h.icon, rarity: isSuperHidden(h.id) || isUltraHidden(h.id) ? 'legend' : 'epic', hidden: true, how: h.strategy || `??? ${h.hint}`, eff: h.eff, auto: (_s, p) => p.job === h.id })),
+  // 명의의 칭호: 국빈급 환자를 살려 냈을 때 (vip-cure.ts)
+  { id: 'god_medicine', name: '의술의 신', icon: '⚕️', rarity: 'legend', how: '전문의 이상의 의사에게 드물게 오는 극비 진료(미국 대통령·국왕 등)에서 환자를 살려 낸다 · 지능·성품·직급·[약손]·[수재]·의료 적성이 확률을 높인다', eff: { fame: 4, hp: 2, kid: 'int' }, auto: (_s, p) => hasFlag(p, 'god_medicine') },
+  { id: 'god_acupuncture', name: '침술의 신', icon: '🪡', rarity: 'legend', how: '한의사에게 드물게 오는 극비 왕진(국빈·세계적 인물)에서 침으로 살려 낸다 · 지능·성품·직급·[약손]·의료 적성이 확률을 높인다', eff: { fame: 4, hp: 3, kid: 'mor' }, auto: (_s, p) => hasFlag(p, 'god_acupuncture') },
   // 정·관계·공공
   { id: 'chief_of_staff', name: '합참의장·참모총장', icon: '🎖', rarity: 'legend', how: '「별을 단 장군」 카드 → 참모총장 임명 (2단계)', eff: { fame: 4, kid: 'str' }, honor: 'taeguk' },
   { id: 'police_chief', name: '경찰청장', icon: '🚓', rarity: 'epic', how: '총경까지 오른 경찰관 → 청장 내정', eff: { fame: 2, heat: 3 }, honor: 'hongjo' },
