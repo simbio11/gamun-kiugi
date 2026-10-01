@@ -1928,10 +1928,8 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
   object-fit: cover;
   image-rendering: pixelated;
 }
-.album-photo img {
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-}
+/* 상견례 사진: 사건 창 안에서 사진 한 장처럼 (앨범 사진 틀 그대로, 살짝 기울여) */
+.album-photo.meet-photo { transform: rotate(-1deg); cursor: default; }
 
 /* ═══════════════ 디자인 v2 (DESIGN.md · 등잔불 족보) ═══════════════
    색은 모두 :root 토큰과 color-mix 로만 만든다. 새 hex 금지. */
@@ -2043,6 +2041,7 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 @keyframes tab-pop { from { transform: translateY(0); } }
 .tabs.slide::before { animation: tab-bar .4s var(--ease) both; }
 
+<<<<<<< Updated upstream
 /* ── 화면 전환: 살짝 밀리며 스며드는 크로스페이드 ── */
 .screen.enter-r { animation: screen-r .34s var(--ease) both; }
 .screen.enter-l { animation: screen-l .34s var(--ease) both; }
@@ -2055,6 +2054,21 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 .screen > .card:nth-of-type(2) { animation-delay: .05s; }
 .screen > .card:nth-of-type(3) { animation-delay: .1s; }
 .screen > .card:nth-of-type(n+4) { animation-delay: .14s; }
+=======
+/* ── 화면 전환: 도트 셔터가 쓸고 지나간다 ── */
+/* backwards: 다 끝나면 clip-path·transform 을 남기지 않는다 (남으면 Safari에서 필터 걸린 그림이 까맣게 나오고, 창의 fixed 위치가 틀어진다) */
+.screen.enter-r { animation: shutter-r .32s steps(8) backwards; }
+.screen.enter-l { animation: shutter-l .32s steps(8) backwards; }
+.screen.enter { animation: shutter-up .3s steps(6) backwards; }
+@keyframes shutter-r { from { clip-path: inset(0 0 0 100%); transform: translateX(12px); } to { clip-path: inset(0 0 0 0); transform: none; } }
+@keyframes shutter-l { from { clip-path: inset(0 100% 0 0); transform: translateX(-12px); } to { clip-path: inset(0 0 0 0); transform: none; } }
+@keyframes shutter-up { from { clip-path: inset(100% 0 0 0); opacity: .4; } to { clip-path: inset(0); opacity: 1; } }
+/* 카드들이 차례로 한 박자씩 */
+.screen.enter-r > .card, .screen.enter-l > .card, .screen.enter > .card { animation: card-in .36s var(--out) backwards; }
+.screen > .card:nth-of-type(2) { animation-delay: .04s; }
+.screen > .card:nth-of-type(3) { animation-delay: .08s; }
+.screen > .card:nth-of-type(n+4) { animation-delay: .12s; }
+>>>>>>> Stashed changes
 @keyframes card-in { from { transform: translateY(10px); opacity: 0; } }
 
 /* ── 창: 도트 디더 막 + 계단식으로 솟는 시트 ── */
@@ -2135,14 +2149,6 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 /* 타이틀에서 옵션을 고를 땐 등장 연출을 다시 틀지 않는다 */
 .title.still > .card, .title.still > .btn { animation: none; }
 
-/* ── 배경 그림은 한 걸음 뒤로: 살짝 흐리고 어둡게 눌러 글자·카드가 앞에 서게 ── */
-#theme-bg { inset: -12px; filter: blur(2.5px) brightness(.62) saturate(.7); }
-#theme-bg::after { content: ''; position: absolute; inset: 0; pointer-events: none;
-  background:
-    radial-gradient(ellipse 90% 70% at 50% 40%, transparent 40%, color-mix(in srgb, var(--bg) 70%, transparent) 100%),
-    color-mix(in srgb, var(--bg) 28%, transparent); }
-/* 앞을 날아다니는 테마 입자도 조금 잦아들게 */
-#theme-fx { opacity: .55; }
 
 /* ── 움직임 줄이기 ── */
 #app.calm .next-year, #app.calm .title::before, #app.calm .title::after,

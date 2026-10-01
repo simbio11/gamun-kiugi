@@ -72,11 +72,15 @@ const BIG_BANNER_MAP: Record<string, string> = {
   stocks: 'stock_battle',
   baduk: 'chess',
   debate: 'election',
-  flight: 'hospital',
-  fishing: 'yacht',
-  marathon: 'golf',
-  everest: 'yacht',
-  fire: 'hospital',
+};
+/** 맞는 배너 그림이 없는 대형 이벤트는 엉뚱한 그림(수술실·요트·골프장) 대신 도트 장면을 그린다 */
+const BIG_SCENE_MAP: Record<string, SceneKey> = {
+  fire: 'fire',
+  flight: 'travel',
+  fishing: 'fish',
+  marathon: 'sport',
+  everest: 'snow',
+  propose: 'love',
 };
 
 const SUMMIT_BANNER_MAP: Record<string, string> = {
@@ -97,23 +101,6 @@ const SUMMIT_BANNER_MAP: Record<string, string> = {
   summit_hedge_fund: 'stock_battle',
 };
 
-const ALBUM_ASSETS = import.meta.glob<string>('../assets/albums/*.webp', { eager: true, import: 'default' });
-
-export function albumAssetURL(key: string): string | undefined {
-  const match = Object.entries(ALBUM_ASSETS).find(([p]) => p.endsWith(`/${key}.webp`));
-  return match ? match[1] : undefined;
-}
-
-const KIND_TO_ALBUM: Record<string, string> = {
-  dol: 'album_first_birthday',
-  wedding: 'album_wedding',
-  grad: 'album_grad',
-  hwangap: 'album_sixty',
-  family: 'album_family',
-  clan: 'album_family',
-  newborn: 'album_first_birthday',
-};
-
 const SCENE_ASSETS = import.meta.glob<string>('../assets/scenes/*.webp', { eager: true, import: 'default' });
 
 export function customSceneURL(key: string): string | undefined {
@@ -123,39 +110,40 @@ export function customSceneURL(key: string): string | undefined {
 
 export function pickCustomScene(defId: string, title: string, text: string, year: number): string | undefined {
   const t = title + ' ' + text + ' ' + defId;
+  // 낱말은 그 그림에만 맞는 것으로 좁힌다 (예: '찌'는 어찌·찌개에도, '면회'는 군대·병원 면회에도, '1988'은 1988년생에도,
+  //   '맞선'은 "맞선다"에도, '텐트'는 스텐트(협심증)에도 걸린다)
 
-  // 1. 근현대사 역사 이벤트
-  if (/올림픽|굴렁쇠|1988/i.test(t) || (year === 1988 && /체육|올림픽/i.test(t))) return customSceneURL('hist_1988_olympic');
-  if (/IMF|외환위기|금모으기|1997/i.test(t) || (year === 1997 && /위기|구제금융/i.test(t))) return customSceneURL('hist_1997_imf');
-  if (/닷컴|벤처|IT\s?붐|PC방|스타크래프트|1999/i.test(t) || (year === 1999 && /벤처|인터넷/i.test(t))) return customSceneURL('hist_1999_dotcom');
-  if (/금융위기|서브프라임|리먼|폭락장|2008/i.test(t) || (year === 2008 && /위기|공황|폭락/i.test(t))) return customSceneURL('hist_2008_crisis');
+  // 1. 근현대사 역사 이벤트 (연도 숫자만으로는 고르지 않는다)
+  if (/굴렁쇠|서울\s?올림픽/.test(t) || (year === 1988 && /올림픽/.test(t))) return customSceneURL('hist_1988_olympic');
+  if (/IMF|외환위기|금\s?모으기/.test(t) || (year === 1997 && /구제금융/.test(t))) return customSceneURL('hist_1997_imf');
+  if (/닷컴|IT\s?붐|PC방|스타크래프트/.test(t) || (year >= 1997 && year <= 2002 && /벤처/.test(t))) return customSceneURL('hist_1999_dotcom');
+  if (/금융위기|서브프라임|리먼|폭락장/.test(t)) return customSceneURL('hist_2008_crisis');
 
-  // 2. 로맨스 & 결혼 여정
-  if (/상견례|사돈/i.test(t)) return customSceneURL('romance_inlaws');
-  if (/신혼여행|발리|하와이|허니문/i.test(t)) return customSceneURL('romance_honeymoon');
-  if (/소개팅|맞선|첫\s?데이트|비\s?오는\s?날.*카페/i.test(t)) return customSceneURL('romance_dating');
+  // 2. 로맨스 (상견례는 도트 그림 대신 양가가 한 장에 모인 사진으로 그린다 — eventModal)
+  if (/신혼여행|허니문/.test(t)) return customSceneURL('romance_honeymoon');
+  if (/소개팅|맞선(?!다)|첫\s?데이트/.test(t)) return customSceneURL('romance_dating');
 
   // 3. 인생 & 서민 낭만 여가
-  if (/밤낚시|좌대|저수지|찌/i.test(t)) return customSceneURL('leisure_night_fishing');
-  if (/캠핑|모닥불|텐트|불멍|은하수/i.test(t)) return customSceneURL('leisure_camping');
-  if (/재즈|위스키|바텐더|혼술/i.test(t)) return customSceneURL('leisure_jazz_bar');
-  if (/방과\s?후|교실|노을.*학교|하교/i.test(t)) return customSceneURL('life_classroom');
-  if (/포장마차|소주\s?한잔|어묵/i.test(t)) return customSceneURL('life_pojangmacha');
-  if (/선반|밀링|용접|철공소|가공/i.test(t)) return customSceneURL('life_factory');
+  if (/밤낚시|좌대|저수지\s?낚시/.test(t)) return customSceneURL('leisure_night_fishing');
+  if (/캠핑|모닥불|(?<!스)텐트|불멍/.test(t)) return customSceneURL('leisure_camping');
+  if (/재즈|위스키|바텐더|혼술/.test(t)) return customSceneURL('leisure_jazz_bar');
+  if (/방과\s?후|빈\s?교실|노을.*학교|하교/.test(t)) return customSceneURL('life_classroom');
+  if (/포장마차|소주\s?한\s?잔|어묵/.test(t)) return customSceneURL('life_pojangmacha');
+  if (/밀링|용접|철공소|금속\s?가공|선반\s?(기계|작업|앞)/.test(t)) return customSceneURL('life_factory');
 
   // 4. 가문 위기 & 스캔들
-  if (/포토라인|검찰\s?출석|기자회견|플래시/i.test(t)) return customSceneURL('crisis_photoline');
-  if (/교도소|구치소|접견|면회|수감/i.test(t)) return customSceneURL('crisis_prison');
+  if (/포토라인|검찰\s?(출석|소환)|사과\s?기자회견/.test(t)) return customSceneURL('crisis_photoline');
+  if (/교도소|구치소|수감|옥중/.test(t)) return customSceneURL('crisis_prison');
 
   // 5. 최고급 자산 & 랜드마크
-  if (/슈퍼카|차고|페라리|포르쉐|롤스로이스/i.test(t)) return customSceneURL('asset_supercar_garage');
-  if (/요트\s?클럽|마리나|요트\s?선착장/i.test(t)) return customSceneURL('asset_yacht_marina');
-  if (/빌딩|테헤란로|랜드마크|사옥/i.test(t)) return customSceneURL('asset_gangnam_building');
-  if (/별장|인피니티풀|휴양지/i.test(t)) return customSceneURL('asset_resort_villa');
+  if (/슈퍼카|페라리|포르쉐|람보르기니|롤스로이스/.test(t)) return customSceneURL('asset_supercar_garage');
+  if (/요트\s?클럽|마리나|요트\s?선착장/.test(t)) return customSceneURL('asset_yacht_marina');
+  if (/테헤란로|랜드마크|사옥|빌딩\s?(매입|주인)/.test(t)) return customSceneURL('asset_gangnam_building');
+  if (/별장|인피니티\s?풀|휴양지/.test(t)) return customSceneURL('asset_resort_villa');
 
   // 6. 학업 & 히든 작업실
-  if (/고시|독서실|사법시험|신림동/i.test(t)) return customSceneURL('life_gosi_room');
-  if (/위조|모작|명화\s?위조|이젤/i.test(t)) return customSceneURL('hj_forger_room');
+  if (/고시\s?공부|고시생|독서실|사법시험|행정고시|신림동/.test(t)) return customSceneURL('life_gosi_room');
+  if (/명화\s?위조|위작|모작|이젤/.test(t)) return customSceneURL('hj_forger_room');
 
   return undefined;
 }
@@ -163,7 +151,7 @@ import { CAPTION, newsPhotoKey, newsPhotoURL, realPhoto } from '../render/newsph
 import { NEWS_CREDITS } from '../render/news-credits';
 import { hiddenCardHTML, hiddenArt, initHiddenVideos } from './hidden-card';
 import { KIN_NAME, kinGap, kinOf } from '../core/inlaws';
-import { photoURL } from '../render/photo';
+import { meetPhotoURL, photoURL } from '../render/photo';
 import { minYears, rankWord } from '../core/rank';
 import { PHOTO_NAME } from '../core/photos';
 import { HIDDEN_BY_ID, isSuperHidden } from '../core/hidden-data';
@@ -197,7 +185,7 @@ import {
 import type { Difficulty } from '../core/sim';
 import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, MarketKey, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
-import { sceneArtURL, sceneFor } from '../render/scene';
+import { sceneArtURL, sceneFor, type SceneKey } from '../render/scene';
 import { bustURL } from '../render/bust';
 import { kitPortraitURL, onKitReady } from '../render/kit';
 import { commEvent, pcOf, phoneOf, type CommKind } from '../core/devices';
@@ -1439,7 +1427,8 @@ function eventModal(g: GameState): string {
   const sk = sceneFor(cur.title, cur.text);
   const summitBannerKey = SUMMIT_BANNER_MAP[cur.def.id];
   const summitBannerSrc = summitBannerKey ? eventBannerURL(summitBannerKey) : undefined;
-  const customScene = pickCustomScene(cur.def.id, cur.title, cur.text, g.year);
+  const meet = meetPhoto(g, cur);
+  const customScene = meet ? undefined : pickCustomScene(cur.def.id, cur.title, cur.text, g.year);
   return `
   <div class="modal">
     <div class="event${summitBannerSrc ? ' with-banner' : ''}">
@@ -1447,7 +1436,9 @@ function eventModal(g: GameState): string {
       <div class="ev-count">${g.year}년 · 남은 이벤트 ${g.events.length}</div>
       <h3>${esc(cur.title)}</h3>
       ${!summitBannerSrc ? (
-        customScene
+        meet
+          ? `<figure class="album-photo big meet-photo"><img src="${meet}" alt=""><figcaption>${g.year}년 · 상견례</figcaption></figure>`
+          : customScene
           ? `<div class="ev-scene anim2 custom-pixel-scene"><img class="scene-img" src="${customScene}" alt="">${ports ? `<div class="ev-ports on-scene">${ports}</div>` : ''}</div>`
           : `<div class="ev-scene anim2"><img class="scene-img" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2))}" alt=""><img class="scene-img blink" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2), true)}" alt="">${ports ? `<div class="ev-ports on-scene">${ports}</div>` : ''}</div>`
       ) : ''}
@@ -1465,6 +1456,18 @@ function eventModal(g: GameState): string {
       </div>
     </div>
   </div>`;
+}
+
+/** 상견례: 도트 그림 대신 양가가 한 상에 마주 앉은 사진 한 장 (우리 집 부모님 + 본인 | 상대 + 상대 부모님) */
+function meetPhoto(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>>): string | undefined {
+  if (cur.def.id !== 'wedding' || cur.ev.data?.stage) return undefined;
+  const [p, q] = cur.portraits;
+  if (!p || !q) return undefined;
+  const pars = (x: Person) => parentsOf(g, x).filter(alive);
+  // 상대 부모님은 가계도에 없다: 상대를 닮은 두 분을 사진에만 세운다 (유전자를 물려줘 닮게, 나이는 스물대여섯 위)
+  const inlaw = (sex: Sex, gap: number): Person => ({ ...q, id: `${q.id}~${sex}`, sex, birthYear: q.birthYear - gap, deathYear: undefined, job: 'none' });
+  const theirs = pars(q).length ? pars(q) : [inlaw('M', 28), inlaw('F', 26)];
+  return meetPhotoURL(g, [...pars(p), p], [...theirs, q], cur.ev.uid);
 }
 
 /** 전화·문자로 오는 사건: 그 집이 쓰는 연락 수단 모양으로 뜬다 (전보 → 다이얼 전화 → 삐삐 → 폴더폰 → 스마트폰 → AR 글래스 → 뉴럴 링크 → 홀로그램) */
@@ -2417,12 +2420,14 @@ function bigModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>
   const pct = Math.max(0, Math.min(100, (d.sc / b.goal) * 100));
   const dots = b.rounds.map((_, i) => `<i class="${i < d.r ? 'done' : i === d.r ? 'now' : ''}"></i>`).join('');
   const good = d.last?.startsWith('✅');
-  const bannerKey = BIG_BANNER_MAP[d.id] ?? d.id;
-  const bannerSrc = eventBannerURL(bannerKey);
+  const bannerKey = BIG_BANNER_MAP[d.id];
+  const bannerSrc = bannerKey ? eventBannerURL(bannerKey) : undefined;
+  const sceneKey = BIG_SCENE_MAP[d.id];
+  const who = p ? [{ p, age: g.year - p.birthYear }] : [];
   return `
   <div class="modal">
     <div class="event big-ev big-${d.id}${bannerSrc ? ' with-banner' : ''}">
-      ${bannerSrc ? `<div class="event-banner"><img src="${bannerSrc}" alt="${esc(b.title)}"></div>` : ''}
+      ${bannerSrc ? `<div class="event-banner"><img src="${bannerSrc}" alt="${esc(b.title)}"></div>` : sceneKey ? `<div class="ev-scene anim2"><img class="scene-img" src="${sceneArtURL(sceneKey, g.year, cur.ev.uid, who)}" alt=""><img class="scene-img blink" src="${sceneArtURL(sceneKey, g.year, cur.ev.uid, who, true)}" alt=""></div>` : ''}
       <div class="big-top"><span class="big-icon">${b.icon}</span><div><b>${esc(b.title)}</b><small>${esc(p ? fullName(p) : '')} · ${esc(b.rounds[d.r].title)}</small></div></div>
       <div class="big-dots">${dots}</div>
       <div class="big-meter"><span>${esc(b.meter)}</span><div class="bm-bar"><i style="width:${pct}%"></i><em style="left:100%"></em></div><b>${d.sc}${b.id === 'stocks' ? '%' : ''} / ${b.goal}${b.id === 'stocks' ? '%' : ''}</b></div>
@@ -2446,9 +2451,8 @@ function bigModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>
 function photoHTML(g: GameState, id: number, big = false): string {
   const ph = (g.photos ?? []).find((x) => x.id === id);
   if (!ph) return '';
-  const assetKey = KIND_TO_ALBUM[ph.kind];
-  const customSrc = assetKey ? albumAssetURL(assetKey) : undefined;
-  const src = customSrc ?? photoURL(g, ph);
+  // 고정 도트 그림 대신 그날 실제로 모인 가족을 그린 사진 (배경·자리 배치는 사진마다 다르다)
+  const src = photoURL(g, ph);
   return `<figure class="album-photo${big ? ' big' : ''}" data-action="view-photo" data-id="${ph.id}"><img src="${src}" alt=""><figcaption>${esc(ph.title)}<small>${ph.year}년 · ${PHOTO_NAME[ph.kind]}</small></figcaption></figure>`;
 }
 

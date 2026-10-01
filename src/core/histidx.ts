@@ -28,6 +28,8 @@ const REAL_INCOME: Pts = [
 ];
 /** 게임 속 소득 지수 (과거용). 2025년 이후는 pay.ts의 임금 상승률을 쓴다 */
 export const histWage = (y: number) => Math.pow(lerp(REAL_INCOME, y), 0.55);
+/** 실질 소득 그대로 (2025 = 1) — 해외 시세로 값이 매겨지는 물건(금·보석)이 그 시절 얼마나 귀했는지 잴 때 쓴다 */
+export const histRealIncome = (y: number) => lerp(REAL_INCOME, y);
 
 export type HistKey = 'apt_seoul' | 'apt_local' | 'land' | 'building' | 'stock' | 'coin' | 'art';
 /** 소득 대비 자산값 (2025 = 1) */

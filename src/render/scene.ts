@@ -15,10 +15,11 @@ const G = 32; // 땅 높이
 export type SceneKey =
   | 'bug' | 'fish' | 'rain' | 'heat' | 'snow' | 'school' | 'hospital' | 'money' | 'love' | 'wedding' | 'baby' | 'funeral' | 'food'
   | 'night' | 'festival' | 'music' | 'game' | 'robot' | 'space' | 'house' | 'farm' | 'factory' | 'office' | 'war' | 'car' | 'travel'
-  | 'sport' | 'pet' | 'study' | 'elder' | 'park';
+  | 'sport' | 'pet' | 'study' | 'elder' | 'park' | 'fire';
 
 /** 사건 글 → 장면 (앞에 있는 것이 우선) */
 const RULES: [SceneKey, RegExp][] = [
+  ['fire', /화재|불길|소방관|불이 났|불난 집/],
   ['war', /전쟁|공습|대피소|배급|소집 영장|전선|전사|피난/],
   ['bug', /사슴벌레|장수풍뎅이|곤충|매미|잠자리|채집|방아깨비|반딧불|올챙이/],
   ['space', /우주|달 기지|달 호텔|달에서|달 수학|달빛골|화성|궤도|토성|타이탄|가니메데|유로파|성간|엘리베이터 전망/],
@@ -273,7 +274,7 @@ function draw(k: SceneKey, year: number, L: Looks, v: number) {
   }
   sky(e, night);
   if (night) disc(70, 7, 4, '#fff4c0');
-  else if (!['rain', 'snow', 'heat', 'school', 'study', 'office', 'game', 'hospital', 'food', 'wedding', 'baby', 'music', 'elder', 'factory', 'war'].includes(k)) disc(70, 7, 4, '#fff0a0');
+  else if (!['rain', 'snow', 'heat', 'school', 'study', 'office', 'game', 'hospital', 'food', 'wedding', 'baby', 'music', 'elder', 'factory', 'war', 'fire'].includes(k)) disc(70, 7, 4, '#fff0a0');
   switch (k) {
     case 'bug': {
       ground(e);
@@ -338,6 +339,23 @@ function draw(k: SceneKey, year: number, L: Looks, v: number) {
       chibi(22, 12, { ...L, cloth: '#d04a4a' }, 'happy', v === 0 ? 'up' : 'hold');
       if (v !== 0) disc(42, 14, 2, '#ffffff'), speedLines('rgba(180,200,220,.7)');
       bubble(36, 4, v === 2 ? '!' : '♪');
+      break;
+    }
+    case 'fire': {
+      // 불난 건물: 창마다 불길, 위로 검은 연기, 앞에서 소방관이 물을 뿌린다
+      ground(e);
+      rect(42, 4, 34, G - 4, '#8a7a6a');
+      for (let wy = 8; wy < G - 4; wy += 8)
+        for (let wx = 46; wx < 72; wx += 9) {
+          rect(wx, wy, 6, 5, '#2a1a14');
+          const hot = r() < 0.7;
+          if (hot) rect(wx, wy + 1, 6, 4, pickc(['#ff6a1a', '#ff9a2a'])), rect(wx + 1, wy - 2, 4, 3, '#ffd23a');
+        }
+      for (let i = 0; i < 7; i++) disc(46 + i * 4 + ri(-2, 2), 2 - (i % 2) * 2, ri(3, 5), pickc(['#3a3a40', '#55555c', '#2a2a30']));
+      for (let i = 0; i < 12; i++) px(42 + r() * 34, 4 + r() * 20, pickc(['#ffd23a', '#ff8a2a']));
+      chibi(12, 10, { ...L, cloth: '#c8302a', hair: '#e8c040' }, v === 1 ? 'shock' : 'angry', 'hold');
+      for (let i = 0; i < 16; i++) px(30 + i, 15 - i * 0.4 + (i * i) * 0.02, '#8ad0ff'), px(30 + i, 16 - i * 0.4 + (i * i) * 0.02, '#cfeeff');
+      bubble(28, 2, v === 2 ? '!' : '!!');
       break;
     }
     case 'heat':
