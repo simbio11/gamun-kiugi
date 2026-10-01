@@ -31,6 +31,13 @@ git push origin main
 - 새 이벤트·직업·이야기를 추가하면 `registry.ts` 에 등록하고 테스트를 갱신한다.
 - 기존 세이브(로컬 저장)와의 호환을 깨는 변경은 버전을 올리고 마이그레이션을 넣는다.
 
+## 🎨 디자인 규칙 (DESIGN.md)
+
+- 디자인 기준은 루트 **`DESIGN.md`** ([google-labs-code/design.md](https://github.com/google-labs-code/design.md) 규격). YAML 토큰이 정답이다.
+- **새 UI는 `src/style.css` `:root` 변수(= DESIGN.md 토큰)만 쓴다.** 임의로 hex 색·글꼴·크기를 새로 만들지 말 것.
+- 새 색/크기가 꼭 필요하면 → DESIGN.md 토큰 추가 → `npx @google/design.md lint DESIGN.md` (오류·경고 0, WCAG AA 포함) → `:root` 에 같은 값 반영.
+- 시대·테마 연출(호외·포털 뉴스·먼 미래·히든 카드·가주 테마)은 DESIGN.md 의 *Scene palettes* 표에 적힌 블록 안에서만 전용 색 허용.
+
 ## 참고
 
 - 기획서: `docs/GDD.md`
