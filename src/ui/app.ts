@@ -54,6 +54,7 @@ import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
 import { applyTheme, type Theme as HeadTheme } from './theme';
 import { BIG_BY_ID } from '../core/big-events';
+import { CAPTION, newsPhotoKey, newsPhotoURL } from '../render/newsphoto';
 import { hiddenCardHTML, hiddenArt, initHiddenVideos } from './hidden-card';
 import { KIN_NAME, kinGap, kinOf } from '../core/inlaws';
 import { photoURL } from '../render/photo';
@@ -1388,6 +1389,11 @@ function newsModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent
   const [sub, ...rest] = cur.text.split('\n\n');
   const body = rest.join('\n\n');
   const paper = pick2(g.year, ['동아일보', '조선일보', '경향신문', '한국일보', '서울신문']);
+  // 보도사진: 큰 사건은 그 장면, 그 밖엔 글의 낱말로 (render/newsphoto.ts)
+  const pk = newsPhotoKey(cur.def.id, cur.title, cur.text);
+  const purl = pk ? newsPhotoURL(pk) : '';
+  const cap = pk ? CAPTION[pk] ?? '' : '';
+  const photo = (cls: string) => (purl ? `<figure class="nw-photo ${cls}"><img src="${purl}" alt="">${cap && cls !== 'thumb' ? `<figcaption>${esc(cap)}</figcaption>` : ''}</figure>` : '');
   const choices = cur.choices
     .map(
       (c, i) => `<button class="choice" style="animation-delay:${900 + i * 80}ms" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
@@ -1399,16 +1405,16 @@ function newsModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent
   const head =
     media === 'extra'
       ? `<div class="nw-mast"><span class="nw-hoei">號外</span><span class="nw-paper">${paper}</span><span class="nw-date">${g.year}년 · ${esc(govOf(g.year))}</span></div>
-         <h2 class="nw-h">${esc(cur.title)}</h2><div class="nw-sub">${esc(sub)}</div>`
+         <h2 class="nw-h">${esc(cur.title)}</h2>${photo('halftone')}<div class="nw-sub">${esc(sub)}</div>`
       : media === 'tv'
-        ? `<div class="nw-tv"><div class="nw-tvbar"><b>속보</b><span>${esc(cur.title)}</span></div><div class="nw-tvsub">${esc(sub)} · ${pick2(g.year, ['KBS 9시 뉴스', 'MBC 뉴스데스크', 'SBS 8뉴스'])}</div></div>`
+        ? `<div class="nw-tv">${photo('tvshot')}<div class="nw-tvbar"><b>속보</b><span>${esc(cur.title)}</span></div><div class="nw-tvsub">${esc(sub)} · ${pick2(g.year, ['KBS 9시 뉴스', 'MBC 뉴스데스크', 'SBS 8뉴스'])}</div></div>`
         : media === 'push'
           ? `<div class="nw-pushcard"><div class="nw-pushapp">🔔 뉴스 속보 · 지금</div><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
           : media === 'holo'
-            ? `<div class="nw-holohead"><span class="nw-holo-tag">◉ LIVE 속보</span><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
+            ? `<div class="nw-holohead"><span class="nw-holo-tag">◉ LIVE 속보</span>${photo('holo')}<b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
             : media === 'neural'
-              ? `<div class="nw-nrlhead"><span>🧠 뉴럴 속보가 머릿속에 떠오른다</span><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
-              : `<div class="nw-aihead"><div class="nw-ai-av">🤖</div><div class="nw-ai-b"><small>AI 비서 · 지금</small><p>"잠깐만요, 가문에 중요한 소식이에요."</p><b>${esc(cur.title)}</b><small>${esc(sub)}</small></div></div>`;
+              ? `<div class="nw-nrlhead"><span>🧠 뉴럴 속보가 머릿속에 떠오른다</span>${photo('holo')}<b>${esc(cur.title)}</b><small>${esc(sub)}</small></div>`
+              : `<div class="nw-aihead"><div class="nw-ai-av">🤖</div><div class="nw-ai-b"><small>AI 비서 · 지금</small><p>"잠깐만요, 가문에 중요한 소식이에요."</p><b>${esc(cur.title)}</b>${photo('ai')}<small>${esc(sub)}</small></div></div>`;
   if (media === 'push') {
     // 속보는 우리 집 휴대폰으로 온다: 폴더폰이면 문자, 스마트폰이면 잠금화면 알림
     const gear = phoneOf(g);
@@ -1422,6 +1428,7 @@ function newsModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent
       <div class="cm-screen">
         ${top}
         <h3>${esc(cur.title)}</h3>
+        ${photo(kind === 'smart' ? 'phone' : 'thumb')}
         <p class="ev-text"><b>${esc(sub)}</b>\n${nl(body)}</p>
       </div>
       <div class="choices">${choices}</div>

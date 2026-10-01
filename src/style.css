@@ -1691,3 +1691,25 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 #app[data-theme="wealth"] .screen > .card:first-of-type::after { --mw: 18px; content: ''; position: absolute; right: 8px; bottom: -3px; width: var(--mw); height: 16px; background: var(--mascot) 0 100% / calc(var(--mw) * 2) auto no-repeat; image-rendering: pixelated; pointer-events: none; opacity: .9; animation: mascot-step 1.6s steps(2) infinite; }
 #app[data-tier="0"] .screen > .card:first-of-type::after { animation: mascot-step .3s steps(2) infinite, rat-peek 7s ease-in-out infinite; }
 @keyframes rat-peek { 0%, 60%, 100% { transform: translateX(0); opacity: 0; } 65%, 90% { opacity: .95; } 75% { transform: translateX(-30px); } 88% { transform: translateX(-60px); } }
+
+/* ── 보도사진 (render/newsphoto.ts) ── */
+.nw-photo { margin: 6px 0 8px; position: relative; }
+.nw-photo img { display: block; width: 100%; aspect-ratio: 120 / 72; image-rendering: pixelated; }
+.nw-photo figcaption { font-size: 11px; margin-top: 3px; opacity: .85; }
+/* 호외·신문: 흑백 + 망점 + 종이 질감 */
+.nw-photo.halftone { border: 1px solid rgba(0, 0, 0, .55); padding: 3px; background: #efe8d6; }
+.nw-photo.halftone img { filter: grayscale(1) contrast(1.35) brightness(1.05) sepia(.15); }
+.nw-photo.halftone::after { content: ''; position: absolute; left: 3px; right: 3px; top: 3px; aspect-ratio: 120 / 72; background: radial-gradient(circle, rgba(0, 0, 0, .14) 35%, transparent 40%) 0 0 / 3px 3px; mix-blend-mode: multiply; pointer-events: none; }
+/* TV: 화면 + 주사선 + LIVE */
+.nw-photo.tvshot { margin: 0 0 6px; }
+.nw-photo.tvshot::before { content: 'LIVE'; position: absolute; left: 6px; top: 6px; z-index: 1; font-size: 10px; font-weight: 900; color: #fff; background: #d02020; padding: 1px 5px; border-radius: 2px; }
+.nw-photo.tvshot::after { content: ''; position: absolute; left: 0; right: 0; top: 0; aspect-ratio: 120 / 72; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px); pointer-events: none; }
+.nw-photo.tvshot figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; background: rgba(0, 0, 0, .65); color: #fff; padding: 2px 6px; }
+/* 휴대폰: 잠금화면 카드 사진 · 피처폰은 작은 썸네일 */
+.nw-photo.phone img { border-radius: 8px; }
+.nw-photo.thumb { float: right; width: 34%; margin: 0 0 4px 8px; }
+.nw-photo.thumb img { border-radius: 4px; }
+/* 홀로그램·뉴럴: 푸른 빛 */
+.nw-photo.holo img { filter: hue-rotate(-20deg) saturate(1.3) brightness(1.1); opacity: .9; border-radius: 6px; box-shadow: 0 0 14px rgba(80, 200, 255, .6); animation: nw-holo 3s ease-in-out infinite; }
+@keyframes nw-holo { 50% { opacity: .7; transform: translateY(-1px); } }
+.nw-photo.ai img { border-radius: 10px; }
