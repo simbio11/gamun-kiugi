@@ -35,6 +35,7 @@ import { WORK3_STORIES } from '../src/core/stories-work3';
 import { WORK4_STORIES } from '../src/core/stories-work4';
 import { WORK5_STORIES } from '../src/core/stories-work5';
 import { HIDDEN_WORK_STORIES } from '../src/core/stories-work-hidden';
+import { WORK6_STORIES } from '../src/core/stories-work6';
 import { HX } from '../src/core/job-acts-hidden';
 import { HIDDEN, SUPER_HIDDEN_IDS, isSuperHidden } from '../src/core/hidden-data';
 import { JOB_ACTS } from '../src/core/job-acts';
@@ -860,7 +861,24 @@ describe('부모님 유산', () => {
     expect(thin).toEqual([]);
   });
 
-  it('히든 직업: 42개 모두 전용 행동 여섯(입문·고참·올해의 기회 둘 포함) + 직장 이야기 셋 이상', () => {
+  it('일반 직업: 그 직업에만 나오는 직장 이야기 넷 이상 (stories-work6 이 채운다)', () => {
+    const all = [...WORK_STORIES, ...WORK2_STORIES, ...WORK3_STORIES, ...WORK4_STORIES, ...WORK5_STORIES, ...WORK6_STORIES];
+    const skip = ['none', 'parttime', 'pension'];
+    const s = newGame({ seed: 12, familyName: '윤', sex: 'M' });
+    const h = head(s);
+    s.year += 35;
+    const thin = JOB_IDS.filter((id) => {
+      if (id.startsWith('hj_') || skip.includes(id)) return false;
+      // 그 직업에만 나오는 이야기: 이 직업일 땐 조건이 맞고, 없는 직업일 땐 안 맞는 것
+      const fits = (job: string) => all.filter((st) => (h.job = job) && !!st.cond?.(s, h));
+      const generic = new Set(fits('zz_nobody').map((st) => st.id));
+      return fits(id).filter((st) => !generic.has(st.id)).length < 4;
+    });
+    expect(thin).toEqual([]);
+    expect(new Set(all.map((st) => st.id)).size).toBe(all.length);
+  });
+
+  it('히든 직업: 39개 모두 전용 행동 아홉(입문·고참·올해의 기회 둘 포함) + 직장 이야기 여섯 이상', () => {
     const thin: string[] = [];
     for (const h of HIDDEN) {
       const l = HX[h.id] ?? [];
@@ -868,7 +886,8 @@ describe('부모님 유산', () => {
       if (l.length < 6 || opp < 2 || !l.some((a) => a[6] === 'lo') || !l.some((a) => a[6] === 'hi')) thin.push(`acts:${h.id}`);
       for (const a of l) if (a[5].split('|').length !== 4) thin.push(`lines:${h.id}:${a[1]}`);
       const n = HIDDEN_WORK_STORIES.filter((st) => st.id.startsWith(`wk_h_${h.id}_`)).length;
-      if (n < 3) thin.push(`story:${h.id}:${n}`);
+      if (n < 6) thin.push(`story:${h.id}:${n}`);
+      if ((JOB_ACTS[h.id]?.length ?? 0) < 9) thin.push(`acts2:${h.id}`); // 여섯 + job-acts-hidden2 둘 + 숨 고르기
     }
     expect(HIDDEN.length).toBe(39);
     expect(thin).toEqual([]);
