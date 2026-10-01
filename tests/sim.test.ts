@@ -53,7 +53,7 @@ describe('시뮬레이션', () => {
       if (s.achievements.includes('second_gen')) expect(s.generation).toBeGreaterThan(1);
     }
     expect(successions).toBeGreaterThan(8);
-  }, 20000); // 8가문 × 200년: 콘텐츠가 늘어 5초를 넘긴다
+  }, 90000); // 8가문 × 200년: 콘텐츠가 늘어 전체 테스트와 함께 돌면 20초를 넘긴다
 
   it('같은 시드는 같은 결과 (재현성)', () => {
     const a = autoplay(123, 60);

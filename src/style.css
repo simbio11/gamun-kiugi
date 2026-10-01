@@ -930,7 +930,6 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 .bust-wrap > img.blink { animation: px-blink 4.2s steps(1) infinite, px-breathe 1.8s steps(1) infinite; }
 .bust-wrap.dead { filter: grayscale(1) brightness(.85); }
 .bust-wrap.dead > img { animation: none; }
-.bust-wrap.kit > img.px.big.bust { image-rendering: pixelated; } /* 조립 초상화(96칸 도트)는 도트 그대로 키워 보인다 */
 @keyframes px-blink { 0%, 90% { opacity: 0; } 91%, 94% { opacity: 1; } 95%, 100% { opacity: 0; } }
 @keyframes px-breathe { 0%, 49% { transform: translateY(0); } 50%, 100% { transform: translateY(3px); } }
 .calm .anim2 > img, .calm .bust-wrap > img { animation: none; }
