@@ -36,6 +36,9 @@ import { WORK4_STORIES } from '../src/core/stories-work4';
 import { WORK5_STORIES } from '../src/core/stories-work5';
 import { HIDDEN_WORK_STORIES } from '../src/core/stories-work-hidden';
 import { WORK6_STORIES } from '../src/core/stories-work6';
+import { DOORS } from '../src/core/super-doors';
+import { SUPER_ROUTES } from '../src/core/super-hidden';
+import { TALENTS as TAL } from '../src/core/data';
 import { HX } from '../src/core/job-acts-hidden';
 import { HIDDEN, SUPER_HIDDEN_IDS, isSuperHidden } from '../src/core/hidden-data';
 import { JOB_ACTS } from '../src/core/job-acts';
@@ -858,6 +861,36 @@ describe('부모님 유산', () => {
       const n = [...WORK_STORIES, ...WORK2_STORIES].filter((st) => !st.id.startsWith('wk_any') && (!st.cond || st.cond(s, h))).length;
       if (n < 2) thin.push(`${id}:${n}`);
     }
+    expect(thin).toEqual([]);
+  });
+
+  it('부모 직업: 난이도마다 다양하고, 쉬움에서 재벌 총수만 나오지 않는다', () => {
+    for (const d of ['easy', 'normal', 'hard', 'hell'] as const) {
+      const fa = new Set<string>(), mo = new Set<string>();
+      let tycoon = 0;
+      for (let i = 0; i < 150; i++) {
+        const s = newGame({ seed: i * 13 + 5, familyName: '김', sex: 'F', difficulty: d });
+        const me = s.people[s.headId];
+        const f = s.people[me.fatherId!], m = s.people[me.motherId!];
+        fa.add(f.job);
+        mo.add(m.job);
+        if (f.job === 'founder' && f.jobLevel >= 4) tycoon++;
+      }
+      expect(fa.size, d).toBeGreaterThanOrEqual(25);
+      expect(mo.size, d).toBeGreaterThanOrEqual(25);
+      if (d === 'easy') expect(tycoon).toBeLessThan(150 * 0.2);
+    }
+  });
+
+  it('슈퍼 히든: 능력치 말고도 관련 직업·재능·성격으로 열리는 다른 문이 있다', () => {
+    const missing = SUPER_ROUTES.filter((r) => r.id !== 'hj_vampire' && !DOORS[r.id]).map((r) => r.id);
+    expect(missing).toEqual([]);
+    for (const id of Object.keys(DOORS)) expect(JOB_IDS).toContain(id);
+  });
+
+  it('재능: 모든 직업 분야에 빨리 크는 재능이 둘 이상', () => {
+    const cats = [...new Set(JOB_IDS.filter((id) => !id.startsWith('hj_')).map((id) => JOBS[id].cat))].filter((c) => c !== 'etc');
+    const thin = cats.filter((c) => Object.values(TAL).filter((t) => t.cats?.includes(c)).length < 2);
     expect(thin).toEqual([]);
   });
 

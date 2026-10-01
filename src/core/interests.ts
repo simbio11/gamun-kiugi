@@ -65,6 +65,13 @@ const TALENT_FIT: Record<string, Interest[]> = {
   strategist: ['office', 'biz', 'tech'],
   pitch: ['media'],
   palate: ['service', 'farm'],
+  justice: ['public', 'legal'],
+  commander: ['public', 'biz', 'office'],
+  navigator: ['transport', 'public'],
+  greenthumb: ['farm', 'biz'],
+  beauty: ['service', 'media'],
+  scholar: ['tech', 'edu', 'medical'],
+  animal: ['farm', 'medical', 'service'],
 };
 const STAT_FIT: Record<StatKey, Interest[]> = {
   str: ['sport', 'trade', 'transport', 'farm', 'public'],

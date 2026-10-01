@@ -91,7 +91,8 @@ function randomStats(r: RngHolder, mean: number, sd: number): Stats {
   return st;
 }
 
-export function randomTalents(r: RngHolder, p = 0.06): Talent[] {
+/** 재능은 한 사람에 평균 0.84개 (처음 14종 × 6%였던 비율을 재능 수가 늘어도 유지) */
+export function randomTalents(r: RngHolder, p = 0.84 / TALENT_IDS.length): Talent[] {
   return TALENT_IDS.filter(() => chance(r, p)).map((id) => ({ id, discovered: false }));
 }
 

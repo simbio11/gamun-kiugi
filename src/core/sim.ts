@@ -106,7 +106,7 @@ export interface NewGameOpts {
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'hell';
 /** 난이도별: 형편, 재벌가 확률, 부모 잠재력 보정, 아이 잠재력 보정, 부모 직급 보정 */
 export const DIFFICULTY: Record<Difficulty, { name: string; desc: string; origin: GameState['origin']; tycoon: number; parentQ: number; childQ: number; level: number }> = {
-  easy: { name: '쉬움 · 금수저', desc: '부유한 집(재벌가일 수도), 전문직 부모와 높은 직급, 뛰어난 유전자 — 잠재력↑, 재능 하나는 타고난다, 좋은 성격. 정점 도전이 쉽지만 명예는 0.8배', origin: 'rich', tycoon: 0.4, parentQ: 6, childQ: 10, level: 1 },
+  easy: { name: '쉬움 · 금수저', desc: '부유한 집(재벌가일 수도), 전문직 부모와 높은 직급, 뛰어난 유전자 — 잠재력↑, 재능 하나는 타고난다, 좋은 성격. 정점 도전이 쉽지만 명예는 0.8배', origin: 'rich', tycoon: 0.12, parentQ: 6, childQ: 10, level: 1 },
   normal: { name: '보통 · 중산층', desc: '평범한 직장인 부모, 수도권·지방 아파트, 보통의 유전자', origin: 'middle', tycoon: 0, parentQ: 0, childQ: 0, level: 0 },
   hard: { name: '어려움 · 흙수저', desc: '가난한 집, 빚과 반지하, 생계형 직업 부모, 불리한 유전자 — 잠재력↓, 재능 없음, 약점 하나. 정점 도전이 어렵고 라이벌이 강하지만 명예를 1.25배 받는다', origin: 'poor', tycoon: 0, parentQ: -4, childQ: -8, level: -1 },
   hell: { name: '지옥 · 무일푼', desc: '가장 가난한 집, 약한 유전자, 부자 라이벌. 정점 도전 판정이 훨씬 어렵다. 대신 명예를 1.5배 받는다 — 여기서 대통령을 내면 전설이다', origin: 'poor', tycoon: 0, parentQ: -8, childQ: -14, level: -1 },
@@ -192,8 +192,16 @@ export function migrate(s: GameState): GameState {
 const PARENT_JOBS: Record<GameState['origin'], string[]> = {
   poor: ['factory', 'delivery_rider', 'taxi', 'courier', 'parttime', 'caregiver', 'cvs_owner', 'mechanic', 'welder', 'shopkeeper', 'trucker', 'farmer', 'plumber', 'carpenter', 'nurse_aide', 'hairdresser', 'barista', 'fisher', 'rancher', 'crane_operator', 'mail_carrier', 'pet_groomer', 'nail_artist', 'restaurant', 'online_shop', 'big_factory', 'bus_driver', 'shipbuilder', 'youtuber', 'insurance', 'sales'],
   middle: ['office', 'civil', 'teacher', 'nurse', 'corp', 'police', 'banker', 'developer', 'public_corp', 'firefighter', 'restaurant', 'pharmacist', 'electrician', 'bus_driver', 'mail_carrier', 'hr', 'marketer', 'sales', 'insurance', 'trader', 'pt', 'radiographer', 'clinical', 'emt', 'kinder_teacher', 'librarian', 'chef', 'hotelier', 'flight_attendant', 'big_factory', 'shipbuilder', 'train_driver', 'navigator', 'designer', 'journalist', 'pd', 'writer', 'youtuber', 'trainer', 'coach', 'cafe_owner', 'online_shop', 'smart_farmer', 'game_dev', 'mech_engineer', 'architect', 'researcher', 'tax_officer', 'coast_guard', 'social_worker', 'realtor', 'tutor', 'photographer', 'scrivener', 'labor_attorney', 'customs_broker', 'vet', 'data_scientist', 'security', 'chip_engineer', 'founder', 'musician', 'officer'],
-  rich: ['doctor', 'lawyer', 'dentist', 'founder', 'corp', 'professor', 'accountant', 'kmd', 'judge', 'pilot', 'prosecutor', 'diplomat', 'patent_attorney', 'tax_accountant', 'appraiser', 'analyst', 'aero_engineer', 'entertainer', 'architect', 'vet', 'pharmacist', 'announcer', 'tutor', 'restaurant', 'online_shop', 'data_scientist', 'chip_engineer', 'founder', 'doctor'],
+  rich: ['doctor', 'lawyer', 'dentist', 'founder', 'corp', 'professor', 'accountant', 'kmd', 'judge', 'pilot', 'prosecutor', 'diplomat', 'patent_attorney', 'tax_accountant', 'appraiser', 'analyst', 'aero_engineer', 'entertainer', 'architect', 'vet', 'pharmacist', 'announcer', 'tutor', 'restaurant', 'online_shop', 'data_scientist', 'chip_engineer', 'fund_manager', 'consultant', 'sme_ceo', 'franchise_ceo', 'developer_re', 'film_director', 'film_actor', 'singer', 'fashion_designer', 'curator', 'star_lecturer', 'ai_engineer', 'bio_researcher', 'public_corp', 'landlord', 'politician', 'sommelier', 'interior_designer'],
 };
+
+/** 쉬움(금수저) 부모의 높은 자리: 재벌 총수만이 아니라 법조·의료·학계·정계·금융·문화계의 정점들.
+ *  직급은 높게 시작한다 (giveJob 에서 +1~2). */
+const ELITE_JOBS = ['judge', 'prosecutor', 'lawyer', 'doctor', 'dentist', 'professor', 'diplomat', 'politician', 'fund_manager', 'consultant', 'sme_ceo', 'franchise_ceo', 'developer_re', 'film_director', 'film_actor', 'singer', 'entertainer', 'announcer', 'architect', 'pilot', 'patent_attorney', 'accountant', 'star_lecturer', 'public_corp', 'corp', 'landlord', 'researcher', 'aero_engineer', 'fashion_designer', 'curator'];
+/** 지옥(무일푼): 가장 불안정한 일들 */
+const HELL_JOBS = ['parttime', 'delivery_rider', 'courier', 'caregiver', 'nurse_aide', 'factory', 'taxi', 'trucker', 'security_guard', 'tile_worker', 'barista', 'fisher', 'farmer'];
+/** 아버지 히든으로 시작할 수 있는 슈퍼 히든 (여성으로 정해진 직업·교황 제외) */
+const FATHER_SUPER = ['hj_mafia', 'hj_underground_dealer', 'hj_art_investigator', 'hj_michelin_inspector', 'hj_conservator', 'hj_bodyguard', 'hj_detective', 'hj_perfumer', 'hj_stargazer', 'hj_space_analyst'];
 
 export function newGame(o: NewGameOpts): GameState {
   const seed = o.seed ?? Math.floor(Math.random() * 2 ** 31);
@@ -250,22 +258,32 @@ export function newGame(o: NewGameOpts): GameState {
   father.bond = mother.bond = int(s, 35, 90);
   s.people[father.id] = father;
   s.people[mother.id] = mother;
-  const giveJob = (p: Person, pool: string[]) => {
-    p.job = tycoon && p === father ? 'founder' : pick(s, pool);
+  const giveJob = (p: Person, pool: string[], avoid?: string) => {
+    const cands = pool.filter((j) => j !== avoid && JOBS[j]);
+    p.job = tycoon && p === father ? 'founder' : pick(s, cands.length ? cands : pool);
     const j = JOBS[p.job];
     p.jobYears = Math.max(0, age(s, p) - 27);
-    p.jobLevel = tycoon && p === father ? 4 : clamp(int(s, 0, Math.floor(p.jobYears / 4)) + (dif?.level ?? 0), 0, j.maxLevel);
+    const elite = o.difficulty === 'easy' && ELITE_JOBS.includes(p.job) ? int(s, 1, 2) : 0; // 금수저 부모는 높은 자리에서 시작
+    p.jobLevel = tycoon && p === father ? 4 : clamp(int(s, 0, Math.floor(p.jobYears / 4)) + (dif?.level ?? 0) + elite, 0, j.maxLevel);
   };
-  const jobPool = hist ? HIST_PARENT_JOBS : PARENT_JOBS;
-  giveJob(father, jobPool[origin]);
-  // 1960년대 어머니는 대개 살림을 했다 (여성 경제활동참가율 30%대)
-  if (chance(s, hist ? (origin === 'poor' ? 0.45 : 0.75) : origin === 'poor' ? 0.2 : 0.35)) mother.job = 'none';
-  else giveJob(mother, hist ? (origin === 'poor' ? ['farmer', 'parttime', 'factory'] : origin === 'middle' ? ['teacher', 'shopkeeper', 'nurse'] : ['landlord', 'doctor']) : PARENT_JOBS[origin]);
-  // 아주 드물게 부모가 이미 히든 직업: 각자 0.7% 히든, 어머니는 0.5% 슈퍼 히든
+  // 난이도에 맞는 부모 직업 후보: 쉬움은 높은 자리, 지옥은 가장 불안정한 일. 보통·어려움은 열에 하나쯤 한 칸 위·아래도 섞인다
+  const poolFor = (): string[] => {
+    if (hist) return HIST_PARENT_JOBS[origin];
+    if (o.difficulty === 'easy') return chance(s, 0.75) ? ELITE_JOBS : PARENT_JOBS.rich;
+    if (o.difficulty === 'hell') return chance(s, 0.8) ? HELL_JOBS : PARENT_JOBS.poor;
+    if (o.difficulty === 'normal' && chance(s, 0.1)) return PARENT_JOBS.rich;
+    if (o.difficulty === 'hard' && chance(s, 0.1)) return PARENT_JOBS.middle;
+    return PARENT_JOBS[origin];
+  };
+  giveJob(father, poolFor());
+  // 1960년대 어머니는 대개 살림을 했다 (여성 경제활동참가율 30%대). 지금은 맞벌이가 더 흔하다 (2023 기혼 여성 고용률 약 64%, 통계청 지역별고용조사)
+  if (chance(s, hist ? (origin === 'poor' ? 0.45 : 0.75) : origin === 'poor' ? 0.15 : 0.22)) mother.job = 'none';
+  else giveJob(mother, hist ? (origin === 'poor' ? ['farmer', 'parttime', 'factory'] : origin === 'middle' ? ['teacher', 'shopkeeper', 'nurse'] : ['landlord', 'doctor']) : poolFor(), father.job);
+  // 아주 드물게 부모가 이미 히든 직업: 각자 약 1% (히든 0.8% + 슈퍼 히든 0.3%)
   for (const par of [father, mother]) {
-    const sup = par.sex === 'F' && chance(s, 0.005);
-    if (!sup && !chance(s, 0.007)) continue;
-    const pool = sup ? STARTER_SUPER : STARTER_HIDDEN;
+    const sup = chance(s, 0.003);
+    if (!sup && !chance(s, 0.008)) continue;
+    const pool = sup ? (par.sex === 'F' ? STARTER_SUPER.filter((id) => !['hj_mafia', 'hj_underground_dealer', 'hj_pope'].includes(id)) : FATHER_SUPER) : STARTER_HIDDEN;
     const id = pick(s, pool);
     par.job = id;
     par.jobLevel = 0;

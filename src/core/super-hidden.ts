@@ -10,6 +10,7 @@ import { myVehicles } from './vehicle';
 import { formatMoney } from './economy';
 import type { GameState, Person } from './types';
 import { GATE_ONLY, GATE_READY } from './super-gates';
+import { doorOpens, stepPasses } from './super-doors';
 import { awardCard } from './cards';
 
 interface SuperStep {
@@ -711,9 +712,11 @@ export function superHiddenYear(s: GameState): string[] {
 
       // 1단계 미션 체크 (이미 거절한 라우트는 제외, 희귀 선천 특성 보유 시 100% 즉시 발동, 일반 슈퍼히든 75%)
       if (s.storySeen?.['refused:' + r.id + ':' + p.id] || p.flags.includes('refused:' + r.id)) continue;
-      if (r.ready(s, p)) {
+      // 능력치 문(ready) 또는 다른 문(super-doors: 관련 직업·재능·성격·지나온 길, 아주 드물게 운)
+      const byStats = r.ready(s, p);
+      if (byStats || doorOpens(s, p, r.id, (pct) => chance(s, pct))) {
         const hasRare = p.traits?.some((t) => ['speed_demon', 'hypnotic_eye', 'dark_artist'].includes(t));
-        if ((hasRare || chance(s, 0.75)) && !s.events.some((e) => e.defId === 'sh_step1' && e.personId === p.id)) {
+        if ((hasRare || !byStats || chance(s, 0.75)) && !s.events.some((e) => e.defId === 'sh_step1' && e.personId === p.id)) {
           s.events.push({ uid: s.eventSeq++, defId: 'sh_step1', personId: p.id, data: { id: r.id } });
           msgs.push(`✨ ${fullName(p)}에게 특별한 제안이 찾아왔다 (${r.icon} ${r.name})`);
           break;
@@ -740,7 +743,7 @@ const step1Event: EventDef = {
       {
         label: r.step1.yesLabel ?? `도전한다 (자격 확인)`,
         run: (x) => {
-          const ok = r.step1.check(x.p) && chance(x.s, r.step1.rate);
+          const ok = stepPasses(x.s, x.p, r.id, r.step1.check(x.p), (pct) => chance(x.s, pct)) && chance(x.s, r.step1.rate);
           if (ok) {
             addFlag(x.p, `sh:${r.id}:1`);
             x.p.cash += r.step1.succMoney;
@@ -778,7 +781,7 @@ const step2Event: EventDef = {
       {
         label: r.step2.yesLabel ?? `한 단계 더 나아간다 (2단계 돌파)`,
         run: (x) => {
-          const ok = r.step2.check(x.p) && chance(x.s, r.step2.rate);
+          const ok = stepPasses(x.s, x.p, r.id, r.step2.check(x.p), (pct) => chance(x.s, pct)) && chance(x.s, r.step2.rate);
           if (ok) {
             addFlag(x.p, `sh:${r.id}:2`);
             x.p.cash += r.step2.succMoney;
@@ -815,7 +818,7 @@ const step3Event: EventDef = {
       {
         label: r.step3.yesLabel ?? `모든 것을 걸고 정점에 선다 (최종 전직)`,
         run: (x) => {
-          const ok = r.step3.check(x.p) && chance(x.s, r.step3.rate);
+          const ok = stepPasses(x.s, x.p, r.id, r.step3.check(x.p), (pct) => chance(x.s, pct)) && chance(x.s, r.step3.rate);
           if (ok) {
             const id = r.id;
             x.p.job = id;
