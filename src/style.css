@@ -1467,6 +1467,14 @@ img.px.big.bust { width: 144px; height: 144px; background: none; }
 .dx-c .hid-card.is-super { box-shadow: 0 0 5px rgba(255, 0, 85, .45), 0 0 10px rgba(255, 102, 0, .15); }
 .dx-c .hid-card.locked { animation: none; box-shadow: 0 0 4px rgba(120, 80, 200, .3); }
 .dx-c .hid-img.hid-sil { animation: none; }
+/* 새 슈퍼 히든: 새까만 실루엣이 발끝을 축으로 천천히 흔들린다 (transform 만 써서 가볍다 — 도감 썸네일에서도 켠다) */
+.hid-card.sil-sway .hid-img.hid-sil,
+.dx-c .hid-card.sil-sway .hid-img.hid-sil { transform-origin: 50% 100%; animation: hid-sil 3s ease-in-out infinite, hid-sway 2.8s ease-in-out infinite; }
+@keyframes hid-sway {
+  0%, 100% { transform: rotate(-1.1deg) translateX(-0.7%); }
+  50% { transform: rotate(1.1deg) translateX(0.7%) scale(1.012, 1.02); }
+}
+.calm .hid-card.sil-sway .hid-img.hid-sil { animation: none; }
 /* 화면 밖 도감 카드는 그리지 않는다 · 카드를 크게 보는 동안 뒤의 도감은 멈춘다 */
 .cdex .dx { content-visibility: auto; contain-intrinsic-size: auto 190px; }
 body:has(.cv-modal) .cdex * { animation-play-state: paused !important; }

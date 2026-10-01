@@ -79,6 +79,9 @@ function particles(fx: HiddenFx): string {
   return out;
 }
 
+/** 새 슈퍼 히든 9종: 못 얻은 카드의 새까만 실루엣이 숨 쉬듯 흔들린다 (인물을 오려 낸 .fig 그림이 있어야 한다) */
+const SWAY_SIL = new Set(['hj_art_investigator', 'hj_michelin_inspector', 'hj_conservator', 'hj_bodyguard', 'hj_detective', 'hj_perfumer', 'hj_stargazer', 'hj_pope', 'hj_space_analyst']);
+
 /** 카드 앞면 (썸네일·크게 보기·보상 창 공용). 잠겨 있으면 실루엣과 힌트 */
 export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; locked?: boolean; cls?: string } = {}): string {
   const h: HiddenJob | undefined = HIDDEN_BY_ID[id];
@@ -91,7 +94,7 @@ export function hiddenCardHTML(id: string, o: { sex?: 'M' | 'F'; seed?: number; 
   const a = hiddenArt(id, pickSex, o.seed ?? 0) ?? hiddenArt(id, pickSex === 'F' ? 'M' : 'F', o.seed ?? 0);
   if (o.locked)
     // 아직 모르는 직업: 흐릿하고 어두운 배경 위 새까만 실루엣. 이름은 숨기고 수수께끼만
-    return `<div class="hid-card locked ${tierCls} ${o.cls ?? ''}"><div class="hid-stage">${
+    return `<div class="hid-card locked ${tierCls} ${SWAY_SIL.has(id) ? 'sil-sway ' : ''}${o.cls ?? ''}"><div class="hid-stage">${
       a ? `<img class="hid-back" src="${a.src}" alt=""><img class="hid-img hid-blur" src="${a.src}" alt="">${a.fig ? `<img class="hid-img hid-sil" src="${a.fig}" alt="">` : ''}` : ''
     }<div class="hid-q">?</div></div><div class="hid-plate"><i class="hid-orn l"></i><div class="hid-pl-in only"><b>${tierLabel}</b></div><i class="hid-orn r"></i><em class="hid-medal">${tierMedal}</em></div></div>`;
   // 도감 썸네일은 가볍게: 영상은 크게 볼 때(크게 보기·보상 창)만 만든다
