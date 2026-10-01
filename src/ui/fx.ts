@@ -149,7 +149,7 @@ export function yearTurn(big: string, sub: string) {
   el.querySelector('b')!.textContent = big;
   el.querySelector('small')!.textContent = sub;
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1400);
+  setTimeout(() => el.remove(), 1600);
 }
 
 /** 주요 버튼을 누르면 도트 가루가 톡 튄다 */
