@@ -2132,6 +2132,8 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 @keyframes px-hop { 50% { transform: translateY(-3px); } }
 .title > .card { animation: card-in .45s .25s var(--out) both; }
 .title > .card ~ .card, .title > .btn { animation: card-in .45s .35s var(--out) both; }
+/* 타이틀에서 옵션을 고를 땐 등장 연출을 다시 틀지 않는다 */
+.title.still > .card, .title.still > .btn { animation: none; }
 
 /* ── 배경 그림은 한 걸음 뒤로: 살짝 흐리고 어둡게 눌러 글자·카드가 앞에 서게 ── */
 #theme-bg { inset: -12px; filter: blur(2.5px) brightness(.62) saturate(.7); }

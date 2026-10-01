@@ -505,7 +505,18 @@ function renderInner() {
   const theme = applyTheme(root, ui.game ?? undefined, prefs.theme !== false);
   fx.theme = theme;
   if (!g) {
-    root.innerHTML = titleScreen();
+    const cur = root.querySelector<HTMLElement>(':scope > .title');
+    if (cur) {
+      // 난이도·성별 등을 고를 땐 화면을 통째로 갈지 않는다: 로고·배경은 그대로 두고 아래만 바꿔 끼운다
+      const tpl = document.createElement('template');
+      tpl.innerHTML = titleScreen().trim();
+      const next = tpl.content.firstElementChild as HTMLElement;
+      const wasOpen = !!cur.querySelector('details.code-box')?.hasAttribute('open');
+      cur.querySelectorAll(':scope > :not(.logo)').forEach((n) => n.remove());
+      cur.append(...Array.from(next.children).filter((n) => !n.classList.contains('logo')));
+      if (wasOpen) cur.querySelector('details.code-box')?.setAttribute('open', '');
+      cur.classList.add('still');
+    } else root.innerHTML = titleScreen();
     fx.year = undefined;
     fx.fromTitle = true;
     return;
