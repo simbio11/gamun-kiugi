@@ -54,6 +54,49 @@ import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
 import { applyTheme, type Theme as HeadTheme } from './theme';
 import { BIG_BY_ID } from '../core/big-events';
+
+const EVENT_BANNERS = import.meta.glob<string>('../assets/events/*.webp', { eager: true, import: 'default' });
+
+export function eventBannerURL(key: string): string | undefined {
+  const entry = Object.entries(EVENT_BANNERS).find(([p]) => p.endsWith(`/${key}.webp`));
+  return entry ? entry[1] : undefined;
+}
+
+const BIG_BANNER_MAP: Record<string, string> = {
+  race: 'race',
+  suneung: 'suneung',
+  auction: 'auction',
+  audition: 'audition',
+  quiz: 'quiz',
+  cook: 'cooking',
+  stocks: 'stock_battle',
+  baduk: 'chess',
+  debate: 'election',
+  flight: 'hospital',
+  fishing: 'yacht',
+  marathon: 'golf',
+  everest: 'yacht',
+  fire: 'hospital',
+};
+
+const SUMMIT_BANNER_MAP: Record<string, string> = {
+  summit_best_actor: 'best_actor',
+  summit_architect: 'architect',
+  summit_media_mogul: 'media_mogul',
+  summit_space_founder: 'space_founder',
+  summit_president: 'president',
+  summit_nobel: 'nobel',
+  summit_famed_doctor: 'hospital',
+  summit_turing: 'start_pitch',
+  summit_mayor: 'election',
+  summit_constitutional: 'trial',
+  summit_ent_chair: 'audition',
+  summit_national_mc: 'audition',
+  summit_national_singer: 'audition',
+  summit_bigtech: 'start_pitch',
+  summit_hedge_fund: 'stock_battle',
+  summit_astronaut: 'space_founder',
+};
 import { CAPTION, newsPhotoKey, newsPhotoURL, realPhoto } from '../render/newsphoto';
 import { NEWS_CREDITS } from '../render/news-credits';
 import { hiddenCardHTML, hiddenArt, initHiddenVideos } from './hidden-card';
@@ -1318,12 +1361,15 @@ function eventModal(g: GameState): string {
     .map((x) => `<img class="px mid" src="${portraitURL(x.p, x.age)}">`)
     .join('');
   const sk = sceneFor(cur.title, cur.text);
+  const summitBannerKey = SUMMIT_BANNER_MAP[cur.def.id];
+  const summitBannerSrc = summitBannerKey ? eventBannerURL(summitBannerKey) : undefined;
   return `
   <div class="modal">
-    <div class="event">
+    <div class="event${summitBannerSrc ? ' with-banner' : ''}">
+      ${summitBannerSrc ? `<div class="ev-banner-top"><img src="${summitBannerSrc}" alt=""></div>` : ''}
       <div class="ev-count">${g.year}년 · 남은 이벤트 ${g.events.length}</div>
       <h3>${esc(cur.title)}</h3>
-      <div class="ev-scene anim2"><img class="scene-img" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2))}" alt=""><img class="scene-img blink" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2), true)}" alt="">${ports ? `<div class="ev-ports on-scene">${ports}</div>` : ''}</div>
+      ${!summitBannerSrc ? `<div class="ev-scene anim2"><img class="scene-img" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2))}" alt=""><img class="scene-img blink" src="${sceneArtURL(sk, g.year, cur.ev.uid, who.slice(0, 2), true)}" alt="">${ports ? `<div class="ev-ports on-scene">${ports}</div>` : ''}</div>` : ''}
       <p class="ev-text">${nl(cur.text)}</p>
       ${cur.choices.some((c) => c.cost) ? `<div class="ev-wallet">${wallet(g).label} <b>${formatMoney(wallet(g).amount)}</b></div>` : ''}
       <div class="choices">
@@ -2287,9 +2333,12 @@ function bigModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent>
   const pct = Math.max(0, Math.min(100, (d.sc / b.goal) * 100));
   const dots = b.rounds.map((_, i) => `<i class="${i < d.r ? 'done' : i === d.r ? 'now' : ''}"></i>`).join('');
   const good = d.last?.startsWith('✅');
+  const bannerKey = BIG_BANNER_MAP[d.id] ?? d.id;
+  const bannerSrc = eventBannerURL(bannerKey);
   return `
   <div class="modal">
-    <div class="event big-ev big-${d.id}">
+    <div class="event big-ev big-${d.id}${bannerSrc ? ' with-banner' : ''}">
+      ${bannerSrc ? `<div class="event-banner"><img src="${bannerSrc}" alt="${esc(b.title)}"></div>` : ''}
       <div class="big-top"><span class="big-icon">${b.icon}</span><div><b>${esc(b.title)}</b><small>${esc(p ? fullName(p) : '')} · ${esc(b.rounds[d.r].title)}</small></div></div>
       <div class="big-dots">${dots}</div>
       <div class="big-meter"><span>${esc(b.meter)}</span><div class="bm-bar"><i style="width:${pct}%"></i><em style="left:100%"></em></div><b>${d.sc}${b.id === 'stocks' ? '%' : ''} / ${b.goal}${b.id === 'stocks' ? '%' : ''}</b></div>

@@ -118,8 +118,51 @@ function layer(id: string, html: string, cls: string) {
   el.innerHTML = html;
 }
 
+const THEME_ASSETS = import.meta.glob<string>('../assets/themes/*.webp', { eager: true, import: 'default' });
+
+export function themeAssetURL(key: string): string | undefined {
+  const entry = Object.entries(THEME_ASSETS).find(([p]) => p.endsWith(`/${key}.webp`));
+  return entry ? entry[1] : undefined;
+}
+
+const JOB_THEME_MAP: Record<string, string> = {
+  hj_private_jet: 'hj_private_jet',
+  hj_underground_dealer: 'hj_underground_dealer',
+  hj_gambler: 'hj_underground_dealer',
+  hj_mafia: 'hj_mafia',
+  hj_godmother: 'hj_mafia',
+  hj_vtuber: 'hj_vtuber',
+  hj_chess_master: 'hj_chess_master',
+  hj_hacker: 'hj_hacker',
+  hj_shaman: 'hj_shaman',
+  hj_exorcist: 'hj_shaman',
+  hj_adventurer: 'hj_adventurer',
+  hj_pirate: 'hj_adventurer',
+  hj_memecoin: 'hj_memecoin',
+  hj_trader: 'hj_memecoin',
+  hj_cult: 'hj_cult',
+};
+
+const TIER_THEME_MAP: Record<number, string> = {
+  0: 'tier1',
+  1: 'tier2',
+  2: 'tier2',
+  3: 'tier3',
+  4: 'tier4',
+  5: 'tier5',
+  6: 'tier5',
+};
+
 function bgHTML(t: Theme): string {
-  if (t.tier !== undefined) return `<i class="tb-room" style="background-image:url('${roomURL(t.tier)}')"></i><i class="tb-pat"></i>`;
-  // 카드 그림은 깔지 않는다: 원래 화면 결 그대로, 빛깔만 바꾸고 그 직업의 소품(박쥐·비행기…)이 오간다
-  return `<i class="tb-pat"></i>${t.job ? `<div class="td-sil">${silHTML(t.job)}</div>` : ''}`;
+  if (t.job) {
+    const assetKey = JOB_THEME_MAP[t.job];
+    const bgUrl = assetKey ? themeAssetURL(assetKey) : undefined;
+    return `${bgUrl ? `<i class="tb-room custom-bg" style="background-image:url('${bgUrl}')"></i>` : ''}<i class="tb-pat job-tint"></i><div class="td-sil">${silHTML(t.job)}</div>`;
+  }
+  if (t.tier !== undefined) {
+    const assetKey = TIER_THEME_MAP[t.tier];
+    const bgUrl = assetKey ? themeAssetURL(assetKey) : undefined;
+    return `<i class="tb-room custom-bg" style="background-image:url('${bgUrl ?? roomURL(t.tier)}')"></i><i class="tb-pat"></i>`;
+  }
+  return `<i class="tb-pat"></i>`;
 }

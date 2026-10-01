@@ -1731,3 +1731,42 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 /* 실제 사진: 도트처럼 키우지 않고 부드럽게, 잘라서 꽉 채움 */
 .nw-photo.real img { image-rendering: auto; object-fit: cover; }
 .nw-credit { display: block; font-size: 9px; opacity: .6; }
+
+/* ─── 대형 이벤트 및 정점 이벤트 도트 배너 ─── */
+.event-banner, .ev-banner-top {
+  width: calc(100% + 40px);
+  margin: -24px -20px 14px -20px;
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
+  background: #0d0f12;
+  position: relative;
+  line-height: 0;
+}
+.event-banner img, .ev-banner-top img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1024 / 286;
+  object-fit: cover;
+  image-rendering: pixelated;
+  border-bottom: 2px solid rgba(255, 215, 0, .35);
+}
+
+/* ─── 테마 커스텀 배경 (모바일 9:16 최적화) ─── */
+.theme-bg .tb-room.custom-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center top;
+  image-rendering: pixelated;
+  opacity: .5;
+  filter: contrast(1.08) saturate(1.1);
+  transition: opacity .35s ease;
+}
+.theme-bg.job .tb-room.custom-bg {
+  opacity: .42;
+}
+.theme-bg.job .tb-pat.job-tint {
+  background: radial-gradient(ellipse at 50% 10%, color-mix(in srgb, var(--gold) 18%, transparent), transparent 75%),
+              linear-gradient(180deg, rgba(0, 0, 0, .35) 0%, rgba(0, 0, 0, .75) 100%);
+}
