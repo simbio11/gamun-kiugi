@@ -82,12 +82,12 @@ export const CARDS: CardDef[] = [
   { id: 'gamer_champ', name: 'e스포츠 월드 챔피언', icon: '🎮', rarity: 'epic', how: '프로게이머로 정점에', eff: { kid: 'int', fame: 1 }, auto: (_s, p) => lv(p, 'gamer', 5) },
   // 장인
   { id: 'michelin', name: '미쉐린 스타 셰프', icon: '👨‍🍳', rarity: 'epic', how: '셰프로 미쉐린 별', eff: { hap: 2, hp: 1 }, auto: (_s, p) => lv(p, 'chef', 5) },
-  { id: 'star_chef', name: '스타 셰프', icon: '🍳', rarity: 'rare', how: '요리 경연 우승 (정점 이벤트)', eff: { hap: 2, cash: 1500 } },
+  { id: 'star_chef', name: '스타 셰프', icon: '🍳', rarity: 'rare', how: '대형 이벤트 「요리 서바이벌」 우승', eff: { hap: 2, cash: 1500 }, auto: (_s, p) => hasFlag(p, 'cook_win') },
   { id: 'architect', name: '프리츠커상 건축가', icon: '🏗', rarity: 'legend', how: '건축가로 세계적 상 (정점 이벤트)', eff: { fame: 3 } },
   { id: 'master_craft', name: '대한민국 명장', icon: '🛠', rarity: 'epic', how: '기술자로 명장 선정 (정점 이벤트)', eff: { kid: 'str', cash: 1500 } },
   { id: 'captain', name: '수석 기장', icon: '✈️', rarity: 'rare', how: '조종사로 정점에', eff: { hp: 1, cash: 1000 }, auto: (_s, p) => lv(p, 'pilot', 3) },
   { id: 'star_farmer', name: '신지식 농업인', icon: '🌾', rarity: 'rare', how: '농업인으로 정점 (정점 이벤트)', eff: { hp: 1, cash: 1500 } },
-  { id: 'national_hero', name: '의인·명예 소방관', icon: '🚒', rarity: 'epic', how: '구조 현장에서 목숨을 구한다 (정점 이벤트)', eff: { fame: 3, hap: 1 } },
+  { id: 'national_hero', name: '의인·명예 소방관', icon: '🚒', rarity: 'epic', how: '대형 이벤트 「불길 속으로」에서 사람을 구한다', eff: { fame: 3, hap: 1 }, auto: (_s, p) => hasFlag(p, 'fire_hero') },
   ...MORE_CARDS,
   ...ERA_CARDS,
 ];
@@ -249,18 +249,10 @@ export const SUMMITS: Summit[] = [
     text: (c) => `30년 가까이 한 길을 걸은 ${fullName(c.p)}이(가) 고용노동부 "대한민국 명장" 후보에 올랐다. 실기 심사가 남았다.`,
     a: ['손끝으로 증명한다', 'str', 55, '🛠 대한민국 명장 선정! 국가가 인정한 장인이 됐다.', '아깝게 떨어졌다. 내년에 다시.'],
     b: ['후배 양성 실적을 내세운다', 'mor', 55, '🛠 명장 선정! 제자 50명이 축하하러 왔다.', '서류에서 밀렸다.'] },
-  { card: 'star_chef', title: '🍳 요리 서바이벌', ok: (_s, p) => ['chef', 'restaurant'].includes(p.job) && p.jobLevel >= 2,
-    text: (c) => `${fullName(c.p)}이(가) 전국 요리 서바이벌 결승에 올랐다. 마지막 미션은 "나를 만든 한 그릇".`,
-    a: ['어머니의 집밥을 재해석', 'cha', 55, '🍳 우승! 심사위원이 숟가락을 놓지 못했다. 가게 예약이 3개월 밀렸다.', '준우승. 그래도 가게 앞에 줄이 섰다.'],
-    b: ['분자요리로 모험한다', 'int', 62, '🍳 우승! "천재 셰프" 수식어가 붙었다.', '실험이 과했다. 탈락.'] },
   { card: 'star_farmer', title: '🌾 신지식 농업인', ok: (_s, p) => ['farmer', 'smart_farmer', 'rancher', 'fisher'].includes(p.job) && p.jobLevel >= 1,
     text: (c) => `${fullName(c.p)}의 농장이 새 재배법으로 수확량을 두 배로 늘렸다. 농림부가 "신지식 농업인" 후보로 올렸다.`,
     a: ['재배법을 무료로 공개한다', 'mor', 50, '🌾 신지식 농업인 선정! 전국 농민들이 견학을 온다.', '심사에서 떨어졌지만 이웃들이 고마워한다.'],
     b: ['특허를 내고 사업화한다', 'int', 58, '🌾 선정! 기술 이전료까지 들어온다.', '특허 분쟁에 휘말렸다.'] },
-  { card: 'national_hero', title: '🚒 불길 속으로', ok: (_s, p) => ['firefighter', 'police', 'coast_guard', 'emt', 'officer'].includes(p.job) && p.jobYears >= 3,
-    text: (c) => `대형 화재 현장. 건물 안에 아이 둘이 갇혔다. 붕괴 위험이 있다. ${fullName(c.p)}의 판단은?`,
-    a: ['직접 뛰어든다', 'str', 60, '🚒 두 아이를 안고 나왔다! 전 국민이 박수를 보냈다. 의인 표창.', '구조는 했지만 크게 다쳤다. 긴 재활이 시작됐다.'],
-    b: ['팀을 지휘해 사다리차로 구한다', 'int', 55, '🚒 전원 구조! 침착한 지휘가 뉴스에 났다. 명예 훈장 수여.', '한 명을 구하지 못했다. 평생 잊지 못할 밤.'] },
   ...MORE_SUMMITS,
 ];
 const STAT_KO: Record<StatKey, string> = { str: '근력', int: '지능', cha: '매력', mor: '도덕성', hp: '건강' };

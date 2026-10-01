@@ -178,12 +178,26 @@ export function initHiddenVideos() {
     if (c) playVid(c, true);
   };
   for (const t of ['click', 'pointerdown', 'mousedown', 'touchstart']) document.addEventListener(t, replay, true);
-  // 보상 창에 새로 뜬 카드: 베일(2.4초)이 걷히면 바로 재생. 영상은 미리 받아 둔다
+  // 보상 창에 새로 뜬 카드: 영상이 준비될 때까지 베일을 붙잡아 두었다가(최대 4초),
+  // 베일이 걷히기 시작하는 순간 영상을 함께 튼다 → 그림보다 영상을 먼저 보고, 영상이 끝나면 그림으로
   const kick = () => {
     for (const c of document.querySelectorAll<HTMLCanvasElement>('.hidden-hc canvas.hid-vid:not([data-kick])')) {
       c.dataset.kick = '1';
-      vidFor(c).load();
-      setTimeout(() => c.isConnected && playVid(c, false), 2500);
+      const box = c.closest<HTMLElement>('.hcard-reveal-box');
+      box?.classList.add('vid-wait');
+      const v = vidFor(c);
+      let go = false;
+      const start = () => {
+        if (go || !c.isConnected) return;
+        go = true;
+        box?.classList.remove('vid-wait');
+        // 베일은 0.6초부터 걷힌다: 그보다 살짝 먼저 재생해 첫 장면이 깔려 있게
+        setTimeout(() => c.isConnected && playVid(c, false), 480);
+      };
+      v.addEventListener('canplaythrough', start, { once: true });
+      v.addEventListener('loadeddata', () => setTimeout(start, 600), { once: true });
+      setTimeout(start, 4000);
+      v.load();
     }
   };
   new MutationObserver(kick).observe(document.body, { childList: true, subtree: true });

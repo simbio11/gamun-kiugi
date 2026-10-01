@@ -124,10 +124,6 @@ export const PATH_STORIES: Story[] = [
     { label: '모든 걸 쏟아붓는다', cost: 300, mark: { art: 2 }, text: '', roll: ['cha', 50, [{ cha: 4, fame: 2, hap: 10 }, '관계자 눈에 띄었다! 연락이 왔다.'], [{ hap: -4 }, '반응이 미지근했다. 그래도 끝까지 해냈다.']] },
     { label: '무난하게 마무리', text: '', eff: { cha: 1 } },
   ] },
-  { id: 'audition', title: '오디션', age: [16, 30], w: 0.04, paths: ['art'], text: '{n}, 큰 기획사 오디션 공고가 떴다.', choices: [
-    { label: '지원한다', mark: { art: 1 }, text: '', roll: ['cha', 60, [{ cha: 3, fame: 2, hap: 12, flag: 'audition_pass' }, '최종 합격! 연습생 계약서를 받았다.'], [{ hap: -6 }, '1차 탈락. "다음에 또 봐요."']] },
-    { label: '아직 준비가 안 됐다', text: '', eff: {} },
-  ] },
   { id: 'art_poverty', title: '예술가의 통장', age: [24, 45], w: 0.03, paths: ['art'], student: false, text: '{n}의 통장 잔고가 바닥이다. 작업을 계속할 수 있을까?', choices: [
     { label: '알바하며 버틴다', mark: { art: 1 }, text: '낮엔 알바, 밤엔 작업. 꿈은 포기하지 않는다.', eff: { cash: 400, hp: -2 } },
     { label: '회사에 들어간다', text: '디자인 회사에 취직했다. 안정은 됐지만 작업 시간은 줄었다.', eff: { cash: 1500, hap: -4 } },

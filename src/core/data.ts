@@ -334,7 +334,7 @@ export const ACHIEVEMENTS: Record<string, { cat: AchvCat; name: string; desc: st
   saga_shop: A('인생', '할매손 국밥', '국밥집 이야기를 끝까지 겪다'),
   saga_farm: A('인생', '사과밭 이장님', '귀농 이야기를 끝까지 겪다'),
   saga_world: A('인생', '80일간의 세계 일주', '노부부 세계 일주를 마치다'),
-  saga_run: A('인생', '42.195', '러너 이야기를 끝까지 겪다'),
+  saga_run: A('인생', '42.195', '마라톤 풀코스를 완주하다'),
   saga_redev: A('인생', '조합장님', '재개발을 끝까지 이끌다'),
   saga_hidden: A('결혼·자녀', '핏줄', '숨겨진 형제와 가족이 되다'),
   // 히든 직업 (job-acts-hidden · stories-work-hidden)

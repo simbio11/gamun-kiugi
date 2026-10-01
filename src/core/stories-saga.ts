@@ -33,19 +33,6 @@ export const SAGA_STORIES: Story[] = [
   ] },
 
   // ───────── 2. 오디션 사가 ─────────
-  { id: 'sg_aud1', title: '📖 오디션 ①: 예선', age: [15, 27], w: 0.012, once: true, cond: (_s, p) => p.actual.cha >= 40, text: '{n이} 국민 오디션 프로그램 "슈퍼 루키"에 지원서를 냈다. 예선이 다음 주다.', choices: [
-    { label: '보컬 레슨을 붙여준다 (300만)', cost: 300, mark: { art: 1, warmth: 1 }, text: '', roll: ['cha', 45, [{ cha: 2, hap: 8, later: [1, 1, 1, 'st_sg_aud2'] }, '예선 합격! 심사위원이 "원석"이라고 했다.'], [{ hap: -6 }, '긴장해서 음이 이탈했다. 예선 탈락. 그래도 무대 맛을 봤다.']] },
-    { label: '혼자 힘으로 해 보라고 한다', mark: { art: 1 }, text: '', roll: ['cha', 55, [{ cha: 2, hap: 8, mor: 2, later: [1, 1, 1, 'st_sg_aud2'] }, '맨몸으로 예선 통과!'], [{ hap: -5 }, '예선 탈락. "다음엔 꼭."']] },
-    { label: '반대한다', mark: { hurt: 1, study: 1 }, text: '"딴따라는 안 된다." {n은} 지원서를 찢었다.', eff: { hap: -10, aff: -8 } },
-  ] },
-  { id: 'sg_aud2', title: '📖 오디션 ②: 본선 미션', age: [15, 30], w: 0, text: '{n이} 본선 TOP 20에 올랐다! 이번 미션은 팀 배틀. 그런데 팀원이 {n}의 파트를 뺏으려 한다.', choices: [
-    { label: '정면으로 맞선다', text: '', roll: ['cha', 55, [{ cha: 3, fame: 2, hap: 10, later: [1, 1, 1, 'st_sg_aud3'] }, '고음 한 방으로 판을 뒤집었다. 시청자 투표 1위! TOP 5 진출!'], [{ hap: -8, fame: 1 }, '"악마의 편집"에 당했다. 탈락. 인터넷에 악플이 달렸다.']] },
-    { label: '파트를 양보하고 화음을 맡는다', mark: { kind: 1 }, text: '', roll: ['luck', 50, [{ mor: 3, fame: 2, hap: 8, later: [1, 1, 1, 'st_sg_aud3'] }, '"진짜 팀 플레이어!" 심사위원 극찬. TOP 5 진출!'], [{ mor: 3, hap: -3 }, '존재감이 없었다. 탈락. 그래도 팀원들이 고마워했다.']] },
-  ] },
-  { id: 'sg_aud3', title: '📖 오디션 ③: 결승 생방송', age: [15, 32], w: 0, text: '생방송 결승. 문자 투표가 시작됐다. {n}의 이름이 전광판에 뜬다. 온 가족이 TV 앞에 모였다.', choices: [
-    { label: '자작곡으로 승부한다', mark: { art: 2 }, text: '', roll: ['cha', 60, [{ cha: 4, fame: 10, hap: 20, cash: 10000, flag: 'audition_win' }, '🏆 우승!!! 상금 1억 원과 데뷔 계약. 온 동네가 떠들썩하다!'], [{ fame: 5, hap: 5, cash: 2000, flag: 'audition_top' }, '준우승. 그래도 기획사 러브콜이 쏟아진다.']] },
-    { label: '가족에게 바치는 노래를 부른다', mark: { family: 2 }, text: '', roll: ['luck', 50, [{ fame: 10, hap: 20, cash: 10000, flag: 'audition_win', aff: 10 }, '🏆 우승! 할머니(할아버지)가 객석에서 오열하는 장면이 명장면으로 남았다.'], [{ fame: 5, hap: 8, aff: 10, flag: 'audition_top' }, '3위. 무대 위에서 "엄마 아빠 사랑해요" 한마디에 전국이 울었다.']] },
-  ] },
 
   // ───────── 3. 발명 특허 사가 ─────────
   { id: 'sg_pat1', title: '📖 발명가 ①: 차고의 아이디어', age: [22, 60], w: 0.01, once: true, cond: (_s, p) => p.actual.int >= 50, text: '{n이} 주말마다 차고에서 뭔가를 만든다. "이거 특허 내면 대박이야. 설거지 안 하는 수세미 로봇!"', choices: [
@@ -158,15 +145,7 @@ export const SAGA_STORIES: Story[] = [
 
   // ───────── 10. 마라톤 사가 ─────────
   { id: 'sg_run1', title: '📖 러너 ①: 첫 10km', age: [28, 60], w: 0.012, once: true, text: '건강검진 결과가 나빴다. 의사가 말한다. "운동 안 하시면 5년 안에 큰일 납니다." {n이} 러닝화를 샀다.', choices: [
-    { label: '러닝 크루에 가입한다', mark: { sport: 2, network: 1 }, text: '새벽 한강. 숨이 턱까지 찼지만 크루가 끝까지 기다려 줬다.', eff: { hp: 4, hap: 5, later: [1, 1, 2, 'st_sg_run2'] } },
+    { label: '러닝 크루에 가입한다', mark: { sport: 2, network: 1 }, text: '새벽 한강. 숨이 턱까지 찼지만 크루가 끝까지 기다려 줬다.', eff: { hp: 4, hap: 5 } },
     { label: '작심삼일', text: '러닝화는 신발장 속에서 새 신발로 남았다.', eff: { hp: -1 } },
-  ] },
-  { id: 'sg_run2', title: '📖 러너 ②: 풀코스 도전', age: [28, 70], w: 0, text: '1년 동안 꾸준히 달린 {n}. 크루원들이 춘천 마라톤 풀코스 42.195km에 같이 나가자고 한다.', choices: [
-    { label: '완주를 목표로 뛴다', text: '', roll: ['hp', 50, [{ hp: 5, hap: 15, mor: 3, later: [1, 1, 3, 'st_sg_run3'] }, '4시간 48분. 결승선에서 가족이 플래카드를 흔들었다. 눈물이 났다.'], [{ hp: -4, hap: -3 }, '32km 지점에서 쥐가 났다. 회수 버스에 탔다. 내년에 다시.']] },
-    { label: '기부 마라톤으로 뛴다', mark: { kind: 1 }, text: '1km당 1만 원씩 모아 소아암 환우에게 기부했다. 완주!', eff: { hp: 4, fame: 2, hap: 12, later: [1, 1, 3, 'st_sg_run3'] } },
-  ] },
-  { id: 'sg_run3', title: '📖 러너 ③: 보스턴의 꿈', age: [28, 75], w: 0, text: '{n}의 기록이 보스턴 마라톤 참가 기준에 근접했다. 전 세계 러너들의 꿈의 무대다.', choices: [
-    { label: '보스턴에 간다 (800만)', cost: 800, text: '', roll: ['hp', 55, [{ hp: 5, hap: 20, fame: 2, flag: 'saga_run' }, '하트브레이크 힐을 넘었다. 보스턴 완주 메달이 거실에 걸렸다.'], [{ hap: 10, flag: 'saga_run' }, '기준 기록에 2분 모자랐다. 그래도 관광은 했다.']] },
-    { label: '크루 코치가 된다', mark: { network: 2 }, text: '초보 러너 50명을 완주시켰다. 달리는 삶이 됐다.', eff: { hp: 3, cha: 3, hap: 10, flag: 'saga_run' } },
   ] },
 ];

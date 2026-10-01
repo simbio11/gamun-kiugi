@@ -90,16 +90,6 @@ const OPPS: Opp[] = [
     },
   },
   {
-    id: 'o_marathon', icon: '🏃', name: '마라톤 대회 출전 (10km)', desc: '체력↑ 건강↑ · 완주 메달', cost: 5, stages: ADULT, stat: 'str',
-    lines: L(['개인 최고 기록! 결승선에서 두 팔을 들었다.'], ['완주 메달을 목에 걸었다.'], ['걷다 뛰다 겨우 들어왔다.'], ['5km에서 쥐가 났다.']),
-    eff: (s, p, t) => {
-      const hp = t === 'bad' ? -1 : t === 'meh' ? 1 : 2;
-      p.actual.hp = clamp(p.actual.hp + hp, 0, 100);
-      mark(p, 'exercise', 1);
-      return [stat('str', grow(s, p, 'str', t)), stat('hp', hp)];
-    },
-  },
-  {
     id: 'o_culture', icon: '🎨', name: '문화센터 강좌 (그림·기타·도예)', desc: '매력↑ 행복↑', cost: 20, stages: ADULT, stat: 'cha',
     lines: L(['작품이 수강생 전시회에 걸렸다.'], ['주말이 기다려진다.'], ['생각보다 어렵다.'], ['첫날 도자기를 깨뜨렸다.']),
     eff: (s, p, t) => (mark(p, 'art', 1), mood(p, t === 'bad' ? 1 : 5), [stat('cha', grow(s, p, 'cha', t)), ['행복', t === 'bad' ? 1 : 5]]),
@@ -360,9 +350,6 @@ OPPS.push(
   { id: 'o_mba', icon: '🎓', name: '야간 MBA 과정', desc: '지능·매력↑ · 승진에 유리 (2천만)', cost: 2000, stages: ['adult'], when: (s) => working(s) && age(s, h(s)) <= 50, stat: 'int',
     lines: L(['수석 졸업! 동기 네트워크가 든든하다.'], ['주경야독 끝에 학위를 받았다.'], ['과제만 겨우 냈다.'], ['피곤해서 절반은 결석.']),
     eff: (s, p, t) => { if (ok(t)) { mark(p, 'network', 2); if (chance(s, t === 'great' ? 0.5 : 0.2) && p.jobLevel < JOBS[p.job].maxLevel) { p.jobLevel++; return [stat('int', grow(s, p, 'int', t)), '직급 +1']; } } return [stat('int', grow(s, p, 'int', t)), stat('cha', grow(s, p, 'cha', t))]; } },
-  { id: 'o_quiz_show', icon: '🔔', name: '퀴즈쇼 출연', desc: '지능 승부 · 상금·명성', stages: ['univ', 'adult', 'senior'], stat: 'int',
-    lines: L(['최종 우승! 골든벨을 울렸다. 상금 2천만 원!'], ['3라운드까지 올라가 상품을 받았다.'], ['첫 문제에서 탈락.'], ['카메라 앞에서 이름을 까먹었다.']),
-    eff: (s, p, t) => { const prize = { great: 2000, good: 200, meh: 0, bad: 0 }[t]; p.cash += prize; if (t === 'great') s.fame += 2; return [stat('int', grow(s, p, 'int', t)), ...(prize ? [`상금 ${formatMoney(prize)}`] : [])]; } },
   { id: 'o_lotto_group', icon: '🎰', name: '직장 동료 로또 공동구매', desc: '만 원씩 모아서 · 거의 안 되지만…', cost: 1, stages: ['adult'], when: working, stat: 'mor',
     lines: L(['4등이 세 장! 회식비가 생겼다.'], ['5등 두 장. 커피 한 잔씩.'], ['꽝.'], ['꽝. 동료가 번호 하나를 잘못 적었다고 한다.']),
     eff: (s, p, t) => { if (chance(s, 0.0008)) { p.cash += 30000; s.fame += 1; return ['🎉 2등 당첨! 내 몫 3억!']; } const g = { great: 15, good: 1, meh: 0, bad: 0 }[t]; p.cash += g; return g ? [`+${g}만`] : []; } },

@@ -31,10 +31,6 @@ export const LIFE2_STORIES: Story[] = [
     { label: '본 대로 말하라고 한다', mark: { honest: 2 }, text: '', roll: ['mor', 40, [{ mor: 3 }, '용기 있게 증언했다. 피해 학생이 고맙다고 했다.'], [{ hap: -5 }, '가해 학생 무리가 {n을} 째려본다. 한동안 불편하다.']] },
     { label: '얽히지 말라고 한다', text: '침묵했다. {n}의 표정이 복잡하다.', eff: { mor: -2 } },
   ] },
-  { id: 'l2_idol_audition', title: '아이돌 오디션', age: [12, 18], w: 0.02, cond: (_s, p) => p.actual.cha >= 55, text: '길거리 캐스팅! 기획사 명함을 든 {n이} 연습생을 하고 싶다고 한다.', choices: [
-    { label: '한번 해 보라고 한다', mark: { art: 2 }, text: '', roll: ['cha', 65, [{ cha: 3, fame: 1, flag: 'trainee' }, '연습생 계약! 주말마다 서울 연습실로 간다.'], [{ hap: -6 }, '3차 오디션에서 떨어졌다. 한 달을 울었다.']] },
-    { label: '공부가 먼저다', mark: { study: 1 }, text: '명함은 서랍 속으로. 가끔 꺼내 본다.', eff: { hap: -5, aff: -3 } },
-  ] },
 
   // ───────── 청년 ─────────
   { id: 'l2_leave_home', title: '첫 자취', age: [20, 30], w: 0.04, cond: (s, p) => !married(s, p) && hasParents(s, p), text: '{n이} 회사 근처로 자취를 하고 싶다고 한다. 월세만 60만 원이다.', choices: [

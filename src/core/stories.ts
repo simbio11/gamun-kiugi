@@ -553,10 +553,6 @@ const S: Story[] = [
     { label: '약만 먹는다', cost: 30, text: '', eff: { hp: 1 } },
     { label: '무시한다', mark: { health_x: 2 }, text: '', eff: { hp: -5 } },
   ] },
-  { id: 'marathon', boost: { exercise: 0.4 }, title: '마라톤', age: [30, 65], w: 0.02, text: '{n}, 동호회 친구가 풀코스 마라톤을 같이 뛰자고 한다.', choices: [
-    { label: '도전한다', mark: { exercise: 2 }, text: '', roll: ['hp', 50, [{ hp: 4, str: 3, hap: 10, flag: 'marathoner' }, '42.195km 완주! 결승선에서 울었다.'], [{ hp: -2 }, '25km에서 쥐가 나 포기했다.']] },
-    { label: '응원만 한다', text: '' },
-  ] },
   { id: 'golf', notPaths: ['soldier', 'sport'], boost: { network: 0.3 }, title: '골프', age: [35, 70], w: 0.03, cond: working, text: '거래처 사람들이 {n}에게 골프를 치자고 한다.', choices: [
     { label: '장비 사고 입문', mark: { network: 1, spend: 1 }, cost: 500, text: '', roll: ['str', 40, [{ cha: 2, hap: 5, flag: 'golfer' }, '싱글 핸디캡! 비즈니스 인맥이 넓어졌다.'], [{ hap: -2 }, '공보다 잔디를 더 많이 팠다.']] },
     { label: '나는 등산파', text: '', eff: { hp: 1 } },
