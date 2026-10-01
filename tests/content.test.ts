@@ -870,7 +870,7 @@ describe('부모님 유산', () => {
       const n = HIDDEN_WORK_STORIES.filter((st) => st.id.startsWith(`wk_h_${h.id}_`)).length;
       if (n < 3) thin.push(`story:${h.id}:${n}`);
     }
-    expect(HIDDEN.length).toBe(31);
+    expect(HIDDEN.length).toBe(30);
     expect(thin).toEqual([]);
     // 직장 이야기는 실제로 그 직업인 사람에게 나온다
     const s = newGame({ seed: 8, familyName: '서', sex: 'F' });
@@ -1279,18 +1279,18 @@ describe('부모님 유산', () => {
     p.birthYear = s.year - 35;
     p.sex = 'F';
     for (const k of ['str', 'int', 'cha', 'mor', 'hp'] as const) p.actual[k] = 90;
-    const hermes = SUPER_ROUTES.find((r) => r.id === 'hj_timetraveler')!;
+    const hermes = SUPER_ROUTES.find((r) => r.id === 'hj_vampire')!;
     expect(hermes.ready(s, p)).toBe(false); // 문이 닫혀 있다
     s.cards = [{ id: 'hj_vtuber', personId: 'x', year: 2040 } as never];
     expect(hermes.ready(s, p)).toBe(true); // 슈퍼 히든 가문이면 열린다
-    for (const [def, flag] of [['sh_step1', 'sh:hj_timetraveler:1'], ['sh_step2', 'sh:hj_timetraveler:2'], ['sh_step3', '']] as const) {
+    for (const [def, flag] of [['sh_step1', 'sh:hj_vampire:1'], ['sh_step2', 'sh:hj_vampire:2'], ['sh_step3', '']] as const) {
       let tries = 0;
-      while ((flag ? !p.flags.includes(flag) : p.job !== 'hj_timetraveler') && tries++ < 20) {
-        s.events = [{ uid: s.eventSeq++, defId: def, personId: p.id, data: { id: 'hj_timetraveler' } }];
+      while ((flag ? !p.flags.includes(flag) : p.job !== 'hj_vampire') && tries++ < 20) {
+        s.events = [{ uid: s.eventSeq++, defId: def, personId: p.id, data: { id: 'hj_vampire' } }];
         resolveChoice(s, 0);
       }
     }
-    expect(p.job).toBe('hj_timetraveler');
+    expect(p.job).toBe('hj_vampire');
   });
 
   it('슈퍼 히든 승격(밤의 대부): 효과·보상·문이 실제로 열리고, 옛 단발 제안에는 없다', async () => {

@@ -56,7 +56,7 @@ export const TRAITS: Record<string, TraitDef> = {
   ambitious: { name: '야심가', desc: '출세욕이 강하다. 명성 획득↑', good: true },
   speed_demon: { name: '질주본능', desc: '초감각적 운전 재능 (선천 희귀 특성 · 슈퍼 히든 드리프트 퀸 열쇠)', good: true },
   hypnotic_eye: { name: '맑은 눈', desc: '사람의 마음을 읽는 또렷한 눈빛 (선천 희귀 특성)', good: true },
-  blood_thirst: { name: '밤의 체질', desc: '햇빛이 버겁고, 밤이 되면 살아난다 (선천 1% · 슈퍼 히든 핏빛 후작부인의 쉬운 길)', good: true },
+  blood_thirst: { name: '흡혈 적성', desc: '햇빛이 버겁고, 붉은 것에 끌린다 (선천 1% · 슈퍼 히든 핏빛 후작부인의 쉬운 길)', good: true },
   dark_artist: { name: '예술의 손', desc: '남다른 미적 감각 (선천 희귀 특성)', good: true },
   chess_prodigy: { name: '체스 신동', desc: '64칸 판 위에서 수십 수를 내다보는 천재적인 두뇌 (적성검사 4% 발현 · 슈퍼 히든 체스 그랜드마스터 열쇠)', good: true },
 };

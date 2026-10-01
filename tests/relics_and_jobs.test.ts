@@ -93,7 +93,7 @@ describe('직업 전용 콘텐츠 밸런스 및 가보 연계 시스템 검증',
 
   it('히든 직업 전설 사연: 히든 직업 전용 사연이 풍부하게 보강되었다', () => {
     // 히든 작업 사연이 대폭 확장됨
-    expect(HIDDEN_WORK_STORIES.length).toBeGreaterThanOrEqual(114);
+    expect(HIDDEN_WORK_STORIES.length).toBeGreaterThanOrEqual(109);
 
     // 모험가, 해커, 위조범, 퇴마사 등 전설 사연이 실제로 포함되어 있음
     const advStory = HIDDEN_WORK_STORIES.find((st) => st.cond?.({} as any, { job: 'hj_adventurer' } as any) && st.title.includes('황금 해도'));

@@ -22,7 +22,7 @@ export interface HiddenJob {
 }
 
 /** 슈퍼 히든 */
-export const HOH_IDS = ['hj_vampire', 'hj_timetraveler'];
+export const HOH_IDS = ['hj_vampire'];
 export const isHoH = (id: string) => HOH_IDS.includes(id);
 export const isUltraHidden = (_id: string) => false;
 export const ULTRA_HIDDEN_IDS = new Set<string>();
@@ -66,9 +66,8 @@ export const HIDDEN: HiddenJob[] = [
   // ── 슈퍼 히든 (3단계 연작 미션 체인) ──
   { id: 'hj_vtuber', name: '버튜버 여제', icon: '🎧', pay: 55000, color: '#7040d0', fx: 'screen', eff: { cash: 5000, hap: 5, fame: 6, kid: 'int' }, hint: '모니터 속 귀여운 아바타, 그리고 책상 위 마이크.', strategy: '20~27세 여성, PC 보유, 매력 68+, 지능 60+ → 3단계 미션: 첫 노래 방송 → 대형 브랜드 콜라보 → 3D 단독 콘서트' },
   { id: 'hj_drifter', name: '드리프트 퀸', icon: '🏎️', pay: 52000, color: '#d03020', fx: 'fire', eff: { fame: 8, cash: 4000, hp: 5, hap: 4 }, hint: '서킷 위 붉은 경주차, 타이어 연기 속의 우승 트로피.', strategy: '선천 희귀 특성 [질주본능](출생 시 2%)을 타고난 여성이 중형 세단 이상의 차를 가지면 → 3단계: 아마추어 대회 → 프로 입단 → 국제 챔피언십' },
-  // ── 슈퍼 히든 (핏빛 후작부인 · 시간 정지의 여제) ──
-  { id: 'hj_vampire', name: '핏빛 후작부인', icon: '🌹', pay: 65000, color: '#6a0a1a', fx: 'shadow', eff: { cash: 7000, fame: 7, hp: 6, hap: 2 }, hint: '해가 지면 깨어나는 고성의 안주인. 늙지 않는 얼굴.', strategy: '선천 1% [밤의 체질] 여성: 시름시름 앓다 밤에 기운을 되찾고, 치료를 미루면 바로 (쉬운 길) · 또는 슈퍼 히든 가문의 30세+ 여성, 매력 70+·건강 60+ → 3단계' },
-  { id: 'hj_timetraveler', name: '시간 정지의 여제', icon: '⏳', pay: 72000, color: '#5a8ad0', fx: 'magic', eff: { cash: 8000, fame: 7, kid: 'int', study: 5 }, hint: '멈춘 사무실, 공중에 뜬 서류와 커피. 그녀만 움직인다.', strategy: '지능 78+ 여성이 높은 직급에 오르면 어느 날 문득 시간이 멈춘다 (확률) · 또는 슈퍼 히든 가문 → 3단계: 멈춘 시계 → 얼어붙은 1초 → 시간 정지의 여제' },
+  // ── 슈퍼 히든 (핏빛 후작부인) ──
+  { id: 'hj_vampire', name: '핏빛 후작부인', icon: '🩸', pay: 65000, color: '#6a0a1a', fx: 'shadow', eff: { cash: 7000, fame: 7, hp: 6, hap: 2 }, hint: '해가 지면 깨어나는 고성의 뱀파이어. 늙지 않는 얼굴, 붉은 잔.', strategy: '선천 1% [흡혈 적성] 여성: 시름시름 앓다 피 맛을 알고, 백신을 거부하면 뱀파이어로 깨어난다 (쉬운 길) · 또는 슈퍼 히든 가문의 30세+ 여성, 매력 70+·건강 60+ → 3단계' },
   // ── 슈퍼 히든 (프라이빗 제트 전속 승무원 · 비밀 카지노의 딜러) ──
   { id: 'hj_private_jet', name: '프라이빗 제트 전속 승무원', label: '프라이빗 제트', icon: '✈️', pay: 68000, color: '#1e3250', fx: 'city', eff: { cash: 6500, fame: 5, hap: 6, hp: 3 }, hint: '은은한 조명의 전용기, 구름 위의 샴페인.', strategy: '20~32세 여성, 매력 68+, 지능 60+ → 3단계 미션: VVIP 전담 면접 → 대양 횡단 야간 비행 → 단 한 명을 위한 전속 계약' },
   { id: 'hj_underground_dealer', name: '비밀 카지노의 딜러 (도박의 왕)', label: '언더그라운드 카지노', icon: '🂡', pay: 75000, color: '#3a1a4a', fx: 'cards', eff: { cash: 8000, fame: 6, hap: 4, heat: -2 }, hint: '초록 펠트 테이블, 보라 네온, 그리고 돈이 아닌 약속.', strategy: '20세 이상 남성, 친구의 카지노 권유를 받아 3번 방문하면 중독되어 전직 (안 가면 10년에 1번씩 추천)' },

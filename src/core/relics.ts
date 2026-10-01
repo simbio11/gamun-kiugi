@@ -128,15 +128,6 @@ export const RELIC_DEFS: Record<string, RelicDef> = {
     eff: { cha: 4, hp: 3 },
     unlockRoute: 'route:blood_heritage',
   },
-  // ⏳ 시간 정지의 여제
-  relic_time_watch: {
-    id: 'relic_time_watch',
-    name: '시간을 멈추는 은제 회중시계',
-    icon: '⏳',
-    desc: '초침이 멈추는 순간 세상의 모든 흐름이 얼어붙는다. 가문의 결정적 순간을 구원할 기적의 유산.',
-    eff: { int: 4, fame: 3 },
-    unlockRoute: 'route:time_ruler',
-  },
   // 🎨 화가 / 위조범
   relic_masterpiece: {
     id: 'relic_masterpiece',

@@ -148,7 +148,6 @@ const JOB_RELIC_MAP: Record<string, string> = {
   hj_mafia: 'relic_family_ring',
   hj_godmother: 'relic_family_ring',
   hj_vampire: 'relic_vampire_pendant',
-  hj_timetraveler: 'relic_time_watch',
   painter: 'relic_masterpiece',
   hj_forger: 'relic_masterpiece',
   hj_exorcist: 'relic_sacred_bell',
