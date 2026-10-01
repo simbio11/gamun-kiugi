@@ -1,7 +1,8 @@
 // 뉴스·신문·속보에 실리는 "보도사진" (120×72 도트).
 //   근현대사 큰 사건마다 그 장면을 대표하는 구도(초상·광장의 인파·탱크·올림픽 성화·붉은 응원 물결…),
 //   그 밖의 뉴스는 글의 낱말로 고른다. 매체에 따라 화면에서 흑백 망점(호외)·컬러(TV·포털)로 보인다.
-// 실제 보도사진은 저작권·초상권 문제가 있어 쓰지 않고, 그 장면을 도트로 다시 그린다.
+// 실제 사진: src/assets/news/<장면>.{jpg,webp,png} 가 있으면 그걸 쓰고(출처는 news-credits.ts), 없으면 도트로 그린 장면.
+// 공개 저작물(위키미디어 공용·국가기록원 공공누리 1유형 등)만 넣는다.
 const W = 120;
 const H = 72;
 const cache = new Map<string, string>();
@@ -438,3 +439,10 @@ export function newsPhotoURL(key: string): string {
   cache.set(key, url);
   return url;
 }
+
+// ───────────────────────── 실제 사진 ─────────────────────────
+const REAL = Object.fromEntries(
+  Object.entries(import.meta.glob('../assets/news/*.{jpg,jpeg,webp,png}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>).map(([k, v]) => [k.split('/').pop()!.replace(/\.[a-z]+$/, ''), v]),
+);
+/** 이 장면의 실제 사진 (없으면 undefined) */
+export const realPhoto = (key: string): string | undefined => REAL[key];

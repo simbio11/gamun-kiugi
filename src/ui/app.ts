@@ -54,7 +54,8 @@ import { fameNeed } from '../core/career';
 import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
 import { applyTheme, type Theme as HeadTheme } from './theme';
 import { BIG_BY_ID } from '../core/big-events';
-import { CAPTION, newsPhotoKey, newsPhotoURL } from '../render/newsphoto';
+import { CAPTION, newsPhotoKey, newsPhotoURL, realPhoto } from '../render/newsphoto';
+import { NEWS_CREDITS } from '../render/news-credits';
 import { hiddenCardHTML, hiddenArt, initHiddenVideos } from './hidden-card';
 import { KIN_NAME, kinGap, kinOf } from '../core/inlaws';
 import { photoURL } from '../render/photo';
@@ -1391,9 +1392,11 @@ function newsModal(g: GameState, cur: NonNullable<ReturnType<typeof currentEvent
   const paper = pick2(g.year, ['동아일보', '조선일보', '경향신문', '한국일보', '서울신문']);
   // 보도사진: 큰 사건은 그 장면, 그 밖엔 글의 낱말로 (render/newsphoto.ts)
   const pk = newsPhotoKey(cur.def.id, cur.title, cur.text);
-  const purl = pk ? newsPhotoURL(pk) : '';
+  const real = pk ? realPhoto(pk) : undefined;
+  const purl = real ?? (pk ? newsPhotoURL(pk) : '');
   const cap = pk ? CAPTION[pk] ?? '' : '';
-  const photo = (cls: string) => (purl ? `<figure class="nw-photo ${cls}"><img src="${purl}" alt="">${cap && cls !== 'thumb' ? `<figcaption>${esc(cap)}</figcaption>` : ''}</figure>` : '');
+  const credit = real && pk ? NEWS_CREDITS[pk] : '';
+  const photo = (cls: string) => (purl ? `<figure class="nw-photo ${cls}${real ? ' real' : ''}"><img src="${purl}" alt="">${cap && cls !== 'thumb' ? `<figcaption>${esc(cap)}${credit ? ` <small class="nw-credit">${esc(credit)}</small>` : ''}</figcaption>` : ''}</figure>` : '');
   const choices = cur.choices
     .map(
       (c, i) => `<button class="choice" style="animation-delay:${900 + i * 80}ms" data-action="choose" data-i="${i}" ${c.disabled ? 'disabled' : ''}>
