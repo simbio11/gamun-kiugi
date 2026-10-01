@@ -1503,3 +1503,33 @@ img.px.big.bust { width: 168px; height: 168px; image-rendering: auto; }
 .badges .odds.hi { background: #d8f2dc; color: #1d6a2c; }
 .badges .odds.mid { background: #fdf0c8; color: #7a5600; }
 .badges .odds.lo { background: #fadcdc; color: #962626; }
+
+/* ── 큰 거래 확인 창 ── */
+.event.trade-confirm { max-width: 330px; text-align: center; padding: 22px 18px; }
+.trade-confirm .tc-icon { font-size: 44px; line-height: 1; margin-bottom: 6px; animation: tc-bob 1.6s ease-in-out infinite; }
+.trade-confirm h3 { margin: 4px 0 10px; }
+.trade-confirm .tc-lines { display: grid; gap: 4px; font-size: 13px; background: rgba(127, 127, 127, .1); border-radius: 8px; padding: 10px; font-variant-numeric: tabular-nums; }
+.trade-confirm .tc-lines div:nth-child(2) { font-weight: 700; }
+.trade-confirm.sell .tc-icon { filter: drop-shadow(0 0 8px rgba(80, 200, 120, .6)); }
+.trade-confirm.buy .tc-icon { filter: drop-shadow(0 0 8px rgba(255, 200, 80, .7)); }
+@keyframes tc-bob { 50% { transform: translateY(-4px) rotate(-3deg); } }
+
+/* ── 거래 성사 도장: 쾅! 찍히고 금화가 튄다 ── */
+.trade-stamp { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none;
+  background: radial-gradient(circle at 50% 45%, rgba(255, 220, 120, .35), rgba(0, 0, 0, .45) 70%); animation: ts-bg 1.9s ease-out forwards; }
+.trade-stamp.sell { background: radial-gradient(circle at 50% 45%, rgba(120, 230, 160, .35), rgba(0, 0, 0, .45) 70%); }
+.trade-stamp .ts-icon { font-size: 76px; animation: ts-drop .55s cubic-bezier(.2, 1.6, .4, 1) both; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .5)); }
+.trade-stamp .ts-seal { margin-top: 6px; font-size: 26px; font-weight: 900; letter-spacing: .12em; color: #d42a2a; border: 4px solid #d42a2a; border-radius: 10px; padding: 4px 16px;
+  background: rgba(255, 250, 240, .92); transform: rotate(-8deg); animation: ts-slam .45s .18s cubic-bezier(.3, 1.8, .5, 1) both; box-shadow: 0 0 0 3px rgba(212, 42, 42, .25); }
+.trade-stamp.sell .ts-seal { color: #1d7a3e; border-color: #1d7a3e; box-shadow: 0 0 0 3px rgba(29, 122, 62, .25); }
+.trade-stamp .ts-text { margin-top: 10px; font-weight: 700; color: #fff; text-shadow: 0 2px 4px rgba(0, 0, 0, .7); animation: ts-fade .4s .4s both; }
+.trade-stamp .ts-burst { position: absolute; left: 50%; top: 45%; }
+.trade-stamp .ts-burst i { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6c0, #f0b820 60%, #a87000);
+  transform: rotate(var(--a)) translateY(0); animation: ts-coin .9s .2s ease-out both; }
+.trade-stamp.sell .ts-burst i { background: radial-gradient(circle at 35% 30%, #e8ffe8, #4cc070 60%, #1d7a3e); }
+@keyframes ts-drop { from { transform: translateY(-120px) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ts-slam { from { transform: rotate(-8deg) scale(2.6); opacity: 0; } to { transform: rotate(-8deg) scale(1); opacity: 1; } }
+@keyframes ts-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes ts-coin { from { transform: rotate(var(--a)) translateY(0) scale(.4); opacity: 1; } to { transform: rotate(var(--a)) translateY(-150px) scale(1); opacity: 0; } }
+@keyframes ts-bg { 0% { opacity: 0; } 12%, 75% { opacity: 1; } 100% { opacity: 0; } }
+.calm .trade-stamp * { animation-duration: .01s !important; }

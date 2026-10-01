@@ -10,7 +10,7 @@ import { wageIndex } from '../core/pay';
 import { buyPower, MAINTAIN, MARGIN_RATE, stockQuote } from '../core/leverage';
 import { fitCats, interestSummary, temperamentLine } from '../core/interests';
 import { JOB_CATS } from '../core/jobs';
-import { buyVehicle, canDrive, modelOf, myVehicles, vehicleAP, vehiclePrice, VEHICLES } from '../core/vehicle';
+import { buyVehicle, canDrive, modelOf, myVehicles, vehicleAP, vehiclePrice, vehicleTax, VEHICLES } from '../core/vehicle';
 import {
   ACHIEVEMENTS,
   ART_TIERS,
@@ -104,6 +104,10 @@ interface UIState {
   sheet?: string;
   report?: { title: string; lines: string[] };
   outcome?: { title: string; text: string };
+  /** 큰 거래(차·집·건물·땅·그림·현물) 전에 한 번 더 묻는다 */
+  trade?: { a: string; id: string; v?: string; amt?: string; icon: string; title: string; lines: string[]; sell: boolean };
+  /** 거래가 끝난 순간의 도장 연출 */
+  stamp?: { sell: boolean; icon: string; text: string; n: number };
   toast?: string;
   giftTo?: string;
   settings?: boolean;
@@ -406,6 +410,7 @@ function renderInner() {
   let modalKey = '';
   if (g.gameOver && !ui.overLog) (modal = gameOverModal(g)), (modalKey = 'over');
   else if (ui.apWarnModal) (modal = apWarnModalHTML(ui.apWarnModal.ap)), (modalKey = 'apwarn');
+  else if (ui.trade) (modal = tradeModal(ui.trade)), (modalKey = 'trade' + ui.trade.a + ui.trade.id);
   else if (ui.report) (modal = reportModal(ui.report)), (modalKey = 'rep' + ui.report.title);
   else if (ui.outcome) (modal = outcomeModal(ui.outcome)), (modalKey = 'out' + ui.outcome.title + ui.outcome.text);
   else if (g.rewards?.length) {
@@ -436,6 +441,7 @@ function renderInner() {
     ${nav()}
     ${modal}
     ${ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ''}
+    ${ui.stamp ? `<div class="trade-stamp ${ui.stamp.sell ? 'sell' : 'buy'}" data-n="${ui.stamp.n}"><div class="ts-burst">${Array.from({ length: 18 }, (_, i) => `<i style="--a:${i * 20}deg"></i>`).join('')}</div><div class="ts-icon">${ui.stamp.icon}</div><div class="ts-seal">${ui.stamp.sell ? '매도 완료' : '계약 완료'}</div><div class="ts-text">${esc(ui.stamp.text)}</div></div>` : ''}
     ${fx.chips.length ? `<div class="rw-chips">${fx.chips.map((c) => `<div class="rw-chip" data-id="${c.id}">${esc(c.text)}${c.pts ? ` <b>+${c.pts}✦</b>` : ''}</div>`).join('')}</div>` : ''}
   `;
   // 새로 뜬 것만 움직인다: 같은 창이 다시 그려질 땐 가만히
@@ -2155,7 +2161,7 @@ function vehicleCard(g: GameState): string {
     <details class="moves"><summary>매장 둘러보기</summary>
       ${VEHICLES.map((m) => {
         const price = vehiclePrice(g, m);
-        const tax = Math.round(price * m.tax);
+        const tax = vehicleTax(price, m);
         return `<div class="arow veh"><span><img class="vpx" src="${buildingURL(m.sprite, seedOf(m.id))}" alt=""> ${m.icon} ${esc(m.name)}<br><small class="muted">${esc(m.note)}<br>취득세 ${formatMoney(tax)} · 유지비 연 ${formatMoney(Math.round(m.upkeep * wageIndex(g.year)))} · 감가 연 ${Math.round(m.dep * 100)}%</small></span>
         <span class="buy-c"><b>${formatMoney(price)}</b><button class="mini" data-action="buy-car" data-id="${m.id}" ${money >= price + tax && me.flags.includes('license') ? '' : 'disabled'}>구입</button></span></div>`;
       }).join('')}
@@ -2182,6 +2188,63 @@ function oddsBadge(o?: number): string {
   if (o === undefined) return '';
   const pct = Math.max(1, Math.min(99, Math.round(o * 100)));
   return `<b class="odds ${pct >= 65 ? 'hi' : pct >= 35 ? 'mid' : 'lo'}" title="성공 확률">🎲 ${pct}%</b>`;
+}
+
+/** 큰 거래 확인 창 */
+function tradeModal(tr: NonNullable<UIState['trade']>): string {
+  return `
+  <div class="modal" data-action="trade-cancel">
+    <div class="event trade-confirm ${tr.sell ? 'sell' : 'buy'}" data-stop>
+      <div class="tc-icon">${tr.icon}</div>
+      <h3>${esc(tr.title)}</h3>
+      <div class="tc-lines">${tr.lines.map((l) => `<div>${esc(l)}</div>`).join('')}</div>
+      <div class="row2" style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn ghost" data-action="trade-cancel" style="flex:1">다시 생각해 본다</button>
+        <button class="btn primary" data-action="trade-ok" style="flex:1">${tr.sell ? '판다' : '산다'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/** 이 클릭이 큰 거래면 확인 창 내용을 만든다 (주식·코인처럼 잦은 거래는 묻지 않는다) */
+function tradeAsk(g: GameState, a: string, id: string, v?: string, amt?: string): UIState['trade'] {
+  const me = head(g);
+  if (a === 'buy-car') {
+    const m = VEHICLES.find((x) => x.id === id);
+    if (!m) return undefined;
+    const price = vehiclePrice(g, m);
+    const tax = vehicleTax(price, m);
+    return { a, id, icon: m.icon, title: `${m.name}을(를) 살까?`, lines: [`차값 ${formatMoney(price)} + 취득세 ${formatMoney(tax)}`, `합계 ${formatMoney(price + tax)}`, `유지비 해마다 약 ${formatMoney(Math.round(m.upkeep * wageIndex(g.year)))}`], sell: false };
+  }
+  if (a === 'buy-l') {
+    const l = g.listings?.find((x) => x.id === id);
+    if (!l) return undefined;
+    const q = buyQuote(g, householder(g), l);
+    return { a, id, icon: ASSET_ICONS[l.kind], title: `${l.name} 매수`, lines: [`매매가 ${formatMoney(l.price)}`, `취득세 ${formatMoney(q.tax)} · 대출 최대 ${formatMoney(q.limit)}`, `필요 현금 ${formatMoney(q.need)}`], sell: false };
+  }
+  if (a === 'buy-home') {
+    const b = homeBuyQuote(g, me);
+    if (!b) return undefined;
+    return { a, id, icon: '🏡', title: '살던 집을 산다', lines: [`집값 ${formatMoney(b.price)}`, `대출 ${formatMoney(b.loan)} (보증금은 돌려받아 보탠다)`], sell: false };
+  }
+  if (a === 'sell') {
+    const x = g.assets.find((y) => y.id === id);
+    if (!x || x.kind === 'stock' || x.kind === 'coin') return undefined;
+    return { a, id, icon: ASSET_ICONS[x.kind] ?? '🏷', title: `${x.name}을(를) 팔까?`, lines: [`지금 시세 ${formatMoney(x.value)}`, ...(liab(x) ? [`갚아야 할 빚 ${formatMoney(liab(x))}`] : []), isRealty(x) ? '양도세·중개수수료를 떼고 받는다' : '팔면 되돌릴 수 없다'], sell: true };
+  }
+  void v;
+  void amt;
+  return undefined;
+}
+
+/** 거래 성사 도장 (1.8초) */
+function stampTrade(sell: boolean, icon: string, text: string) {
+  const n = Date.now();
+  ui.stamp = { sell, icon, text, n };
+  sfx(sell ? 'coin' : 'great');
+  setTimeout(() => {
+    if (ui.stamp?.n === n) (ui.stamp = undefined), root.querySelector('.trade-stamp')?.remove();
+  }, 1900);
 }
 
 /** 앨범 사진 한 장 (폴라로이드) */
@@ -2495,7 +2558,34 @@ function handle(el: HTMLElement) {
   const id = el.dataset.id!;
   const g = ui.game;
 
+  // 큰 거래는 확인 창을 거친다
+  if (g && !el.dataset.ok && ['buy-car', 'buy-l', 'buy-home', 'sell'].includes(a)) {
+    const ask = tradeAsk(g, a, id, v, el.dataset.amt);
+    if (ask) {
+      ui.trade = ask;
+      sfx('choose');
+      render();
+      return;
+    }
+  }
+
   switch (a) {
+    case 'trade-cancel':
+      ui.trade = undefined;
+      break;
+    case 'trade-ok': {
+      const tr = ui.trade;
+      ui.trade = undefined;
+      if (!tr) break;
+      const fake = document.createElement('button');
+      Object.assign(fake.dataset, { action: tr.a, id: tr.id, ok: '1', ...(tr.v ? { v: tr.v } : {}), ...(tr.amt ? { amt: tr.amt } : {}) });
+      const before = g ? g.assets.length + g.assets.reduce((n, x) => n + x.value, 0) : 0;
+      handle(fake);
+      const after = g ? g.assets.length + g.assets.reduce((n, x) => n + x.value, 0) : 0;
+      if (before !== after) stampTrade(tr.sell, tr.icon, tr.title.replace(/을\(를\) (살|팔)까\?$/, ''));
+      render();
+      return;
+    }
     case 'setup-sex':
       ui.setup.sex = v as Sex;
       break;
