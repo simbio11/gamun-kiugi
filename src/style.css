@@ -1790,3 +1790,225 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
   aspect-ratio: 4 / 3;
   object-fit: cover;
 }
+
+/* ═══════════════ 디자인 v2 (DESIGN.md · 등잔불 족보) ═══════════════
+   색은 모두 :root 토큰과 color-mix 로만 만든다. 새 hex 금지. */
+:root {
+  --edge:
+    0 calc(var(--px) * -1) 0 0 var(--line),
+    0 var(--px) 0 0 var(--line),
+    calc(var(--px) * -1) 0 0 0 var(--line),
+    var(--px) 0 0 0 var(--line);
+  /* 도트 입체: 왼쪽 위는 빛, 오른쪽 아래는 그늘 */
+  --bevel:
+    inset var(--px) var(--px) 0 0 color-mix(in srgb, var(--paper) 55%, transparent),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 color-mix(in srgb, var(--line) 22%, transparent);
+  --bevel-in:
+    inset var(--px) var(--px) 0 0 color-mix(in srgb, var(--line) 25%, transparent),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 color-mix(in srgb, var(--paper) 30%, transparent);
+  --drop: 0 calc(var(--px) * 2) 0 0 color-mix(in srgb, var(--line) 55%, transparent);
+  --gold-hi: color-mix(in srgb, var(--gold) 55%, var(--paper));
+  --gold-lo: color-mix(in srgb, var(--gold) 70%, var(--line));
+  --glow: color-mix(in srgb, var(--gold) 45%, transparent);
+}
+
+/* ── 버튼: 도트 베벨 + 꾹 눌림 ── */
+.btn:not(:disabled), .choice:not(:disabled), .seg button:not(:disabled), .will button, .mini:not(:disabled), .next-year {
+  box-shadow: var(--bevel), var(--edge), var(--drop);
+}
+.seg button.on, .will button.on, .mini:not(:disabled) {
+  box-shadow: inset var(--px) var(--px) 0 0 color-mix(in srgb, var(--gold) 18%, transparent), var(--edge), var(--drop);
+}
+.btn:not(:disabled):active, .choice:not(:disabled):active, .seg button:not(:disabled):active, .will button:active, .mini:not(:disabled):active {
+  transform: translateY(calc(var(--px) * 2));
+  box-shadow: var(--bevel-in), var(--edge);
+  filter: none;
+}
+.next-year:active { transform: translateX(-50%) translateY(calc(var(--px) * 2)); box-shadow: var(--bevel-in), var(--edge); }
+
+/* 금박 버튼: 위아래 두 단 금빛 + 가끔 스쳐 가는 광택 */
+.btn.primary:not(:disabled), .next-year {
+  background: linear-gradient(180deg, var(--gold-hi) 0 50%, var(--gold) 50% 100%);
+  isolation: isolate;
+}
+.btn.primary { position: relative; }
+.btn.primary:not(:disabled)::after, .next-year::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(100deg, transparent 0 38%, color-mix(in srgb, var(--paper) 70%, transparent) 38% 46%, transparent 46% 52%, color-mix(in srgb, var(--paper) 45%, transparent) 52% 55%, transparent 55%);
+  background-size: 260% 100%;
+  background-position: 130% 0;
+  animation: gild-sweep 4.2s steps(14) infinite;
+  pointer-events: none;
+}
+@keyframes gild-sweep { 0%, 62% { background-position: 130% 0; } 100% { background-position: -130% 0; } }
+.next-year { font-family: 'Galmuri14', 'Galmuri11', sans-serif; letter-spacing: 1px; text-shadow: 1px 1px 0 color-mix(in srgb, var(--paper) 60%, transparent); }
+/* 다음 해 버튼: 행동력을 다 쓰면 숨 쉬듯 빛난다 */
+.next-year:not(:has(small)) { animation: ny-breathe 2.4s ease-in-out infinite; }
+@keyframes ny-breathe { 50% { box-shadow: var(--bevel), var(--edge), var(--drop), 0 0 18px 2px var(--glow); } }
+
+@media (hover: hover) {
+  .btn:not(:disabled):hover, .choice:not(:disabled):hover, .seg button:not(:disabled):hover, .mini:not(:disabled):hover {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+    box-shadow: var(--bevel), var(--edge), 0 calc(var(--px) * 2 + 1px) 0 0 color-mix(in srgb, var(--line) 55%, transparent);
+  }
+  .choice:not(:disabled):hover { background: color-mix(in srgb, var(--paper) 70%, var(--gold)); }
+}
+
+/* 선택지: 왼쪽 금 띠가 차오른다 */
+.choice:not(:disabled) { position: relative; background-image: linear-gradient(90deg, var(--gold) 0 var(--px), transparent var(--px)); background-repeat: no-repeat; transition: transform .12s var(--out), box-shadow .12s, background-color .15s, background-size .2s; }
+
+/* 탭 누를 때 튀는 도트 가루 (fx.ts tapBurst) */
+.tap-burst { position: fixed; z-index: 60; width: 0; height: 0; pointer-events: none; }
+.tap-burst i { position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; background: var(--gold); box-shadow: 1px 1px 0 var(--line);
+  transform: rotate(var(--a)) translateY(0); animation: tb-pop .5s steps(6) forwards; }
+.tap-burst i:nth-child(3n) { background: var(--cream); }
+@keyframes tb-pop { to { transform: rotate(var(--a)) translateY(calc(var(--d) * -1)); opacity: 0; } }
+
+/* ── 카드: 족보 책장 — 안쪽 가는 괘선 + 종이 결 ── */
+.card, .roster, .event, .sheet {
+  outline: 1px solid color-mix(in srgb, var(--rule) 80%, transparent);
+  outline-offset: -6px;
+}
+.card, .roster {
+  background-image:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--paper) 60%, transparent), transparent 65%),
+    radial-gradient(ellipse at 100% 100%, color-mix(in srgb, var(--panel2) 70%, transparent), transparent 55%);
+}
+#app[data-theme="teen"] .card, #app[data-theme="elder"] .card { outline-color: transparent; }
+.card h2 { display: flex; align-items: center; gap: 6px; }
+.card h2::before { content: ''; flex: none; width: 6px; height: 6px; background: var(--gold); box-shadow: 0 0 0 1px var(--line); transform: rotate(45deg); }
+
+/* ── 상단 바: 단단한 밤색 + 금실 두 줄 ── */
+.top {
+  background: linear-gradient(180deg, var(--bg2), var(--bg));
+  border-bottom: none;
+  box-shadow: 0 var(--px) 0 0 var(--line), 0 calc(var(--px) + 2px) 0 0 var(--gold-lo), 0 calc(var(--px) * 2 + 2px) 0 0 var(--line);
+}
+.year { text-shadow: 2px 2px 0 var(--line); }
+#app[data-theme="wealth"] .top {
+  background: linear-gradient(180deg, var(--bg2), var(--bg));
+}
+/* 배경 그림 위에 뜨는 글자는 잉크 테두리로 또렷하게 */
+.fam-stats, .ft-l, .gen-l, .props h3, .ap-bar, .tree > .hint, .screen > .hint, .tree-bar ~ .hint, .flow, .fam {
+  text-shadow: 1px 0 0 var(--line), -1px 0 0 var(--line), 0 1px 0 var(--line), 0 -1px 0 var(--line), 1px 1px 0 var(--line);
+}
+#app[data-theme] .fam-stats { background: color-mix(in srgb, var(--bg) 55%, transparent); padding: 4px 16px 4px; margin-top: 6px; }
+
+/* ── 하단 탭: 고른 탭이 한 칸 솟는다 ── */
+.tabs { box-shadow: 0 calc(var(--px) * -1) 0 0 var(--line); }
+.tabs button { position: relative; transition: transform .15s var(--out), background-color .15s, color .15s; box-shadow: inset 0 var(--px) 0 0 color-mix(in srgb, var(--panel) 8%, transparent); }
+.tabs button.on {
+  background: linear-gradient(180deg, var(--gold-hi) 0 50%, var(--gold) 50%);
+  box-shadow: inset var(--px) var(--px) 0 0 color-mix(in srgb, var(--paper) 50%, transparent);
+  transform: translateY(calc(var(--px) * -1));
+}
+.tabs.slide button.on { animation: tab-pop 0.3s var(--spring) both; }
+@keyframes tab-pop { from { transform: translateY(2px) scale(0.88); } }
+
+/* ── 화면 전환: 도트 셔터가 쓸고 지나간다 ── */
+.screen.enter-r { animation: shutter-r .32s steps(8) both; }
+.screen.enter-l { animation: shutter-l .32s steps(8) both; }
+.screen.enter { animation: shutter-up .3s steps(6) both; }
+@keyframes shutter-r { from { clip-path: inset(0 0 0 100%); transform: translateX(12px); } to { clip-path: inset(0 0 0 0); transform: none; } }
+@keyframes shutter-l { from { clip-path: inset(0 100% 0 0); transform: translateX(-12px); } to { clip-path: inset(0 0 0 0); transform: none; } }
+@keyframes shutter-up { from { clip-path: inset(100% 0 0 0); opacity: .4; } to { clip-path: inset(0); opacity: 1; } }
+/* 카드들이 차례로 한 박자씩 */
+.screen.enter-r > .card, .screen.enter-l > .card, .screen.enter > .card { animation: card-in .36s var(--out) both; }
+.screen > .card:nth-of-type(2) { animation-delay: .04s; }
+.screen > .card:nth-of-type(3) { animation-delay: .08s; }
+.screen > .card:nth-of-type(n+4) { animation-delay: .12s; }
+@keyframes card-in { from { transform: translateY(10px); opacity: 0; } }
+
+/* ── 창: 도트 디더 막 + 계단식으로 솟는 시트 ── */
+.modal {
+  background-color: color-mix(in srgb, var(--bg) 70%, transparent);
+  background-image: conic-gradient(color-mix(in srgb, var(--line) 35%, transparent) 25%, transparent 0 50%, color-mix(in srgb, var(--line) 35%, transparent) 0 75%, transparent 0);
+  background-size: 4px 4px;
+}
+.modal.enter { animation: dither-in .24s steps(4) both; }
+@keyframes dither-in { from { opacity: 0; } }
+.modal.enter > .event, .modal.enter > .sheet { animation: sheet-step .38s steps(7, jump-end) both; }
+@keyframes sheet-step { 0% { transform: translateY(60%); } 70% { transform: translateY(-3%); } 100% { transform: none; } }
+.event, .sheet { box-shadow: var(--edge), 0 -6px 0 0 color-mix(in srgb, var(--gold) 70%, transparent) inset; }
+.event h3, .sh-name { text-shadow: 1px 1px 0 color-mix(in srgb, var(--gold) 45%, transparent); }
+
+/* 행동력 남음 확인 창 */
+.ap-warn { max-width: 340px; text-align: center; padding: 24px 20px; margin: auto; }
+.modal:has(> .ap-warn) { align-items: center; }
+.ap-warn-icon { font-size: 36px; margin-bottom: 8px; animation: blink 1.2s steps(2) infinite; }
+.ap-warn .ev-text { line-height: 1.6; }
+.ap-warn .ev-text b { color: var(--red); }
+.ap-warn-chk { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 16px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
+.ap-warn-chk input { accent-color: var(--red); width: 15px; height: 15px; }
+.ap-warn-btns { display: flex; gap: 8px; }
+.ap-warn-btns .btn { flex: 1; }
+
+/* ── 해 넘김 막 (fx.ts yearTurn) ── */
+.year-turn { position: fixed; inset: 0; z-index: 55; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+.yt-lid { position: absolute; left: 0; right: 0; height: 50%; background: var(--bg);
+  background-image: radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--gold) 16%, transparent), transparent 60%); }
+.yt-lid.t { top: 0; box-shadow: 0 var(--px) 0 0 var(--gold-lo); animation: lid-t 1.3s both; }
+.yt-lid.b { bottom: 0; transform: scaleY(-1); box-shadow: 0 var(--px) 0 0 var(--gold-lo); animation: lid-b 1.3s both; }
+@keyframes lid-t { 0% { transform: translateY(-100%); animation-timing-function: steps(5); } 20%, 72% { transform: none; animation-timing-function: steps(6); } 100% { transform: translateY(-100%); } }
+@keyframes lid-b { 0% { transform: scaleY(-1) translateY(-100%); animation-timing-function: steps(5); } 20%, 72% { transform: scaleY(-1); animation-timing-function: steps(6); } 100% { transform: scaleY(-1) translateY(-100%); } }
+.yt-card { position: relative; text-align: center; animation: yt-card 1.3s both; }
+.yt-card b { display: block; font-family: 'Galmuri14', sans-serif; font-weight: normal; font-size: 64px; line-height: 1; letter-spacing: 4px;
+  color: var(--gold); text-shadow: 4px 4px 0 var(--line), 0 0 24px var(--glow); }
+.yt-card small { display: block; margin-top: 10px; font-size: 13px; color: var(--sand); letter-spacing: 2px; }
+.yt-card b::after { content: '년'; font-size: 28px; margin-left: 4px; }
+@keyframes yt-card { 0%, 16% { opacity: 0; transform: scale(1.6); } 26% { opacity: 1; transform: scale(.96); } 32%, 66% { opacity: 1; transform: none; } 76%, 100% { opacity: 0; transform: translateY(-8px); } }
+
+/* ── 타이틀: 등잔불 아래 펼친 족보 ── */
+.title { position: relative; isolation: isolate; }
+.title::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 38% at 50% 10%, color-mix(in srgb, var(--gold) 20%, transparent), transparent 70%),
+    radial-gradient(ellipse at 50% 120%, color-mix(in srgb, var(--line) 80%, transparent), transparent 60%),
+    conic-gradient(color-mix(in srgb, var(--bg2) 50%, transparent) 25%, transparent 0 50%, color-mix(in srgb, var(--bg2) 50%, transparent) 0 75%, transparent 0) 0 0 / 6px 6px,
+    var(--bg);
+  animation: lamp 5s steps(10) infinite; }
+@keyframes lamp { 0%, 100% { filter: brightness(1); } 47% { filter: brightness(1.08); } 52% { filter: brightness(.95); } }
+/* 떠오르는 불티 */
+.title::after { content: ''; position: fixed; left: 0; right: 0; bottom: -10px; height: 100%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(2px 2px at 12% 90%, var(--gold), transparent), radial-gradient(2px 2px at 30% 70%, var(--gold-hi), transparent),
+    radial-gradient(2px 2px at 54% 95%, var(--gold), transparent), radial-gradient(2px 2px at 72% 78%, var(--cream), transparent),
+    radial-gradient(2px 2px at 88% 92%, var(--gold), transparent), radial-gradient(2px 2px at 44% 60%, var(--gold-hi), transparent);
+  opacity: .7; animation: embers 9s linear infinite; }
+@keyframes embers { from { transform: translateY(0); opacity: 0; } 15% { opacity: .75; } to { transform: translateY(-55%); opacity: 0; } }
+.logo h1 {
+  background: linear-gradient(180deg, var(--head) 0 30%, var(--gold) 30% 62%, var(--gold-lo) 62%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(3px 3px 0 var(--line)) drop-shadow(0 0 14px color-mix(in srgb, var(--gold) 30%, transparent));
+  animation: logo-drop .7s steps(7) both;
+}
+@keyframes logo-drop { from { transform: translateY(-24px); opacity: 0; } }
+.logo-sub { letter-spacing: 3px; animation: card-in .5s .2s var(--out) both; }
+.logo-sub::before, .logo-sub::after { content: '◆'; color: var(--gold-lo); margin: 0 8px; font-size: 9px; vertical-align: 2px; }
+.logo-tree img { animation: px-hop 1.6s steps(2) infinite; }
+.logo-tree img:nth-child(2) { animation-delay: .4s; }
+.logo-tree img:nth-child(3) { animation-delay: .8s; }
+@keyframes px-hop { 50% { transform: translateY(-3px); } }
+.title > .card { animation: card-in .45s .25s var(--out) both; }
+.title > .card ~ .card, .title > .btn { animation: card-in .45s .35s var(--out) both; }
+
+/* ── 배경 그림은 한 걸음 뒤로: 살짝 흐리고 어둡게 눌러 글자·카드가 앞에 서게 ── */
+#theme-bg { inset: -12px; filter: blur(2.5px) brightness(.62) saturate(.7); }
+#theme-bg::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 40%, transparent 40%, color-mix(in srgb, var(--bg) 70%, transparent) 100%),
+    color-mix(in srgb, var(--bg) 28%, transparent); }
+/* 앞을 날아다니는 테마 입자도 조금 잦아들게 */
+#theme-fx { opacity: .55; }
+
+/* ── 움직임 줄이기 ── */
+#app.calm .btn.primary::after, #app.calm .next-year::after, #app.calm .next-year, #app.calm .title::before, #app.calm .title::after,
+#app.calm .logo-tree img, #app.calm .screen, #app.calm .screen > .card { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .btn.primary::after, .next-year::after, .title::after { display: none; }
+}

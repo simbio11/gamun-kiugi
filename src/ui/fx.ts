@@ -137,3 +137,35 @@ export function floatDelta(anchor: Element, text: string, good: boolean) {
   document.body.appendChild(d);
   setTimeout(() => d.remove(), 1200);
 }
+
+/** 해 넘김: 위아래 눈꺼풀이 착 닫혔다가 큰 연도가 찍히고 다시 열린다 (화면을 막지 않는다) */
+export function yearTurn(big: string, sub: string) {
+  if (reduced()) return;
+  document.querySelector('.year-turn')?.remove();
+  const el = document.createElement('div');
+  el.className = 'year-turn';
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = '<i class="yt-lid t"></i><i class="yt-lid b"></i><div class="yt-card"><b></b><small></small></div>';
+  el.querySelector('b')!.textContent = big;
+  el.querySelector('small')!.textContent = sub;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1400);
+}
+
+/** 주요 버튼을 누르면 도트 가루가 톡 튄다 */
+export function tapBurst(x: number, y: number, n = 8) {
+  if (reduced()) return;
+  const box = document.createElement('div');
+  box.className = 'tap-burst';
+  box.style.left = `${x}px`;
+  box.style.top = `${y}px`;
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement('i');
+    const a = (360 / n) * i + Math.random() * 20;
+    s.style.setProperty('--a', `${a}deg`);
+    s.style.setProperty('--d', `${18 + Math.random() * 14}px`);
+    box.appendChild(s);
+  }
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 520);
+}

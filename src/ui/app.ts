@@ -4,7 +4,7 @@ import { HOME_TYPE, buyCurrentHome, homeBuyQuote, moveInQuote, moveInto, moveInt
 import { creditGrade, debtRate, inRehab, walletNet } from '../core/debt';
 import { fixJosa, iga } from '../core/ev-util';
 import { LOAN_RATE, liab, acqTax, buyListing, buyQuote, gainsTax, homesOf, isHouse, isPrimary, isRealty, rentable, repayLoan, yieldOf } from '../core/realty';
-import { buzz, floatDelta, rollNumber, setSound, setVibe, sfx, soundOn, vibeOn, type Sfx } from './fx';
+import { buzz, floatDelta, rollNumber, setSound, setVibe, sfx, soundOn, tapBurst, vibeOn, yearTurn, type Sfx } from './fx';
 import { buildingURL, TIER_SPRITE, type BuildingKind } from '../render/building';
 import { wageIndex } from '../core/pay';
 import { buyPower, MAINTAIN, MARGIN_RATE, stockQuote } from '../core/leverage';
@@ -435,6 +435,10 @@ export function mount(el: HTMLElement) {
   ui.game = null;
   root.addEventListener('click', onClick);
   root.addEventListener('touchstart', () => {}, { passive: true }); // iOS에서 :active 눌림 효과 켜기
+  root.addEventListener('pointerdown', (e) => {
+    const b = (e.target as Element).closest?.('.btn.primary:not(:disabled), .next-year, .choice:not(:disabled)');
+    if (b && !prefs.calm) tapBurst(e.clientX, e.clientY);
+  });
   root.addEventListener('input', onInput);
   root.addEventListener('pointermove', tilt);
   root.addEventListener('pointerdown', spinStart);
@@ -470,22 +474,14 @@ function render() {
 function apWarnModalHTML(ap: number): string {
   return `
   <div class="modal" data-action="close-ap-warn">
-    <div class="event" data-stop style="max-width:340px;text-align:center;padding:24px 20px;">
-      <div style="font-size:36px;margin-bottom:8px;">⚡</div>
-      <h3 style="margin:0 0 10px;font-size:18px;">행동력이 남아 있습니다</h3>
-      <p class="ev-text" style="font-size:14px;line-height:1.6;color:#e8e0d5;">
-        아직 사용하지 않은 행동력이 <b>${ap}</b> 남았습니다.<br>
-        올해의 할 일을 더 하지 않고 다음 해로 넘어가시겠습니까?
-      </p>
-      <div style="margin:16px 0 18px;font-size:12px;color:#aaa;display:flex;align-items:center;justify-content:center;">
-        <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;user-select:none;">
-          <input type="checkbox" id="chk-suppress-ap-warn" style="accent-color:#e04070;width:15px;height:15px;">
-          해당 경고를 다시는 표시하지 않음
-        </label>
-      </div>
-      <div class="row2" style="display:flex;gap:10px;">
-        <button class="btn ghost" data-action="close-ap-warn" style="flex:1;">행동하러 가기</button>
-        <button class="btn primary" data-action="confirm-next-turn" style="flex:1;">턴 넘기기</button>
+    <div class="event ap-warn" data-stop>
+      <div class="ap-warn-icon">⚡</div>
+      <h3>행동력이 남아 있습니다</h3>
+      <p class="ev-text">아직 사용하지 않은 행동력이 <b>${ap}</b> 남았습니다.<br>올해의 할 일을 더 하지 않고 다음 해로 넘어가시겠습니까?</p>
+      <label class="ap-warn-chk"><input type="checkbox" id="chk-suppress-ap-warn"> 해당 경고를 다시는 표시하지 않음</label>
+      <div class="ap-warn-btns">
+        <button class="btn" data-action="close-ap-warn">행동하러 가기</button>
+        <button class="btn primary" data-action="confirm-next-turn">턴 넘기기</button>
       </div>
     </div>
   </div>`;
@@ -510,8 +506,15 @@ function renderInner() {
   fx.theme = theme;
   if (!g) {
     root.innerHTML = titleScreen();
+    fx.year = undefined;
+    fx.fromTitle = true;
     return;
   }
+  // 해가 바뀌거나 타이틀에서 막 들어오면 연도 막이 한 번 내려왔다 올라간다
+  if (!prefs.calm && (fx.fromTitle || (fx.year !== undefined && fx.year !== g.year)))
+    yearTurn(`${g.year}`, fx.fromTitle ? `${g.familyName}씨 ${g.generation}대` : `${g.familyName}씨 가문의 새해`);
+  fx.year = g.year;
+  fx.fromTitle = false;
   // 일반 보상은 화면을 막지 않고 위에 반짝 떴다 사라진다
   const commons = (g.rewards ?? []).filter((r) => r.rarity === 'common');
   if (commons.length) {
@@ -633,7 +636,7 @@ function track(name: string, title = name) {
 }
 
 /** 직전 화면 상태 (애니메이션을 새로 생긴 것에만 주려고) */
-const fx: { theme?: HeadTheme; modalKey: string; likelyHeir?: string; chips: { id: number; text: string; pts: number }[]; rewardShown?: number; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number; assetSub?: string } = { modalKey: '', chips: [] };
+const fx: { theme?: HeadTheme; modalKey: string; likelyHeir?: string; chips: { id: number; text: string; pts: number }[]; rewardShown?: number; tab?: Tab; wallet?: number; walletLabel?: string; treeKey?: string; treeScroll?: number; assetSub?: string; year?: number; fromTitle?: boolean } = { modalKey: '', chips: [] };
 const TAB_ORDER: Tab[] = ['tree', 'act', 'policy', 'assets', 'log', 'achv'];
 
 function titleScreen(): string {
