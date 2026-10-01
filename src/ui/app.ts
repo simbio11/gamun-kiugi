@@ -32,7 +32,7 @@ import {
   TALENTS,
   WILL_NAMES,
 } from '../core/data';
-import { advisorFee, assessedValue, assetsOf, forecast, formatMoney, jobTitle, personWorth, setMoneyYear, setNominal } from '../core/economy';
+import { advisorFee, assessedValue, assetsOf, forecast, formatMoney, jobTitle, levelYears, personWorth, setMoneyYear, setNominal } from '../core/economy';
 import { estateTax, previewAssetGiftTax, previewGiftTax } from '../core/estate';
 import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
@@ -54,6 +54,7 @@ import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, S
 import { hiddenCardHTML, hiddenArt, initHiddenVideos } from './hidden-card';
 import { KIN_NAME, kinGap, kinOf } from '../core/inlaws';
 import { photoURL } from '../render/photo';
+import { minYears, rankWord } from '../core/rank';
 import { PHOTO_NAME } from '../core/photos';
 import { HIDDEN_BY_ID, isSuperHidden } from '../core/hidden-data';
 import { cardBackURL, cardFrontURL, crestURL, customFrames, medalURL, type Theme } from '../render/cardart';
@@ -1270,6 +1271,7 @@ function personSheet(g: GameState, p: Person): string {
       }</span></div>
       ${!dead && p.id !== h.id ? `<div class="sh-row"><span>마음</span><span>${happy} 행복 · ${p.affinity >= 0 ? '♥' : '💢'} 관계 ${Math.round(p.affinity)}</span></div>` : ''}
       ${p.desire && p.desireKnown ? `<div class="sh-row"><span>꿈</span><span>${TAG_NAMES[p.desire]}</span></div>` : ''}
+      ${!dead && job.titles && !p.flags.includes('student') ? careerLadder(g, p) : ''}
       ${sideJobOf(p) ? `<div class="sh-row"><span>겸직</span><span>🎨 ${esc(JOBS[sideJobOf(p)!]?.name ?? '')}</span></div>` : ''}
       <div class="sh-row"><span>재산</span><span>${formatMoney(personWorth(g, p))}</span></div>
       ${p.home ? `<div class="sh-row"><span>사는 집</span><span>${homeLine(g, p.home)}</span></div>` : ''}
@@ -2160,6 +2162,19 @@ function vehicleCard(g: GameState): string {
       <p class="fine">가격은 2025년 국내 신차가 대략치(트림에 따라 폭이 크다)에 물가를 반영. 취득세: 승용차 7% · 경차 4%(${formatMoney(75)} 감면) · 선박 3%, 고급선박 중과. 유지비엔 보험·자동차세·연료·정비(요트는 계류비·관리)가 들어 있고, 해마다 가계부에서 빠진다. 차는 15년쯤 타면 폐차.</p>
     </details>
   </section>`;
+}
+
+/** 직급 사다리: 지나온 자리 · 지금 자리 · 남은 자리, 그리고 다음 단계까지 */
+function careerLadder(g: GameState, p: Person): string {
+  const j = JOBS[p.job];
+  const w = rankWord(p.job);
+  const ts = j.titles!;
+  const chips = ts.map((t, i) => `<b class="rk ${i < p.jobLevel ? 'done' : i === p.jobLevel ? 'now' : ''}">${esc(t)}</b>`).join('<i class="rk-arr">›</i>');
+  const yrs = levelYears(g, p, false);
+  const need = minYears(p.jobLevel, j.maxLevel);
+  const next = p.jobLevel < j.maxLevel ? ts[p.jobLevel + 1] : undefined;
+  const tip = next ? `이 자리 ${yrs}년째 · 다음 ${w.verb} 「${esc(next)}」 ${yrs >= need ? '가능 (능력·성실·실적이 높을수록 잘 된다)' : `까지 최소 ${need - yrs}년 더`}` : `${w.icon} 이 길의 꼭대기에 올랐다`;
+  return `<div class="sh-row rk-row"><span>${w.noun}</span><span><span class="rk-ladder">${chips}</span><small class="muted">${tip}</small></span></div>`;
 }
 
 /** 앨범 사진 한 장 (폴라로이드) */

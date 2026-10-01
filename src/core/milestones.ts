@@ -1,6 +1,7 @@
 // 인생의 작은 경사들: 결혼·출산·합격·첫 직장·승진·내 집 마련·재산 돌파.
 // 해마다, 그리고 선택을 할 때마다 훑어서 처음 이룬 것만 보상한다 (한 번씩).
 
+import { rankLadder, rankWord } from './rank';
 import { JOBS } from './data';
 import { formatMoney, jobTitle } from './economy';
 import { homeOf } from './housing';
@@ -48,7 +49,7 @@ export function scanMilestones(s: GameState, worth: number) {
       // 승진: 이 직업에서 처음 오른 직급
       const key = `lv:${p.id}:${p.job}`;
       const best = seen[key] ?? p.jobLevel;
-      if (!silent && p.jobLevel > best && JOBS[p.job]?.titles) grant(s, '📈', `승진: ${n} → ${jobTitle(p)}`, '', p.jobLevel >= (JOBS[p.job].maxLevel ?? 9) ? 'rare' : 'common', p.jobLevel >= (JOBS[p.job].maxLevel ?? 9) ? 12 : 3);
+      if (!silent && p.jobLevel > best && JOBS[p.job]?.titles) grant(s, rankWord(p.job).icon, `${rankWord(p.job).verb}: ${n} → ${jobTitle(p)}`, rankLadder(p), p.jobLevel >= (JOBS[p.job].maxLevel ?? 9) ? 'rare' : 'common', p.jobLevel >= (JOBS[p.job].maxLevel ?? 9) ? 12 : 3);
       seen[key] = Math.max(best, p.jobLevel);
     }
   }

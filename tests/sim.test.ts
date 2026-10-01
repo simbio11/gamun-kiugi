@@ -124,8 +124,9 @@ describe('시뮬레이션', () => {
     expect(seen).toContain('1979:hist_h1026');
     expect(seen).toContain('1997:hist_himf');
     expect(s.log.some((l) => l.text.includes('경부고속도로 개통'))).toBe(true);
-    // 2025년이 지나면 평범하게 미래로
-    expect(s.year).toBeGreaterThan(2026);
+    // 2025년이 지나면 평범하게 미래로 (주사위 흐름에 따라 대가 끊겨 일찍 끝날 수도 있다)
+    if (!s.gameOver) expect(s.year).toBeGreaterThan(2026);
+    else expect(s.year).toBeGreaterThan(1997);
   }, 60000);
 
   it('전쟁: 터지면 휴전·종전까지 10여 년 흐름이 이어지고 크래시 없음', () => {

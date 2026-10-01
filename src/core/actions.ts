@@ -1,4 +1,5 @@
 import { selfBoss } from './boss';
+import { rankWord } from './rank';
 import { isStudent } from './path';
 // 주도적 행동: 턴을 넘기기 전에 대시보드에서 직접 하는 일. 해마다 행동력 3.
 // (갑작스러운 사건·선택형 이벤트는 턴을 넘길 때 일어난다)
@@ -1225,7 +1226,7 @@ const STAGE_ACTIONS: ActionDef[] = [
       const j = JOBS[p.job];
       if (j.kind === 'salary' && p.jobLevel < j.maxLevel && chance(s, { great: 0.45, good: 0.15, meh: 0.05, bad: 0 }[t])) {
         p.jobLevel++;
-        promo = `\n→ ${jobTitle(p)}(으)로 승진!`;
+        promo = `\n→ ${rankWord(p.job).icon} ${jobTitle(p)}(으)로 ${rankWord(p.job).verb}!`;
       }
       const hp = -int(s, 1, t === 'bad' ? 5 : 2);
       p.actual.hp = clamp(p.actual.hp + hp, 0, 100);

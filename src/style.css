@@ -1488,3 +1488,12 @@ img.px.big.bust { width: 168px; height: 168px; image-rendering: auto; }
 .album-photo.big { transform: none; margin: 4px auto 10px; max-width: 100%; }
 .album-photo.big img { height: auto; width: min(100%, 420px); }
 .album-photo.big figcaption { max-width: none; font-size: 12px; }
+
+/* 직급 사다리 (인물 창) */
+.rk-row > span:last-child { display: flex; flex-direction: column; gap: 3px; align-items: flex-end; min-width: 0; }
+.rk-ladder { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 2px 3px; }
+.rk-ladder .rk { font-weight: 400; font-size: 11px; padding: 1px 5px; border-radius: 4px; background: rgba(127, 127, 127, .12); opacity: .55; }
+.rk-ladder .rk.done { opacity: .85; text-decoration: line-through; text-decoration-color: rgba(127, 127, 127, .5); }
+.rk-ladder .rk.now { opacity: 1; font-weight: 700; background: #f0c040; color: #2a1e00; box-shadow: 0 0 0 1px #b88a10; }
+.rk-ladder .rk-arr { font-style: normal; opacity: .4; font-size: 10px; }
+.rk-row small { font-size: 10.5px; text-align: right; }

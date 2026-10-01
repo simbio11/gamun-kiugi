@@ -1,4 +1,5 @@
 import { chance, normal, pick } from './rng';
+import { minYears, rankLine } from './rank';
 import { ASSESS_RATIO, ASSET_NAMES, CREATORS, EDU_COST, JOBS, TALENTS } from './data';
 import { mark, markOf, parentsOf } from './people';
 import { addFlag, age, alive, check, clamp, hasFlag, discoverTalent, fullName, hasTalent, hasTrait, head, householder, isMainline, livingMainlineMinors } from './people';
@@ -120,7 +121,7 @@ export function advisorFee(s: GameState): number {
 }
 
 /** 지금 직급에 머문 햇수 (호봉·연차). mutate=false면 읽기만 */
-function levelYears(s: GameState, p: Person, mutate = true): number {
+export function levelYears(s: GameState, p: Person, mutate = true): number {
   const f = p.flags.find((x) => x.startsWith('lv:'));
   const [, lv, y] = f?.split(':') ?? [];
   if (!f || Number(lv) !== p.jobLevel) {
@@ -261,9 +262,10 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
       // 50세 넘어 그 아래 자리에서 5년 이상 버텨야 하고, 그마저도 자리 하나를 두고 다투니 확률이 절반
       const toTop = p.jobLevel + 1 === j.maxLevel && j.maxLevel >= 4;
       const topOk = !toTop || (age(s, p) >= 50 && levelYears(s, p, false) >= 5);
-      if (p.jobLevel < j.maxLevel && p.jobLevel >= ladderTop && !intoOpen && topOk && levelYears(s, p, false) >= 2 && chance(s, (j.promote ?? 0.1) * workBoost * diligent * (0.5 + sc / 100) * (toTop ? 0.45 : 1))) {
+      if (p.jobLevel < j.maxLevel && p.jobLevel >= ladderTop && !intoOpen && topOk && levelYears(s, p, false) >= minYears(p.jobLevel, j.maxLevel) && chance(s, (j.promote ?? 0.1) * workBoost * diligent * (0.5 + sc / 100) * (toTop ? 0.45 : 1))) {
         p.jobLevel++;
-        msg = `${name} ${jobTitle(p)}(으)로 승진`;
+        msg = rankLine(p, name, jobTitle(p));
+        p.happiness = clamp(p.happiness + 6, 0, 100);
         if (p.job === 'professor') s.fame += 2;
       }
       // 개원한 곳도 망할 수 있다
@@ -287,7 +289,7 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
         let msg: string | undefined;
         if (roll > 30 && p.jobLevel < j.maxLevel) {
           p.jobLevel++;
-          msg = `🏪 ${name}: ${jobTitle(p)}(으)로 성장!`;
+          msg = rankLine(p, name, jobTitle(p));
         } else if (roll < b.fail) {
           msg = `${name}의 ${j.name.replace(' 사장', '').replace(' 대표', '')} ${j.cat === 'farm' ? '— 흉년·사고로 접었다' : '폐업'}`;
           p.job = 'none';

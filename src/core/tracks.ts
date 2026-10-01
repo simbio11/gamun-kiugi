@@ -1,6 +1,7 @@
 // 길(트랙)별 행동: 어떤 전공을 다니는지, 무슨 시험을 준비하는지, 무슨 일을 하는지에 따라
 // 할 수 있는 일이 다르고, 확률·보상·부작용도 다르다.
 //  u:전공 그룹 (대학생) · x:시험 그룹 (수험생·취준생) · w:직업 그룹 (일하는 사람)
+import { rankWord } from './rank';
 import type { GameState, Person, StatKey } from './types';
 import type { ActionDef } from './actions';
 import { JOBS } from './data';
@@ -210,7 +211,7 @@ function build(sp: Spec): ActionDef {
         const j = JOBS[p.job];
         if (j && p.jobLevel < j.maxLevel && chance(s, sp.promo)) {
           p.jobLevel++;
-          tail += `\n→ ${jobTitle(p)}(으)로 승진!`;
+          tail += `\n→ ${rankWord(p.job).icon} ${jobTitle(p)}(으)로 ${rankWord(p.job).verb}!`;
         }
       }
       if (sp.extra) tail += sp.extra(s, p, t);
