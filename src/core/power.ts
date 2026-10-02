@@ -1,4 +1,4 @@
-// 권력의 길: 법조(변호사·판사·검사), 정보기관(중앙정보부 → 안기부 → 국정원), 군 사조직(하나회)과 쿠데타.
+// 권력의 길: 법조(변호사·판사·검사), 정보기관(중앙정보부 → 안기부 → 국정원), 군 사조직(청솔회, 가상)과 쿠데타.
 //
 // 실제 제도·역사를 따랐고 게임에 맞게 줄였다.
 // · 사법시험(1963~2017) 합격 → 사법연수원 2년 → 연수원 성적순으로 판사·검사 임관, 나머지는 변호사 개업.
@@ -8,7 +8,7 @@
 // · 검사: 평검사 → 부부장 → 부장검사(약 13~15년) → 차장검사 → 검사장 → 검찰총장(임기 2년).
 // · 중앙정보부: 1961년 5·16 직후 창설, 1981년 국가안전기획부, 1999년 국가정보원으로 개칭. 수장은 "부장(원장)".
 //   남산 분실 조사·정치 사찰·선거 개입·해외 공작으로 악명이 높았다. 1979년 10·26 때 부장이 대통령을 쐈다.
-// · 하나회: 1963년 육사 11기 중심으로 결성된 군 내 사조직. 기수마다 소수만 비밀리에 받아 요직(보안사·수경사·특전사)을 독점했고,
+// · 청솔회(가상): 1963년 결성돼 1993년 숙청된 실존 군 내 사조직을 본뜬 게임 속 모임. 기수마다 소수만 비밀리에 받아 요직(보안사·수경사·특전사)을 독점했고,
 //   1979년 12·12 군사반란과 1980년 5·17로 정권을 잡았다. 1993년 문민정부가 숙청했고, 1995~97년 반란 수괴들이 처벌받았다.
 // 실존 인물의 이름은 쓰지 않는다. 우리 가문의 사람이 그 자리에 있었다면 어땠을지를 그린다.
 
@@ -479,7 +479,7 @@ const agencyChiefEv: EventDef = {
   ],
 };
 
-// ───────────────────────── 3) 하나회 ─────────────────────────
+// ───────────────────────── 3) 청솔회 (군 사조직) ─────────────────────────
 
 const isKMA = (p: Person) => p.flags.some((f) => f === 'school:육군사관학교') || hasFlag(p, 'kma');
 
@@ -488,7 +488,7 @@ const hanahoeInvite: EventDef = {
   title: () => '🤫 비밀 모임의 초대',
   valid: (c) => alive(c.p) && c.p.job === 'officer' && !hasFlag(c.p, 'hanahoe'),
   text: (c) =>
-    `육사 선배가 ${who(c)} ${jobTitle(c.p)}을(를) 조용히 요정으로 불렀다. 장군들 몇이 앉아 있다.\n"자네, 하나회라고 들어 봤나? 기수마다 몇 명만 받는 모임이야. 우리끼리 끌어주고 밀어주지. 요직은 우리가 다 맡네."\n(가입하면 진급·보직이 빨라지지만, 군 안의 사조직이다)`,
+    `육사 선배가 ${who(c)} ${jobTitle(c.p)}을(를) 조용히 요정으로 불렀다. 장군들 몇이 앉아 있다.\n"자네, 청솔회라고 들어 봤나? 소나무처럼 늘 푸르게, 한 몸처럼 가자는 모임이지. 기수마다 몇 명만 받는 모임이야. 우리끼리 끌어주고 밀어주지. 요직은 우리가 다 맡네."\n(가입하면 진급·보직이 빨라지지만, 군 안의 사조직이다)`,
   choices: () => [
     {
       label: '충성 서약을 한다',
@@ -509,7 +509,7 @@ const MILITARY: Story[] = [
     title: '요직 발령',
     ok: (_s, p) => p.job === 'officer' && p.jobLevel >= 5 && !hasFlag(p, 'keypost'),
     text: (c) =>
-      `${who(c)} ${jobTitle(c.p)}에게 ${hasFlag(c.p, 'hanahoe') ? '하나회 선배들이 힘을 써' : '인사'} 핵심 보직 제안이 왔다.\n수도경비사령부·보안사령부·특전사령부 — 서울을 쥐는 자리들이다.`,
+      `${who(c)} ${jobTitle(c.p)}에게 ${hasFlag(c.p, 'hanahoe') ? '청솔회 선배들이 힘을 써' : '인사'} 핵심 보직 제안이 왔다.\n수도경비사령부·보안사령부·특전사령부 — 서울을 쥐는 자리들이다.`,
     choices: () => [
       { label: '보안사령부 (정보를 쥔다)', run: (x) => (addFlag(x.p, 'keypost'), addFlag(x.p, 'post:security'), mark(x.p, 'favor', 1), '군 내부의 모든 정보가 이 책상으로 온다. 장군들의 약점까지.') },
       { label: '수도경비사령부 (서울을 쥔다)', run: (x) => (addFlag(x.p, 'keypost'), addFlag(x.p, 'post:capital'), '청와대·국방부·방송국이 내 병력의 사정거리 안에 있다.') },
@@ -518,12 +518,12 @@ const MILITARY: Story[] = [
   },
   {
     id: 'mil_purge',
-    title: '하나회 숙청',
+    title: '청솔회 숙청',
     ok: (s, p) => p.job === 'officer' && hasFlag(p, 'hanahoe') && hist(s) && s.year >= 1993,
-    text: (c) => `문민정부 출범 열흘 만에, 대통령이 육군참모총장과 기무사령관을 전격 경질했다. 하나회 숙청이 시작됐다. ${who(c)}의 이름도 명단에 있다.`,
+    text: (c) => `문민정부 출범 열흘 만에, 대통령이 육군참모총장과 기무사령관을 전격 경질했다. 청솔회 숙청이 시작됐다. ${who(c)}의 이름도 명단에 있다.`,
     choices: () => [
       { label: '전역 지원서를 낸다', run: (x) => (setJob(x.p, 'none'), addFlag(x.p, 'purged'), hap(x.p, -15), (x.s.fame = Math.max(0, x.s.fame - 5)), '군복을 벗었다. 30년 군 생활이 한 장의 명단으로 끝났다.') },
-      { label: '버텨 본다', run: (x) => (chance(x.s, 0.3) ? (x.p.flags = x.p.flags.filter((f) => f !== 'hanahoe' && f !== 'keypost'), '"하나회 활동은 형식적이었다"는 소명이 받아들여졌다. 한직으로 밀려났지만 군에 남았다.') : (setJob(x.p, 'none'), addFlag(x.p, 'purged'), hap(x.p, -20), '보직 해임 후 강제 전역. 신문에 이름이 실렸다.')) },
+      { label: '버텨 본다', run: (x) => (chance(x.s, 0.3) ? (x.p.flags = x.p.flags.filter((f) => f !== 'hanahoe' && f !== 'keypost'), '"청솔회 활동은 형식적이었다"는 소명이 받아들여졌다. 한직으로 밀려났지만 군에 남았다.') : (setJob(x.p, 'none'), addFlag(x.p, 'purged'), hap(x.p, -20), '보직 해임 후 강제 전역. 신문에 이름이 실렸다.')) },
     ],
   },
 ];
@@ -562,7 +562,7 @@ const coupChance: EventDef = {
     return (
       `${crisis}\n` +
       (army
-        ? `${who(c)} ${jobTitle(c.p)}의 집무실에 ${hasFlag(c.p, 'hanahoe') ? '하나회 동기·후배' : '믿을 만한 지휘관'}들이 모였다. "지금이 아니면 기회는 없습니다. 각하께서 결단하시면 병력은 우리가 움직입니다."`
+        ? `${who(c)} ${jobTitle(c.p)}의 집무실에 ${hasFlag(c.p, 'hanahoe') ? '청솔회 동기·후배' : '믿을 만한 지휘관'}들이 모였다. "지금이 아니면 기회는 없습니다. 각하께서 결단하시면 병력은 우리가 움직입니다."`
         : `${agencyChief(c.s.year)} ${who(c)}의 금고에는 정권 실세들의 약점이 담긴 파일이 쌓여 있다. 부하 하나가 속삭인다. "부장님이 나서시면 따를 사람이 있습니다."`) +
       `\n\n⚠ 성공하면 정권을 쥔다. 실패하면 반역자로 사형대에 선다. 성공해도 훗날 역사의 심판이 기다린다.\n(거사의 밑천: ${coupBase(c.p) >= 20 ? '탄탄하다' : coupBase(c.p) >= 12 ? '해볼 만하다' : '위험하다'})`
     );
@@ -669,6 +669,7 @@ function coupWin(x: Ctx, d: CoupData): string {
   for (const q of Object.values(x.s.people)) if (alive(q) && !q.inLaw) q.happiness = clamp(q.happiness + (q.actual.mor >= 60 ? -10 : 8), 0, 100);
   grant(x.s, '🌑', `정권 장악: ${fullName(p)}`, `${d.by === 'army' ? '군사반란' : '정보기관의 거사'}으로 권력을 쥐었다. 체육관 선거로 대통령에 올랐다(임기 7년).\n명성 +120 · 비자금 3억 · 지지율 35%\n⚠ 민주화가 오면, 역사가 이 밤을 심판할 것이다.`, 'legend');
   x.s.log.push({ year: x.s.year, text: `🌑 ${fullName(p)}, 거사 성공 · 대통령 취임`, kind: 'achv' });
+  (x.s.storySeen ??= {})['althist'] = x.s.year;
   return `🌑 거사 성공. ${fullName(p)}이(가) 국가보위 비상대책을 선포하고, 몇 달 뒤 체육관 선거로 대통령에 올랐다.\n거리엔 계엄군이, 신문엔 검열관이 있다. 이 권력의 값은 언젠가 치러야 한다.`;
 }
 
@@ -749,7 +750,7 @@ export function powerYear(s: GameState): string[] {
     }
     // 정보기관 차장 → 부장(원장)
     if (p.job === 'agent' && p.jobLevel === 4 && a >= 45 && !pending(s, 'ag_chief', p) && chance(s, clamp(0.08 + markOf(p, 'favor') * 0.03, 0.05, 0.4))) q(s, 'ag_chief', p);
-    // 하나회 초대: 근현대사, 1963~1992, 육사 출신 위관·영관
+    // 청솔회 초대: 근현대사, 1963~1992, 육사 출신 위관·영관
     if (p.job === 'officer' && hist(s) && s.year >= 1963 && s.year < 1993 && isKMA(p) && p.jobLevel <= 4 && !hasFlag(p, 'hanahoe') && !hasFlag(p, 'refused_hanahoe') && !pending(s, 'hanahoe_invite', p) && p.actual.int + p.actual.cha >= 100 && chance(s, 0.2)) q(s, 'hanahoe_invite', p);
     // 쿠데타: 권력의 공백기(1979~80)엔 자주, 그 밖엔 드물게
     if (canCoup(s, p) && !pending(s, 'coup_chance', p) && !pending(s, 'coup_run', p) && chance(s, s.year === 1979 || s.year === 1980 ? 0.7 : 0.08 + Math.min(0.15, markOf(p, 'grudge') * 0.04))) q(s, 'coup_chance', p);

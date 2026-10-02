@@ -29,6 +29,7 @@ import { eraYear } from './era';
 import { rivalYear } from './rival';
 import { careerYear, ministerLeaves, presidentLeaves } from './career';
 import { powerYear } from './power';
+import { power2Year, presTerm } from './power2';
 import { applyLegacy } from './legacy';
 import { dutyDone, dutyYear, onDuty } from './duty';
 import { GLORY_SCALE, achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
@@ -522,7 +523,9 @@ export function simulateYear(s: GameState): void {
   for (const m of leverageYear(s)) log(s, m, 'money');
   // 우리 가족이 대통령이면, 실제 역사·미래 뉴스 속 "대통령" 기사는 빼고 우리 대통령 소식으로
   const ourPres = Object.values(s.people).find((p) => alive(p) && p.job === 'president');
-  const presNews = (m: string) => !ourPres || !m.startsWith('📰') || !/대통령|대선|청와대|대통령실|탄핵|취임식|국정 지지율/.test(m);
+  // 근현대사에서 우리 가문이 한 번이라도 정권을 잡았다면(가상 역사) 실제 대통령 기사는 계속 뺀다
+  const altHist = s.storySeen?.['althist'] !== undefined;
+  const presNews = (m: string) => (!ourPres && !altHist) || !m.startsWith('📰') || !/대통령|대선|청와대|대통령실|탄핵|취임식|국정 지지율|박정희|윤보선|최규하|전두환|노태우|김영삼|김대중|노무현|이명박|박근혜|문재인|윤석열|이재명|3선 개헌|유신헌법|6·29 선언/.test(m);
   for (const m of histYear(s)) if (presNews(m)) log(s, m, 'market');
   for (const m of timelineYear(s)) if (presNews(m)) log(s, m, 'market');
   if (ourPres) log(s, `📰 ${fullName(ourPres)} 대통령, 국정 지지율 ${ourPres.pol?.approval ?? 50}% · ${pick(s, ['민생 경제 점검 회의 주재', '정상회담 참석차 출국', '신년 기자회견', '재난 현장 방문', '국무회의에서 개혁안 발표', '청년 간담회 개최'])}`, 'market');
@@ -533,6 +536,7 @@ export function simulateYear(s: GameState): void {
   for (const m of rivalYear(s, familyTotal(s))) log(s, m, 'life');
   for (const m of careerYear(s)) log(s, m, 'life');
   for (const m of powerYear(s)) log(s, m, 'life');
+  for (const m of power2Year(s)) log(s, m, 'life');
   dutyYear(s);
   for (const m of cardYear(s)) log(s, m, 'life');
   for (const m of hiddenYear(s)) log(s, m, 'life');
@@ -648,7 +652,7 @@ function lifeYear(s: GameState) {
     if (p.job === 'founder' && p.jobLevel >= 4 && !p.flags.some((f) => f === 'ipo' || f === 'ipo_declined')) queue(s, 'ipo', p.id);
     // 대선
     if (isElectionYear(s.year) && a >= 45 && a <= 72 && !hasFlag(p, 'draft_dodger') && p.job !== 'president' && !hasFlag(p, 'president')) {
-      if ((p.job === 'politician' && p.jobLevel >= 2 && s.fame >= 100 && (p.pol?.approval ?? 0) >= 45) || (hasFlag(p, 'was_minister') && s.fame >= 140) || (hasFlag(p, 'was_top_prosecutor') && s.fame >= 120)) queue(s, 'presidential', p.id);
+      if ((p.job === 'politician' && p.jobLevel >= 2 && s.fame >= 100 && (p.pol?.approval ?? 0) >= 45) || (hasFlag(p, 'was_minister') && s.fame >= 140) || (hasFlag(p, 'was_top_prosecutor') && s.fame >= 120) || hasFlag(p, 'was_premier') || hasFlag(p, 'party_leader') || hasFlag(p, 'un_sg')) queue(s, 'presidential', p.id);
     }
   }
   // 유언장: 가주 65세부터 5년마다
@@ -749,14 +753,16 @@ function retirementAndGraduation(s: GameState) {
     // 장관 2년, 대통령 5년
     if (p.job === 'minister' && p.jobYears >= 2) {
       const [pj, pl] = (p.flags.find((f) => f.startsWith('prev:'))?.slice(5) ?? 'pension:0').split(':');
+      const role = p.flags.includes('role:premier') ? '국무총리' : p.flags.includes('role:deputy_pm') ? '부총리' : p.flags.includes('role:chief') ? '대통령 비서실장' : '장관';
+      p.flags = p.flags.filter((f) => !f.startsWith('role:'));
       p.job = pj;
       p.jobLevel = Number(pl);
       p.jobYears = 5;
-      log(s, `${fullName(p)} 장관 퇴임`, 'life');
+      log(s, `${fullName(p)} ${role} 퇴임`, 'life');
       ministerLeaves(s, p);
     }
     // 대통령 5년 단임 (거사로 오른 대통령은 7년 단임: 제5공화국 헌법)
-    if (p.job === 'president' && p.jobYears >= (hasFlag(p, 'coup_pres') ? 7 : 5)) {
+    if (p.job === 'president' && p.jobYears >= presTerm(p)) {
       p.job = 'pension';
       p.flags = p.flags.filter((f) => !f.startsWith('pens:'));
       p.flags.push('pens:15000', 'ex_president');

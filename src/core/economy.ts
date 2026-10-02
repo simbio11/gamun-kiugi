@@ -210,12 +210,14 @@ export const jobTitle = (p: Person) => {
     const city = p.flags.find((f) => f.startsWith('mayor_of:'))?.slice(9) ?? '';
     return `${city}시장${p.jobLevel ? ` (${p.jobLevel + 1}선)` : ''}`;
   }
+  // 장관급 자리: 국무총리·부총리·비서실장 (power2.ts)
+  if (p.job === 'minister') return p.flags.includes('role:premier') ? '국무총리' : p.flags.includes('role:deputy_pm') ? '부총리' : p.flags.includes('role:chief') ? '대통령 비서실장' : '장관';
   // 정보기관 수장: 중앙정보부장(~1980) · 안기부장(~1998) · 국정원장
   if (p.job === 'agent' && p.jobLevel === 5) return MONEY_YEAR < 1981 ? '중앙정보부장' : MONEY_YEAR < 1999 ? '안기부장' : '원장';
   return JOBS[p.job].titles?.[p.jobLevel] ?? JOBS[p.job].name;
 };
 /** "공무원(9급)"처럼 직업명 + 직함 */
-export const jobLabel = (p: Person) => (p.job === 'mayor' || (p.job === 'agent' && p.jobLevel === 5) ? jobTitle(p) : JOBS[p.job].titles ? `${JOBS[p.job].name}(${jobTitle(p)})` : JOBS[p.job].name);
+export const jobLabel = (p: Person) => (p.job === 'mayor' || p.job === 'minister' || (p.job === 'agent' && p.jobLevel === 5) ? jobTitle(p) : JOBS[p.job].titles ? `${JOBS[p.job].name}(${jobTitle(p)})` : JOBS[p.job].name);
 
 /** 직업 연간 수입 계산 + 커리어 진행. 로그용 메시지를 돌려줌. */
 export function workYear(s: GameState, p: Person): { income: number; msg?: string } {

@@ -50,7 +50,7 @@ describe('승진 연한 (rank.ts)', () => {
 });
 
 describe('권력의 길 (power.ts)', () => {
-  it('근현대사: 하나회 장성은 1979년에 거사 기회를 얻고, 거사는 성공·실패로 끝까지 진행된다', () => {
+  it('근현대사: 사조직 장성은 1979년에 거사 기회를 얻고, 거사는 성공·실패로 끝까지 진행된다', () => {
     const s = newGame({ seed: 7, familyName: '김', sex: 'M', era: 'history' });
     drain(s);
     const p = head(s);
@@ -59,6 +59,7 @@ describe('권력의 길 (power.ts)', () => {
     p.job = 'officer';
     p.jobLevel = 6;
     p.flags.push('hanahoe', 'keypost');
+    for (const id of ['pw_seoul_mayor', 'pw_army_chief', 'pw_chief_of_staff', 'pw_yujeong', 'pw_kukbowi']) (s.storySeen ??= {})[p.id + ':' + id] = 1;
     expect(canCoup({ ...s, year: 1979 } as GameState, p)).toBe(true);
     let saw = false;
     for (let i = 0; i < 4 && !saw; i++) {
@@ -162,5 +163,44 @@ describe('유산 상점 (legacy.ts)', () => {
     const v = legacyEarn(s);
     expect(v).toBeGreaterThanOrEqual(5);
     expect(v).toBeLessThanOrEqual(200);
+  });
+});
+
+describe('권력의 길 ② (power2.ts)', () => {
+  it('1961년 장교 가족에게 5·16 혁명공약 서명 제안이 온다', async () => {
+    const { power2Year } = await import('../src/core/power2');
+    const s = newGame({ seed: 21, familyName: '김', sex: 'M', era: 'history' });
+    drain(s);
+    const dad = s.people[head(s).fatherId!];
+    dad.job = 'officer';
+    dad.jobLevel = 2;
+    s.year = 1961;
+    power2Year(s);
+    expect(s.events.some((e) => e.defId === 'pw_516_join' && e.personId === dad.id)).toBe(true);
+  });
+  it('체육관 선거(1972)엔 집권 세력만, 직선(1987)엔 야당 정치인도 후보가 된다', async () => {
+    const { power2Year } = await import('../src/core/power2');
+    const s = newGame({ seed: 22, familyName: '김', sex: 'M', era: 'history' });
+    drain(s);
+    const p = head(s);
+    p.birthYear = 1925;
+    p.job = 'politician';
+    p.jobLevel = 2;
+    s.fame = 200;
+    s.year = 1972;
+    power2Year(s);
+    expect(s.events.some((e) => e.defId === 'pw_pres')).toBe(false);
+    p.flags.push('ruling');
+    power2Year(s);
+    expect(s.events.some((e) => e.defId === 'pw_pres')).toBe(true);
+    s.events = [];
+    p.flags = p.flags.filter((f) => f !== 'ruling');
+    s.year = 1987;
+    power2Year(s);
+    expect(s.events.some((e) => e.defId === 'pw_pres')).toBe(true);
+  });
+  it('하나회 실명은 게임 글에 나오지 않는다', async () => {
+    const fs = await import('fs');
+    for (const f of fs.readdirSync('src/core')) expect(fs.readFileSync('src/core/' + f, 'utf8').includes('하나회'), f).toBe(false);
   });
 });
