@@ -721,10 +721,11 @@ describe('관심사와 지정 상속', () => {
     const s = newGame({ seed: 8, familyName: '최', sex: 'F' });
     const h = head(s);
     s.events = [{ uid: s.eventSeq++, defId: 'hobby', personId: h.id }];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       s.events = [{ uid: s.eventSeq++, defId: 'hobby', personId: h.id }];
-      currentEvent(s);
-      resolveChoice(s, 0);
+      const cur = currentEvent(s)!;
+      const star = cur.choices.findIndex((c) => c.label.startsWith('★') && !c.disabled);
+      resolveChoice(s, star >= 0 ? star : 0);
     }
     expect(topInterests(h, 1).length).toBe(1);
     s.year = h.birthYear + 24;

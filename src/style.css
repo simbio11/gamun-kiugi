@@ -2191,3 +2191,18 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 @media (prefers-reduced-motion: reduce) {
   .title::after { display: none; }
 }
+
+/* 👤 계정 (로그인·카드 컬렉션·계정 저장 칸) */
+.account .row2 { margin-top: 6px; }
+.account input { width: 100%; }
+.acc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.acc-top b { font-size: 16px; }
+.acc-top small { color: var(--muted); flex: 1; }
+.acc-stats { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; margin-bottom: 8px; }
+.coll h3 { margin: 12px 0 6px; font-size: 14px; }
+.coll .cdex .dx { cursor: default; }
+/* 🗞 인생 신문 한 줄 (가계도에서 돌아가신 분을 누르면) */
+.obit { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; padding: 8px 10px; border: 2px solid var(--line); background: var(--paper); }
+.obit b { font-size: 13px; line-height: 1.45; }
+.obit small { color: var(--muted); }
+.obit .mini { align-self: flex-start; }

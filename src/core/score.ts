@@ -61,7 +61,13 @@ export function trackPeak(s: GameState) {
     const j = JOBS[p.job];
     if (!j || ['none', 'parttime', 'pension'].includes(p.job)) continue;
     const v = Math.round(j.fame * 6 + p.jobLevel * 5 + (j.maxLevel && p.jobLevel >= j.maxLevel ? 8 : 0));
-    if (v > (p.peak ?? 0)) p.peak = v;
+    if (v > (p.peak ?? 0)) {
+      p.peak = v;
+      // 가장 높았던 자리 (부고·인생 신문용): peakjob:직업:직함
+      const title = j.titles?.[p.jobLevel] ?? j.name;
+      p.flags = p.flags.filter((f) => !f.startsWith('peakjob:'));
+      p.flags.push(`peakjob:${p.job}:${j.titles ? `${j.name} ${title}` : title}`);
+    }
   }
 }
 

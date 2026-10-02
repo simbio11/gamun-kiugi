@@ -924,20 +924,36 @@ export function chanceOf(s: GameState, p: Person, pr: Program, pct: number): num
 const feeOf = (pr: Program) => pr.tuition ?? TIERS[pr.tier].tuition;
 const kindLabel = (pr: Program) => (pr.special === 'military' ? '별도 지원' : pr.special === 'sci' ? '영재 특별' : pr.special === 'abroad' ? '해외 대학' : pr.special === 'voc' ? '해외 전문학교' : pr.practical ? '실기' : '정시');
 
-/** 맞춤 추천: 성적·적성·형편을 함께 보고 붙을 만한 곳 중 좋은 곳 */
+/**
+ * 맞춤 추천: 성적·적성·형편을 함께 본다.
+ *  · 어릴 때부터 쌓은 관심(첫째 관심 > 둘째 관심) > 타고난 성향 순으로 전공을 앞에 둔다.
+ *  · 원서 3장을 다 떨어지지 않게, 맞는 전공 안에서도 상향·적정·안정을 골고루 (안정 하나는 꼭).
+ *  · 체력 기준(경찰·사관학교 등)이 안 되는 곳, 학비를 낼 수 없는 특별 전형은 뺀다.
+ */
 export function recommendFit(s: GameState, p: Person, pct: number): Program[] {
-  const fs = fitSet(p);
-  const all = openP().map((pr) => [pr, chanceOf(s, p, pr, pct)] as const).filter(([pr, c]) => c >= 0.08 && (!pr.special || pr.special === 'military' || feeOf(pr) <= spendable(s)));
+  const ints = topInterests(p, 2, 2);
+  const temper = new Set(fitCats(p, 2));
+  const prio = (pr: Program) => {
+    const cat = KEY_CAT[pr.key];
+    return cat === ints[0] ? 3 : ints.includes(cat as never) ? 2 : temper.has(cat as never) ? 1 : 0;
+  };
+  const all = openP()
+    .map((pr) => [pr, chanceOf(s, p, pr, pct)] as const)
+    .filter(([pr, c]) => c >= 0.08 && !(pr.need && p.actual[pr.need.stat] < pr.need.min) && (!pr.special || pr.special === 'military' || feeOf(pr) <= spendable(s)));
   const seen = new Set<string>();
   const take = (arr: (readonly [Program, number])[], n: number) =>
     arr
       .filter(([pr]) => !seen.has(pr.key + pr.tier) && (seen.add(pr.key + pr.tier), true))
       .slice(0, n)
       .map(([pr]) => pr);
-  const fit = take(all.filter(([pr]) => fitsMajor(p, pr, fs)).sort((a, b) => b[0].cut * Math.min(1, b[1] * 2) - a[0].cut * Math.min(1, a[1] * 2)), 7);
-  const reach = take(all.filter(([pr, c]) => !fitsMajor(p, pr, fs) && c >= 0.35).sort((a, b) => b[0].cut - a[0].cut), 4);
-  const safe = take(all.filter(([pr, c]) => !fitsMajor(p, pr, fs) && c >= 0.8).sort((a, b) => b[0].cut - a[0].cut), 2);
-  return [...fit, ...reach, ...safe];
+  const best = (a: readonly [Program, number], b: readonly [Program, number]) => prio(b[0]) - prio(a[0]) || b[0].cut - a[0].cut;
+  const fits = all.filter(([pr]) => prio(pr) > 0);
+  const inBand = (lo: number, hi: number) => fits.filter(([, c]) => c >= lo && c < hi).sort(best);
+  const fit = [...take(inBand(0.1, 0.4), 2), ...take(inBand(0.4, 0.8), 3), ...take(inBand(0.8, 1.01), 2)];
+  // 맞는 전공에 안정권이 없으면 다른 전공에서라도 안정 하나
+  const safeAny = fit.some((pr) => chanceOf(s, p, pr, pct) >= 0.8) ? [] : take(all.filter(([, c]) => c >= 0.8).sort((a, b) => b[0].cut - a[0].cut), 1);
+  const reach = take(all.filter(([pr, c]) => prio(pr) === 0 && c >= 0.35).sort((a, b) => b[0].cut - a[0].cut), 3);
+  return [...fit, ...safeAny, ...reach];
 }
 
 /** 분야(직업 계열)별 전체 학교 목록 */

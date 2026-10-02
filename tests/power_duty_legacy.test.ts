@@ -204,3 +204,40 @@ describe('권력의 길 ② (power2.ts)', () => {
     for (const f of fs.readdirSync('src/core')) expect(fs.readFileSync('src/core/' + f, 'utf8').includes('하나회'), f).toBe(false);
   });
 });
+
+describe('생전 승계 (handover.ts)', () => {
+  it('35세 자녀에게 전 재산을 물려주면 증여세를 내고 가주가 바뀌며, 상왕 이야기가 온다', async () => {
+    const { canHandOver } = await import('../src/core/handover');
+    const { addAsset } = await import('../src/core/economy');
+    const s = newGame({ seed: 31, familyName: '김', sex: 'M' });
+    drain(s);
+    const old = head(s);
+    old.birthYear = s.year - 62;
+    old.cash = 50000;
+    addAsset(s, 'apt_local', old.id, 40000, '본가');
+    const kid = (await import('../src/core/people')).createPerson(s, { sex: 'F', surname: '김', birthYear: s.year - 36, grown: 0.9 });
+    kid.fatherId = old.id;
+    s.people[kid.id] = kid;
+    old.childIds.push(kid.id);
+    s.heirId = kid.id;
+    expect(canHandOver(s)).toBe(true);
+    s.events.unshift({ uid: 9001, defId: 'handover', personId: old.id });
+    let c = currentEvent(s)!;
+    resolveChoice(s, c.choices.findIndex((x) => x.label === '전 재산 생전 증여'));
+    c = currentEvent(s)!;
+    expect(c.def.id).toBe('handover');
+    resolveChoice(s, 0); // 효도 계약서
+    expect(s.headId).toBe(kid.id);
+    expect(old.flags).toContain('sangwang');
+    expect(old.flags).toContain('hyodo_contract');
+    expect(s.assets.find((a) => a.name === '본가')!.ownerId).toBe(kid.id);
+    expect(s.gifts.some((g) => g.fromId === old.id && g.tax > 0)).toBe(true);
+    let saw = false;
+    for (let i = 0; i < 8 && !saw; i++) {
+      drain(s);
+      simulateYear(s);
+      saw = s.events.some((e) => e.defId.startsWith('sw_'));
+    }
+    expect(saw).toBe(true);
+  });
+});

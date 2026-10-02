@@ -31,6 +31,7 @@ import { careerYear, ministerLeaves, presidentLeaves } from './career';
 import { powerYear } from './power';
 import { power2Year, presTerm } from './power2';
 import { applyLegacy } from './legacy';
+import { handoverYear } from './handover';
 import { dutyDone, dutyYear, onDuty } from './duty';
 import { GLORY_SCALE, achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
@@ -440,6 +441,7 @@ export function newGame(o: NewGameOpts): GameState {
 
   s.headId = me.id;
   s.founderId = me.id;
+  me.flags.push('gen:1');
   s.policy.children[me.id] = { budget: 1, focus: 'free' };
   father.affinity = int(s, 30, 80);
   mother.affinity = int(s, 40, 90);
@@ -538,6 +540,7 @@ export function simulateYear(s: GameState): void {
   for (const m of powerYear(s)) log(s, m, 'life');
   for (const m of power2Year(s)) log(s, m, 'life');
   dutyYear(s);
+  handoverYear(s);
   for (const m of cardYear(s)) log(s, m, 'life');
   for (const m of hiddenYear(s)) log(s, m, 'life');
   gateYear(s);

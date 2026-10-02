@@ -1,3 +1,4 @@
+import { inheritLooks } from './looks';
 import { chance, int, next, normal, pick, type RngHolder } from './rng';
 import { bonusGene } from './rewards';
 import { ERA_NAMES, NATIVE_NAMES, STAT_KEYS, SUPER_RARE_TRAIT_IDS, TALENTS, TALENT_IDS, TRAITS, TRAIT_IDS } from './data';
@@ -109,6 +110,9 @@ export function createPerson(s: GameState, o: CreateOpts): Person {
   const sex = o.sex ?? (chance(s, 0.5) ? 'M' : 'F');
   // 같은 '집안 수준'이라도 사람마다 편차가 크다
   const potential = randomStats(s, (o.quality ?? 50) + normal(s, 0, 5), 14);
+  // 외모는 집안 수준과 거의 무관하다 (평균 50, 표준편차 14)
+  const looks = Math.round(clamp(normal(s, 50, 14), 8, 98));
+  potential.cha = Math.round(clamp(potential.cha * 0.5 + looks * 0.5, 15, 100));
   const grown = o.grown ?? 0.1;
   const actual = {} as Stats;
   for (const k of STAT_KEYS) actual[k] = Math.round(potential[k] * clamp(grown + normal(s, 0, 0.06), 0.05, 1));
@@ -134,6 +138,7 @@ export function createPerson(s: GameState, o: CreateOpts): Person {
     cash: 0,
     inLaw: false,
     traits: randomTraits(s),
+    looks,
   };
 }
 
@@ -165,10 +170,13 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
     if (!talents.some((x) => x.id === t)) talents.push({ id: t, discovered: false });
     mutations.push('talent:' + t);
   }
-  // 각 형질은 부/모 중 한쪽에서, 12%는 새로 (형제끼리도 꽤 다르게 생김)
-  const g = (a: number, b: number, n: number) => (chance(s, 0.12) ? int(s, 0, n - 1) : chance(s, 0.5) ? a : b);
   const fg = father.genes;
   const mg = mother.genes;
+  // 외모: 아빠·엄마 중 한쪽을 더 닮는다 (looks.ts). 닮은 쪽 얼굴 생김새(눈·눈썹·입·얼굴형)를 주로 물려받는다
+  const lk = inheritLooks(s, father, mother);
+  const sideOf = (a: number, b: number) => (lk.resemble === 'F' ? (chance(s, 0.78) ? a : b) : lk.resemble === 'M' ? (chance(s, 0.78) ? b : a) : chance(s, 0.5) ? a : b);
+  const g = (a: number, b: number, n: number) => (chance(s, 0.1) ? int(s, 0, n - 1) : sideOf(a, b));
+  potential.cha = Math.round(clamp(lk.looks * 0.5 + potential.cha * 0.5, 15, 100));
   const genes: Genes = {
     hairStyle: int(s, 0, HAIR_STYLES - 1), // 머리 모양은 유전보다 취향
     hairColor: chance(s, 0.12) ? (chance(s, 0.7) ? int(s, 0, DARK_HAIR - 1) : int(s, 0, HAIR_COLORS - 1)) : chance(s, 0.5) ? fg.hairColor : mg.hairColor,
@@ -198,7 +206,9 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
     job: 'none',
     jobYears: 0,
     jobLevel: 0,
-    flags: mutations.length ? ['mutation'] : [],
+    flags: [...(mutations.length ? ['mutation'] : []), ...(lk.glow ? ['glow_up'] : [])],
+    looks: lk.looks,
+    resemble: lk.resemble,
     affinity: 40,
     happiness: 70,
     desireKnown: false,

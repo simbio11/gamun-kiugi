@@ -87,6 +87,10 @@ export interface Person {
   study?: number;
   /** 지금까지 들어간 사교육비 (만원) */
   eduSpent?: number;
+  /** 타고난 외모 0~100 (유전). 매력 = 외모 + 꾸밈 + 사교성 (looks.ts) */
+  looks?: number;
+  /** 누구를 닮았나: 아빠·엄마·반반 */
+  resemble?: 'F' | 'M' | 'mix';
 }
 
 export type RealEstateKind = 'apt_seoul' | 'apt_local' | 'land';

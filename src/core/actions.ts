@@ -42,6 +42,7 @@ import { startDating } from './romance';
 import { TALENTS } from './data';
 import type { GameState, Person } from './types';
 import { DUTY_ACTIONS, onDuty } from './duty';
+import { charmCap, looksLabel, looksOf } from './looks';
 
 export const AP_PER_YEAR = 3;
 
@@ -582,6 +583,58 @@ export const ACTIONS: ActionDef[] = [
         mark(p, 'health_x', -1);
       }
       return TIER_MARK[tier] + fillName(say(s, p, P.exercise, tier), fullName(p)) + fmt([stat('hp', hp), stat('str', ds)]);
+    },
+  },
+  // 매력 = 타고난 외모 + 꾸밈 (looks.ts). 가꾸면 매력의 한도(잠재력)도 조금씩 오른다
+  {
+    id: 'groom',
+    cat: '진로·자기계발',
+    icon: '💇',
+    name: '외모 가꾸기',
+    desc: '헤어·옷차림·피부·자세 · 매력↑ · 꾸밈이 쌓이면 매력 한도도 오른다',
+    ap: 1,
+    cost: 60,
+    who: 'any',
+    blocked: (s) => (age(s, h(s)) < 13 ? '열세 살부터' : undefined),
+    run: (s) => {
+      const p = h(s);
+      const t = rollTier(s, p, { stat: 'cha', talent: 'beauty' });
+      if (t === 'great' || t === 'good') {
+        mark(p, 'groom', 1);
+        const cap = charmCap(p);
+        if (p.potential.cha < cap) p.potential.cha = Math.min(cap, p.potential.cha + (t === 'great' ? 2 : 1));
+      }
+      const dc = t === 'bad' ? 0 : grow(s, p, 'cha', t, 0.9);
+      const joy = jitter(s, t === 'bad' ? -3 : 4);
+      mood(p, joy);
+      const line = { great: '미용실 원장이 "인생 머리"라고 했다. 거울 속 내가 낯설 만큼 달라졌다.', good: '옷 몇 벌을 바꿨을 뿐인데 사람들이 "요즘 좋아 보인다"고 한다.', meh: '이것저것 해 봤는데 별 차이는 모르겠다.', bad: '유행 따라 한 염색이 얼룩덜룩해졌다.' }[t];
+      return TIER_MARK[t] + line + fmt([stat('cha', dc), ['행복', joy]]) + `\n(타고난 외모: ${looksLabel(looksOf(p))} · 매력 한도 ${p.potential.cha})`;
+    },
+  },
+  {
+    id: 'cosmetic',
+    cat: '진로·자기계발',
+    icon: '🪞',
+    name: '성형·시술',
+    desc: '타고난 외모 자체를 바꾼다 · 비싸고 가끔 부작용 (성인)',
+    ap: 1,
+    cost: 800,
+    blocked: (s) => (age(s, h(s)) < 19 ? '성인이 돼서' : (s.actUsed?.cosmetic ?? 0) >= 1 ? '한 해 한 번' : undefined),
+    run: (s) => {
+      const p = h(s);
+      const lk = looksOf(p);
+      if (chance(s, 0.12)) {
+        p.looks = Math.max(5, lk - 4);
+        p.actual.cha = clamp(p.actual.cha - 3, 0, 100);
+        mood(p, -12);
+        return '💦 부작용이 왔다. 붓기가 몇 달을 갔고, 재수술 상담을 받고 있다. (외모 −4, 매력 −3)';
+      }
+      const up = Math.max(1, Math.round((90 - lk) / 10)) + int(s, 0, 3);
+      p.looks = clamp(lk + up, 0, 98);
+      p.potential.cha = Math.min(100, p.potential.cha + Math.round(up * 0.5));
+      p.actual.cha = clamp(p.actual.cha + Math.round(up * 0.5), 0, 100);
+      mood(p, 8);
+      return `붓기가 빠지자 인상이 확 밝아졌다. 다들 "뭔가 달라졌는데?" 한다. (외모 +${up})`;
     },
   },
   {
