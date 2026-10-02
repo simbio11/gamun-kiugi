@@ -60,9 +60,7 @@ import { relicYear } from './relics';
 import { vipCureYear } from './vip-cure';
 import { bigYear } from './big-events';
 import { treasureSellValue, treasureYear } from './treasure';
-import { HIDDEN, HIDDEN_BY_ID, isHoH, isSuperHidden } from './hidden-data';
-const STARTER_SUPER = HIDDEN.filter((h) => isSuperHidden(h.id) && !isHoH(h.id)).map((h) => h.id);
-const STARTER_HIDDEN = HIDDEN.filter((h) => !isSuperHidden(h.id) && h.id !== 'hj_hermit').map((h) => h.id);
+import { HIDDEN_BY_ID, isSuperHidden } from './hidden-data';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -206,8 +204,40 @@ const PARENT_JOBS: Record<GameState['origin'], string[]> = {
 const ELITE_JOBS = ['judge', 'prosecutor', 'lawyer', 'doctor', 'dentist', 'professor', 'diplomat', 'politician', 'fund_manager', 'consultant', 'sme_ceo', 'franchise_ceo', 'developer_re', 'film_director', 'film_actor', 'singer', 'entertainer', 'announcer', 'architect', 'pilot', 'patent_attorney', 'accountant', 'star_lecturer', 'public_corp', 'corp', 'landlord', 'researcher', 'aero_engineer', 'fashion_designer', 'curator'];
 /** 지옥(무일푼): 가장 불안정한 일들 */
 const HELL_JOBS = ['parttime', 'delivery_rider', 'courier', 'caregiver', 'nurse_aide', 'factory', 'taxi', 'trucker', 'security_guard', 'tile_worker', 'barista', 'fisher', 'farmer'];
-/** 아버지 히든으로 시작할 수 있는 슈퍼 히든 (여성으로 정해진 직업·교황 제외) */
-const FATHER_SUPER = ['hj_mafia', 'hj_underground_dealer', 'hj_art_investigator', 'hj_michelin_inspector', 'hj_conservator', 'hj_bodyguard', 'hj_detective', 'hj_perfumer', 'hj_stargazer', 'hj_space_analyst'];
+/** 부모의 원래 직업 → 이어질 수 있는 희귀 직업 (부모 나이 30~43세, 성별·나이 조건이 맞는 것만) */
+const RARE_FROM: Record<string, string[]> = {
+  fisher: ['hj_pirate', 'hj_smuggler'], navigator: ['hj_pirate', 'hj_smuggler'], shipbuilder: ['hj_pirate'], ship_captain: ['hj_pirate', 'hj_smuggler'],
+  trucker: ['hj_smuggler', 'hj_nomad'], taxi: ['hj_nomad', 'hj_drifter'], delivery_rider: ['hj_nomad', 'hj_fighter'], courier: ['hj_smuggler', 'hj_nomad'], bus_driver: ['hj_nomad'],
+  factory: ['hj_fighter'], big_factory: ['hj_fighter'], welder: ['hj_fighter', 'hj_mercenary'], mechanic: ['hj_drifter', 'hj_smuggler'], crane_operator: ['hj_mercenary'],
+  officer: ['hj_mercenary', 'hj_bodyguard'], police: ['hj_bounty', 'hj_bodyguard'], coast_guard: ['hj_bounty', 'hj_pirate'], firefighter: ['hj_bodyguard'],
+  security: ['hj_hacker'], developer: ['hj_hacker'], game_dev: ['hj_hacker', 'hj_memecoin'], data_scientist: ['hj_hacker', 'hj_trader'], chip_engineer: ['hj_hacker'], ai_engineer: ['hj_hacker'],
+  aero_engineer: ['hj_space_analyst'], pilot: ['hj_space_analyst', 'hj_smuggler'], air_controller: ['hj_space_analyst'],
+  trader: ['hj_trader', 'hj_memecoin'], banker: ['hj_trader'], analyst: ['hj_trader'], fund_manager: ['hj_trader', 'hj_memecoin'], insurance: ['hj_gambler'], sales: ['hj_gambler', 'hj_magician'],
+  clergy: ['hj_exorcist', 'hj_stargazer'], social_worker: ['hj_tarot', 'hj_stargazer'], psychologist: ['hj_tarot', 'hj_stargazer'],
+  entertainer: ['hj_magician'], actor: ['hj_magician'], film_actor: ['hj_magician'], musician: ['hj_magician', 'hj_nomad'], singer: ['hj_magician'], comedian: ['hj_magician'],
+  painter: ['hj_forger', 'hj_art_investigator'], designer: ['hj_forger'], illustrator: ['hj_forger'], curator: ['hj_art_investigator', 'hj_conservator'], appraiser: ['hj_art_investigator'],
+  photographer: ['hj_adventurer', 'hj_nomad'], journalist: ['hj_spy', 'hj_adventurer'], pd: ['hj_adventurer'], tour_guide: ['hj_nomad', 'hj_adventurer'], flight_attendant: ['hj_nomad'], translator: ['hj_spy'], diplomat: ['hj_spy'],
+  chef: ['hj_michelin_inspector'], restaurant: ['hj_michelin_inspector'], sommelier: ['hj_michelin_inspector', 'hj_perfumer'], baker: ['hj_michelin_inspector'],
+  pharmacist: ['hj_perfumer'], florist: ['hj_perfumer'], makeup_artist: ['hj_perfumer', 'hj_tarot'], hairdresser: ['hj_tarot'], nail_artist: ['hj_tarot'],
+  librarian: ['hj_conservator'], researcher: ['hj_conservator', 'hj_hacker'], professor: ['hj_conservator'],
+  farmer: ['hj_natural', 'hj_shaman'], smart_farmer: ['hj_natural'], rancher: ['hj_natural'],
+  athlete: ['hj_fighter', 'hj_bodyguard'], trainer: ['hj_fighter', 'hj_bodyguard'], coach: ['hj_fighter'], sports_instructor: ['hj_fighter', 'hj_bodyguard'],
+  landlord: ['hj_trader', 'hj_mafia', 'hj_godmother'], founder: ['hj_trader', 'hj_memecoin'], sme_ceo: ['hj_gambler', 'hj_mafia', 'hj_godmother'], franchise_ceo: ['hj_mafia', 'hj_godmother'], developer_re: ['hj_gambler', 'hj_mafia', 'hj_godmother'],
+  bartender: ['hj_gambler', 'hj_underground_dealer'], parttime: ['hj_gambler', 'hj_fighter'], none: ['hj_gambler', 'hj_natural'],
+};
+function parentRareFrom(p: Person, from: string, origin: GameState['origin'], a: number): string[] {
+  const list = RARE_FROM[from] ?? (origin === 'poor' ? ['hj_gambler', 'hj_fighter'] : origin === 'rich' ? ['hj_trader'] : []);
+  return list.filter((id) => {
+    if (!HIDDEN_BY_ID[id]) return false;
+    if (id === 'hj_mafia') return p.sex === 'M';
+    if (id === 'hj_fighter') return a <= 40;
+    if (id === 'hj_godmother' || id === 'hj_drifter') return p.sex === 'F';
+    if (id === 'hj_underground_dealer') return a <= 40;
+    if (id === 'hj_stargazer') return a >= 30;
+    return true;
+  });
+}
+
 
 export function newGame(o: NewGameOpts): GameState {
   const seed = o.seed ?? Math.floor(Math.random() * 2 ** 31);
@@ -285,16 +315,28 @@ export function newGame(o: NewGameOpts): GameState {
   // 1960년대 어머니는 대개 살림을 했다 (여성 경제활동참가율 30%대). 지금은 맞벌이가 더 흔하다 (2023 기혼 여성 고용률 약 64%, 통계청 지역별고용조사)
   if (chance(s, hist ? (origin === 'poor' ? 0.45 : 0.75) : origin === 'poor' ? 0.15 : 0.22)) mother.job = 'none';
   else giveJob(mother, hist ? (origin === 'poor' ? ['farmer', 'parttime', 'factory'] : origin === 'middle' ? ['teacher', 'shopkeeper', 'nurse'] : ['landlord', 'doctor']) : poolFor(), father.job);
-  // 아주 드물게 부모가 이미 히든 직업: 각자 약 1% (히든 0.8% + 슈퍼 히든 0.3%)
+  // 아주 드물게 부모가 이미 히든 직업 (각자 약 1%): 아무 직업이나가 아니라 원래 하던 일·집안 형편에서 이어지는 길로.
+  //   어부였던 아버지가 밀수에 손을 대고, 큐레이터였던 어머니가 국제 미술품 수사관이 된다. 원래 직업은 "was:" 로 남는다.
+  const rareStory: string[] = [];
   for (const par of [father, mother]) {
-    const sup = chance(s, 0.003);
-    if (!sup && !chance(s, 0.008)) continue;
-    const pool = sup ? (par.sex === 'F' ? STARTER_SUPER.filter((id) => !['hj_mafia', 'hj_underground_dealer', 'hj_pope'].includes(id)) : FATHER_SUPER) : STARTER_HIDDEN;
-    const id = pick(s, pool);
+    if (hist || !chance(s, 0.012)) continue;
+    const from = par.job;
+    const cands = parentRareFrom(par, from, origin, age(s, par));
+    if (!cands.length) continue;
+    // 슈퍼 히든은 넷 중 하나꼴
+    const sup = cands.filter((id) => isSuperHidden(id));
+    const nor = cands.filter((id) => !isSuperHidden(id));
+    const id = sup.length && (!nor.length || chance(s, 0.25)) ? pick(s, sup) : pick(s, nor);
+    if (from !== 'none') addFlag(par, 'was:' + from);
+    if (id === 'hj_perfumer') addTrait(par, 'keen_nose');
+    if (id === 'hj_drifter') addTrait(par, 'speed_demon');
     par.job = id;
     par.jobLevel = 0;
-    par.jobYears = Math.max(1, age(s, par) - 28);
+    par.jobYears = int(s, 1, Math.max(1, age(s, par) - 28));
     addFlag(par, 'hidden:' + id);
+    const who = par === father ? '아버지' : '어머니';
+    const was = from === 'none' ? (origin === 'poor' ? '변변한 일자리가 없었는데' : '집에 있었는데') : `원래 ${JOBS[from]?.name ?? from}였는데`;
+    rareStory.push(`✨ ${who}는 ${was}, 어느 날부터 ${HIDDEN_BY_ID[id]?.icon ?? ''} ${HIDDEN_BY_ID[id]?.name ?? id}의 길을 걷고 있다.`);
   }
   const pastLines = hist ? histOrigins(s, father, mother) : '';
 
@@ -410,6 +452,7 @@ export function newGame(o: NewGameOpts): GameState {
       (father.cash < 0 ? ` (빚 ${formatMoney(-father.cash)})` : '') +
       [father, mother].flatMap((q) => woesOf(q).map((w) => `\n⚠ ${q === father ? '아버지' : '어머니'}의 짐: ${WOES[w].icon} ${WOES[w].name} — ${WOES[w].desc}`)).join('') +
       (tycoon ? '\n💎 재벌가의 자손이다!' : '') +
+      (rareStory.length ? '\n' + rareStory.join('\n') : '') +
       (dif ? `\n🎚 난이도: ${dif.name}` : '\n🎲 운명에 맡겼다') +
       (hist
         ? `\n\n${pastLines}\n\n📜 지금 ${START_YEAR}년 봄. 3·15 부정선거로 온 나라가 들끓고 있다. ${eun(fullName(me))} 다섯 살.\n군사정변, 산업화, 유신, 광주, 올림픽, IMF, 월드컵, 촛불… 이 아이는 대한민국 현대사를 온몸으로 겪으며 자란다.\n해마다 그해의 신문이 오고, 역사의 큰 사건은 호외로 들이닥친다.\n\n💱 돈은 그해 물가로 보여 준다 (설정에서 "2025년 돈 가치"로 바꿔 볼 수 있다). 그 시절의 가난은 버는 돈이 적은 것으로 느껴진다.`
