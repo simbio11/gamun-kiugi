@@ -3,6 +3,7 @@
 import type { Asset, GameState, Home, Person } from './types';
 import { addAsset, expectedIncome, formatMoney } from './economy';
 import { alive, clamp, fullName, householder, spouseOf } from './people';
+import { previewGiftTax } from './estate';
 import { chance } from './rng';
 
 export interface Tier {
@@ -61,11 +62,47 @@ export const HOME_FX: HomeFx[] = [
   { hap: 2, hp: 0, fame: 0.3, line: '서울 아파트 (행복 +2/년 · 명성 조금)' },
   { hap: 2, hp: 0, fame: 0.6, line: '강남 (행복 +2/년 · 명성 +)' },
 ];
-/** 집주인이 보는 월세 감당 능력: 연 월세가 가구 소득의 40% 이하 (또는 통장에 5년 치) — 위로 옮길 때만 본다 */
+/** 집주인이 보는 월세 감당 능력: 연 월세가 가구 소득의 40% 이하 (또는 통장에 5년 치, 또는 넉넉한 부모님 보증) — 위로 옮길 때만 본다 */
 export const RENT_INCOME_CAP = 0.4;
 export function rentAffordable(s: GameState, p: Person, rent: number): boolean {
   const income = household(s, p).reduce((t, x) => t + Math.max(0, expectedIncome(s, x)), 0);
-  return rent <= income * RENT_INCOME_CAP || cashOf(s, p) >= rent * 5;
+  return rent <= income * RENT_INCOME_CAP || cashOf(s, p) >= rent * 5 || parentBacking(s, p).liquid >= rent * 8;
+}
+
+// ───────────────────────── 금수저: 부모님 찬스 ─────────────────────────
+// 같은 집이라도 부모님이 넉넉하면 구하기 쉽다: 월세는 부모님 보증으로, 전세는 부모님이 보증금을 보태 준다.
+/** 부부 양쪽의 살아 계신 부모님과 그분들이 당장 쓸 수 있는 돈 (집에 같이 사는 부모님은 제외 = 내가 가주가 아닌 경우의 살림 주인) */
+export function parentBacking(s: GameState, p: Person): { pars: Person[]; liquid: number } {
+  const mine = new Set(household(s, p).map((x) => x.id));
+  const pars = [...new Set(household(s, p).flatMap((x) => [x.fatherId, x.motherId]))]
+    .map((id) => s.people[id ?? ''])
+    .filter((q): q is Person => !!q && alive(q) && !mine.has(q.id));
+  return { pars, liquid: pars.reduce((t, q) => t + Math.max(0, q.cash), 0) };
+}
+/** 전세 보증금이 모자랄 때 부모님이 보태 주실 수 있는 돈: 부모님 현금의 50%까지 (자식이 여럿이면 나눠야 하니) */
+export function parentTopUp(s: GameState, p: Person, short: number): number {
+  const { liquid } = parentBacking(s, p);
+  const cap = liquid * 0.5;
+  return short > 0 && short <= cap ? short : 0;
+}
+/** 부모님이 보태 주신다: 증여로 기록 (성인 자녀 10년 5천만 원 공제 넘으면 증여세) */
+export function receiveTopUp(s: GameState, p: Person, amount: number): string {
+  const { pars } = parentBacking(s, p);
+  let left = amount;
+  let tax = 0;
+  for (const q of pars.sort((a, b) => b.cash - a.cash)) {
+    if (left <= 0) break;
+    const give = Math.min(left, Math.max(0, q.cash));
+    if (give <= 0) continue;
+    const tx = previewGiftTax(s, q, p, give);
+    q.cash -= give + tx; // 증여세까지 부모님이 내 주신다 (흔한 일)
+    p.cash += give;
+    tax += tx;
+    s.gifts.push({ fromId: q.id, toId: p.id, amount: give + tx, tax: tx, year: s.year });
+    left -= give;
+  }
+  p.flags = p.flags.filter((f) => !f.startsWith('nest:')).concat('nest:' + Math.round(Number(p.flags.find((f) => f.startsWith('nest:'))?.slice(5) ?? 0) + amount));
+  return `부모님이 전세금 ${formatMoney(amount)}을 보태 주셨다${tax ? ` (증여세 ${formatMoney(tax)}도 대신 내 주셨다)` : ''}.`;
 }
 
 function household(s: GameState, p: Person): Person[] {
@@ -130,7 +167,8 @@ export function moveQuote(s: GameState, p: Person, t: Tier, type: 'jeonse' | 'wo
   }
   const dep = jeonseOf(t);
   // 더 좋은 집 전세는 보증금의 30%는 내 돈이어야 한다 (대출만으로 올라가지 못한다)
-  const lim = t.rank > curRank ? Math.min(jeonseLoanLimit(s, p, dep), Math.round(dep * 0.7)) : jeonseLoanLimit(s, p, dep);
+  const backed = parentBacking(s, p).liquid >= dep * 0.5;
+  const lim = t.rank > curRank && !backed ? Math.min(jeonseLoanLimit(s, p, dep), Math.round(dep * 0.7)) : jeonseLoanLimit(s, p, dep);
   const need = dep - lim + fee;
   const loan = Math.max(0, Math.min(lim, dep + fee - have));
   return { ok: have >= need, need, loan, deposit: dep, rent: 0, why: have >= need ? undefined : lim ? `${formatMoney(need - have)} 모자람 (대출 한도 ${formatMoney(lim)})` : `${formatMoney(need - have)} 모자람 (${creditBlocked(p) ?? '대출 불가'})` };
@@ -293,6 +331,17 @@ export function settleHome(s: GameState, p: Person): string {
       if (q.ok) {
         moveTo(s, p, t.id, 'jeonse');
         return `${t.name} 전세로 시작한다.`;
+      }
+    }
+    // 금수저: 자란 집 두 단계 아래까지는 부모님이 모자란 보증금을 보태 주신다
+    if (grewUp.length && t.rank >= Math.max(...grewUp) - 2 && !p.flags.includes('declined_help')) {
+      const q = moveQuote(s, p, t, 'jeonse');
+      const short = q.need - (cash + refundOf(homeOf(s, p)));
+      const top = parentTopUp(s, p, short + 100);
+      if (top) {
+        const help = receiveTopUp(s, p, top);
+        moveTo(s, p, t.id, 'jeonse');
+        return `${help} ${t.name} 전세로 시작한다.`;
       }
     }
   }

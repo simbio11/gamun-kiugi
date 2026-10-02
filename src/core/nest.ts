@@ -89,7 +89,8 @@ function parentOffer(s: GameState, child: Person): Offer {
   // 집은 사회생활 몇 년 해 보고 나서: 갓 취직한 자녀에게 바로 집을 주면 증여세를 감당 못 한다
   const young = age(s, child) < 27 || child.jobYears < 2;
   if (budget >= s.market.apt_local && young) {
-    const amt = Math.min(Math.round((budget * 0.4) / 1000) * 1000, Math.round(s.market.apt_local * 0.5));
+    // 금수저(서울 아파트 한 채를 살 만한 집)는 서울 전세 보증금 절반 남짓까지 보태 준다
+    const amt = Math.min(Math.round((budget * 0.4) / 1000) * 1000, Math.round(budget >= s.market.apt_seoul ? s.market.apt_seoul * 0.3 : s.market.apt_local * 0.5));
     return { ...base, kind: 'jeonse', amount: Math.max(5000, amt), promise: budget >= s.market.apt_seoul ? 'apt_seoul' : 'apt_local', why: '"일단 전셋집에서 시작해라. 몇 년 자리 잡으면 집은 우리가 마련해 주마."' };
   }
   if (budget >= s.market.apt_seoul) return { ...base, kind: 'apt_seoul', amount: s.market.apt_seoul, why: '"서울에 아파트 하나 봐 뒀다."' };
@@ -255,6 +256,7 @@ const leaveHome: EventDef = {
     out.push({
       label: o.amount ? '사양하고 내 힘으로 시작한다' : '악착같이 모아 내 힘으로 선다',
       run: (x) => {
+        addFlag(x.p, 'declined_help'); // 첫 집에서 부모님 찬스를 쓰지 않는다
         leave(x.p, s);
         mark(x.p, 'selfmade', 2);
         x.p.actual.mor = clamp(x.p.actual.mor + 2, 0, 100);
