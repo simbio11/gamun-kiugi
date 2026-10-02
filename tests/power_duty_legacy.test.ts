@@ -200,7 +200,7 @@ describe('권력의 길 ② (power2.ts)', () => {
     expect(s.events.some((e) => e.defId === 'pw_pres')).toBe(true);
   });
   it('하나회 실명은 게임 글에 나오지 않는다', async () => {
-    const fs = await import('fs');
+    const fs: { readdirSync: (p: string) => string[]; readFileSync: (p: string, e: string) => string } = await import('node:fs' as string);
     for (const f of fs.readdirSync('src/core')) expect(fs.readFileSync('src/core/' + f, 'utf8').includes('하나회'), f).toBe(false);
   });
 });
