@@ -107,10 +107,10 @@ export interface NewGameOpts {
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'hell';
 /** 난이도별: 형편, 재벌가 확률, 부모 잠재력 보정, 아이 잠재력 보정, 부모 직급 보정 */
 export const DIFFICULTY: Record<Difficulty, { name: string; desc: string; origin: GameState['origin']; tycoon: number; parentQ: number; childQ: number; level: number }> = {
-  easy: { name: '쉬움 · 금수저', desc: '부유한 집(재벌가일 수도), 전문직 부모와 높은 직급, 뛰어난 유전자 — 잠재력↑, 재능 하나는 타고난다, 좋은 성격. 정점 도전이 쉽지만 명예는 0.8배', origin: 'rich', tycoon: 0.12, parentQ: 6, childQ: 10, level: 1 },
+  easy: { name: '쉬움 · 금수저', desc: '부유한 집(재벌가일 수도), 전문직 부모와 높은 직급, 뛰어난 유전자 — 잠재력↑, 재능 하나는 타고난다, 좋은 성격. 정점 도전이 쉽지만 명예는 0.8배', origin: 'rich', tycoon: 0.12, parentQ: 3, childQ: 5, level: 1 },
   normal: { name: '보통 · 중산층', desc: '평범한 직장인 부모, 수도권·지방 아파트, 보통의 유전자', origin: 'middle', tycoon: 0, parentQ: 0, childQ: 0, level: 0 },
-  hard: { name: '어려움 · 흙수저', desc: '가난한 집, 빚과 반지하, 생계형 직업 부모, 불리한 유전자 — 잠재력↓, 재능 없음, 약점 하나. 정점 도전이 어렵고 라이벌이 강하지만 명예를 1.25배 받는다', origin: 'poor', tycoon: 0, parentQ: -4, childQ: -8, level: -1 },
-  hell: { name: '지옥 · 무일푼', desc: '가장 가난한 집, 약한 유전자, 부자 라이벌. 정점 도전 판정이 훨씬 어렵다. 대신 명예를 1.5배 받는다 — 여기서 대통령을 내면 전설이다', origin: 'poor', tycoon: 0, parentQ: -8, childQ: -14, level: -1 },
+  hard: { name: '어려움 · 흙수저', desc: '가난한 집, 빚과 반지하, 생계형 직업 부모, 불리한 유전자 — 잠재력↓, 재능 없음, 약점 하나. 정점 도전이 어렵고 라이벌이 강하지만 명예를 1.25배 받는다', origin: 'poor', tycoon: 0, parentQ: -2, childQ: -4, level: -1 },
+  hell: { name: '지옥 · 무일푼', desc: '가장 가난한 집, 약한 유전자, 부자 라이벌. 정점 도전 판정이 훨씬 어렵다. 대신 명예를 1.5배 받는다 — 여기서 대통령을 내면 전설이다', origin: 'poor', tycoon: 0, parentQ: -4, childQ: -5, level: -1 },
 };
 
 const BASE_START = 2025;

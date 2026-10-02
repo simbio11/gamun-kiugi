@@ -460,6 +460,15 @@ function render() {
   }
 }
 
+/** "다시 표시하지 않음"을 골랐나 (설정 → 행동력 남을 때 경고에서 되돌릴 수 있다) */
+function apWarnOff(): boolean {
+  try {
+    return localStorage.getItem('suppress_ap_warn') === '1';
+  } catch {
+    return false;
+  }
+}
+
 function apWarnModalHTML(ap: number): string {
   return `
   <div class="modal" data-action="close-ap-warn">
@@ -467,7 +476,7 @@ function apWarnModalHTML(ap: number): string {
       <div class="ap-warn-icon">⚡</div>
       <h3>행동력이 남아 있습니다</h3>
       <p class="ev-text">아직 사용하지 않은 행동력이 <b>${ap}</b> 남았습니다.<br>올해의 할 일을 더 하지 않고 다음 해로 넘어가시겠습니까?</p>
-      <label class="ap-warn-chk"><input type="checkbox" id="chk-suppress-ap-warn"> 해당 경고를 다시는 표시하지 않음</label>
+      <label class="ap-warn-chk"><input type="checkbox" id="chk-suppress-ap-warn"> 다시 표시하지 않음 <small>(⚙ 설정에서 다시 켤 수 있음)</small></label>
       <div class="ap-warn-btns">
         <button class="btn" data-action="close-ap-warn">행동하러 가기</button>
         <button class="btn primary" data-action="confirm-next-turn">턴 넘기기</button>
@@ -2189,6 +2198,7 @@ function settingsModal(g: GameState): string {
       <div class="set-row"><span>진동</span>${seg('pref-vibe', vibeOn() ? 1 : 0, [[1, '📳 켜기'], [0, '끄기']])}</div>
       <div class="set-row"><span>움직임</span>${seg('pref-calm', prefs.calm ? 1 : 0, [[0, '보통'], [1, '줄이기']])}</div>
       <div class="set-row"><span>가주 테마</span>${seg('pref-theme', prefs.theme === false ? 0 : 1, [[1, '켜기'], [0, '끄기']])}</div>
+      <div class="set-row"><span>행동력 남을 때 경고</span>${seg('pref-apwarn', apWarnOff() ? 0 : 1, [[1, '켜기'], [0, '끄기']])}</div>
       <div class="set-row"><span>돈 표시</span>${seg('pref-money', prefs.money ?? 'nominal', [['nominal', '그해 물가'], ['real', '2025년 돈']])}</div>
       <div class="set-row"><span>글자 크기</span>${seg('pref-text', prefs.text ?? 'm', [['s', '작게'], ['m', '보통'], ['l', '크게']])}</div>
       <div class="set-row"><span>가계도 보기</span>${seg('zoom', ui.zoom, [['big', '크게'], ['mid', '보통'], ['small', '작게']])}</div>
@@ -2919,6 +2929,14 @@ function handle(el: HTMLElement) {
       prefs.theme = v === '1';
       savePrefs();
       break;
+    case 'pref-apwarn':
+      try {
+        if (v === '1') localStorage.removeItem('suppress_ap_warn');
+        else localStorage.setItem('suppress_ap_warn', '1');
+      } catch {
+        /* 저장소를 못 쓰면 그냥 이번만 */
+      }
+      break;
     case 'pref-calm':
       prefs.calm = v === '1';
       savePrefs();
@@ -3021,8 +3039,7 @@ function handle(el: HTMLElement) {
       if (!g) break;
       if (!g.events.length) {
         const ap = apLeft(g);
-        const suppress = typeof localStorage !== 'undefined' && localStorage.getItem('suppress_ap_warn') === '1';
-        if (ap > 0 && !suppress) {
+        if (ap > 0 && !apWarnOff()) {
           ui.apWarnModal = { ap };
           break;
         }

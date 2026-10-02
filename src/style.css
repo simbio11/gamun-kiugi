@@ -1950,6 +1950,18 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 .theme-bg.job .tb-room.custom-bg {
   opacity: .42;
 }
+/* 전용 그림이 없는 희귀 직업: 집 배경을 빌려 깔고 직업 빛깔로 물들인다 */
+.theme-bg.job .tb-room.custom-bg.borrowed {
+  opacity: .3;
+  filter: saturate(.35) contrast(1.05);
+}
+.theme-bg.job .tb-room.custom-bg.borrowed::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg2) 55%, transparent);
+  mix-blend-mode: color;
+}
 .theme-bg.job .tb-pat.job-tint {
   background: radial-gradient(ellipse at 50% 10%, color-mix(in srgb, var(--gold) 18%, transparent), transparent 75%),
               linear-gradient(180deg, rgba(0, 0, 0, .35) 0%, rgba(0, 0, 0, .75) 100%);
