@@ -104,7 +104,9 @@ export function applyTheme(root: HTMLElement, g: GameState | undefined, on: bool
   const doc = document.documentElement;
   for (const v of ALL_VARS) doc.style.removeProperty(v);
   if (t) for (const [k, v] of Object.entries(t.vars)) doc.style.setProperty(k, v);
-  layer('theme-bg', t ? bgHTML(t) : '', t ? `theme-bg ${t.id} ${t.tier !== undefined ? 'w' + t.tier : ''} ov-${t.job ? decoOver(t.job) : ''}` : 'theme-bg');
+  // 배경 층: 재산별 배경을 빌려 쓰는 희귀 직업은 집안 형편 테마와 같은 모양(wealth wN)으로 그린다
+  const bgCls = t && borrowsRoom(t) ? `theme-bg wealth w${t.roomTier}` : t ? `theme-bg ${t.id} ${t.tier !== undefined ? 'w' + t.tier : ''} ov-${t.job ? decoOver(t.job) : ''}` : 'theme-bg';
+  layer('theme-bg', t ? bgHTML(t) : '', bgCls);
   layer('theme-fx', t?.job ? ptcHTML(t.job) : '', `theme-fx ov-${t?.job ? decoOver(t.job) : ''}`);
   return t;
 }
@@ -163,15 +165,19 @@ function bgHTML(t: Theme): string {
   if (t.job) {
     const assetKey = JOB_THEME_MAP[t.job];
     const own = assetKey ? themeAssetURL(assetKey) : undefined;
-    // 전용 그림이 없으면 집 배경 (흐리게, 직업 빛깔이 더 진하게 덮는다)
-    const room = !own && t.roomTier !== undefined ? (themeAssetURL(TIER_THEME_MAP[t.roomTier]) ?? roomURL(t.roomTier)) : undefined;
-    const bgUrl = own ?? room;
-    return `${bgUrl ? `<i class="tb-room custom-bg${own ? '' : ' borrowed'}" style="background-image:url('${bgUrl}')"></i>` : ''}<i class="tb-pat job-tint"></i><div class="td-sil">${silHTML(t.job)}</div>`;
+    // 전용 그림이 없으면 재산별 도트 배경을 그대로 쓴다 (집안 형편 테마와 똑같이)
+    if (!own && t.roomTier !== undefined) return roomHTML(t.roomTier);
+    return `${own ? `<i class="tb-room custom-bg" style="background-image:url('${own}')"></i>` : ''}<i class="tb-pat job-tint"></i><div class="td-sil">${silHTML(t.job)}</div>`;
   }
-  if (t.tier !== undefined) {
-    const assetKey = TIER_THEME_MAP[t.tier];
-    const bgUrl = assetKey ? themeAssetURL(assetKey) : undefined;
-    return `<i class="tb-room custom-bg" style="background-image:url('${bgUrl ?? roomURL(t.tier)}')"></i><i class="tb-pat"></i>`;
-  }
+  if (t.tier !== undefined) return roomHTML(t.tier);
   return `<i class="tb-pat"></i>`;
 }
+
+/** 재산별 도트 배경 */
+function roomHTML(tier: number): string {
+  const assetKey = TIER_THEME_MAP[tier];
+  const bgUrl = assetKey ? themeAssetURL(assetKey) : undefined;
+  return `<i class="tb-room custom-bg" style="background-image:url('${bgUrl ?? roomURL(tier)}')"></i><i class="tb-pat"></i>`;
+}
+/** 희귀 직업인데 전용 그림이 없어 재산별 배경을 쓰는가 */
+const borrowsRoom = (t: Theme) => !!t.job && t.roomTier !== undefined && !(JOB_THEME_MAP[t.job] && themeAssetURL(JOB_THEME_MAP[t.job]));
