@@ -3,6 +3,7 @@
 import type { Asset, GameState, Home, Person } from './types';
 import { addAsset, expectedIncome, formatMoney } from './economy';
 import { alive, clamp, fullName, householder, spouseOf } from './people';
+import { chance } from './rng';
 
 export interface Tier {
   id: string;
@@ -21,7 +22,7 @@ export function tiers(s: GameState): Tier[] {
   const y = s.year;
   const n = (list: [number, string][]) => list.filter(([from]) => y >= from).pop()![1];
   return [
-    t('room', n([[0, '판잣집 셋방'], [1976, '단칸 셋방'], [1990, '원룸 (반지하)'], [2045, '소형 주거 모듈'], [2110, '궤도 도시 기본 모듈']]), 'apt_local', 0, L * 0.18),
+    t('room', n([[0, '판잣집 셋방'], [1976, '단칸 셋방'], [1985, '반지하 단칸방'], [2045, '지하 소형 주거 모듈'], [2110, '궤도 도시 기본 모듈']]), 'apt_local', 0, L * 0.16),
     t('oneroom', n([[0, '문간방 두 칸'], [1985, '원룸 오피스텔'], [2050, 'AI 스마트 원룸'], [2110, '궤도 도시 1인 주거']]), 'apt_local', 1, L * 0.35),
     t('villa', n([[0, '도시 한옥'], [1980, '연립주택'], [1990, '빌라 투룸'], [2060, '로봇 관리 타운하우스'], [2100, '해상 도시 투룸']]), 'apt_local', 2, L * 0.6),
     t('local', n([[0, '지방 단독주택'], [1978, '지방 아파트 32평'], [2080, '지방 생태 주택 단지']]), 'apt_local', 3, L),
@@ -39,7 +40,33 @@ export const JEONSE_LOAN_RATE = 0.04;
 const MOVING_COST = 150;
 
 export const jeonseOf = (t: Tier) => Math.round((t.price * JEONSE_RATIO) / 100) * 100;
-export const wolseOf = (t: Tier) => ({ deposit: Math.max(300, Math.round((t.price * WOLSE_DEPOSIT) / 100) * 100), rent: Math.round(t.price * WOLSE_RATE) });
+/** 단계별 연 월세율: 작은 집일수록 집값 대비 월세가 비싸다 (2025 시세 기준 반지하 월 40만·원룸 60만·빌라 75만·지방 아파트 100만·수도권 150만·서울 300만·강남 500만 원 안팎 — 한국부동산원 전월세 통계 흐름) */
+const RENT_RATE = [0.09, 0.07, 0.05, 0.04, 0.03, 0.026, 0.024];
+export const wolseOf = (t: Tier) => ({ deposit: Math.max(300, Math.round((t.price * WOLSE_DEPOSIT) / 100) * 100), rent: Math.round(t.price * (RENT_RATE[t.rank] ?? WOLSE_RATE)) });
+
+// ───────────────────────── 집 단계의 효과 (해마다, 과하지 않게) ─────────────────────────
+// 동네 효과(학군·사교육비·수능 정보력)는 아래 HOODS. 여기는 집 자체: 채광·습기·소음·넓이.
+export interface HomeFx {
+  hap: number;
+  hp: number;
+  fame: number;
+  line: string;
+}
+export const HOME_FX: HomeFx[] = [
+  { hap: -2, hp: -1, fame: 0, line: '습기·곰팡이·채광 부족 (행복 −2 · 건강 −1/년) · 여름 폭우 침수 위험' },
+  { hap: -1, hp: 0, fame: 0, line: '좁다 (행복 −1/년)' },
+  { hap: 0, hp: 0, fame: 0, line: '그럭저럭 (효과 없음)' },
+  { hap: 1, hp: 0, fame: 0, line: '숨통이 트인다 (행복 +1/년)' },
+  { hap: 1, hp: 0, fame: 0, line: '아파트 단지 (행복 +1/년)' },
+  { hap: 2, hp: 0, fame: 0.3, line: '서울 아파트 (행복 +2/년 · 명성 조금)' },
+  { hap: 2, hp: 0, fame: 0.6, line: '강남 (행복 +2/년 · 명성 +)' },
+];
+/** 집주인이 보는 월세 감당 능력: 연 월세가 가구 소득의 40% 이하 (또는 통장에 5년 치) — 위로 옮길 때만 본다 */
+export const RENT_INCOME_CAP = 0.4;
+export function rentAffordable(s: GameState, p: Person, rent: number): boolean {
+  const income = household(s, p).reduce((t, x) => t + Math.max(0, expectedIncome(s, x)), 0);
+  return rent <= income * RENT_INCOME_CAP || cashOf(s, p) >= rent * 5;
+}
 
 function household(s: GameState, p: Person): Person[] {
   const sp = spouseOf(s, p);
@@ -93,13 +120,17 @@ export function moveQuote(s: GameState, p: Person, t: Tier, type: 'jeonse' | 'wo
   const old = homeOf(s, p);
   const have = cashOf(s, p) + refundOf(old);
   const fee = MOVING_COST + Math.round(t.price * 0.003);
+  const curRank = old ? tierOf(s, old.tier).rank : -1;
   if (type === 'wolse') {
     const w = wolseOf(t);
     const need = w.deposit + fee;
+    // 더 좋은 집으로 갈 때만 소득을 본다 (줄여 가는 건 언제든)
+    if (t.rank > curRank && !rentAffordable(s, p, w.rent)) return { ok: false, need, loan: 0, deposit: w.deposit, rent: w.rent, why: `소득이 모자람 (월세가 소득의 ${RENT_INCOME_CAP * 100}%를 넘는다)` };
     return { ok: have >= need, need, loan: 0, deposit: w.deposit, rent: w.rent, why: have >= need ? undefined : `${formatMoney(need - have)} 모자람` };
   }
   const dep = jeonseOf(t);
-  const lim = jeonseLoanLimit(s, p, dep);
+  // 더 좋은 집 전세는 보증금의 30%는 내 돈이어야 한다 (대출만으로 올라가지 못한다)
+  const lim = t.rank > curRank ? Math.min(jeonseLoanLimit(s, p, dep), Math.round(dep * 0.7)) : jeonseLoanLimit(s, p, dep);
   const need = dep - lim + fee;
   const loan = Math.max(0, Math.min(lim, dep + fee - have));
   return { ok: have >= need, need, loan, deposit: dep, rent: 0, why: have >= need ? undefined : lim ? `${formatMoney(need - have)} 모자람 (대출 한도 ${formatMoney(lim)})` : `${formatMoney(need - have)} 모자람 (${creditBlocked(p) ?? '대출 불가'})` };
@@ -194,6 +225,36 @@ export function housingYear(s: GameState): string[] {
     if (!h || !alive(p)) continue;
     const t = tierOf(s, h.tier);
     const mine = p.id === hh.id || p.id === hh.spouseId;
+    // 집 단계의 효과: 이 집에 사는 사람들 (부부 + 같이 사는 미혼 자녀)
+    const fx = HOME_FX[t.rank];
+    if (fx && p.id === (homeHolder(s, p) ?? p).id) {
+      const fam = [...household(s, p), ...p.childIds.map((id) => s.people[id]).filter((c) => c && alive(c) && !c.home && !c.spouseId && !c.flags.includes('indep'))];
+      for (const x of fam) {
+        x.happiness = clamp(x.happiness + fx.hap, 0, 100);
+        if (fx.hp) x.actual.hp = clamp(x.actual.hp + fx.hp, 0, 100);
+      }
+      if (mine) s.fame += fx.fame;
+      // 반지하 침수: 2022년 8월 서울 폭우 때 반지하 가구 인명 피해 — 여름마다 조금
+      if (t.rank === 0 && s.year >= 1985 && chance(s, 0.03)) {
+        p.cash -= 300;
+        for (const x of fam) x.happiness = clamp(x.happiness - 6, 0, 100);
+        if (mine) msgs.push('🌧 폭우에 반지하 방이 물에 잠겼다. 가전과 이불을 버렸다. (−300만 원)');
+      }
+    }
+    // 월세를 감당 못 하면 (월세가 소득의 60%를 넘고 통장도 비면) 한 단계 작은 집으로 밀려난다
+    if (mine && h.type === 'wolse' && t.rank > 0 && p.cash < h.rent) {
+      const income = household(s, p).reduce((a, x) => a + Math.max(0, expectedIncome(s, x)), 0);
+      if (h.rent > income * 0.6) {
+        const low = tiers(s).find((x) => x.rank === t.rank - 1)!;
+        // 이사비가 없어도 쫓겨난다: 원래 보증금을 그대로 새 보증금으로 (모자라면 그만큼 빚)
+        const w = wolseOf(low);
+        p.cash += h.deposit - w.deposit - MOVING_COST;
+        p.home = { type: 'wolse', tier: low.id, name: low.name, deposit: w.deposit, rent: w.rent, since: s.year };
+        moodShift(s, p, -6);
+        msgs.push(`📦 월세를 감당하지 못해 ${low.name}(으)로 밀려났다. (월세 연 ${formatMoney(w.rent)})`);
+        continue;
+      }
+    }
     if (h.type === 'wolse') h.rent = wolseOf(t).rent;
     if (h.type === 'jeonse' && s.year - h.since >= JEONSE_TERM && (s.year - h.since) % JEONSE_TERM === 0) {
       const nd = jeonseOf(t);
@@ -216,9 +277,16 @@ export function settleHome(s: GameState, p: Person): string {
     p.home = { type: 'own', tier: t.id, name: a.name, assetId: a.id, deposit: 0, rent: 0, since: s.year };
     return `${a.name}에서 산다.`;
   }
-  // 전세를 얻을 수 있는 가장 좋은 집, 아니면 월세
+  // 전세를 얻을 수 있는 가장 좋은 집, 아니면 월세 — 단, 첫 집은 자란 집(부모님 집)보다 한 단계 위까지만 (출발선은 대물림된다)
   const cash = cashOf(s, p);
-  for (const t of [...tiers(s)].reverse()) {
+  const grewUp = [p, ...household(s, p)]
+    .flatMap((x) => [s.people[x.fatherId ?? ''], s.people[x.motherId ?? '']])
+    .filter(Boolean)
+    .map((q) => homeOf(s, q))
+    .filter(Boolean)
+    .map((h) => tierOf(s, h!.tier).rank);
+  const cap = grewUp.length ? Math.max(...grewUp) + 1 : 6;
+  for (const t of [...tiers(s)].reverse().filter((x) => x.rank <= cap)) {
     const dep = jeonseOf(t);
     if (cash >= dep - jeonseLoanLimit(s, p, dep) + MOVING_COST && cash >= dep * 0.3) {
       const q = moveQuote(s, p, t, 'jeonse');

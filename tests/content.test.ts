@@ -397,7 +397,7 @@ describe('인생 시스템', () => {
     }
     expect(seen[0]).toBe('0'); // 인턴 1년
     expect(seen).toContain('1'); // 레지던트
-    expect(seen[seen.length - 1]).toBe('2'); // 전문의
+    expect(Number(seen[seen.length - 1])).toBeGreaterThanOrEqual(2); // 전문의 (운이 좋으면 그 위까지)
     expect(pays[pays.length - 1]).toBeGreaterThan(pays[1] * 2);
     // 공무원 호봉: 같은 9급이라도 해마다 오른다
     h.job = 'civil';

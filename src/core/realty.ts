@@ -263,7 +263,7 @@ const AREA_FROM: Record<string, number> = {
   '강남구 대치동': 1979, '서초구 반포동': 1974, '송파구 잠실동': 1976, '용산구 한남동': 1970, '양천구 목동': 1986, '노원구 상계동': 1988,
   '강서구 마곡동': 2014, '경기 분당 정자동': 1992, '경기 과천': 1982, '경기 화성 동탄2': 2015, '인천 송도': 2009, '경기 고양 일산': 1992,
   '세종 새롬동': 2014, '천안 불당동': 2008, '대전 둔산동': 1992, '부산 해운대구': 1996, '광주 봉선동': 1990, '울산 남구': 1985, '창원 성산구': 1985,
-  '성수동 리모델링 빌딩': 2015, '역세권 오피스텔 1실': 1990, '신도시 예정지 인근 대지 100평': 1989, '신도시 근린상가 1층 점포': 1992, '홍대 꼬마빌딩 (5층)': 1990,
+  '성수동 리모델링 빌딩': 2015, '서울 관악구 반지하 빌라': 1985, '인천 미추홀구 반지하 투룸': 1985, '서울 신림동 원룸 (지상)': 1988, '경기 수원 원룸 오피스텔': 1990, '서울 은평구 빌라 투룸': 1985, '경기 부천 빌라 쓰리룸': 1985, '역세권 오피스텔 1실': 1990, '신도시 예정지 인근 대지 100평': 1989, '신도시 근린상가 1층 점포': 1992, '홍대 꼬마빌딩 (5층)': 1990,
 };
 const eraOk = (s: GameState, t: { area: string }) => s.era !== 'history' || s.year >= (AREA_FROM[t.area] ?? 0);
 /** 1990년대까지의 아파트 이름 */
@@ -284,6 +284,8 @@ interface Tpl {
   house?: boolean;
   noApt?: boolean;
   w?: number;
+  /** 작은 집 (반지하·원룸·빌라): 해마다 1~2개는 꼭 나온다 */
+  low?: boolean;
 }
 
 const TPL: Tpl[] = [
@@ -317,6 +319,13 @@ const TPL: Tpl[] = [
   { kind: 'apt_local', area: '전주 효자동', py: 32, m: [0.7, 0.9], y: [0.042, 0.048] },
   { kind: 'apt_local', area: '포항 북구', py: 24, m: [0.4, 0.55], y: [0.05, 0.056], tags: [['구축', 1]], drift: -0.01 },
   { kind: 'apt_local', area: '전북 익산', py: 24, m: [0.3, 0.4], y: [0.052, 0.06], tags: [['구축', 1]], drift: -0.012 },
+  // 작은 집: 반지하·원룸·빌라 (시세 기준: 지방 보통 아파트) — 값이 잘 안 오르고 월세 수익률은 높다
+  { kind: 'apt_local', area: '서울 관악구 반지하 빌라', m: [0.13, 0.19], y: [0.06, 0.07], noApt: true, low: true, tags: [['반지하', 1], ['역세권', 0.3]], drift: -0.004 },
+  { kind: 'apt_local', area: '인천 미추홀구 반지하 투룸', m: [0.11, 0.16], y: [0.065, 0.075], noApt: true, low: true, tags: [['반지하', 1]], drift: -0.006 },
+  { kind: 'apt_local', area: '서울 신림동 원룸 (지상)', m: [0.3, 0.4], y: [0.055, 0.065], noApt: true, low: true, tags: [['역세권', 0.4]], drift: -0.002 },
+  { kind: 'apt_local', area: '경기 수원 원룸 오피스텔', m: [0.28, 0.38], y: [0.055, 0.065], noApt: true, low: true, tags: [['역세권', 0.5]], drift: -0.003 },
+  { kind: 'apt_local', area: '서울 은평구 빌라 투룸', m: [0.5, 0.7], y: [0.045, 0.055], noApt: true, low: true, tags: [['재개발 기대', 0.2]], drift: -0.002 },
+  { kind: 'apt_local', area: '경기 부천 빌라 쓰리룸', m: [0.45, 0.62], y: [0.045, 0.055], noApt: true, low: true, drift: -0.003 },
   // 건물·상가
   { kind: 'building', area: '홍대 꼬마빌딩 (5층)', m: [0.8, 1.2], y: [0.03, 0.037], noApt: true, tags: [['역세권', 0.5]] },
   { kind: 'building', area: '성수동 리모델링 빌딩', m: [1.0, 1.5], y: [0.025, 0.03], noApt: true, drift: 0.008 },
@@ -382,9 +391,9 @@ function pickTpl(s: GameState, pool: Tpl[]): Tpl {
 
 /** 올해 매물 새로 깔기: 서울·수도권 2~3, 지방 1~2, 건물·상가 1~2, 땅 1 */
 export function rollListings(s: GameState) {
-  const by = (k: string) => TPL.filter((t) => t.kind === k && eraOk(s, t));
+  const by = (k: string) => TPL.filter((t) => (k === 'low' ? t.low : t.kind === k && !t.low) && eraOk(s, t));
   const out: Listing[] = [];
-  const n = { apt_seoul: int(s, 2, 3), apt_local: int(s, 1, 2), building: int(s, 1, 2), land: 1 };
+  const n = { low: int(s, 1, 2), apt_seoul: int(s, 2, 3), apt_local: int(s, 1, 2), building: int(s, 1, 2), land: 1 };
   for (const [k, c] of Object.entries(n)) {
     const pool = [...by(k)];
     for (let i = 0; i < c && pool.length; i++) {

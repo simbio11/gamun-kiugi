@@ -387,6 +387,7 @@ small.down { color: #2d6fb5; }
 .mv-h small { color: var(--muted); font-size: 10px; }
 .mv-b { display: flex; gap: 2px; }
 .mv-b .mini { white-space: nowrap; }
+.mv-fx { flex-basis: 100%; order: 3; font-size: 10px; }
 
 /* ─── 설정 ─── */
 .gear { background: none; border: none; box-shadow: none; color: var(--sand); font-size: 16px; padding: 0 4px; vertical-align: 2px; cursor: pointer; }

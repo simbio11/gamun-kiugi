@@ -302,7 +302,8 @@ export function newGame(o: NewGameOpts): GameState {
   if (origin === 'poor') {
     father.cash = int(s, -4000, 2500);
     mother.cash = int(s, 0, 800);
-    if (chance(s, 0.35)) addAsset(s, 'apt_local', father.id, s.market.apt_local * 0.6, '낡은 빌라');
+    // 낡은 빌라라도 내 집이 있는 집: 어려움 25% · 지옥 8% (나머지는 반지하·원룸 월세)
+    if (chance(s, o.difficulty === 'hell' ? 0.08 : o.difficulty === 'hard' ? 0.25 : 0.35)) addAsset(s, 'apt_local', father.id, s.market.apt_local * 0.6, '낡은 빌라');
   } else if (origin === 'middle') {
     father.cash = int(s, 2000, 15000);
     mother.cash = int(s, 0, 5000);
