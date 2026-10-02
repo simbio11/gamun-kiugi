@@ -1,6 +1,6 @@
 // 슈퍼 히든으로 가는 "다른 문": 지능·매력 기준만이 아니라 그 일과 닿아 있는 직업·재능·성격·지나온 길로도 열린다.
 //   base: 그 직업이 될 수 있는 최소 조건 (성별·나이·시대·꼭 있어야 하는 것)
-//   edge: 그 세계와 닮은 무언가 (관련 직업·재능·성격·흔적) — 있으면 해마다 1.8%(× 가문 숙련도)로 첫 장면이 오고, 단계 판정이 모자라도 55%로 통과
+//   edge: 그 세계와 닮은 무언가 (관련 직업·재능·성격·흔적) — 있으면 해마다 1%(× 가문 숙련도)로 첫 장면이 오고, 단계 판정이 모자라도 55%로 통과
 //   edge 가 없어도 아주 드물게(해마다 0.15% × 가문 숙련도) 운명처럼 문이 열린다
 import type { GameState, Person, TalentId } from './types';
 import { age, hasTrait, markOf } from './people';
@@ -8,7 +8,7 @@ import { myVehicles } from './vehicle';
 import { hiddenMastery, novelty } from './hidden-mastery';
 
 /** 해마다 첫 장면이 올 확률: 닮은 점이 있으면 / 없으면 (운) */
-export const EDGE_RATE = 0.018;
+export const EDGE_RATE = 0.01;
 export const LUCK_RATE = 0.0015;
 
 interface Door {

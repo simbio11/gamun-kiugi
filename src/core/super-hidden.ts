@@ -135,13 +135,13 @@ export const SUPER_ROUTES: SuperRoute[] = [
     name: '밤의 대부',
     icon: '🥃',
     ready: (s, p) =>
-      p.sex === 'M' && A(s, p) >= 28 && A(s, p) <= 70 && ST(p).cha >= 56 &&
+      p.sex === 'M' && A(s, p) >= 28 && A(s, p) <= 70 && ST(p).cha >= 53 &&
       (markOf(p, 'cheat') >= 1 || markOf(p, 'risk') >= 3 ||
         p.flags.includes('hidden:hj_gambler') || p.flags.includes('hidden:hj_smuggler')),
     step1: {
       title: '🥃 대부의 부름',
       text: '시가 연기 자욱한 방. 늙은 대부가 {n}을 부른다. "내 자리를 물려줄 사람은 너뿐이다. 조직은 가족이야." 식탁 위에 반지 하나가 놓여 있다.',
-      check: (p) => ST(p).cha >= 56,
+      check: (p) => ST(p).cha >= 53,
       rate: 0.92,
       succText: '반지에 입을 맞췄다. 이제 밤의 거리에서 {n}의 말이 통한다.',
       succMoney: 6000,
@@ -150,7 +150,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     step2: {
       title: '⚔ 가문 전쟁',
       text: '경쟁 조직이 항구 창고와 구역 셋을 동시에 쳤다. 다섯 가문이 긴 탁자에 모였고, 판을 정리할 사람은 {n}뿐이다.',
-      check: (p) => ST(p).cha >= 60 && ST(p).int >= 55,
+      check: (p) => ST(p).cha >= 57 && ST(p).int >= 55,
       rate: 0.9,
       succText: '한 사람도 다치지 않고 판을 정리했다. 다섯 가문이 {n}의 이름을 새겼다.',
       succMoney: 16000,
@@ -159,7 +159,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     step3: {
       title: '👑 도시의 왕',
       text: '늙은 대부가 눈을 감았다. 장례 미사에 도시의 절반이 모였다. 관 앞에서 회중시계와 반지를 함께 내미는 손. "이제 밤은 당신 것이오."',
-      check: (p) => ST(p).cha >= 64,
+      check: (p) => ST(p).cha >= 61,
       rate: 0.95,
       succText: '도시의 밤이 새 주인을 얻었다. 사람들은 {n}을 대부라 부른다.',
       succMoney: 30000,
@@ -287,13 +287,13 @@ export const SUPER_ROUTES: SuperRoute[] = [
     name: '밤의 대모',
     icon: '🖤',
     ready: (s, p) =>
-      p.sex === 'F' && A(s, p) >= 28 && A(s, p) <= 70 && ST(p).cha >= 56 &&
+      p.sex === 'F' && A(s, p) >= 28 && A(s, p) <= 70 && ST(p).cha >= 53 &&
       (markOf(p, 'cheat') >= 1 || markOf(p, 'risk') >= 3 ||
         p.flags.includes('hidden:hj_gambler') || p.flags.includes('hidden:hj_smuggler')),
     step1: {
       title: '🖤 대모의 부름',
       text: '대부가 병석에 누운 뒤, 그의 아내가 {n}을 뒷방으로 불렀다. "조직은 총으로만 굴러가지 않아. 장부와 사람, 그게 진짜 힘이야."',
-      check: (p) => ST(p).cha >= 56,
+      check: (p) => ST(p).cha >= 53,
       rate: 0.92,
       succText: '장부를 넘겨받았다. 이제 밤의 거리에서 {n}의 말이 조용히 통한다.',
       succMoney: 5500,
@@ -302,7 +302,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     step2: {
       title: '⚖ 다섯 가문의 중재',
       text: '전쟁으로 다섯 가문이 흩어졌다. 긴 탁자에 앉은 원로들이 서로를 노려본다. 총 대신 말로 판을 정리할 사람이 필요하다.',
-      check: (p) => ST(p).cha >= 60 && ST(p).int >= 55,
+      check: (p) => ST(p).cha >= 57 && ST(p).int >= 55,
       rate: 0.9,
       succText: '한 사람도 다치지 않게 판을 갈랐다. 다섯 가문이 {n}의 이름을 새겼다.',
       succMoney: 15000,
@@ -311,7 +311,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     step3: {
       title: '👑 밤의 어머니',
       text: '대부의 회중시계가 멈췄다. 조직의 원로들이 {n}의 방문 앞에 줄을 섰다. "대모, 이제 밤을 맡아 주십시오."',
-      check: (p) => ST(p).cha >= 64,
+      check: (p) => ST(p).cha >= 61,
       rate: 0.95,
       succText: '도시의 밤이 {n}의 손에 들어왔다. 총소리 없이, 장부 하나로.',
       succMoney: 30000,
@@ -680,16 +680,16 @@ export const SUPER_ROUTES: SuperRoute[] = [
 type Chk = (p: Person) => boolean;
 const TUNE: Record<string, { c: [Chk, Chk, Chk]; w?: [Chk, Chk] }> = {
   hj_vtuber: { c: [(p) => ST(p).cha >= 60, (p) => ST(p).cha >= 63 && ST(p).int >= 50, (p) => ST(p).cha >= 66], w: [(p) => ST(p).cha >= 63, (p) => ST(p).cha >= 66] },
-  hj_private_jet: { c: [(p) => ST(p).cha >= 55, (p) => ST(p).cha >= 58 && ST(p).int >= 52, (p) => ST(p).cha >= 60] },
+  hj_private_jet: { c: [(p) => ST(p).cha >= 52, (p) => ST(p).cha >= 55 && ST(p).int >= 50, (p) => ST(p).cha >= 57] },
   hj_conservator: { c: [(p) => ST(p).int >= 75, (p) => ST(p).int >= 78, (p) => ST(p).int >= 80], w: [(p) => ST(p).int >= 78, (p) => ST(p).int >= 80] },
   hj_space_analyst: { c: [(p) => ST(p).int >= 72, (p) => ST(p).int >= 75, (p) => ST(p).int >= 78], w: [(p) => ST(p).int >= 75, (p) => ST(p).int >= 78] },
   hj_detective: { c: [(p) => ST(p).int >= 62, (p) => ST(p).int >= 64 && ST(p).cha >= 56, (p) => ST(p).int >= 66 && ST(p).hp >= 50] },
   hj_perfumer: { c: [(p) => ST(p).hp >= 60 && ST(p).cha >= 65, (p) => ST(p).cha >= 66, (p) => ST(p).cha >= 68] },
-  hj_pope: { c: [(p) => ST(p).mor >= 80, (p) => ST(p).mor >= 82 && ST(p).cha >= 55, (p) => ST(p).mor >= 84] },
-  hj_bodyguard: { c: [(p) => ST(p).str >= 70, (p) => ST(p).str >= 72 && ST(p).hp >= 65, (p) => ST(p).str >= 74] },
+  hj_pope: { c: [(p) => ST(p).mor >= 75, (p) => ST(p).mor >= 77 && ST(p).cha >= 50, (p) => ST(p).mor >= 79] },
+  hj_bodyguard: { c: [(p) => ST(p).str >= 65, (p) => ST(p).str >= 67 && ST(p).hp >= 60, (p) => ST(p).str >= 69] },
   hj_art_investigator: { c: [(p) => ST(p).int >= 65, (p) => ST(p).int >= 67 && ST(p).cha >= 55, (p) => ST(p).int >= 69] },
   hj_michelin_inspector: { c: [(p) => ST(p).int >= 55, (p) => ST(p).int >= 60, (p) => ST(p).cha >= 60] },
-  hj_stargazer: { c: [(p) => ST(p).cha >= 65, (p) => ST(p).cha >= 67 && ST(p).int >= 55, (p) => ST(p).cha >= 70] },
+  hj_stargazer: { c: [(p) => ST(p).cha >= 60, (p) => ST(p).cha >= 62 && ST(p).int >= 52, (p) => ST(p).cha >= 65] },
 };
 for (const [id, tu] of Object.entries(TUNE)) {
   const r = SUPER_ROUTES.find((x) => x.id === id)!;

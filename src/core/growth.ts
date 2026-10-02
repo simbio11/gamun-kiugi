@@ -1,6 +1,6 @@
 import { eraMortality, lifeTechMult } from './medical';
 import { chance } from './rng';
-import { STAT_KEYS, TALENTS } from './data';
+import { JOBS, STAT_KEYS, TALENTS } from './data';
 import { age, alive, clamp, discoverTalent, fullName, hasFlag, hasTrait, head, isDescendantOf } from './people';
 import { deathMult } from './marks';
 import type { Focus, GameState, Person, StatKey, Stats } from './types';
@@ -79,6 +79,16 @@ export function growthYear(s: GameState): string[] {
           }
         }
       }
+    }
+    // 어른도 자란다 (20~55세): 하는 일이 그 일의 능력치를 키우고(직업 stats 비중), 살면서 조금씩 여문다.
+    // 잠재력에 가까울수록 덜 오르고(room) 나이 효율(ageEff)이 곱해져 한 해 0.2~0.8 정도 — 그 일을 15년 하면 그 능력치가 5~10점.
+    if (a >= 20 && a <= 55) {
+      const j = JOBS[p.job];
+      if (j && !['none', 'parttime', 'pension'].includes(p.job)) for (const [k, w] of Object.entries(j.stats ?? { int: 1 }) as [StatKey, number][]) pts[k] += 4 * w;
+      for (const k of STAT_KEYS) pts[k] += 1;
+    }
+    if (a < 20) {
+      /* 위에서 처리 */
     } else if (p.id === h.id) {
       const ls = s.policy.lifestyle;
       if (ls === 'self') {

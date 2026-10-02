@@ -5,7 +5,7 @@ import { isHoH, isSuperHidden } from './hidden-data';
 import { cardPassive } from './cards';
 
 /** 기본 빈도: 150년 플레이(배우자·자식·손주 포함)에서 아무 준비 없이도 히든 약 6번 · 슈퍼 히든 약 3번 */
-export const HIDDEN_RATE = 0.5;
+export const HIDDEN_RATE = 0.36;
 
 export function hiddenMastery(s: GameState): { hid: number; sup: number; cards: number; superCards: number } {
   const ids = new Set((s.cards ?? []).map((c) => c.id).filter((id) => id.startsWith('hj_')));

@@ -55,10 +55,10 @@ export const GATE_READY: Record<string, (s: GameState, p: Person) => boolean> = 
   hj_vtuber: (s, p) => F(p) && A(s, p) >= 18 && A(s, p) <= 30 && !!s.gear?.pc && st(p).cha >= 60 && (tal(p, 'pitch', 'star') || did(p, 'streamer', 'youtuber', 'voice_actor', 'singer')),
   // 🏎 [질주본능] 여성 + 중형 이상 자동차
   hj_drifter: (s, p) => F(p) && A(s, p) >= 19 && tr(p, 'speed_demon') && goodCar(s, p),
-  // 🥃 어두운 판에서 이름을 날린 남자: 28~60세 · 속임수 2번 이상·한탕 4번 이상·뒷골목 직업 이력 중 하나 · 근력이나 매력 60+
-  hj_mafia: (s, p) => M(p) && A(s, p) >= 28 && A(s, p) <= 60 && (markOf2(p, 'cheat') >= 2 || markOf2(p, 'risk') >= 4 || did(p, ...DARK)) && (st(p).str >= 60 || st(p).cha >= 60),
-  // 🖤 같은 판의 여자: 28~65세 · 같은 흔적 · 매력 60+·지능 55+ (총 대신 장부)
-  hj_godmother: (s, p) => F(p) && A(s, p) >= 28 && A(s, p) <= 65 && (markOf2(p, 'cheat') >= 2 || markOf2(p, 'risk') >= 4 || did(p, ...DARK)) && st(p).cha >= 60 && st(p).int >= 55,
+  // 🥃 어두운 판에서 이름을 날린 남자: 28~60세 · 속임수 2번 이상·한탕 4번 이상·뒷골목 직업 이력 중 하나 · 근력이나 매력 57+
+  hj_mafia: (s, p) => M(p) && A(s, p) >= 28 && A(s, p) <= 60 && (markOf2(p, 'cheat') >= 2 || markOf2(p, 'risk') >= 4 || did(p, ...DARK)) && (st(p).str >= 57 || st(p).cha >= 57),
+  // 🖤 같은 판의 여자: 28~65세 · 같은 흔적 · 매력 57+·지능 55+ (총 대신 장부)
+  hj_godmother: (s, p) => F(p) && A(s, p) >= 28 && A(s, p) <= 65 && (markOf2(p, 'cheat') >= 2 || markOf2(p, 'risk') >= 4 || did(p, ...DARK)) && st(p).cha >= 57 && st(p).int >= 55,
   // ✈ 20~26세 여성 · 연애 3번 이상 (사람을 대하는 법을 아는 사람)
   hj_private_jet: (s, p) => F(p) && A(s, p) >= 20 && A(s, p) <= 26 && loves(p) >= 3 && !p.flags.includes('no_private_jet'),
   // 🂡 카지노에서 세 번 따야 열린다 (casino.ts) — 여기선 열지 않는다
@@ -71,21 +71,22 @@ export const GATE_READY: Record<string, (s: GameState, p: Person) => boolean> = 
   hj_michelin_inspector: (s, p) => A(s, p) >= 28 && A(s, p) <= 60 && st(p).int >= 55 && (tal(p, 'palate') || did(p, 'chef', 'sommelier', 'baker', 'restaurant') || p.flags.includes('cook_win')),
   // 📜 지능 75에 첫 장면 → 78에 2단계 → 80에 3단계 (super-hidden.ts when)
   hj_conservator: (s, p) => A(s, p) >= 24 && A(s, p) <= 70 && st(p).int >= 75,
-  // 🛡 몸이 무기: 22~45세 · 근력 70+·건강 65+ · 제복·운동 경력이나 군필
-  hj_bodyguard: (s, p) => A(s, p) >= 22 && A(s, p) <= 45 && st(p).str >= 70 && st(p).hp >= 65 && (did(p, 'police', 'officer', 'nco', 'security_guard', 'athlete', 'firefighter', 'coast_guard', 'sports_instructor', 'hj_fighter', 'hj_mercenary') || p.flags.some((f) => f.startsWith('served'))),
+  // 🛡 몸이 무기: 22~45세 · 근력 65+·건강 60+ · 제복·운동 경력이나 군필
+  hj_bodyguard: (s, p) => A(s, p) >= 22 && A(s, p) <= 45 && st(p).str >= 65 && st(p).hp >= 60 && (did(p, 'police', 'officer', 'nco', 'security_guard', 'athlete', 'firefighter', 'coast_guard', 'sports_instructor', 'hj_fighter', 'hj_mercenary') || p.flags.some((f) => f.startsWith('served'))),
   // 🕵 경찰·기자·검사… 그 일을 그만둔 뒤 50세가 넘어서 · 지능 62+·매력 55+·건강 50+
   hj_detective: (s, p) => A(s, p) >= 50 && A(s, p) <= 72 && LAW.some((j) => p.flags.includes('was:' + j)) && !LAW.includes(p.job) && st(p).int >= 62 && st(p).cha >= 55 && st(p).hp >= 50,
   // 🥃 [개코] · 건강 60+ · 매력 65+
   hj_perfumer: (s, p) => A(s, p) >= 20 && A(s, p) <= 60 && tr(p, 'keen_nose') && st(p).hp >= 60 && st(p).cha >= 65,
-  // 🔮 사람의 운을 봐 온 사람: 30~70세 · 매력 65+ · 타로·무당 이력이나 공감 능력·맑은 눈
-  hj_stargazer: (s, p) => A(s, p) >= 30 && A(s, p) <= 70 && st(p).cha >= 65 && (did(p, 'hj_tarot', 'hj_shaman', 'psychologist', 'clergy') || tal(p, 'empath') || tr(p, 'hypnotic_eye')),
-  // 👑 성직자만 · 60세 이상 · 도덕성 80+ · 본인이 받은 명예의 전당 카드 5장 이상
-  hj_pope: (s, p) => A(s, p) >= 60 && p.job === 'clergy' && st(p).mor >= 80 && ownCards(s, p) >= 5,
+  // 🔮 사람의 운을 봐 온 사람: 30~70세 · 매력 60+ · 타로·무당 이력이나 공감 능력·맑은 눈
+  hj_stargazer: (s, p) => A(s, p) >= 30 && A(s, p) <= 70 && st(p).cha >= 60 && (did(p, 'hj_tarot', 'hj_shaman', 'psychologist', 'clergy') || tal(p, 'empath') || tr(p, 'hypnotic_eye')),
+  // 👑 성직자만 · 60세 이상 · 도덕성 75+ · 본인이 받은 명예의 전당 카드 5장 이상
+  hj_pope: (s, p) => A(s, p) >= 60 && p.job === 'clergy' && st(p).mor >= 75 && ownCards(s, p) >= 5,
   // 🛰 2020년 이후 · 26~55세 · 지능 72+ · 항공우주·데이터·관제 일을 하거나 했던 사람 (75·78에 다음 단계)
   hj_space_analyst: (s, p) => s.year >= 2020 && A(s, p) >= 26 && A(s, p) <= 55 && st(p).int >= 72 && did(p, ...SPACE),
 };
 /** 조건이 맞을 때 해마다 1단계 장면이 올 확률 (기본 0.3) — 조건이 까다로울수록 높게 */
 export const GATE_RATE: Record<string, number> = {
+  hj_bodyguard: 0.2, hj_mafia: 0.25, hj_godmother: 0.25, hj_stargazer: 0.3,
   hj_conservator: 0.35, hj_perfumer: 0.6, hj_pope: 0.8, hj_detective: 0.4, hj_private_jet: 0.35, hj_drifter: 0.5, hj_space_analyst: 0.35, hj_vtuber: 0.3,
 };
 /** 모두 새 입구만 쓴다 (옛 능력치 조건은 버림) */
