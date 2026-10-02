@@ -10,7 +10,7 @@ import { grant } from './rewards';
 import { addHolding, formatMoney, jobTitle, pay, personWorth, settlePension } from './economy';
 import { birthSupport } from './welfare';
 import { applyDesire, gate, iga, queueNext, req, schedule, setJob, spendable, who, type Choice, type Ctx, type EventDef } from './ev-util';
-import { addFlag, age, alive, check, clamp, createPerson, freshName, fullName, hasFlag, hasTalent, hasTrait, householder, inherit, isMedStudent, mark, randomGenes, randomName, spouseOf, takenNames } from './people';
+import { addFlag, age, alive, check, clamp, createPerson, freshName, fullName, hasFlag, hasTalent, hasTrait, householder, inherit, isMedStudent, mark, markOf, randomGenes, randomName, spouseOf, takenNames } from './people';
 import type { GameState, Person } from './types';
 import { illMult } from './marks';
 
@@ -797,14 +797,16 @@ const presidential: LifeDef = {
 
 const gamble: LifeDef = {
   id: 'gamble',
-  weight: (s, p) => (hasTrait(p, 'gambler') && age(s, p) >= 20 && p.cash > 500 ? 0.12 : 0),
+  // 도박꾼 기질이면 자주, 아니어도 위험을 즐기는 사람(투자·모험 흔적)에겐 가끔 친구가 데려간다
+  weight: (s, p) => (age(s, p) < 20 || p.cash <= 500 ? 0 : hasTrait(p, 'gambler') ? 0.12 : markOf(p, 'risk') >= 2 ? 0.04 : 0.01),
   title: () => '한탕의 유혹',
-  text: (c) => `${who(c)}, 친구 따라 간 카지노에서 손이 근질근질하다.`,
+  text: (c) => `${who(c)}, ${c.s.year >= 2000 ? '친구 따라 간 정선 카지노' : '친구 따라 간 뒷골목 하우스 노름판'}에서 손이 근질근질하다.`,
   choices: () => [
     {
       label: '딱 한 번만…',
       run: (x) => {
         mark(x.p, 'risk', 1);
+        mark(x.p, 'gamble', 1);
         const bet = Math.min(Math.max(500, Math.round(x.p.cash * 0.3)), 10000);
         if (chance(x.s, 0.12)) {
           x.p.cash += bet * 2;
@@ -909,8 +911,18 @@ const officerStay: LifeDef = {
   ],
 };
 
+const ncoStay: EventDef = {
+  id: 'nco_stay',
+  title: () => '부사관 임관 제안',
+  text: (c) => `전역을 앞둔 ${who(c)}에게 중대장이 말한다. "추천서는 써 뒀다. 부사관으로 남을 생각 없나?"`,
+  choices: () => [
+    { label: '하사로 임관한다', run: (x) => ((x.p.flags = x.p.flags.filter((f) => f !== 'nco_offer')), setJob(x.p, 'nco', 0), '하사 계급장을 달았다. 이제 직업군인이다.' + applyDesire(x, 'public')) },
+    { label: '사회로 돌아간다', run: (x) => ((x.p.flags = x.p.flags.filter((f) => f !== 'nco_offer')), '전역증을 받았다.') },
+  ],
+};
+
 /** 무작위로 일어나는 인생사 (가중치 있는 것) */
 export const LIFE_RANDOM: LifeDef[] = [accident, depression, affair, fraud, layoff, scout, olympiad, nobel, minister, gamble, holidayNag, windfall, bullying, pet];
 /** 조건이 되면 일어나는 것 (sim.ts 에서 직접 큐) */
-export const LIFE_EVENTS: EventDef[] = [military, cancer, maritalCrisis, infertility, adoptOffer, olympic, ipo, presidential, officerStay, ...LIFE_RANDOM];
+export const LIFE_EVENTS: EventDef[] = [military, cancer, maritalCrisis, infertility, adoptOffer, olympic, ipo, presidential, officerStay, ncoStay, ...LIFE_RANDOM];
 

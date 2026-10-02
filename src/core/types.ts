@@ -266,7 +266,7 @@ export interface GameState {
   war?: { name: string; start: number; phase: 'war' | 'truce'; truceAt?: number; dead: number };
   /** 지난 전쟁이 끝난 해 */
   lastWarEnd?: number;
-  gameOver?: { reason: string; score: number };
+  gameOver?: { reason: string; score: number; /** 이 가문이 남긴 유산 (유산 상점, 한 번만 지급) */ legacy?: number };
   /** 올해 부동산 매물 */
   listings?: Listing[];
   /** 이야기를 마지막으로 겪은 해 (같은 이야기가 자꾸 반복되지 않게): '사람id:이야기id' → 해 */
@@ -296,4 +296,6 @@ export interface GameState {
   cleanYears?: number;
   /** 라이벌 가문 */
   rival?: import('./rival').Rival;
+  /** 유산 상점에서 산 혜택 중 가문 내내 효과가 남는 것 (legacy.ts) */
+  legacy?: string[];
 }

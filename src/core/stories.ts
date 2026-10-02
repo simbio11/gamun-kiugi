@@ -9,6 +9,7 @@ import { OWNED_STORIES } from './stories-owned';
 import { MOM_STORIES } from './stories-mom';
 import { PHONE_STORIES } from './stories-phone';
 import { PHONE2_STORIES } from './stories-phone2';
+import { PHONE3_STORIES } from './stories-phone3';
 import { GENDER_STORIES } from './stories-gender';
 import { HIDDEN_STORIES } from './stories-hidden';
 import { POLITICS_STORIES, homeCity, pledgeOf } from './stories-politics';
@@ -199,7 +200,27 @@ function toChoice(sc: SC, p?: Person): Choice {
   };
 }
 
+// ── 개연성 가드: 이야기 글에 담긴 상황이 지금 그 사람의 삶과 맞을 때만 ──
+// (기혼·자가 실거주인데 "자취방 룸메이트", 대학생인데 "부장님", 결혼했는데 "소개팅" 같은 일이 생기지 않게)
+const KW_ALONE = ['자취', '룸메이트', '원룸', '고시원', '하숙', '셋방'];
+const KW_SINGLE = ['소개팅', '결혼은 언제', '솔로', '맞선'];
+const KW_WORK = ['출근', '퇴근', '부장님', '직장 동료', '회사 동료', '옆자리 동료', '팀장', '회식', '야근', '연봉', '사표'];
+const KW_RENT = ['집주인', '전세 만기', '월세를'];
+const ownsHome = (s: GameState, p: Person) => p.home?.type === 'own' || spouseOf(s, p)?.home?.type === 'own';
+const isMarried = (s: GameState, p: Person) => !!spouseOf(s, p) && alive(spouseOf(s, p)!);
+function situational(st: Story): ((s: GameState, p: Person) => boolean) | undefined {
+  const t = st.title + ' ' + st.text;
+  const has = (ws: string[]) => ws.some((w) => t.includes(w));
+  const rules: ((s: GameState, p: Person) => boolean)[] = [];
+  if (st.age[0] >= 17 && has(KW_ALONE)) rules.push((s, p) => !isMarried(s, p) && !ownsHome(s, p) && (hasFlag(p, 'indep') || p.flags.includes('student') || p.flags.some((f) => f.startsWith('prep:'))));
+  if (has(KW_SINGLE) && !st.id.startsWith('wk_')) rules.push((s, p) => !isMarried(s, p));
+  if (st.age[0] >= 18 && !st.cond && !st.tracks && !st.paths && st.student === undefined && has(KW_WORK)) rules.push((_s, p) => !['none', 'pension'].includes(p.job) && !p.flags.includes('student'));
+  if (has(KW_RENT) && !st.id.startsWith('wk_') && !st.tracks) rules.push((s, p) => !ownsHome(s, p));
+  return rules.length ? (s, p) => rules.every((r) => r(s, p)) : undefined;
+}
+
 function toLife(st: Story): LifeDef {
+  const fits = situational(st);
   return {
     id: 'st_' + st.id,
     raw: st.era || st.years ? undefined : [st.title, st.text, ...st.choices.map((c) => c.label + ' ' + c.text)].join(' '),
@@ -215,6 +236,7 @@ function toLife(st: Story): LifeDef {
       const last = s.storySeen?.[p.id + ':' + st.id];
       if (last !== undefined && s.year - last < (st.cooldown ?? 8)) return 0;
       if (st.cond && !st.cond(s, p)) return 0;
+      if (fits && !fits(s, p)) return 0;
       if (st.paths && !st.paths.includes(pathOf(p))) return 0;
       if (st.notPaths && st.notPaths.includes(pathOf(p))) return 0;
       if (st.student !== undefined && st.student !== p.flags.includes('student')) return 0;
@@ -413,7 +435,8 @@ const S: Story[] = [
     { label: '홈트로 도전', mark: { exercise: 1 }, text: '', roll: ['mor', 55, [{ str: 3, hp: 3 }, '꾸준히 해냈다.'], [{}, '매트는 옷걸이가 됐다.']] },
   ] },
   { id: 'crypto_friend', boost: { risk: 0.5 }, title: '코인 단톡방', age: [20, 35], w: 0.03, text: '{n}의 친구들이 코인으로 몇 배를 벌었다며 들떠 있다.', choices: [
-    { label: '월급을 몰빵한다', mark: { risk: 2 }, text: '', roll: ['luck', 30, [{ cash: 3000, hap: 8 }, '떡상! 한 달 만에 3천만원을 벌었다.'], [{ cash: -2000, hap: -10 }, '상장폐지. 월급이 사라졌다.']] },
+    { label: '월급을 몰빵한다', need: working, mark: { risk: 2 }, text: '', roll: ['luck', 30, [{ cash: 3000, hap: 8 }, '떡상! 한 달 만에 3천만원을 벌었다.'], [{ cash: -2000, hap: -10 }, '상장폐지. 월급이 사라졌다.']] },
+    { label: '모아 둔 용돈·알바비를 몰빵한다', need: (s, p) => !working(s, p) && p.cash >= 300, mark: { risk: 2 }, text: '', roll: ['luck', 30, [{ cash: 600, hap: 8 }, '떡상! 등록금 걱정이 사라졌다.'], [{ cash: -300, hap: -10 }, '상장폐지. 몇 달 모은 용돈이 사라졌다.']] },
     { label: '조금만 해본다', mark: { risk: 1 }, text: '', roll: ['luck', 50, [{ cash: 200 }, '치킨값 벌었다.'], [{ cash: -200 }, '치킨값 날렸다.']] },
     { label: '관심 없다', text: '' },
   ] },
@@ -643,5 +666,6 @@ function personWorth2(s: GameState, p: Person): number {
   return p.cash + s.assets.filter((a) => a.ownerId === p.id).reduce((t, a) => t + a.value, 0);
 }
 
-export const STORIES: LifeDef[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES, ...WORK2_STORIES, ...WORK3_STORIES, ...WORK4_STORIES, ...WORK5_STORIES, ...WORK6_STORIES, ...HIDDEN_WORK_STORIES, ...HIST_STORIES, ...DEVICE_STORIES, ...ERA_STORIES, ...AGE_STORIES, ...OWNED_STORIES, ...MOM_STORIES, ...POLITICS_STORIES, ...PHONE_STORIES, ...PHONE2_STORIES, ...GENDER_STORIES, ...HIDDEN_STORIES].map(toLife);
+export const RAW_STORIES: Story[] = [...S, ...MORE_STORIES, ...PATH_STORIES, ...TRACK_STORIES, ...HOOD_STORIES, ...MINI_STORIES, ...EXTRA_STORIES, ...CAREER_STORIES, ...LIFE2_STORIES, ...SUDDEN_STORIES, ...INTEREST_STORIES, ...LIFE3_STORIES, ...TEMPER_STORIES, ...SPECIAL_STORIES, ...SAGA_STORIES, ...WORK_STORIES, ...WORK2_STORIES, ...WORK3_STORIES, ...WORK4_STORIES, ...WORK5_STORIES, ...WORK6_STORIES, ...HIDDEN_WORK_STORIES, ...HIST_STORIES, ...DEVICE_STORIES, ...ERA_STORIES, ...AGE_STORIES, ...OWNED_STORIES, ...MOM_STORIES, ...POLITICS_STORIES, ...PHONE_STORIES, ...PHONE2_STORIES, ...PHONE3_STORIES, ...GENDER_STORIES, ...HIDDEN_STORIES];
+export const STORIES: LifeDef[] = RAW_STORIES.map(toLife);
 export const STORY_COUNT = S.length + MORE_STORIES.length + PATH_STORIES.length + TRACK_STORIES.length + HOOD_STORIES.length + MINI_STORIES.length + EXTRA_STORIES.length + CAREER_STORIES.length + LIFE2_STORIES.length + SUDDEN_STORIES.length + INTEREST_STORIES.length + LIFE3_STORIES.length + TEMPER_STORIES.length + SPECIAL_STORIES.length + SAGA_STORIES.length + WORK_STORIES.length + WORK2_STORIES.length + WORK3_STORIES.length + WORK4_STORIES.length + WORK5_STORIES.length + WORK6_STORIES.length + HIDDEN_WORK_STORIES.length;

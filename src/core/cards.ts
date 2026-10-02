@@ -1,6 +1,7 @@
 // 명예의 전당 카드: 가문 사람이 각 분야의 정점에 서면 카드가 생긴다.
 // 카드마다 그 사람이 살아 있는 동안 가문 전체에 효과를 준다. 도감을 채우면 세트 보상.
 
+import { tryPromote } from './rank';
 import { chance, int, pick } from './rng';
 import { gate, schedule, type Choice, type Ctx, type EventDef } from './ev-util';
 import { age, alive, check, checkOdds, clamp, fullName, hasFlag, isMainline, parentsOf } from './people';
@@ -388,7 +389,7 @@ export function cardYear(s: GameState): string[] {
     const j = JOBS[q.job];
     if (!alive(q) || !j || q.job === 'none' || q.job === 'pension' || q.jobLevel >= j.maxLevel - 1) continue;
     const best = Math.max(q.actual.int, q.actual.cha, q.actual.str);
-    if (q.jobYears >= 4 && chance(s, 0.04 + best / 1200)) q.jobLevel++;
+    if (q.jobYears >= 4 && chance(s, 0.04 + best / 1200)) tryPromote(s.year, q);
   }
   const open = (id: string) => s.year >= (CARD_FROM[id] ?? 0);
   for (const p of people) for (const d of CARDS) if (open(d.id) && d.auto?.(s, p)) awardCard(s, p, d.id);

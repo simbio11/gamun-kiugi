@@ -6,7 +6,7 @@ import { ASSESS_RATIO } from './data';
 import { addAsset, assetsOf, formatMoney, pay, personWorth } from './economy';
 import { previewGiftTax } from './estate';
 import { eul, iga, spendable, type Choice, type EventDef } from './ev-util';
-import { settleHome } from './housing';
+import { homeOf, settleHome } from './housing';
 import { addFlag, age, alive, clamp, fullName, hasFlag, hasTrait, head, mark, parentsOf, relationLabel } from './people';
 import type { AssetKind, GameState, Person } from './types';
 
@@ -358,7 +358,8 @@ const kidLeave: EventDef = {
 const housePromise: EventDef = {
   id: 'house_promise',
   title: () => '부모님이 약속한 집',
-  valid: (c) => parentsOf(c.s, c.p).some(alive),
+  // 이미 내 집에 살고 있으면 약속한 집 이야기는 꺼내지 않는다
+  valid: (c) => parentsOf(c.s, c.p).some(alive) && homeOf(c.s, c.p)?.type !== 'own',
   portraits: (c) => [c.p, ...parentsOf(c.s, c.p).filter(alive)],
   text: (c) => {
     const d = (c.ev.data ??= {});

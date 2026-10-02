@@ -1,3 +1,4 @@
+import { canHop, tryPromote } from './rank';
 import { chance, int, normal, pick } from './rng';
 import { kinLabel, rollKin } from './inlaws';
 import { prepBonus as prepMark } from './tracks';
@@ -15,6 +16,8 @@ import { buyPower } from './leverage';
 import { addAsset, formatMoney, jobLabel, jobTitle, pay, personWorth, statScore } from './economy';
 import { estateTax, giveGift } from './estate';
 import { hasLicense, hasAnyLicense, getLicenses, LICENSED_JOBS, calculateReturnLevel, grantLicense } from './licenses';
+import { afterExamPass } from './power';
+import { wageIndex } from './pay';
 import {
   addFlag,
   age,
@@ -472,7 +475,10 @@ const exam: EventDef = {
           if (triesOf(x.p) >= 4) addFlag(x.p, 'long_prep');
           x.p.happiness = clamp(x.p.happiness + 12, 0, 100);
           const n = triesOf(x.p);
-          return `🎉 합격! ${who(x)}${tr(who(x), '은', '는')} 이제 ${jobTitle(x.p)}.` + (n >= 3 ? ` (${n + 1}수 끝에!)` : '') + applyDesire(x, JOBS[e.job]?.entry?.tag);
+          // 사법시험은 연수원으로, 변호사시험은 판사·검사·로펌 갈림길로 (power.ts)
+          const tail = afterExamPass(x.s, x.p, id);
+          if (id === 'sashi') return `🎉 사법시험 합격!` + (n >= 3 ? ` (${n + 1}수 끝에!)` : '') + tail + applyDesire(x, 'study');
+          return `🎉 합격! ${who(x)}${tr(who(x), '은', '는')} 이제 ${jobTitle(x.p)}.` + (n >= 3 ? ` (${n + 1}수 끝에!)` : '') + tail + applyDesire(x, JOBS[e.job]?.entry?.tag);
         }
         const n = triesOf(x.p) + 1;
         x.p.flags = x.p.flags.filter((f) => !f.startsWith('tries:'));
@@ -594,6 +600,9 @@ function specialChoices(c: Ctx, cat: string): Choice[] {
   const univ = hasUniv(p);
   const a = age(c.s, p);
   const out: Choice[] = [];
+  // 사법시험 (1963~2017): 학력 제한이 없던 시절, 고시원에서 몇 해씩 버티던 길
+  if (cat === 'legal' && c.s.year >= 1963 && c.s.year < 2017)
+    out.push(examChoice('사법시험 준비 (→ 연수원 → 판사·검사·변호사)', 'sashi', { tag: 'study' }));
   if (cat === 'legal')
     out.push({
       label: '로스쿨 진학 (→ 변호사·판사·검사)',
@@ -1309,19 +1318,25 @@ const bargain: RandomDef = {
 
 const donation: RandomDef = {
   id: 'r_donation',
-  weight: (c) => (c.p.cash > 2000 ? 0.8 : 0),
+  weight: (c) => (c.p.cash > 2000 * wageIndex(c.s.year) ? 0.8 : 0),
   title: () => '기부 요청',
   text: () => '모교에서 장학기금 기부를 요청해 왔다.',
-  choices: (c) => gate(c.s, [
-    { label: '1천만 기부', cost: 1000, run: (x) => (mark(x.p, 'kind', 1), (x.s.fame += 3), chance(x.s, 0.15) && schedule(x.s, int(x.s, 15, 25), 'scholar_return', x.p.id, { years: 20 }), '감사패를 받았다. (명성 +3)') },
-    { label: '1억 기부', cost: 10000, run: (x) => (mark(x.p, 'kind', 2), (x.s.fame += 15), chance(x.s, 0.45) && schedule(x.s, int(x.s, 15, 25), 'scholar_return', x.p.id, { years: 20 }), '도서관에 가문의 이름이 새겨졌다! (명성 +15)') },
-    { label: '정중히 거절', run: () => '다음 기회에.' } as Choice,
-  ]),
+  // 금액은 그해 물가로 (근현대사·먼 미래에 "1천만·1억"이 어색하지 않게): 적당히 = 2025년 1천만 원어치, 많이 = 1억 원어치
+  choices: (c) => {
+    const w = wageIndex(c.s.year);
+    const mid = Math.max(1, Math.round(1000 * w));
+    const big = Math.max(1, Math.round(10000 * w));
+    return gate(c.s, [
+      { label: '적당히 기부한다', cost: mid, run: (x) => (mark(x.p, 'kind', 1), (x.s.fame += 3), chance(x.s, 0.15) && schedule(x.s, int(x.s, 15, 25), 'scholar_return', x.p.id, { years: 20 }), '감사패를 받았다. (명성 +3)') },
+      { label: '많이 기부한다', cost: big, run: (x) => (mark(x.p, 'kind', 2), (x.s.fame += 15), chance(x.s, 0.45) && schedule(x.s, int(x.s, 15, 25), 'scholar_return', x.p.id, { years: 20 }), '도서관에 가문의 이름이 새겨졌다! (명성 +15)') },
+      { label: '정중히 거절', run: () => '다음 기회에.' } as Choice,
+    ]);
+  },
 };
 
 const offer: RandomDef = {
   id: 'r_offer',
-  weight: (c) => (['office', 'civil'].includes(c.p.job) ? 1 : 0),
+  weight: (c) => (canHop(c.p.job) ? 1 : 0),
   title: () => '이직 제안',
   text: () => '경쟁사에서 스카우트 제안이 왔다. 직급을 올려주겠다고 한다.',
   choices: () => [
@@ -1330,8 +1345,9 @@ const offer: RandomDef = {
       req: [req('int', 50)],
       run: (x) => {
         if (check(x.s, x.p.actual.int + x.p.actual.cha * 0.3, 50, 8)) {
-          x.p.jobLevel++;
-          return '새 회사에서 승승장구한다. (직급 +1)';
+          if (tryPromote(x.s.year, x.p, 2)) return '새 회사에서 승승장구한다. (직급 +1)';
+          x.p.cash += Math.round(JOBS[x.p.job].perLevel * 0.4);
+          return '같은 직급으로 옮겼지만 연봉이 올랐다.';
         }
         x.p.jobLevel = Math.max(0, x.p.jobLevel - 1);
         return '새 회사와 맞지 않았다. 오히려 한직으로 밀려났다.';
@@ -1348,7 +1364,7 @@ const burnout: RandomDef = {
   text: (c) => `일에 파묻힌 ${who(c)}. 아침에 일어나기가 힘들다.`,
   choices: () => [
     { label: '휴가를 낸다', run: (x) => ((x.p.cash -= 800), (x.p.actual.hp = clamp(x.p.actual.hp + 6, 0, 100)), '푹 쉬고 돌아왔다. (수입 -800만)') },
-    { label: '버틴다', run: (x) => ((x.p.actual.hp = clamp(x.p.actual.hp - 8, 0, 100)), (x.p.jobLevel += chance(x.s, 0.3) ? 1 : 0), '몸이 망가지는 게 느껴진다...') },
+    { label: '버틴다', run: (x) => ((x.p.actual.hp = clamp(x.p.actual.hp - 8, 0, 100)), chance(x.s, 0.3) && tryPromote(x.s.year, x.p) ? '몸이 망가지는 게 느껴진다... 그래도 실적을 인정받아 승진했다.' : '몸이 망가지는 게 느껴진다...') },
   ],
 };
 

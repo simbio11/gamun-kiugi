@@ -1,7 +1,7 @@
 // 길(트랙)별 행동: 어떤 전공을 다니는지, 무슨 시험을 준비하는지, 무슨 일을 하는지에 따라
 // 할 수 있는 일이 다르고, 확률·보상·부작용도 다르다.
 //  u:전공 그룹 (대학생) · x:시험 그룹 (수험생·취준생) · w:직업 그룹 (일하는 사람)
-import { rankWord } from './rank';
+import { rankWord, tryPromote } from './rank';
 import type { GameState, Person, StatKey } from './types';
 import type { ActionDef } from './actions';
 import { JOBS } from './data';
@@ -209,8 +209,7 @@ function build(sp: Spec): ActionDef {
       let tail = '';
       if (sp.promo && t === 'great') {
         const j = JOBS[p.job];
-        if (j && p.jobLevel < j.maxLevel && chance(s, sp.promo)) {
-          p.jobLevel++;
+        if (j && chance(s, sp.promo) && tryPromote(s.year, p, 1)) {
           tail += `\n→ ${rankWord(p.job).icon} ${jobTitle(p)}(으)로 ${rankWord(p.job).verb}!`;
         }
       }
@@ -229,6 +228,15 @@ const U: Spec[] = [
     lines: L(['약재 300개를 향만 맡고 맞혔다. 동기들이 경악했다.'], ['감초·당귀·황기… 입에서 약재 이름이 줄줄 나온다.'], ['외워도 다음 날이면 절반은 잊는다.'], ['방제 시험에서 처방을 통째로 헷갈렸다.']) },
   { id: 'u_health_practice', tracks: ['u:health'], icon: '🏥', name: '병원 임상실습', desc: '현장 경험 · 국시·취업에 유리 · 체력 소모', roll: { stat: 'mor' }, gpa: true, marks: { intern: 1 }, hp: [0, -1, -1, -3], hap: [6, 2, -2, -8],
     lines: L(['실습 병동 수간호사가 "졸업하면 우리 병원 와"라고 했다.'], ['바이탈 재는 손이 이제 떨리지 않는다.'], ['하루 종일 서 있기만 했다.'], ['실습 중 실수로 크게 혼났다. 화장실에서 울었다.']) },
+  // 간호·보건계열 3~4년: 그 기간에 할 수 있는 일들 (국시 준비·실습·가관식·병원 장학생)
+  { id: 'u_health_anatomy', tracks: ['u:health'], icon: '🦴', name: '해부·생리학 공부', desc: '기초의학 · 학점↑ 지능↑', roll: { stat: 'int' }, gpa: true, grow: [['int', 0.7]], hap: [3, 0, -2, -5],
+    lines: L(['뼈 206개를 순서대로 외웠다. 해부학 수석!'], ['근육 이름이 입에 붙었다.'], ['신경 가지가 너무 많다.'], ['시험 전날 밤을 새웠는데 백지를 냈다.']) },
+  { id: 'u_health_skill', tracks: ['u:health'], icon: '💉', name: '간호 술기 연습', desc: '정맥주사·활력징후·무균술 · 성품↑ · 실습·취업에 유리', roll: { stat: 'mor' }, gpa: true, grow: [['mor', 0.5], ['int', 0.3]], marks: { intern: 1 }, hap: [5, 2, -1, -4],
+    lines: L(['술기 평가 만점! 마네킹 팔에 한 번에 혈관을 잡았다.'], ['손이 제법 빨라졌다.'], ['동기 팔에 연습하다 멍만 들게 했다.'], ['무균 영역을 건드려 처음부터 다시.']) },
+  { id: 'u_health_mock', tracks: ['u:health'], icon: '📝', name: '국가고시 모의고사', desc: '고학년 · 국시 합격률↑', roll: { stat: 'int' }, prep: true, grow: [['int', 0.4]], hap: [4, 1, -2, -5],
+    lines: L(['모의고사 전국 상위권! 합격은 따 놓은 당상.'], ['합격선은 넘었다.'], ['아슬아슬하다.'], ['과락 과목이 나왔다.']) },
+  { id: 'u_health_scholar', tracks: ['u:health'], icon: '🏨', name: '대학병원 장학생 지원', desc: '취업 연계 장학금 · 성적·면접', roll: { stat: 'cha' }, gpa: true, marks: { intern: 2 }, cash: [400, 150, 0, 0], hap: [10, 4, -1, -4],
+    lines: L(['대학병원 장학생 선발! 졸업하면 바로 입사다.'], ['지역 병원 장학금을 받았다.'], ['서류에서 떨어졌다.'], ['면접에서 "왜 간호사가 되려 하냐"는 질문에 말문이 막혔다.']) },
   { id: 'u_law_moot', tracks: ['u:law', 'u:admin'], icon: '⚖️', name: '판례 스터디·모의재판', desc: '법리 실력↑ · 로스쿨·고시 대비', roll: { stat: 'int' }, gpa: true, grow: [['int', 0.7], ['cha', 0.4]], marks: { prep: 1 }, hap: [6, 0, -2, -5],
     lines: L(['모의재판 최우수 변론상! 교수님이 로스쿨 추천서를 써 주겠단다.'], ['대법원 판례 스무 개를 정리했다.'], ['조문만 읽다 하루가 갔다.'], ['반대 신문에서 말문이 막혔다.']) },
   { id: 'u_law_leet', tracks: ['u:law', 'u:admin', 'u:hum', 'u:biz'], icon: '📝', name: 'LEET·PSAT 준비', desc: '로스쿨(LEET)·5급 공채(PSAT) 적성시험 · 합격 준비↑', cost: 150, roll: { stat: 'int', talent: 'genius' }, prep: true, hap: [4, -1, -3, -6],

@@ -1,5 +1,5 @@
 import { selfBoss } from './boss';
-import { rankWord } from './rank';
+import { canHop, rankWord, tryPromote } from './rank';
 import { isStudent } from './path';
 // 주도적 행동: 턴을 넘기기 전에 대시보드에서 직접 하는 일. 해마다 행동력 3.
 // (갑작스러운 사건·선택형 이벤트는 턴을 넘길 때 일어난다)
@@ -41,6 +41,7 @@ import { addFlag, age, alive, check, clamp, discoverTalent, fullName, hasFlag, h
 import { startDating } from './romance';
 import { TALENTS } from './data';
 import type { GameState, Person } from './types';
+import { DUTY_ACTIONS, onDuty } from './duty';
 
 export const AP_PER_YEAR = 3;
 
@@ -49,7 +50,7 @@ const fillName = (t: string, n: string) => t.replace(/\{n\}\{이\}/g, iga(n)).re
 
 const TRIP_PLACES = ['제주도', '강릉', '부산', '경주', '여수', '가평 펜션', '속초', '오사카', '다낭', '방콕', '캠핑장', '전주 한옥마을'];
 
-export type ActionCat = '올해의 기회' | '내 직업' | '가족' | '진로·자기계발' | '자녀 교육' | '재산' | '사회';
+export type ActionCat = '복무' | '올해의 기회' | '내 직업' | '가족' | '진로·자기계발' | '자녀 교육' | '재산' | '사회';
 
 /** 인생 단계: 단계마다 할 수 있는 일이 다르다 */
 export type Stage = 'little' | 'elem' | 'teen' | 'univ' | 'prep' | 'adult' | 'senior';
@@ -488,7 +489,7 @@ export const ACTIONS: ActionDef[] = [
     name: '이직 시도',
     desc: '경력 2년 이상 · 3년에 한 번 · 서류 → 면접 → 처우 협의. 대부분 떨어진다 (능력·인맥·자격증·경력·경기·나이)',
     ap: 1,
-    targets: (s) => adultsOfLine(s).filter((p) => JOBS[p.job].kind === 'salary' && p.jobLevel < JOBS[p.job].maxLevel && !selfBoss(p)), // 개원·개업했으면 이직이 아니라 폐업
+    targets: (s) => adultsOfLine(s).filter((p) => canHop(p.job) && p.jobLevel < JOBS[p.job].maxLevel && !selfBoss(p)), // 개원·개업했으면 이직이 아니라 폐업
     blocked: (s, t) => {
       if (!t) return undefined;
       if (t.jobYears < 2) return '경력 2년은 채워야';
@@ -529,8 +530,13 @@ export const ACTIONS: ActionDef[] = [
         mood(p, 4);
         return `최종 합격! 그런데 사표를 내자 팀장이 붙잡았다. "연봉 올려 줄게." 카운터 오퍼로 남았다. (일시금 ${formatMoney(raise)})`;
       }
-      p.jobLevel++;
-      p.jobYears = 0;
+      // 경력 연한이 모자라면 같은 직급으로 옮긴다 (연봉만 조금)
+      const up = tryPromote(s.year, p, 1);
+      if (!up) {
+        p.cash += Math.round(JOBS[p.job].perLevel * 0.3 * wageIndex(s.year));
+        mood(p, 3);
+        return `🌟 합격해서 옮겼다. 직급(${jobTitle(p)})은 그대로지만 연봉을 조금 올려 받았다. (그 자리 경력이 더 쌓여야 한 단계 위로 간다)`;
+      }
       if (r < 0.35) {
         mood(p, -8);
         return `🌟 합격해서 옮겼다. ${jobTitle(p)}. …그런데 새 회사 분위기가 영 아니다. 텃세와 야근. 연봉만 올랐다.`;
@@ -771,6 +777,8 @@ export const ACTIONS: ActionDef[] = [
 
 /** 지금 가주가 할 수 있는 종류의 행동인가 */
 export function forHead(s: GameState, a: ActionDef): boolean {
+  // 군 복무·해외 파견 중에는 그곳에서 할 수 있는 일만 (duty.ts)
+  if (onDuty(h(s)) !== (a.cat === '복무')) return false;
   if (a.show && !a.show(s)) return false;
   if (a.targets && !a.targets(s).length) return false;
   if (a.tracks && !a.tracks.includes(trackOf(s, h(s)) ?? '') && !a.tracks.includes(sideTrackOf(h(s)) ?? '-')) return false;
@@ -1273,8 +1281,7 @@ const STAGE_ACTIONS: ActionDef[] = [
       const t = rollTier(s, p, { stat: 'hp', bonus: hasTrait(p, 'diligent') ? 0.08 : 0 });
       let promo = '';
       const j = JOBS[p.job];
-      if (j.kind === 'salary' && p.jobLevel < j.maxLevel && chance(s, { great: 0.45, good: 0.15, meh: 0.05, bad: 0 }[t])) {
-        p.jobLevel++;
+      if (j.kind === 'salary' && p.jobLevel < j.maxLevel && chance(s, { great: 0.45, good: 0.15, meh: 0.05, bad: 0 }[t]) && tryPromote(s.year, p, 1)) {
         promo = `\n→ ${rankWord(p.job).icon} ${jobTitle(p)}(으)로 ${rankWord(p.job).verb}!`;
       }
       const hp = -int(s, 1, t === 'bad' ? 5 : 2);
@@ -1371,7 +1378,7 @@ const STAGE_ACTIONS: ActionDef[] = [
 ];
 // 올해의 기회: 목록 맨 앞 (분류 칩도 맨 앞에 선다)
 ACTIONS.unshift(...oppActions((s) => stageOf(s, h(s))), ...QUEST_ACTIONS, ...jobActions());
-ACTIONS.push(...PHOTO_ACTIONS);
+ACTIONS.push(...PHOTO_ACTIONS, ...DUTY_ACTIONS);
 ACTIONS.push(...HIST_ACTIONS, ...DEVICE_ACTIONS, ...SPACE_ACTIONS, ...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...INLAW_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, ...MONEY_ACTIONS, CASINO_ACTION, ...AUTONOMY_ACTIONS, {
   id: 'license',
   cat: '진로·자기계발',

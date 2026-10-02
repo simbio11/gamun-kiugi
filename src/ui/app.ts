@@ -185,6 +185,7 @@ import {
   simulateYear,
 } from '../core/sim';
 import type { Difficulty } from '../core/sim';
+import { LEGACY_BY_ID, LEGACY_ITEMS, legacyEarn } from '../core/legacy';
 import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, MarketKey, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
 import { sceneArtURL, sceneFor, type SceneKey } from '../render/scene';
@@ -234,6 +235,27 @@ interface UIState {
 
 const SAVE_KEY = 'gamun-kiugi-save-v1';
 const PREF_KEY = 'gamun-kiugi-prefs';
+/** 🏺 유산 상점: 가문이 끝날 때 받은 유산과, 다음 가문에 가져갈 혜택 (기기마다 저장) */
+const LEGACY_KEY = 'gamun-kiugi-legacy';
+interface LegacyBank {
+  points: number;
+  cart: Record<string, number>;
+}
+function loadBank(): LegacyBank {
+  try {
+    const b = JSON.parse(localStorage.getItem(LEGACY_KEY) ?? '{}');
+    return { points: Number(b.points) || 0, cart: b.cart && typeof b.cart === 'object' ? b.cart : {} };
+  } catch {
+    return { points: 0, cart: {} };
+  }
+}
+function saveBank(b: LegacyBank) {
+  try {
+    localStorage.setItem(LEGACY_KEY, JSON.stringify(b));
+  } catch {
+    /* 저장 공간이 없으면 이번 판만 */
+  }
+}
 
 type TextSize = 's' | 'm' | 'l';
 interface Prefs {
@@ -429,6 +451,9 @@ export function mount(el: HTMLElement) {
     if (b && !prefs.calm) tapBurst(e.clientX, e.clientY);
   });
   root.addEventListener('input', onInput);
+  // 한 손 조작: 화면을 좌우로 쓸면 옆 탭으로 (행동 탭에선 옆 분류로)
+  root.addEventListener('touchstart', swipeStart, { passive: true });
+  root.addEventListener('touchend', swipeEnd, { passive: true });
   root.addEventListener('pointermove', tilt);
   root.addEventListener('pointerdown', spinStart);
   root.addEventListener('pointermove', spinMove);
@@ -674,6 +699,7 @@ function titleScreen(): string {
       ${o.era === 'history' ? `<p class="fine hist-note">1960년 봄, 4·19 혁명의 해에 다섯 살 아이로 태어난다 (1955년생). 5·16, 산업화, 유신, 광주, 6월 항쟁, 올림픽, IMF, 월드컵, 촛불까지 — 해마다 실제 신문 기사가 오고, 큰 사건은 호외·TV 속보로 들이닥친다. 그 시절엔 없던 직업·입시 전형·복지는 열리지 않고, 집값·땅값·주가는 실제 역사대로 오르내린다. 2026년부터는 미래로 이어진다.</p>` : ''}
       <button class="btn big primary" data-action="start">가문 시작</button>
     </section>
+    ${legacyShop()}
     ${hasSave ? `<button class="btn big" data-action="continue" style="margin-top:10px;">이어하기</button>` : ''}
     ${[1, 2, 3].some((i) => slotInfo(i)) ? `<section class="card"><h2>💾 저장한 가문</h2>${slotRows(false)}</section>` : ''}
     <details class="card code-box"><summary>📋 저장 코드로 불러오기</summary>
@@ -684,6 +710,21 @@ function titleScreen(): string {
     </details>
     <p class="fine">v0.3 · 다섯 살부터 · 직업 128종 · 수능과 입시 · 인생사 · 업적 70+</p>
   </div>`;
+}
+
+/** 🏺 유산 상점: 지난 가문이 남긴 유산으로 다음 가문의 시작 혜택을 산다 (가문 시작 버튼을 누르면 적용되고 사라진다) */
+function legacyShop(): string {
+  const b = loadBank();
+  const spent = Object.entries(b.cart).reduce((t, [id, n]) => t + (LEGACY_BY_ID[id]?.cost ?? 0) * n, 0);
+  if (!b.points && !spent) return '';
+  return `<details class="card legacy-shop" ${spent || ui.open?.legacy ? 'open' : ''}><summary>🏺 유산 상점 · 남은 유산 <b>${b.points}</b>${spent ? ` · 담은 혜택 ${spent}` : ''}</summary>
+    <p class="fine">지난 가문들이 남긴 유산으로 다음 가문의 출발을 돕는다. 담은 혜택은 <b>가문 시작</b>을 누르면 이번 가문에 적용되고 사라진다. 다시 누르면 빼서 돌려받는다.</p>
+    ${LEGACY_ITEMS.map((it) => {
+      const n = b.cart[it.id] ?? 0;
+      const max = it.max ?? 1;
+      return `<div class="perk ${n ? 'max' : ''}"><span class="pk-i">${it.icon}</span><div class="pk-m"><b>${esc(it.name)}${n ? ` <small>×${n}</small>` : ''}</b><small>${esc(it.desc)}</small></div>${n ? `<button class="mini" data-action="legacy-undo" data-id="${it.id}">빼기</button>` : ''}<button class="mini do" data-action="legacy-buy" data-id="${it.id}" ${b.points < it.cost || n >= max ? 'disabled' : ''}>${it.cost}🏺</button></div>`;
+    }).join('')}
+  </details>`;
 }
 
 function demoPerson(sex: Sex, i: number): Person {
@@ -1877,6 +1918,7 @@ function gameOverModal(g: GameState): string {
         <div>${g.startYear}–${g.year}년 · ${g.generation}대</div>
         <div>업적 ${g.achievements.length}개 · 명성 ${Math.round(g.fame)}</div>
         <div class="big-num">${g.gameOver!.score.toLocaleString('ko-KR')}점</div>
+        ${g.gameOver!.legacy ? `<div>🏺 남긴 유산 <b>+${g.gameOver!.legacy}</b> · 보유 ${loadBank().points} — 다음 가문을 세울 때 유산 상점에서 쓸 수 있다</div>` : ''}
       </div>
       <button class="btn" data-action="tab" data-v="log">연대기 보기</button>
       <button class="btn primary" data-action="restart">새 가문 세우기</button>
@@ -2177,13 +2219,13 @@ function actionsScreen(g: GameState): string {
     <span class="ap" title="행동력: 생활 수준 검소 2·보통 3·호화 4${car ? ` + 탈것 ${car}` : ''}">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, apMax(g) - ap))}</span>
   </section>
   ${jobTabs}
-  <div class="cat-chips">${cats
+  <section class="card acts">${[...list.filter((a) => a.cat === cat && isFit(a)), ...list.filter((a) => a.cat === cat && !isFit(a))].map(row).join('')}</section>
+  <div class="cat-chips dock" data-noswipe>${cats
     .map((c) => {
       const n = list.filter((a) => a.cat === c).length;
       return `<button data-action="act-cat" data-v="${c}" class="${c === cat ? 'on' : ''}">${c} <small>${n}</small></button>`;
     })
     .join('')}</div>
-  <section class="card acts">${[...list.filter((a) => a.cat === cat && isFit(a)), ...list.filter((a) => a.cat === cat && !isFit(a))].map(row).join('')}</section>
   ${list.some(isFit) ? `<p class="fine fit-note">💡 = ${esc(fullName(head(g)))}의 성향·적성(${[...fits].map((c) => JOB_CATS[c as keyof typeof JOB_CATS]?.split(' ')[1] ?? c).join('·')})에 잘 맞는 활동. 해 볼수록 그 분야로 진로가 열린다.</p>` : ''}
   <details class="card more-help"><summary>도움말 · 다른 할 일</summary>
     <p class="fine">행동력 ${apMax(g)} = 생활 수준 ${LIVING_NAMES[g.policy.living]} (검소 2 · 보통 3 · 호화 4)${car ? ` + 탈것 ${car}` : ' · 차를 사면 +1, 요트는 +1 더'}. 같은 일을 한 해에 여러 번 하면 효과가 줄고 지친다. 인생 단계가 바뀌면 할 수 있는 일도 바뀐다.</p>
@@ -2709,7 +2751,9 @@ function tilt(e: PointerEvent) {
 
 function onClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
-  const el = target.closest<HTMLElement>('[data-action]');
+  let el = target.closest<HTMLElement>('[data-action]');
+  // 한 손 조작: 행동 줄 아무 데나 눌러도 "하기" (대상 고르는 칸은 빼고)
+  if (!el && !target.closest('select, input, option')) el = target.closest<HTMLElement>('.acts .act:not(.off)')?.querySelector<HTMLElement>('.do') ?? null;
   if (!el || leaving) return;
   // 창 바깥(빈 곳)을 누르면 닫히고, 창 안쪽 글자를 누르는 건 무시
   if (el.classList.contains('modal') && target.closest('[data-stop]') && !target.closest('button')) return;
@@ -2738,12 +2782,56 @@ function onClick(e: MouseEvent) {
   handle(el);
 }
 
+let swipe: { x: number; y: number; t: number } | null = null;
+function swipeStart(e: TouchEvent) {
+  const t = e.touches[0];
+  const el = e.target as HTMLElement;
+  // 가로로 스크롤되는 줄·카드·창 안에서는 쓸기를 탭 이동으로 쓰지 않는다
+  if (!t || e.touches.length > 1 || el.closest('.cv-card, .prop-row, .cat-chips, .modal, select, input, .job-tabs, [data-noswipe]')) return (swipe = null), undefined;
+  swipe = { x: t.clientX, y: t.clientY, t: e.timeStamp };
+}
+function swipeEnd(e: TouchEvent) {
+  const s0 = swipe;
+  swipe = null;
+  const t = e.changedTouches[0];
+  const g = ui.game;
+  if (!s0 || !t || !g || g.events.length || ui.sheet || ui.report || ui.outcome) return;
+  const dx = t.clientX - s0.x;
+  const dy = t.clientY - s0.y;
+  if (Math.abs(dx) < 70 || Math.abs(dy) > 45 || e.timeStamp - s0.t > 600) return;
+  const dir = dx < 0 ? 1 : -1;
+  if (ui.tab === 'act') {
+    const chips = [...root.querySelectorAll<HTMLElement>('.cat-chips button')];
+    const on = chips.findIndex((b) => b.classList.contains('on'));
+    const nx = chips[on + dir];
+    if (nx) {
+      ui.actCat = nx.dataset.v;
+      buzz(6);
+      render();
+      return;
+    }
+  }
+  const i = TAB_ORDER.indexOf(ui.tab) + dir;
+  if (i < 0 || i >= TAB_ORDER.length) return;
+  ui.tab = TAB_ORDER[i];
+  window.scrollTo(0, 0);
+  buzz(6);
+  render();
+}
+
 function advanceTurn(g: GameState) {
   const start = g.log.length;
   const gen = g.generation;
   simulateYear(g);
   if (g.generation > gen) track(`generation-${g.generation}`, `${g.generation}대 도달`);
   if (g.gameOver) track('gameover', '게임 오버');
+  if (g.gameOver && g.gameOver.legacy === undefined) {
+    const pts = legacyEarn(g);
+    g.gameOver.legacy = pts;
+    const b = loadBank();
+    b.points += pts;
+    saveBank(b);
+  }
   if (g.year % 10 === 0) track(`played-${g.year}`, `${g.year}년 도달`);
   const lines = g.log.slice(start).filter((l) => !l.text.startsWith('──')).map((l) => l.text);
   ui.report = { title: `📜 ${g.year}년`, lines };
@@ -2851,7 +2939,10 @@ function handle(el: HTMLElement) {
     }
     case 'start': {
       const sn = (ui.setup.surname || '김').slice(0, 2);
-      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin, era: ui.setup.era === 'history' ? 'history' : undefined });
+      const bank = loadBank();
+      const legacy = Object.entries(bank.cart).flatMap(([id, n]) => Array.from({ length: Math.max(0, n) }, () => id));
+      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin, era: ui.setup.era === 'history' ? 'history' : undefined, legacy });
+      if (legacy.length) saveBank({ points: bank.points, cart: {} }); // 산 혜택은 이 가문에서 쓰였다
       if (typeof window !== 'undefined') {
         const pms = new URLSearchParams(window.location.search);
         if (pms.get('all_cards') === '1' || pms.has('unlock')) {
@@ -3007,6 +3098,28 @@ function handle(el: HTMLElement) {
     case 'act-cat':
       ui.actCat = v;
       break;
+    case 'legacy-buy': {
+      const b = loadBank();
+      const it = LEGACY_BY_ID[id];
+      const n = b.cart[id] ?? 0;
+      if (it && b.points >= it.cost && n < (it.max ?? 1)) {
+        b.points -= it.cost;
+        b.cart[id] = n + 1;
+        saveBank(b);
+      }
+      break;
+    }
+    case 'legacy-undo': {
+      const b = loadBank();
+      const it = LEGACY_BY_ID[id];
+      if (it && (b.cart[id] ?? 0) > 0) {
+        b.points += it.cost;
+        b.cart[id]--;
+        if (!b.cart[id]) delete b.cart[id];
+        saveBank(b);
+      }
+      break;
+    }
     case 'act-side':
       ui.actSide = v === '1';
       ui.actCat = undefined;

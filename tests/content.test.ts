@@ -1591,7 +1591,7 @@ describe('현물 자산 (금·은·보석)', () => {
 describe('대형 이벤트 (미니게임)', () => {
   it('15개 모두 끝까지 플레이되고, 선택지마다 확률이 보인다', async () => {
     const { BIGS } = await import('../src/core/big-events');
-    expect(BIGS.length).toBe(20);
+    expect(BIGS.length).toBe(28);
     for (const b of BIGS) {
       for (const pickIdx of [0, 1]) {
         const s = newGame({ seed: 300 + b.id.length + pickIdx, familyName: '한', sex: 'M' });

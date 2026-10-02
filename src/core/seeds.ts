@@ -26,6 +26,10 @@ import { eul, eun, gate, iga, who, type Ctx } from './ev-util';
 import { addFlag, age, alive, clamp, fullName, hasFlag, head, isMainline, mark, markOf, parentsOf, spouseOf } from './people';
 import type { GameState, Person } from './types';
 import type { LifeDef } from './life';
+import { tryPromote } from './rank';
+
+/** 이 사람의 '윗사람'을 부르는 말 */
+const selfBossWord = (job: string) => (['judge', 'prosecutor'].includes(job) ? '법원장' : ['officer', 'nco'].includes(job) ? '사단장' : ['teacher', 'kinder_teacher'].includes(job) ? '교장' : JOBS[job]?.cat === 'medical' ? '병원장' : '사장');
 
 // ───────────────────────── 회수 이벤트 ─────────────────────────
 
@@ -271,8 +275,13 @@ const honestReturn: LifeDef = {
   id: 'seed_honest',
   weight: seed('honest', 'honest', 4, 0.2, (s, p) => adult(s, p) && JOBS[p.job].kind === 'salary' && p.jobLevel < JOBS[p.job].maxLevel),
   title: () => '발탁',
-  text: (c) => `사장이 ${eul(who(c))} 따로 불렀다. "자네는 거짓말을 안 한다는 평판이 있더군. 중요한 자리를 맡기고 싶네."`,
-  choices: () => [{ label: '맡겠습니다', run: (x) => (fire(x, 'honest'), x.p.jobLevel++, `${jobTitle(x.p)}(으)로 파격 승진했다!`) }],
+  text: (c) => `${JOBS[c.p.job].cat === 'public' ? '기관장' : selfBossWord(c.p.job)}이(가) ${eul(who(c))} 따로 불렀다. "자네는 거짓말을 안 한다는 평판이 있더군. 중요한 자리를 맡기고 싶네."`,
+  choices: () => [{ label: '맡겠습니다', run: (x) => {
+    fire(x, 'honest');
+    if (tryPromote(x.s.year, x.p, 2)) return `${jobTitle(x.p)}(으)로 발탁 승진했다!`;
+    x.p.cash += Math.round(JOBS[x.p.job].perLevel * 0.5);
+    return `직급은 그대로지만 핵심 보직을 맡았다. 다음 승진 심사 때 1순위다. (성과급 ${Math.round(JOBS[x.p.job].perLevel * 0.5)}만)`;
+  } }],
 };
 
 const networkReturn: LifeDef = {

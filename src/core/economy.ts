@@ -1,6 +1,6 @@
 import { cardPassive } from './cards';
 import { chance, normal, pick } from './rng';
-import { minYears, rankLine } from './rank';
+import { appointedOnly, minYears, rankLine } from './rank';
 import { ASSESS_RATIO, ASSET_NAMES, CREATORS, EDU_COST, JOBS, TALENTS } from './data';
 import { mark, markOf, parentsOf } from './people';
 import { addFlag, age, alive, check, clamp, hasFlag, discoverTalent, fullName, hasTalent, hasTrait, head, householder, isMainline, livingMainlineMinors } from './people';
@@ -16,6 +16,7 @@ import { medicalCost, woeItems } from './woes';
 import { HIST_BASE, histPrice, SINCE } from './histidx';
 import { allowanceOf, allowanceYear } from './allowance';
 import { allowanceForecast, careYear, childAllowanceYear, reverseMortgageYear, youthAccountYear } from './welfare';
+import { dutyPay } from './duty';
 
 // ───────── 물가: 게임 속 계산은 모두 "2025년 돈 가치"로 하고, 보여 줄 때만 그해 돈으로 바꾼다 ─────────
 // 그래서 밸런스는 그대로다. 1970년 짜장면은 몇백 원, 2080년 짜장면은 몇만 원으로 보일 뿐.
@@ -209,10 +210,12 @@ export const jobTitle = (p: Person) => {
     const city = p.flags.find((f) => f.startsWith('mayor_of:'))?.slice(9) ?? '';
     return `${city}시장${p.jobLevel ? ` (${p.jobLevel + 1}선)` : ''}`;
   }
+  // 정보기관 수장: 중앙정보부장(~1980) · 안기부장(~1998) · 국정원장
+  if (p.job === 'agent' && p.jobLevel === 5) return MONEY_YEAR < 1981 ? '중앙정보부장' : MONEY_YEAR < 1999 ? '안기부장' : '원장';
   return JOBS[p.job].titles?.[p.jobLevel] ?? JOBS[p.job].name;
 };
 /** "공무원(9급)"처럼 직업명 + 직함 */
-export const jobLabel = (p: Person) => (p.job === 'mayor' ? jobTitle(p) : JOBS[p.job].titles ? `${JOBS[p.job].name}(${jobTitle(p)})` : JOBS[p.job].name);
+export const jobLabel = (p: Person) => (p.job === 'mayor' || (p.job === 'agent' && p.jobLevel === 5) ? jobTitle(p) : JOBS[p.job].titles ? `${JOBS[p.job].name}(${jobTitle(p)})` : JOBS[p.job].name);
 
 /** 직업 연간 수입 계산 + 커리어 진행. 로그용 메시지를 돌려줌. */
 export function workYear(s: GameState, p: Person): { income: number; msg?: string } {
@@ -259,11 +262,12 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
       }
       const diligent = (hasTrait(p, 'diligent') ? 1.3 : hasTrait(p, 'lazy') ? 0.6 : 1) * promoteMult(p) * (p.talents.some((t) => TALENTS[t.id].cats?.includes(j.cat)) ? 1.25 : 1) * (1 + cardPassive(s, 'promo') / 100); // 카드: 가족 승진 +%
       const intoOpen = d?.open !== undefined && p.jobLevel + 1 === d.open;
-      // 승진은 지금 직급에서 2년 이상 일한 뒤부터. 맨 꼭대기(병원장→의료재단 이사장, 사장→회장 등)는
+      // 승진은 직업별 승진 연한(rank.ts STEPS)을 채운 뒤부터. 아래 절반 직급은 연한만 차면 대개 오르고(근속승진), 위로 갈수록 자리 다툼.
+      // 맨 꼭대기(병원장→의료재단 이사장, 사장→회장 등)는
       // 50세 넘어 그 아래 자리에서 5년 이상 버텨야 하고, 그마저도 자리 하나를 두고 다투니 확률이 절반
       const toTop = p.jobLevel + 1 === j.maxLevel && j.maxLevel >= 4;
       const topOk = !toTop || (age(s, p) >= 50 && levelYears(s, p, false) >= 5);
-      if (p.jobLevel < j.maxLevel && p.jobLevel >= ladderTop && !intoOpen && topOk && levelYears(s, p, false) >= minYears(p.jobLevel, j.maxLevel) && chance(s, (j.promote ?? 0.1) * workBoost * diligent * (0.5 + sc / 100) * (toTop ? 0.45 : 1))) {
+      if (p.jobLevel < j.maxLevel && p.jobLevel >= ladderTop && !intoOpen && topOk && !appointedOnly(p.job, p.jobLevel) && levelYears(s, p, false) >= minYears(p.jobLevel, j.maxLevel, p.job) - (hasFlag(p, 'hanahoe') ? 1 : 0) && chance(s, (j.promote ?? 0.1) * workBoost * diligent * (hasFlag(p, 'hanahoe') ? 1.8 : 1) * (0.5 + sc / 100) * (toTop ? 0.45 : p.jobLevel < j.maxLevel / 2 ? 2.2 : 1))) {
         p.jobLevel++;
         msg = rankLine(p, name, jobTitle(p));
         p.happiness = clamp(p.happiness + 6, 0, 100);
@@ -436,7 +440,7 @@ export function expectedIncome(s: GameState, p: Person): number {
 
 function baseIncome(s: GameState, p: Person): number {
   if (!alive(p)) return 0;
-  if (p.flags.some((f) => f.startsWith('serving:'))) return Number(p.flags.find((f) => f.startsWith('serve_pay:'))?.slice(10) ?? 1200);
+  if (p.flags.some((f) => f.startsWith('serving:'))) return dutyPay(s, p);
   if (p.flags.includes('student')) return p.flags.includes('track:grad_school') ? Math.round(GRAD_STIPEND * wageIndex(s.year)) : 0;
   if (age(s, p) < 20 && p.job === 'none') return 0;
   const j = JOBS[p.job];
@@ -585,8 +589,8 @@ export function economyYear(s: GameState): string[] {
   for (const p of Object.values(s.people)) {
     if (!alive(p)) continue;
     if (p.flags.some((f) => f.startsWith('serving:'))) {
-      // 병사 월급, 공중보건의·군의관은 그보다 많다
-      p.cash += Number(p.flags.find((f) => f.startsWith('serve_pay:'))?.slice(10) ?? 1200);
+      // 병사 월급(시대별), 공중보건의·군의관·해외 파견은 그보다 많다 (duty.ts)
+      p.cash += dutyPay(s, p);
       continue;
     }
     if (age(s, p) < 20 && p.job === 'none') continue;

@@ -12,6 +12,7 @@ import { wageIndex } from './pay';
 import { addFlag, age, alive, clamp, fullName, hasFlag, head, householder, isMainline, mark, parentsOf } from './people';
 import type { GameState, Person } from './types';
 import { NEWS_MORE } from './news-more';
+import { sendAway } from './duty';
 
 export const HIST_START = 1960;
 export const isHist = (s: GameState) => s.era === 'history';
@@ -231,14 +232,15 @@ const MAJORS: Major[] = [
         {
           label: c.p.sex === 'M' ? '광부로 간다 (3년)' : '간호조무 교육을 받고 간호사로 간다 (3년)',
           run: (x) => {
-            x.p.cash += earn;
-            x.p.actual.hp = clamp(x.p.actual.hp - (x.p.sex === 'M' ? 10 : 5), 0, 100);
+            // 3년 동안 실제로 서독에서 지낸다: 해마다 월급이 쌓이고, 그곳의 일만 할 수 있다 (duty.ts)
+            sendAway(x.s, x.p, 'germany', 3, 3000);
+            x.p.actual.hp = clamp(x.p.actual.hp - (x.p.sex === 'M' ? 4 : 2), 0, 100);
             x.p.actual.mor = clamp(x.p.actual.mor + 3, 0, 100);
             addFlag(x.p, 'germany');
             addFlag(x.p, 'abroad');
             mark(x.p, 'selfmade', 2);
             for (const q of parentsOf(x.s, x.p)) q.affinity = clamp(q.affinity + 15, -100, 100);
-            return `3년 뒤 돌아왔다. 통장에 ${formatMoney(earn)}. 부모님께 논 몇 마지기를 사 드리고도 남았다. 대신 ${x.p.sex === 'M' ? '폐가 예전 같지 않다' : '밤마다 향수병에 울었다'}.`;
+            return `김포공항에서 가족과 작별했다. 3년 계약 (해마다 약 ${formatMoney(Math.round(earn / 3))}). ${x.p.sex === 'M' ? '루르 탄광' : '서독 병원'}으로 간다.\n(파견 기간 동안 행동 탭엔 그곳에서 할 수 있는 일만 나온다)`;
           },
         },
         ok('한국에 남는다', '"여기서도 할 수 있다." 광고를 접었다.'),
@@ -268,7 +270,10 @@ const MAJORS: Major[] = [
           }
           if (chance(x.s, 0.25)) addFlag(x.p, 'agent_orange');
           x.p.actual.hp = clamp(x.p.actual.hp - 5, 0, 100);
-          return `정글에서 1년 반. 무사히 돌아왔다. 집에는 송금한 ${formatMoney(send)}으로 새 지붕이 올라갔다.`;
+          // 1년 반 동안 월남에서 지낸다 (복무 중이었다면 그 기간도 이어진다)
+          const end = Math.max(x.s.year + 1, Number(x.p.flags.find((f) => f.startsWith('serving:'))?.slice(8) ?? 0));
+          sendAway(x.s, x.p, 'vietnam', end - x.s.year + 1, 600);
+          return `수송선에 올랐다. 전투수당 ${formatMoney(send)}이 집으로 송금된다. ${end + 1}년에 돌아온다.`;
         },
       },
       ok('지원하지 않는다', '다른 부대로 배치됐다. 동기 몇은 월남에서 돌아오지 못했다.'),
@@ -350,11 +355,11 @@ const MAJORS: Major[] = [
         label: '간다 (2년)',
         run: (x) => {
           const earn = Math.round(2 * 2600 * wi(x.s));
-          householder(x.s).cash += earn;
-          x.p.actual.hp = clamp(x.p.actual.hp - 6, 0, 100);
+          sendAway(x.s, x.p, 'mideast', 2, 2600);
+          x.p.actual.hp = clamp(x.p.actual.hp - 3, 0, 100);
           addFlag(x.p, 'mideast');
           if (x.p.spouseId) x.p.bond = clamp((x.p.bond ?? 60) - 8, 0, 100);
-          return `까맣게 타서 돌아왔다. 송금한 돈 ${formatMoney(earn)}. 이 돈으로 셋방을 벗어날 수 있다.`;
+          return `김포공항에서 손을 흔들었다. 2년 계약, 모두 합쳐 약 ${formatMoney(earn)}을 벌어 온다. 섭씨 50도의 현장이 기다린다.`;
         },
       },
       ok('가족 곁에 남는다', '"돈보다 가족이지." 아내가 조용히 손을 잡았다.'),

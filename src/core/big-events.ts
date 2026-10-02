@@ -1,6 +1,7 @@
 // 대형 이벤트: 미니게임처럼 여러 라운드를 거치는 큰 승부. 가주·자녀·손주에게 찾아온다.
 //   라운드마다 전략을 고르고(선택지마다 성공 확률 표시), 점수 막대가 움직이고, 마지막에 결과가 갈린다.
 //   빈도: 가족 중 해당되는 사람이 많을수록 잘 오지만, 한 해 걸러 한 번이 최대 — 5명 가족이면 대략 3년에 한 번.
+import { tryPromote } from './rank';
 import { gate, queueNext, type Choice, type EventDef } from './ev-util';
 import { addAsset, formatMoney } from './economy';
 import { addFlag, age, alive, checkOdds, clamp, fullName, hasTalent, hasTrait, head, isDescendantOf, mark, spouseOf } from './people';
@@ -11,6 +12,7 @@ import { modelOf, myVehicles, vehiclesOf, VEHICLES, vehiclePrice } from './vehic
 import type { GameState, Person, StatKey } from './types';
 import type { Rarity } from './rewards';
 import { JOBS } from './data';
+import { BIGS2 } from './big-events2';
 
 type Ctx = { s: GameState; p: Person };
 export interface BigOpt {
@@ -79,7 +81,7 @@ interface Reward {
   rarity?: Rarity;
 }
 /** 보상을 주고, 결과 글 끝에 붙일 "🎁 보상" 한 줄을 만든다 */
-function reward(x: Ctx, r: Reward): string {
+export function reward(x: Ctx, r: Reward): string {
   const parts: string[] = [];
   if (r.cash) (x.p.cash += r.cash), parts.push(`💰 ${formatMoney(r.cash)}`);
   if (r.fame) (x.s.fame = Math.max(0, x.s.fame + r.fame)), parts.push(`명성 ${r.fame > 0 ? '+' : ''}${r.fame}`);
@@ -89,7 +91,7 @@ function reward(x: Ctx, r: Reward): string {
     parts.push(`${STAT_KO[k]} ${v > 0 ? '+' : ''}${v}`);
   }
   if (r.hap) (x.p.happiness = clamp(x.p.happiness + r.hap, 0, 100)), parts.push(`행복 ${r.hap > 0 ? '+' : ''}${r.hap}`);
-  if (r.promo && JOBS[x.p.job] && x.p.jobLevel < JOBS[x.p.job].maxLevel) (x.p.jobLevel += 1), parts.push('직급 +1');
+  if (r.promo && JOBS[x.p.job] && tryPromote(x.s.year, x.p, 2)) parts.push('직급 +1');
   if (r.flag) addFlag(x.p, r.flag);
   if (r.mark) mark(x.p, r.mark, 1);
   if (r.title) grant(x.s, r.icon ?? '🏆', r.title, parts.join(' · '), r.rarity ?? 'rare');
@@ -158,7 +160,7 @@ export const BIGS: BigDef[] = [
     },
   },
   {
-    id: 'audition', title: '🎤 오디션 서바이벌', icon: '🎤', meter: '심사 점수', goal: 6,
+    id: 'audition', title: '🎤 오디션 서바이벌', icon: '🎤', meter: '심사 점수', goal: 5,
     ok: (s, p) => A(s, p) >= 15 && A(s, p) <= 28 && (p.actual.cha >= 58 || hasTalent(p, 'pitch') || hasTalent(p, 'star')),
     bonus: (_s, p) => (hasTalent(p, 'pitch') ? 10 : 0) + (hasTalent(p, 'star') ? 8 : 0),
     rounds: [
@@ -177,7 +179,7 @@ export const BIGS: BigDef[] = [
       ] },
     ],
     end: (x, sc) => {
-      if (sc >= 6) {
+      if (sc >= 5) {
         if (['none', 'parttime'].includes(x.p.job) && !x.p.flags.includes('student') && A(x.s, x.p) >= 18) (x.p.job = 'singer'), (x.p.jobLevel = 1), (x.p.jobYears = 0);
         return '🏆 최종 우승! 데뷔 계약서에 사인했다. 다음 날 아침, 모든 포털 메인에 이름이 걸렸다.' + reward(x, { cash: 3000, fame: 5, hap: 20, stats: { cha: 5 }, flag: 'audition_win', title: `오디션 우승: ${fullName(x.p)}`, icon: '🎤', rarity: 'epic' });
       }
@@ -193,7 +195,7 @@ export const BIGS: BigDef[] = [
       title: `${n}단계 · 상금 ${['100만', '500만', '2,000만', '1억'][n - 1]}`,
       text: ['첫 문제는 몸풀기. 조명이 {n}을(를) 비춘다.', '"다음 중 가장 먼저 발명된 것은?" 객석이 웅성인다.', '남은 사람은 셋. 손에 땀이 찬다.', '마지막 문제. 맞히면 1억, 틀리면 0원.'][n - 1],
       opts: [
-        { label: '정답을 외친다 (지능)', stat: 'int' as const, need: 44 + n * 8, win: 1, lose: -9, wt: '"정답입니다!"', lt: '"…아쉽습니다." 0원.' },
+        { label: '정답을 외친다 (지능)', stat: 'int' as const, need: 40 + n * 6, win: 1, lose: -9, wt: '"정답입니다!"', lt: '"…아쉽습니다." 0원.' },
         ...(n > 1 ? [{ label: '상금을 들고 멈춘다', stop: true, wt: '여기서 멈추기로 했다.' }] : []),
       ],
     })),
@@ -205,7 +207,7 @@ export const BIGS: BigDef[] = [
     },
   },
   {
-    id: 'cook', title: '🍳 요리 서바이벌', icon: '🍳', meter: '심사위원 점수', goal: 6,
+    id: 'cook', title: '🍳 요리 서바이벌', icon: '🍳', meter: '심사위원 점수', goal: 5,
     ok: (s, p) => A(s, p) >= 20 && A(s, p) <= 65 && (working(p, ['chef', 'baker', 'restaurant', 'sommelier', 'bartender', 'nutritionist']) || hasTalent(p, 'palate')),
     bonus: (_s, p) => (hasTalent(p, 'palate') ? 12 : 0) + (p.job === 'chef' ? p.jobLevel * 2 : 0),
     rounds: [
@@ -223,8 +225,8 @@ export const BIGS: BigDef[] = [
       ] },
     ],
     end: (x, sc) => {
-      if (sc >= 6) {
-        if (x.p.job === 'chef' || x.p.job === 'restaurant') x.p.jobLevel += 1;
+      if (sc >= 5) {
+        if ((x.p.job === 'chef' || x.p.job === 'restaurant') && x.p.jobLevel < JOBS[x.p.job].maxLevel) x.p.jobLevel += 1;
         return '🏆 우승! 다음 날부터 예약이 석 달 치 꽉 찼다.' + reward(x, { cash: 3000, fame: 4, hap: 20, stats: { int: 2, cha: 3 }, flag: 'cook_win', title: `요리 서바이벌 우승: ${fullName(x.p)}`, icon: '🍳', rarity: 'epic' });
       }
       if (sc >= 3) return '🥈 준우승. "그 요리사"를 찾아오는 손님이 늘었다.' + reward(x, { cash: 800, fame: 2, hap: 8, stats: { cha: 2 } });
@@ -232,7 +234,7 @@ export const BIGS: BigDef[] = [
     },
   },
   {
-    id: 'everest', title: '🏔 8천 미터의 꿈', icon: '🏔', meter: '고도', goal: 5,
+    id: 'everest', title: '🏔 8천 미터의 꿈', icon: '🏔', meter: '고도', goal: 4,
     ok: (s, p) => A(s, p) >= 25 && A(s, p) <= 55 && p.actual.str >= 60 && p.actual.hp >= 60,
     bonus: (_s, p) => (hasTalent(p, 'iron') ? 12 : 0) + (hasTalent(p, 'athlete') ? 6 : 0),
     rounds: [
@@ -250,7 +252,7 @@ export const BIGS: BigDef[] = [
       ] },
     ],
     end: (x, sc) => {
-      if (sc >= 5) return '🏔 8,848m 정상! 가문의 깃발을 꽂았다. 하산 후 기자들이 공항에서 기다리고 있었다.' + reward(x, { fame: 6, hap: 25, stats: { str: 4, mor: 3 }, flag: 'summit_8000', title: `에베레스트 등정: ${fullName(x.p)}`, icon: '🏔', rarity: 'epic' });
+      if (sc >= 4) return '🏔 8,848m 정상! 가문의 깃발을 꽂았다. 하산 후 기자들이 공항에서 기다리고 있었다.' + reward(x, { fame: 6, hap: 25, stats: { str: 4, mor: 3 }, flag: 'summit_8000', title: `에베레스트 등정: ${fullName(x.p)}`, icon: '🏔', rarity: 'epic' });
       return '🏕 정상은 다음으로. 그래도 살아 돌아와 가족을 안았다.' + reward(x, { hap: 4, stats: { str: 2 } });
     },
   },
@@ -307,7 +309,7 @@ export const BIGS: BigDef[] = [
     },
   },
   {
-    id: 'baduk', title: '⚫ 바둑 명인전 결승', icon: '⚫', meter: '형세', goal: 5,
+    id: 'baduk', title: '⚫ 바둑 명인전 결승', icon: '⚫', meter: '형세', goal: 4,
     ok: (s, p) => A(s, p) >= 10 && A(s, p) <= 80 && (p.actual.int >= 68 || hasTalent(p, 'strategist')),
     bonus: (_s, p) => (hasTalent(p, 'strategist') ? 12 : 0) + (hasTalent(p, 'genius') ? 6 : 0),
     rounds: [
@@ -325,13 +327,13 @@ export const BIGS: BigDef[] = [
       ] },
     ],
     end: (x, sc) => {
-      if (sc >= 5) return '🏆 반집 승! 명인 칭호를 얻었다. 기보가 바둑 채널에서 해설됐다.' + reward(x, { cash: 2000, fame: 3, hap: 15, stats: { int: 4 }, title: `명인 등극: ${fullName(x.p)}`, icon: '⚫', rarity: 'epic' });
+      if (sc >= 4) return '🏆 반집 승! 명인 칭호를 얻었다. 기보가 바둑 채널에서 해설됐다.' + reward(x, { cash: 2000, fame: 3, hap: 15, stats: { int: 4 }, title: `명인 등극: ${fullName(x.p)}`, icon: '⚫', rarity: 'epic' });
       if (sc >= 2) return '🥈 준우승. 복기하며 밤을 새웠다.' + reward(x, { cash: 500, hap: 5, stats: { int: 2 } });
       return '불계패. 돌을 던졌다. 그래도 좋은 바둑이었다.' + reward(x, { hap: -4, stats: { int: 1 } });
     },
   },
   {
-    id: 'debate', title: '🗳 생방송 TV 토론', icon: '🗳', meter: '지지율 변화', goal: 5,
+    id: 'debate', title: '🗳 생방송 TV 토론', icon: '🗳', meter: '지지율 변화', goal: 4,
     ok: (s, p) => A(s, p) >= 30 && A(s, p) <= 75 && (working(p, ['politician', 'mayor', 'minister', 'aide', 'lawyer', 'journalist', 'professor']) || hasTalent(p, 'orator')),
     bonus: (_s, p) => (hasTalent(p, 'orator') ? 12 : 0),
     rounds: [
@@ -353,13 +355,13 @@ export const BIGS: BigDef[] = [
       const pl = x.p.pol;
       if (pl) pl.approval = clamp(pl.approval + sc * 2, 0, 100);
       const ap = pl ? ` (지지율 ${sc >= 0 ? '+' : ''}${sc * 2}%p)` : '';
-      if (sc >= 5) return `🏆 토론 압승!${ap} 다음 날 신문 1면.` + reward(x, { fame: 4, hap: 12, stats: { cha: 3, int: 1 }, title: `토론 압승: ${fullName(x.p)}`, icon: '🗳', rarity: 'rare' });
+      if (sc >= 4) return `🏆 토론 압승!${ap} 다음 날 신문 1면.` + reward(x, { fame: 4, hap: 12, stats: { cha: 3, int: 1 }, title: `토론 압승: ${fullName(x.p)}`, icon: '🗳', rarity: 'rare' });
       if (sc >= 0) return `무난했다.${ap}` + reward(x, { fame: 1, stats: { cha: 1 } });
       return `😓 토론 참패.${ap}` + reward(x, { fame: -1, hap: -8 });
     },
   },
   {
-    id: 'flight', title: '🚑 "기내에 의사 선생님 계십니까?"', icon: '🚑', meter: '환자 상태', goal: 5, again: 10,
+    id: 'flight', title: '🚑 "기내에 의사 선생님 계십니까?"', icon: '🚑', meter: '환자 상태', goal: 4, again: 10,
     ok: (s, p) => A(s, p) >= 26 && A(s, p) <= 70 && working(p, ['doctor', 'kmd', 'nurse', 'emt', 'pharmacist', 'longevity_doc', 'bci_surgeon']),
     bonus: (_s, p) => (hasTalent(p, 'healer') ? 12 : 0) + p.jobLevel * 2,
     rounds: [
@@ -376,13 +378,13 @@ export const BIGS: BigDef[] = [
       ] },
     ],
     end: (x, sc) => {
-      if (sc >= 5) return '✈ 환자가 살았다! 항공사가 감사패와 평생 비즈니스석 업그레이드를, 승객들이 기립 박수를 보냈다. 뉴스에 나왔다.' + reward(x, { cash: 500, fame: 3, hap: 20, stats: { mor: 3, int: 2 }, title: `하늘의 의인: ${fullName(x.p)}`, icon: '🚑', rarity: 'rare' });
+      if (sc >= 4) return '✈ 환자가 살았다! 항공사가 감사패와 평생 비즈니스석 업그레이드를, 승객들이 기립 박수를 보냈다. 뉴스에 나왔다.' + reward(x, { cash: 500, fame: 3, hap: 20, stats: { mor: 3, int: 2 }, title: `하늘의 의인: ${fullName(x.p)}`, icon: '🚑', rarity: 'rare' });
       if (sc >= 2) return '환자는 무사히 병원으로 옮겨졌다. 조용히 내 자리로 돌아왔다.' + reward(x, { hap: 8, stats: { mor: 2 } });
       return '최선을 다했지만 환자는 끝내… 오래 마음에 남았다.' + reward(x, { hap: -10, stats: { mor: 1 } });
     },
   },
   {
-    id: 'fire', title: '🚒 불길 속으로', icon: '🚒', meter: '구조', goal: 5, again: 8,
+    id: 'fire', title: '🚒 불길 속으로', icon: '🚒', meter: '구조', goal: 4, again: 8,
     ok: (s, p) => A(s, p) >= 22 && A(s, p) <= 60 && working(p, ['firefighter', 'police', 'coast_guard', 'officer', 'nco', 'emt', 'security_guard']),
     bonus: (_s, p) => (hasTalent(p, 'iron') ? 10 : 0) + (hasTalent(p, 'athlete') ? 6 : 0),
     rounds: [
@@ -399,7 +401,7 @@ export const BIGS: BigDef[] = [
       ] },
     ],
     end: (x, sc) => {
-      if (sc >= 5) return `🦸 두 사람 모두 살았다! 아이 엄마가 ${fullName(x.p)}의 손을 잡고 울었다. 의인으로 표창을 받았다.` + reward(x, { cash: 1000, fame: 5, hap: 20, stats: { mor: 3, str: 2 }, flag: 'fire_hero', title: `불길 속의 의인: ${fullName(x.p)}`, icon: '🚒', rarity: 'epic', promo: true });
+      if (sc >= 4) return `🦸 두 사람 모두 살았다! 아이 엄마가 ${fullName(x.p)}의 손을 잡고 울었다. 의인으로 표창을 받았다.` + reward(x, { cash: 1000, fame: 5, hap: 20, stats: { mor: 3, str: 2 }, flag: 'fire_hero', title: `불길 속의 의인: ${fullName(x.p)}`, icon: '🚒', rarity: 'epic', promo: true });
       if (sc >= 2) return '모두 구조했다. 오늘도 무사히 퇴근했다.' + reward(x, { fame: 1, hap: 8, stats: { mor: 2 } });
       return '구조는 했지만 큰 화상을 입었다. 오래 치료받았다.' + reward(x, { hap: -12, stats: { hp: -3 } });
     },
@@ -505,7 +507,7 @@ export const BIGS: BigDef[] = [
     },
   },
   {
-    id: 'pitch', title: '💡 창업 경진대회 결선', icon: '💡', meter: '투자 의향', goal: 6, again: 10,
+    id: 'pitch', title: '💡 창업 경진대회 결선', icon: '💡', meter: '투자 의향', goal: 5, again: 10,
     ok: (s, p) => s.year >= 2000 && A(s, p) >= 22 && A(s, p) <= 60 && (working(p, ['founder', 'startup_emp', 'developer', 'ai_engineer', 'game_dev', 'data_scientist', 'ux_designer', 'sme_ceo']) || hasTalent(p, 'merchant') || (p.actual.int >= 66 && p.actual.cha >= 55)),
     bonus: (_s, p) => (hasTalent(p, 'merchant') ? 8 : 0) + (hasTalent(p, 'orator') ? 6 : 0),
     rounds: [
@@ -524,7 +526,7 @@ export const BIGS: BigDef[] = [
       ] },
     ],
     end: (x, sc) => {
-      if (sc >= 6) return '🏆 대상! 시드 투자 제안이 세 군데서 들어왔다.' + reward(x, { cash: 5000, fame: 3, hap: 18, stats: { int: 2, cha: 2 }, mark: 'risk', promo: true, title: `창업 경진대회 대상: ${fullName(x.p)}`, icon: '💡', rarity: 'epic' });
+      if (sc >= 5) return '🏆 대상! 시드 투자 제안이 세 군데서 들어왔다.' + reward(x, { cash: 5000, fame: 3, hap: 18, stats: { int: 2, cha: 2 }, mark: 'risk', promo: true, title: `창업 경진대회 대상: ${fullName(x.p)}`, icon: '💡', rarity: 'epic' });
       if (sc >= 3) return '🥈 우수상. 명함이 한 뭉치 생겼다.' + reward(x, { cash: 1000, fame: 1, hap: 7, stats: { cha: 1 } });
       return '본선 탈락. 피드백 노트를 들고 사무실로 돌아왔다.' + reward(x, { hap: -4, stats: { int: 1 } });
     },
@@ -557,7 +559,7 @@ export const BIGS: BigDef[] = [
     },
   },
   {
-    id: 'concours', title: '🎻 국제 음악 콩쿠르', icon: '🎻', meter: '심사 점수', goal: 6,
+    id: 'concours', title: '🎻 국제 음악 콩쿠르', icon: '🎻', meter: '심사 점수', goal: 5,
     ok: (s, p) => A(s, p) >= 13 && A(s, p) <= 30 && (working(p, ['musician', 'singer']) || hasTalent(p, 'pitch') || (hasTalent(p, 'artist') && p.actual.cha >= 55)),
     bonus: (_s, p) => (hasTalent(p, 'pitch') ? 12 : 0) + (hasTrait(p, 'diligent') ? 5 : 0),
     rounds: [
@@ -575,7 +577,7 @@ export const BIGS: BigDef[] = [
       ] },
     ],
     end: (x, sc) => {
-      if (sc >= 6) return '🏆 1위! 고국의 뉴스 첫머리에 이름이 나왔다.' + reward(x, { cash: 4000, fame: 5, hap: 22, stats: { cha: 4 }, flag: 'concours_win', title: `국제 콩쿠르 1위: ${fullName(x.p)}`, icon: '🎻', rarity: 'epic' });
+      if (sc >= 5) return '🏆 1위! 고국의 뉴스 첫머리에 이름이 나왔다.' + reward(x, { cash: 4000, fame: 5, hap: 22, stats: { cha: 4 }, flag: 'concours_win', title: `국제 콩쿠르 1위: ${fullName(x.p)}`, icon: '🎻', rarity: 'epic' });
       if (sc >= 3) return '🥉 입상. 유럽 공연 기획사에서 연락이 왔다.' + reward(x, { cash: 800, fame: 2, hap: 8, stats: { cha: 2 } });
       return '본선 탈락. 귀국 비행기에서 이어폰으로 우승자의 연주를 들었다.' + reward(x, { hap: -6, stats: { int: 1 } });
     },
@@ -605,36 +607,41 @@ export const BIGS: BigDef[] = [
     },
   },
   {
-    id: 'goldenbell', title: '🔔 도전! 골든벨', icon: '🔔', meter: '맞힌 문제', goal: 5,
+    id: 'goldenbell', title: '🔔 도전! 골든벨', icon: '🔔', meter: '맞힌 문제', goal: 4,
     ok: (s, p) => s.year >= 1999 && A(s, p) >= 16 && A(s, p) <= 18 && p.actual.int >= 55,
     bonus: (_s, p) => (hasTalent(p, 'genius') ? 10 : 0) + (hasTalent(p, 'scholar') ? 6 : 0),
     rounds: [
       { title: '10번 문제', text: '전교생 100명이 강당 바닥에 앉았다. 화이트보드와 마커 하나씩.', opts: [
-        { label: '자신 있게 쓴다', stat: 'int', need: 50, win: 1, lose: -5, wt: '정답! 아직 70명이 남았다.', lt: '탈락… 친구들이 등을 두드려 줬다.' },
+        { label: '자신 있게 쓴다', stat: 'int', need: 46, win: 1, lose: -5, wt: '정답! 아직 70명이 남았다.', lt: '탈락… 친구들이 등을 두드려 줬다.' },
       ] },
       { title: '30번 문제', text: '남은 사람 열 명. 카메라가 {n}의 얼굴을 잡는다.', opts: [
-        { label: '정답을 쓴다', stat: 'int', need: 60, win: 2, lose: -5, wt: '정답! 반 친구들이 소리를 질렀다.', lt: '아깝게 틀렸다.' },
+        { label: '정답을 쓴다', stat: 'int', need: 56, win: 2, lose: -5, wt: '정답! 반 친구들이 소리를 질렀다.', lt: '아깝게 틀렸다.' },
         { label: '옆 친구 보드를 슬쩍…', stat: 'luck', need: 10, win: 0, lose: -5, wt: '', lt: '"부정행위!" 녹화가 잠시 멈췄다. 얼굴이 화끈거렸다.', show: (_s, p) => p.actual.mor < 45 },
       ] },
       { title: '50번 · 골든벨 문제', text: '혼자 남았다. 패자부활전으로 돌아온 친구들이 뒤에서 응원한다.', opts: [
-        { label: '떨리는 손으로 쓴다', stat: 'int', need: 72, win: 2, lose: -5, wt: '🔔 땡~! 골든벨이 울렸다!', lt: '"아…" 강당이 탄식으로 가득 찼다.' },
+        { label: '떨리는 손으로 쓴다', stat: 'int', need: 64, win: 2, lose: -5, wt: '🔔 땡~! 골든벨이 울렸다!', lt: '"아…" 강당이 탄식으로 가득 찼다.' },
       ] },
     ],
     end: (x, sc) => {
-      if (sc >= 5) return '🔔 골든벨을 울렸다! 학교 정문에 현수막이 걸렸다.' + reward(x, { cash: 300, fame: 2, hap: 20, stats: { int: 2 }, mark: 'study', flag: 'goldenbell', title: `골든벨: ${fullName(x.p)}`, icon: '🔔', rarity: 'epic' });
+      if (sc >= 4) return '🔔 골든벨을 울렸다! 학교 정문에 현수막이 걸렸다.' + reward(x, { cash: 300, fame: 2, hap: 20, stats: { int: 2 }, mark: 'study', flag: 'goldenbell', title: `골든벨: ${fullName(x.p)}`, icon: '🔔', rarity: 'epic' });
       if (sc >= 1) return '최후의 몇 명까지 남았다. 방송에 얼굴이 꽤 오래 나왔다.' + reward(x, { hap: 6, stats: { int: 1 } });
       return '초반 탈락. 그래도 방송 끝 단체 인사에는 나왔다.' + reward(x, { hap: 1 });
     },
   },
 ];
+BIGS.push(...BIGS2);
 export const BIG_BY_ID: Record<string, BigDef> = Object.fromEntries(BIGS.map((b) => [b.id, b]));
+
+/** 대형 이벤트 판정 보정: 예전엔 능력치 55에서 우승 확률이 10~30%라 거의 통과하지 못했다 */
+const EASE = 8;
 
 /** 이 선택지의 성공 확률 */
 export function bigOdds(s: GameState, p: Person, b: BigDef, o: BigOpt): number | undefined {
   if (o.stop || o.stake || !o.stat) return undefined;
-  const bonus = (b.bonus?.(s, p) ?? 0) + (o.bonus?.(s, p) ?? 0);
-  if (o.stat === 'luck') return clamp((o.need ?? 50) / 100 + bonus / 100, 0.05, 0.95);
-  return checkOdds(p.actual[o.stat] + bonus, o.need ?? 50, 8);
+  const bonus = (b.bonus?.(s, p) ?? 0) + (o.bonus?.(s, p) ?? 0) + (s.legacy?.includes('lucky_charm') ? 6 : 0);
+  if (o.stat === 'luck') return clamp((o.need ?? 50) / 100 + bonus / 100 + 0.08, 0.15, 0.95);
+  // 난이도 완화: 평범한 능력치(55)로도 절반쯤은 해볼 만하게 (기준 −8, 폭 넓게, 최소 15%)
+  return clamp(checkOdds(p.actual[o.stat] + bonus + EASE, o.need ?? 50, 10), 0.15, 0.95);
 }
 
 /** 가주·자녀·손주 */

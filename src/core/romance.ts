@@ -8,7 +8,7 @@ import { agePenalty, appeal, desirability, jobless, makeDate, marry, suitorLine 
 import { eul, eun, gate, iga, queueNext, schedule, wa, who, type Choice, type Ctx, type EventDef } from './ev-util';
 import { coverTax, nestOf } from './nest';
 import { homeOf, moveInto, moveIntoOwned, moveTo } from './housing';
-import { isHouse } from './realty';
+import { isHouse, mortgageFromCash } from './realty';
 import { addFlag, age, alive, check, clamp, fullName, hasFlag, hasTrait, head, householder, isMainline, mark, parentsOf, relationLabel } from './people';
 import type { GameState, Person } from './types';
 import { deliver, setBond, type LifeDef } from './life';
@@ -515,8 +515,28 @@ const wedding: EventDef = {
           }),
         };
       });
-      if (cur?.type === 'own' && c.p.id === c.s.headId)
-        ownChoices.unshift({ label: `지금 사는 내 집(${cur.name})에서 그대로`, run: finish('살던 집에 배우자의 짐이 들어왔다. 집이 꽉 찼다.') });
+      const livingOwn = cur?.type === 'own' && c.p.id === c.s.headId;
+      if (livingOwn) ownChoices.unshift({ label: `지금 사는 내 집(${cur!.name})에서 그대로`, run: finish('살던 집에 배우자의 짐이 들어왔다. 집이 꽉 찼다.') });
+      // 이미 내 집에 살고 있으면 셋집으로 나갈 이유가 없다: 내 집(또는 배우자 집) 중에서 고른다
+      if (livingOwn) {
+        // 새 집을 사서 옮길 수도 있다 (살던 집은 세를 놓는다): 집값의 40%가 있으면 나머지는 주택담보대출
+        const kind = c.s.market.apt_seoul * 0.4 <= Math.max(0, c.p.cash) + Math.max(0, q.cash) ? 'apt_seoul' : 'apt_local';
+        const price = Math.round(c.s.market[kind]);
+        const have = Math.max(0, c.p.cash) + Math.max(0, q.cash);
+        ownChoices.push({
+          label: `새 ${kind === 'apt_seoul' ? '수도권' : '지방'} 아파트를 사서 들어간다 (${formatMoney(price)} · 살던 집은 세를 놓는다)`,
+          req: ['집값의 40% 현금 · 나머지 대출'],
+          disabled: have < price * 0.44,
+          run: finish('둘이 고른 새 아파트에서 신혼을 시작한다. 살던 집엔 세입자를 들였다.', (x) => {
+            if (q.cash > 0) (x.p.cash += q.cash), (q.cash = 0);
+            pay(x.s, x.p, Math.round(price * 1.04));
+            const a = addAsset(x.s, kind, x.p.id, price, '신혼 아파트');
+            mortgageFromCash(x.s, x.p);
+            return moveInto(x.s, x.p, a);
+          }),
+        });
+        return gate(c.s, ownChoices);
+      }
       return gate(c.s, [
         ...ownChoices,
         { label: '월세 원룸에서 시작', run: finish('좁지만 둘이면 충분하다.', (x) => (homeOf(x.s, x.p)?.type === 'own' ? '' : moveTo(x.s, x.p, 'oneroom', 'wolse'))) },
@@ -528,7 +548,7 @@ const wedding: EventDef = {
             return r.startsWith('이사할 수 없다') ? '전세 대출이 안 나와 ' + moveTo(x.s, x.p, 'villa', 'wolse') : r;
           }),
         },
-        ...(parentHelp
+        ...(parentHelp && !owned.length
           ? [
               {
                 label: '부모님이 집을 마련해 주신다',

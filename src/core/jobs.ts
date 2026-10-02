@@ -157,7 +157,9 @@ job('coast_guard', '해양경찰', 'public', 'salary', 3500, 700, 6, { fame: 1, 
 job('firefighter', '소방관', 'public', 'salary', 3500, 650, 5, { fame: 1.5, color: '#b8452d', promote: 0.11, pension: 0.5, risk: 0.05, stats: BODY, titles: ['소방사', '소방교', '소방장', '소방위', '소방경', '소방령'], entry: exam('firefighter', 'public', { maxAge: 40 }) });
 job('prison_guard', '교도관', 'public', 'salary', 3300, 650, 5, { fame: 0.5, color: '#3b4a3b', promote: 0.1, pension: 0.5, stats: { str: 0.4, mor: 0.6 }, titles: ['교도', '교사', '교위', '교감', '교정관', '소장'], entry: exam('corrections', 'public') });
 job('mail_carrier', '집배원', 'public', 'salary', 3000, 450, 4, { fame: 0.5, color: '#c83a3a', promote: 0.08, pension: 0.5, risk: 0.03, stats: BODY, titles: ['집배원', '선임', '팀장', '과장', '우체국장'], entry: exam('postal', 'public') });
-job('officer', '직업군인', 'public', 'salary', 3600, 1000, 6, { fame: 1.5, color: '#4b5a2e', retireAge: 56, promote: 0.1, pension: 0.5, risk: 0.02, stats: { str: 0.4, mor: 0.4, int: 0.2 }, titles: ['소위', '중위', '대위', '소령', '중령', '대령', '장군'], entry: school('사관학교·ROTC', 'public') });
+job('officer', '직업군인', 'public', 'salary', 3600, 1000, 9, { fame: 1.5, color: '#4b5a2e', retireAge: 58, promote: 0.1, pension: 0.5, risk: 0.02, stats: { str: 0.4, mor: 0.4, int: 0.2 }, titles: ['소위', '중위', '대위', '소령', '중령', '대령', '준장', '소장', '중장', '대장'], entry: school('사관학교·ROTC', 'public') });
+// 정보기관: 중앙정보부(1961) → 국가안전기획부(1981) → 국가정보원(1999). 7급 상당 공채(국정원 공개채용)로 들어가 원장(부장)까지. 이름은 그 시대 말로 바뀐다 (histpack WORDS)
+job('agent', '국정원 요원', 'public', 'salary', 4200, 1200, 5, { fame: 0.5, color: '#1c1c28', retireAge: 60, promote: 0.09, pension: 0.5, risk: 0.02, stats: { int: 0.5, cha: 0.3, mor: 0.2 }, titles: ['요원', '조정관', '과장', '단장', '차장', '원장'], entry: exam('nis', 'public', { univ: true }) });
 job('diplomat', '외교관', 'public', 'salary', 4500, 1300, 5, { fame: 3, color: '#27405e', retireAge: 62, promote: 0.1, pension: 0.5, stats: { int: 0.6, cha: 0.4 }, titles: ['3등 서기관', '2등 서기관', '1등 서기관', '참사관', '공사', '대사'], entry: exam('diplomat', 'public', { univ: true }) });
 job('judge', '판사', 'public', 'salary', 8000, 2000, 5, { fame: 4, color: '#111', retireAge: 70, promote: 0.08, pension: 0.5, stats: { int: 0.7, mor: 0.3 }, titles: ['판사', '부장판사', '고법판사', '법원장', '대법관', '대법원장'], entry: exam('judge', 'study', { needFlags: ['passed:bar'], needNote: '변호사시험 합격' }) });
 job('prosecutor', '검사', 'public', 'salary', 7500, 2000, 5, { fame: 3.5, color: '#151520', retireAge: 63, promote: 0.1, pension: 0.5, stats: { int: 0.6, cha: 0.2, mor: 0.2 }, titles: ['평검사', '부부장', '부장검사', '차장검사', '검사장', '검찰총장'], entry: exam('prosecutor', 'study', { needFlags: ['passed:bar'], needNote: '변호사시험 합격' }) });
@@ -397,6 +399,9 @@ export const EXAMS: Record<string, ExamDef> = {
   corrections: X('교정직 시험', 'prison_guard', { int: 0.5, mor: 0.5 }, 48, '교도소가 직장이 된다.'),
   postal: X('우정직 시험', 'mail_carrier', { int: 0.5, hp: 0.5 }, 44, '우체국 집배원 채용.'),
   diplomat: X('외교관 후보자 시험', 'diplomat', { int: 0.7, cha: 0.3 }, 76, '외교부의 문은 좁다.', { univ: true, bonusFlags: ['univ_top'] }),
+  nis: X('국정원 공개채용', 'agent', { int: 0.6, cha: 0.2, mor: 0.2 }, 66, '신원 조회만 몇 달. 합격해도 가족에게 직장을 말할 수 없다.', { univ: true, bonusFlags: ['served', 'univ_top'] }),
+  // 사법시험 (1963~2017): 합격하면 사법연수원 2년 → 성적순으로 판사·검사·변호사
+  sashi: X('사법시험', 'lawyer', { int: 0.9, mor: 0.1 }, 74, '고시원에서 몇 해를 버티는 "고시 낭인"도 흔하다. 합격하면 사법연수원으로 간다.', { bonusFlags: ['univ_top'] }),
   judge: X('판사 임용', 'judge', { int: 0.8, mor: 0.2 }, 76, '법조 경력과 성적이 모두 필요하다.'),
   prosecutor: X('검사 임용', 'prosecutor', { int: 0.7, cha: 0.3 }, 72, '로스쿨 성적과 실무수습 평가.'),
   teacher: X('교원 임용고시', 'teacher', { int: 0.6, mor: 0.4 }, 60, '교대·사범대 출신이 유리하다.', { univ: true, bonusFlags: ['edu_school'] }),

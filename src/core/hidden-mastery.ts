@@ -15,7 +15,7 @@ export function hiddenMastery(s: GameState): { hid: number; sup: number; cards: 
     cards,
     superCards,
     // 카드 효과(희귀·슈퍼 희귀 확률 +%)도 곱한다
-    hid: Math.min(1.8, 1 + 0.08 * cards + 0.12 * superCards) * (1 + cardPassive(s, 'rare') / 100),
+    hid: Math.min(1.8, 1 + 0.08 * cards + 0.12 * superCards) * (1 + cardPassive(s, 'rare') / 100) * (s.legacy?.includes('hidden_map') ? 1.4 : 1),
     sup: Math.min(2.5, 1 + 0.06 * cards + 0.25 * superCards) * (1 + cardPassive(s, 'sup') / 100),
   };
 }

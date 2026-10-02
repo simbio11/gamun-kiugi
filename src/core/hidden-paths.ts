@@ -35,7 +35,7 @@ export const PATHS: Path[] = [
   { id: 'hj_memecoin', jobs: ['streamer', 'youtuber', 'developer', 'startup_emp'], when: (s, p) => s.year >= 2013 && A(s, p) >= 20, open: '방송 채팅창에 개 그림 코인 이야기가 끝없이 올라온다.' },
   { id: 'hj_nomad', jobs: ['writer', 'novelist', 'photographer', 'illustrator', 'translator'], when: (s, p) => !p.spouseId && A(s, p) >= 24 && A(s, p) <= 50, open: '마감을 끝낸 밤, 편도 비행기표 검색창을 닫지 못한다.' },
   { id: 'hj_forger', jobs: ['painter', 'curator', 'illustrator'], when: (s, p) => st(p).int >= 58 && st(p).mor <= 50 && A(s, p) >= 26, open: '복원을 맡은 옛 그림 앞에서, {n}은(는) 붓 자국 하나하나가 손에 익다는 걸 알았다. 화랑 주인이 "똑같이 그릴 수 있겠느냐"고 농담처럼 묻는다.' },
-  { id: 'hj_gambler', jobs: ['bartender', 'hotelier', 'taxi', 'cvs_owner'], when: (s, p) => st(p).cha >= 56 && A(s, p) >= 24 && (markOf(p, 'risk') >= 1 || p.happiness < 50), open: '단골손님이 새벽마다 두고 가는 화투 한 벌. 오늘 밤은 뒷방에 자리가 하나 비었다고 한다.' },
+  { id: 'hj_gambler', jobs: ['bartender', 'hotelier', 'taxi', 'cvs_owner'], when: (s, p) => st(p).cha >= 56 && A(s, p) >= 24 && (p.flags.some((f) => f.startsWith('casino_v:')) || markOf(p, 'gamble') >= 1 || markOf(p, 'risk') >= 3), open: '단골손님이 새벽마다 두고 가는 화투 한 벌. 오늘 밤은 뒷방에 자리가 하나 비었다고 한다.' },
   { id: 'hj_thief', jobs: ['security', 'curator', 'architect', 'interior_designer'], when: (s, p) => st(p).int >= 64 && A(s, p) >= 24 && A(s, p) <= 45, open: '설계도를 보는 순간 {n}의 눈에는 아무도 못 본 빈틈이 보였다. 그날 밤 우편함에 장미 한 송이와 예고장 같은 쪽지가 들어 있었다.' },
   { id: 'hj_hermit', jobs: ['none', 'parttime'], when: (s, p) => A(s, p) >= 20 && A(s, p) <= 40 && p.happiness < 45, open: '며칠째 방 밖으로 나가지 않았다. 이상하게 편하다.' },
 ];
