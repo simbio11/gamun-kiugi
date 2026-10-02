@@ -119,8 +119,15 @@ describe('직업 전용 콘텐츠 밸런스 및 가보 연계 시스템 검증',
     // 3단계 선택지에서 odds는 제거되어 없어야 함
     expect(ev.choices[0].odds).toBeUndefined();
 
-    // 전직 선택 실행
-    const res = resolveChoice(s, 0);
+    // 전직 선택 실행 (단계 성공률이 100%는 아니라 몇 번 도전)
+    let res = '';
+    for (let i = 0; i < 10 && !res.includes('전직 완료'); i++) {
+      if (i) {
+        h.flags.push('sh:hj_private_jet:2');
+        s.events = [{ uid: s.eventSeq++, defId: 'sh_step3', personId: h.id, data: { id: 'hj_private_jet' } }];
+      }
+      res = resolveChoice(s, 0);
+    }
     expect(res).toContain('전직 완료');
     expect(res).toContain('명예의 전당 카드를 획득했습니다');
     expect(h.job).toBe('hj_private_jet');

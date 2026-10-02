@@ -23,16 +23,19 @@ export interface Reward {
 export const RARITY_NAME: Record<Rarity, string> = { common: '일반', rare: '희귀', epic: '영웅', legend: '전설' };
 const RARITY_PTS: Record<Rarity, number> = { common: 5, rare: 12, epic: 30, legend: 80 };
 
-/** 가문 등급: 누적 명예로 오른다 */
+/** 명예 배점 눈금: 예전엔 150년이면 아무렇게나 해도 거의 최고 등급이었다 → 절반으로 */
+export const GLORY_SCALE = 0.5;
+/** 가문 등급: 누적 명예로 오른다. 위로 갈수록 간격이 넓어 한 세대에 한두 계단씩.
+ *  (기준: 무작위로 둬도 150년이면 '명문 세도가' 언저리, 잘 키운 가문만 '전설') */
 export const RANKS: { at: number; name: string; icon: string; perk?: string }[] = [
   { at: 0, name: '평범한 집안', icon: '🏠' },
-  { at: 30, name: '이웃이 아는 집', icon: '🏡', perk: '해마다 명성 +1' },
-  { at: 90, name: '동네 유지', icon: '🏘', perk: '행동력 +1' },
-  { at: 180, name: '지역 명문가', icon: '🏯', perk: '아이 잠재력 +2' },
-  { at: 320, name: '전국구 가문', icon: '🏛', perk: '해마다 명성 +2' },
-  { at: 520, name: '명문 세도가', icon: '👑', perk: '행동력 +1' },
-  { at: 800, name: '역사에 남을 가문', icon: '📜', perk: '판정 운 +5%' },
-  { at: 1200, name: '전설의 가문', icon: '🐉', perk: '모든 혜택 두 배의 영광' },
+  { at: 40, name: '이웃이 아는 집', icon: '🏡', perk: '해마다 명성 +1' },
+  { at: 120, name: '동네 유지', icon: '🏘', perk: '행동력 +1' },
+  { at: 250, name: '지역 명문가', icon: '🏯', perk: '아이 잠재력 +2' },
+  { at: 430, name: '전국구 가문', icon: '🏛', perk: '해마다 명성 +2' },
+  { at: 680, name: '명문 세도가', icon: '👑', perk: '행동력 +1' },
+  { at: 1000, name: '역사에 남을 가문', icon: '📜', perk: '판정 운 +5%' },
+  { at: 1450, name: '전설의 가문', icon: '🐉', perk: '모든 혜택 두 배의 영광' },
 ];
 export const rankOf = (s: GameState) => {
   const t = s.gloryTotal ?? 0;
@@ -47,7 +50,7 @@ export const diffMod = (s: GameState) => DIFF_MOD[(s.difficulty ?? 'normal') as 
 
 /** 보상 지급: 명예가 쌓이고 팝업이 뜬다. 등급이 오르면 한 번 더 */
 export function grant(s: GameState, icon: string, title: string, text: string, rarity: Rarity, pts0 = RARITY_PTS[rarity]) {
-  const pts = Math.round(pts0 * diffMod(s).glory);
+  const pts = pts0 > 0 ? Math.max(1, Math.round(pts0 * GLORY_SCALE * diffMod(s).glory)) : 0;
   const before = rankOf(s);
   s.glory = (s.glory ?? 0) + pts;
   s.gloryTotal = (s.gloryTotal ?? 0) + pts;
@@ -73,6 +76,7 @@ export function achvRarity(id: string, cat: string): Rarity | undefined {
 }
 
 // ───────────────────────── 명예 상점 ─────────────────────────
+// 값은 명예 눈금(GLORY_SCALE)을 줄이면서 0.7배로 낮췄다: 버는 속도가 절반이 된 만큼 상점이 너무 멀어지지 않게.
 
 export interface Perk {
   id: string;
@@ -85,17 +89,17 @@ export interface Perk {
 }
 const famAlive = (s: GameState) => Object.values(s.people).filter((p) => !p.deathYear && isMainline(s, p));
 export const PERKS: Perk[] = [
-  { id: 'ap', icon: '🖼', name: '가훈 액자', desc: '해마다 행동력 +1', cost: [150, 450, 1100, 2400] },
-  { id: 'luck', icon: '🏮', name: '조상신의 가호', desc: '모든 판정 운 +3%', cost: [40, 100, 220, 450, 900] },
-  { id: 'study', icon: '📚', name: '가문 서재', desc: '자녀 성적이 15% 더 잘 오른다', cost: [35, 90, 200, 420, 850] },
-  { id: 'fame', icon: '🎐', name: '가문의 기품', desc: '해마다 명성 +1', cost: [30, 80, 170, 350, 700] },
-  { id: 'vault', icon: '💰', name: '가문 금고', desc: '해마다 가주에게 300만 원씩 (물가 반영)', cost: [25, 60, 130, 270, 550, 1100] },
-  { id: 'gene', icon: '🧬', name: '명문가의 혈통', desc: '태어나는 아이 잠재력 +2', cost: [80, 220, 500, 1000] },
-  { id: 'doctor', icon: '🩺', name: '가문 주치의', desc: '해마다 가족 모두 건강 +1', cost: [60, 150, 320, 650] },
-  { id: 'limit', icon: '🔥', name: '한계 돌파 수련', desc: '가주 능력치 한도(잠재력) +3 · 대가: 수련할 때마다 건강 −10, 행복 −10', cost: [300, 700, 1400, 2600, 4500] },
-  { id: 'shrine', icon: '🏯', name: '사당 보수 (반복)', desc: '명성 +12', cost: [120], repeat: (s) => ((s.fame += 12), '사당 기와를 새로 얹었다. 명성 +12') },
-  { id: 'feast', icon: '🎎', name: '문중 잔치 (반복)', desc: '가족 모두 행복 +10', cost: [90], repeat: (s) => { for (const p of famAlive(s)) p.happiness = Math.min(100, p.happiness + 10); return '온 문중이 모여 잔치를 벌였다. 가족 행복 +10'; } },
-  { id: 'scholar', icon: '📜', name: '가문 장학금 (반복)', desc: '학생 자녀 모두 성적 +8', cost: [110], repeat: (s) => { for (const p of famAlive(s)) if (p.study !== undefined && s.year - p.birthYear < 25) p.study = Math.min(100, p.study + 8); return '문중 장학금을 풀었다. 아이들 성적 +8'; } },
+  { id: 'ap', icon: '🖼', name: '가훈 액자', desc: '해마다 행동력 +1', cost: [105, 315, 770, 1680] },
+  { id: 'luck', icon: '🏮', name: '조상신의 가호', desc: '모든 판정 운 +3%', cost: [30, 70, 155, 315, 630] },
+  { id: 'study', icon: '📚', name: '가문 서재', desc: '자녀 성적이 15% 더 잘 오른다', cost: [25, 65, 140, 295, 595] },
+  { id: 'fame', icon: '🎐', name: '가문의 기품', desc: '해마다 명성 +1', cost: [20, 55, 120, 245, 490] },
+  { id: 'vault', icon: '💰', name: '가문 금고', desc: '해마다 가주에게 300만 원씩 (물가 반영)', cost: [20, 40, 90, 190, 385, 770] },
+  { id: 'gene', icon: '🧬', name: '명문가의 혈통', desc: '태어나는 아이 잠재력 +2', cost: [55, 155, 350, 700] },
+  { id: 'doctor', icon: '🩺', name: '가문 주치의', desc: '해마다 가족 모두 건강 +1', cost: [40, 105, 225, 455] },
+  { id: 'limit', icon: '🔥', name: '한계 돌파 수련', desc: '가주 능력치 한도(잠재력) +3 · 대가: 수련할 때마다 건강 −10, 행복 −10', cost: [210, 490, 980, 1820, 3150] },
+  { id: 'shrine', icon: '🏯', name: '사당 보수 (반복)', desc: '명성 +12', cost: [85], repeat: (s) => ((s.fame += 12), '사당 기와를 새로 얹었다. 명성 +12') },
+  { id: 'feast', icon: '🎎', name: '문중 잔치 (반복)', desc: '가족 모두 행복 +10', cost: [65], repeat: (s) => { for (const p of famAlive(s)) p.happiness = Math.min(100, p.happiness + 10); return '온 문중이 모여 잔치를 벌였다. 가족 행복 +10'; } },
+  { id: 'scholar', icon: '📜', name: '가문 장학금 (반복)', desc: '학생 자녀 모두 성적 +8', cost: [75], repeat: (s) => { for (const p of famAlive(s)) if (p.study !== undefined && s.year - p.birthYear < 25) p.study = Math.min(100, p.study + 8); return '문중 장학금을 풀었다. 아이들 성적 +8'; } },
 ];
 export const perkLv = (s: GameState, id: string) => s.perks?.[id] ?? 0;
 /** 지금 사려면 얼마인가 (없으면 최고 단계) */

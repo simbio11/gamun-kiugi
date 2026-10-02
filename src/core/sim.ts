@@ -28,7 +28,7 @@ import { EVENTS, RANDOM_EVENTS } from './registry';
 import { eraYear } from './era';
 import { rivalYear } from './rival';
 import { careerYear, ministerLeaves, presidentLeaves } from './career';
-import { achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
+import { GLORY_SCALE, achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
 import { cardCapBonus, cardYear } from './cards';
 import { scandalYear } from './scandal';
@@ -52,6 +52,7 @@ import { hiddenYear } from './hidden';
 import { inlawYear, kinDrift } from './inlaws';
 import { superHiddenYear } from './super-hidden';
 import { gateYear } from './super-gates';
+import { casinoYear } from './casino';
 import { commEvent } from './devices';
 import { pathYear } from './hidden-paths';
 import { photoYear } from './photos';
@@ -140,7 +141,7 @@ export function migrate(s: GameState): GameState {
   s.achievements ??= [];
   // 보상 시스템 이전 저장: 이미 이룬 업적만큼 명예를 채워 준다 (팝업 없이)
   if (s.gloryTotal === undefined) {
-    const pts = { common: 5, rare: 12, epic: 30, legend: 80 } as const;
+    const pts = { common: 5, rare: 12, epic: 30, legend: 80 } as const; // 옛 눈금 (아래 v4 이전에서 다시 줄인다)
     const t = s.achievements.reduce((sum, id) => {
       const r = ACHIEVEMENTS[id] ? achvRarity(id, ACHIEVEMENTS[id].cat) : undefined;
       return sum + (r ? pts[r] : 0);
@@ -177,7 +178,12 @@ export function migrate(s: GameState): GameState {
       s.missions = [];
       initMissions(s);
     }
-    s.version = 3;
+    (s as { version: number }).version = 3;
+  }
+  if ((s.version as number) < 4) {
+    // 명예 배점이 절반으로 줄었다 (rewards.ts GLORY_SCALE): 누적 명예도 같은 눈금으로 맞춘다. 쓸 수 있는 명예(✦)는 그대로.
+    s.gloryTotal = Math.round((s.gloryTotal ?? 0) * GLORY_SCALE);
+    s.version = 4;
   }
   foldFamilyPot(s);
   if (!s.listings) {
@@ -209,7 +215,7 @@ export function newGame(o: NewGameOpts): GameState {
   const hist = o.era === 'history';
   const START_YEAR = hist ? HIST_START : BASE_START;
   const s: GameState = {
-    version: 3,
+    version: 4,
     rng: seed,
     seed,
     year: START_YEAR,
@@ -477,6 +483,7 @@ export function simulateYear(s: GameState): void {
   for (const m of cardYear(s)) log(s, m, 'life');
   for (const m of hiddenYear(s)) log(s, m, 'life');
   gateYear(s);
+  for (const m of casinoYear(s)) log(s, m, 'life');
   pathYear(s);
   photoYear(s);
   relicYear(s);

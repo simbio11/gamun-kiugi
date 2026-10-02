@@ -347,6 +347,8 @@ export function randomTraits(r: RngHolder, base: string[] = []): string[] {
     addTrait(out, rare);
   }
   if (chance(r, 0.01)) addTrait(out, 'blood_thirst'); // 흡혈 적성 1%
+  if (chance(r, 0.02)) addTrait(out, 'keen_nose'); // 개코 2% (후각 예민형 — 조향사 지원자 중에서도 드물다)
+  if (chance(r, 0.015)) addTrait(out, 'chess_prodigy'); // 체스 신동 1.5% (성별은 루트에서 본다)
   const n = pick(r, [0, 1, 1, 1, 2, 2]);
   for (let i = 0; i < n; i++) addTrait(out, pick(r, TRAIT_IDS));
   return out.slice(0, 3);

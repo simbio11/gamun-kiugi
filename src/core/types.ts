@@ -215,7 +215,7 @@ export interface Mission {
 export type MarketKey = 'apt_seoul' | 'apt_local' | 'land' | 'building' | 'stock' | 'coin' | 'art';
 
 export interface GameState {
-  version: 3;
+  version: 4;
   rng: number;
   seed: number;
   year: number;

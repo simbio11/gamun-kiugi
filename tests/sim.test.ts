@@ -69,7 +69,7 @@ describe('시뮬레이션', () => {
     delete s.policy.taxAdvisor;
     for (const p of Object.values(s.people) as any[]) delete p.genes.face;
     const m = migrate(JSON.parse(JSON.stringify(s)));
-    expect(m.version).toBe(3);
+    expect(m.version).toBe(4);
     expect(m.market.coin).toBe(100);
     for (const p of Object.values(m.people)) expect(p.genes.face).toBeTypeOf('number');
     for (let i = 0; i < 5; i++) {
