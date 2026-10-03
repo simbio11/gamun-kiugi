@@ -2206,3 +2206,42 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 .obit b { font-size: 13px; line-height: 1.45; }
 .obit small { color: var(--muted); }
 .obit .mini { align-self: flex-start; }
+
+/* ── 한 손 쓸기: 끄는 동안 가장자리에 다음 탭 이름 ── */
+.swipe-hint { position: fixed; top: 50%; left: 8px; z-index: 40; padding: 8px 12px; transform: translate(calc((var(--p, 0) - 1) * 24px), -50%) scale(calc(.85 + var(--p, 0) * .15)); opacity: calc(.25 + var(--p, 0) * .75); background: var(--panel); color: var(--ink); border: 2px solid var(--line); border-radius: 999px; font-size: 13px; pointer-events: none; box-shadow: 0 3px 0 rgba(0,0,0,.35); transition: background-color .12s, color .12s; }
+.swipe-hint.right { left: auto; right: 8px; transform: translate(calc((1 - var(--p, 0)) * 24px), -50%) scale(calc(.85 + var(--p, 0) * .15)); }
+.swipe-hint.armed { background: var(--gold); color: var(--ink); border-color: var(--gold-hi); }
+
+/* ── 전체 화면 페이지: 카드 컬렉션 · 지난 가문 기록실 ── */
+.fullpage { position: fixed; inset: 0; z-index: 60; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); color: var(--panel); padding: 0 12px 32px; animation: fp-in .28s var(--ease, ease-out) both; }
+@keyframes fp-in { from { transform: translateX(24px); opacity: 0; } }
+.calm .fullpage { animation: none; }
+.fp-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; margin: 0 -12px; padding: 10px 12px; background: var(--bg2); box-shadow: var(--drop); }
+.fp-head b { flex: 1; font-size: 16px; }
+.fp-head small { color: var(--sand); }
+.coll-bar { height: 8px; margin: 10px 0 6px; background: var(--bg2); border: 2px solid var(--line); }
+.coll-bar i { display: block; height: 100%; background: var(--gold); transition: width .4s; }
+.coll-chips { position: sticky; top: 50px; z-index: 1; display: flex; gap: 6px; overflow-x: auto; padding: 6px 0; background: var(--bg); scrollbar-width: none; }
+.coll-chips button { flex: none; padding: 6px 10px; border: 2px solid var(--line); background: var(--panel2); color: var(--ink); font: inherit; font-size: 13px; }
+.coll-chips button.on { background: var(--gold); }
+.coll-chips small { color: var(--muted); }
+.coll-h { margin: 16px 0 8px; font-size: 15px; color: var(--cream); }
+.coll-h small { color: var(--sand); font-weight: normal; }
+.coll-page .cdex { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
+.coll-page .dx small { color: var(--sand); opacity: 1; }
+.coll-page .dx:active { transform: scale(.94); }
+.coll-detail { text-align: center; }
+.coll-detail .hcard { margin: 0 auto 10px; }
+.coll-detail p { margin: 6px 0; }
+.arch { color: var(--ink); }
+.arch-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.arch-top small { color: var(--muted); }
+.arch-stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0; font-size: 13px; }
+.arch-heads { margin: 4px 0 6px; padding-left: 20px; font-size: 13px; line-height: 1.5; }
+.lg-parts { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.ancestor-card { display: flex; gap: 10px; align-items: center; margin: 6px 0 10px; padding: 8px; border: 2px solid var(--line); background: var(--panel2); }
+.ancestor-card .anc-i { font-size: 28px; }
+.ancestor-card small { display: block; color: var(--muted); }
+.perk.perma { background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.perk.locked { opacity: .6; }
+.slot.auto { background: color-mix(in srgb, var(--gold) 18%, transparent); }

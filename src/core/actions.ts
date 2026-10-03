@@ -1,5 +1,5 @@
 import { selfBoss } from './boss';
-import { canHop, rankWord, tryPromote } from './rank';
+import { canHop, rankWord, seatOdds, tryPromote } from './rank';
 import { isStudent } from './path';
 // 주도적 행동: 턴을 넘기기 전에 대시보드에서 직접 하는 일. 해마다 행동력 3.
 // (갑작스러운 사건·선택형 이벤트는 턴을 넘길 때 일어난다)
@@ -71,7 +71,7 @@ export function stageOf(s: GameState, p: Person): Stage {
 
 /** 생활 수준에 따른 한 해 행동력: 검소 2 · 보통 3 · 호화 4 */
 export function apMax(s: GameState): number {
-  return AP_PER_YEAR + ({ frugal: -1, normal: 0, lux: 1 } as const)[s.policy.living] + vehicleAP(s) + bonusAP(s) + (Object.values(s.people).some((p) => p.job === 'president' && p.deathYear === undefined) ? 1 : 0);
+  return AP_PER_YEAR + ({ frugal: -1, normal: 0, lux: 1 } as const)[s.policy.living] + vehicleAP(s) + bonusAP(s) + (Object.values(s.people).some((p) => p.job === 'president' && p.deathYear === undefined) ? 1 : 0) + (s.perma?.includes('young_fire') && age(s, h(s)) >= 20 && age(s, h(s)) < 40 ? 1 : 0); // 💠 젊은 날의 열정
 }
 
 export interface ActionDef {
@@ -1334,7 +1334,7 @@ const STAGE_ACTIONS: ActionDef[] = [
       const t = rollTier(s, p, { stat: 'hp', bonus: hasTrait(p, 'diligent') ? 0.08 : 0 });
       let promo = '';
       const j = JOBS[p.job];
-      if (j.kind === 'salary' && p.jobLevel < j.maxLevel && chance(s, { great: 0.45, good: 0.15, meh: 0.05, bad: 0 }[t]) && tryPromote(s.year, p, 1)) {
+      if (j.kind === 'salary' && p.jobLevel < j.maxLevel && chance(s, { great: 0.45, good: 0.15, meh: 0.05, bad: 0 }[t] * (seatOdds(p))) && tryPromote(s.year, p, 1)) {
         promo = `\n→ ${rankWord(p.job).icon} ${jobTitle(p)}(으)로 ${rankWord(p.job).verb}!`;
       }
       const hp = -int(s, 1, t === 'bad' ? 5 : 2);

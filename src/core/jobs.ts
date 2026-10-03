@@ -257,7 +257,7 @@ job('announcer', '아나운서', 'media', 'salary', 4500, 1500, 4, { fame: 2.5, 
 
 // ── 스포츠 ──
 job('athlete', '운동선수', 'sport', 'athlete', 3000, 4000, 5, { fame: 2, color: '#2f7d4a', retireAge: 0, risk: 0.06, titles: ['신인', '1군', '주전', '에이스', '국가대표', '레전드'], entry: special('프로 입단 테스트', 'sport') });
-job('gamer', '프로게이머', 'sport', 'creator', 0, 0, 5, { fame: 1, color: '#3a3a8c', retireAge: 0, titles: ['연습생', '2군', '1군', '주전', '국가대표', '월드 챔피언'], creator: { incomes: [0, 2000, 5000, 12000, 30000, 60000], stat: 'int', talent: 'athlete', base: 0.05, div: 900 }, entry: special('입단 테스트 (24세 이하)', 'sport') });
+job('gamer', '프로게이머', 'sport', 'creator', 0, 0, 5, { fame: 1, color: '#3a3a8c', retireAge: 0, titles: ['연습생', '2군', '1군', '주전', '국가대표', '월드 챔피언'], creator: { incomes: [0, 2000, 5000, 12000, 30000, 60000], stat: 'int', talent: 'athlete', base: 0.22, div: 500 }, entry: special('입단 테스트 (24세 이하)', 'sport') });
 job('trainer', '트레이너', 'sport', 'salary', 2600, 900, 4, { color: '#2a8a5a', retireAge: 60, promote: 0.12, stats: { str: 0.6, cha: 0.4 }, titles: ['트레이너', '팀장', 'PT 원장', '연예인 트레이너', '피트니스 체인'], entry: hire(45, 'sport', { cost: 300, needNote: '생활체육지도사', text: 'PT 회원을 모으러 헬스장에 나갔다.' }) });
 job('coach', '코치', 'sport', 'salary', 3500, 1500, 4, { fame: 1, color: '#2a6a3a', retireAge: 65, promote: 0.1, stats: { str: 0.3, mor: 0.4, cha: 0.3 }, titles: ['코치', '수석코치', '감독', '명감독', '국가대표 감독'], entry: special('선수 은퇴 후', 'sport') });
 job('chess_player', '프로 체스 선수', 'sport', 'athlete', 3800, 3200, 5, { fame: 3, color: '#2b3a55', retireAge: 0, titles: ['신인 기사', '국내 마스터', '인터내셔널 마스터', '국가대표', '세계 랭커', '전설의 기사'], entry: special('체스 신동 고유 루트', 'study') });

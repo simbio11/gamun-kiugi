@@ -397,7 +397,9 @@ const affair: LifeDef = {
 
 /** 아기 탄생 (쌍둥이 가능). 직계면 이름 짓기 이벤트 */
 export function deliver(s: GameState, dad: Person, mom: Person, surname: string, twinP: number, name = true): Person[] {
-  const n = chance(s, twinP) ? 2 : 1;
+  // 💠 쌍둥이 내력: 직계 아이는 쌍둥이 확률 10%
+  const twin = s.perma?.includes('twin_line') && (!dad.inLaw || !mom.inLaw) ? Math.max(twinP, 0.1) : twinP;
+  const n = chance(s, twin) ? 2 : 1;
   const out: Person[] = [];
   for (let i = 0; i < n; i++) {
     const baby = inherit(s, dad, mom, surname);

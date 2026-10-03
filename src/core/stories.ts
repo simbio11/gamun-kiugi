@@ -1,6 +1,7 @@
 // 일상 이야기: 데이터로 쓰는 작은 이벤트들. 나이대별로 가족 누구에게나 일어난다.
 // 효과(Eff)는 그 인물에게 적용. roll 이 있으면 능력치 판정으로 결과가 갈린다. later 로 후폭풍 예약 가능.
 
+import { seatOdds, tryPromote } from './rank';
 import { HIST_STORIES, inHistory } from './histpack';
 import { DEVICE_STORIES, latest, PCS, PHONES } from './devices';
 import { ERA_STORIES } from './stories-era';
@@ -173,7 +174,11 @@ function apply(x: Ctx, e: Eff | undefined) {
     if (g) p.flags = [...p.flags.filter((f) => f !== g && f !== 'repeat_year'), 'grad:' + (Number(g.slice(5)) + 1)];
   }
   if (e.mark) for (const [k, n] of Object.entries(e.mark)) mark(p, k, n);
-  if (e.promo && JOBS[p.job]) p.jobLevel = clamp(p.jobLevel + e.promo, 0, JOBS[p.job].maxLevel);
+  // 승진도 승진 문(rank.ts)을 지난다: 임명직(대법관·검찰총장)·맨 꼭대기·승진 연한은 이야기 하나로 건너뛸 수 없다
+  if (e.promo && JOBS[p.job]) {
+    if (e.promo < 0) p.jobLevel = clamp(p.jobLevel + e.promo, 0, JOBS[p.job].maxLevel);
+    else for (let i = 0; i < e.promo; i++) if (!(chance(x.s, seatOdds(p)) && tryPromote(x.s.year, p, 1))) break;
+  }
   if (e.later && chance(x.s, e.later[0])) schedule(x.s, int(x.s, e.later[1], e.later[2]), e.later[3], p.id);
 }
 

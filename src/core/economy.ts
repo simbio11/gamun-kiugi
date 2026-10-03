@@ -1,6 +1,6 @@
 import { cardPassive } from './cards';
 import { chance, normal, pick } from './rng';
-import { appointedOnly, minYears, rankLine } from './rank';
+import { appointedOnly, minYears, rankLine, seatOdds } from './rank';
 import { ASSESS_RATIO, ASSET_NAMES, CREATORS, EDU_COST, JOBS, TALENTS } from './data';
 import { mark, markOf, parentsOf } from './people';
 import { addFlag, age, alive, check, clamp, hasFlag, discoverTalent, fullName, hasTalent, hasTrait, head, householder, isMainline, livingMainlineMinors } from './people';
@@ -269,11 +269,10 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
       // 50세 넘어 그 아래 자리에서 5년 이상 버텨야 하고, 그마저도 자리 하나를 두고 다투니 확률이 절반
       const toTop = p.jobLevel + 1 === j.maxLevel && j.maxLevel >= 4;
       const topOk = !toTop || (age(s, p) >= 50 && levelYears(s, p, false) >= 5);
-      if (p.jobLevel < j.maxLevel && p.jobLevel >= ladderTop && !intoOpen && topOk && !appointedOnly(p.job, p.jobLevel) && levelYears(s, p, false) >= minYears(p.jobLevel, j.maxLevel, p.job) - (hasFlag(p, 'hanahoe') ? 1 : 0) && chance(s, (j.promote ?? 0.1) * workBoost * diligent * (hasFlag(p, 'hanahoe') ? 1.8 : 1) * (0.5 + sc / 100) * (toTop ? 0.45 : p.jobLevel < j.maxLevel / 2 ? 2.2 : 1))) {
+      if (p.jobLevel < j.maxLevel && p.jobLevel >= ladderTop && !intoOpen && topOk && p.job !== 'professor' && !appointedOnly(p.job, p.jobLevel) && levelYears(s, p, false) >= minYears(p.jobLevel, j.maxLevel, p.job) - (hasFlag(p, 'hanahoe') ? 1 : 0) && chance(s, (j.promote ?? 0.1) * workBoost * diligent * (hasFlag(p, 'hanahoe') ? 1.8 : 1) * (0.5 + sc / 100) * (toTop ? 0.3 : p.jobLevel < j.maxLevel / 2 ? 2.2 : seatOdds(p)))) {
         p.jobLevel++;
         msg = rankLine(p, name, jobTitle(p));
         p.happiness = clamp(p.happiness + 6, 0, 100);
-        if (p.job === 'professor') s.fame += 2;
       }
       // 개원한 곳도 망할 수 있다
       if (d?.open !== undefined && p.jobLevel >= d.open && chance(s, 0.02)) {
@@ -313,10 +312,15 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
       const mult = clamp(normal(s, 0.95 + skill / 90, 0.4), p.jobLevel ? 0.25 : -0.4, 2.6);
       const income = Math.round(LV[p.jobLevel] * mult * wageIndex(s.year));
       let msg: string | undefined;
-      if (roll > 26 && p.jobLevel < j.maxLevel) {
+      // 한 단계 클수록 다음 단계는 더 어렵고(문턱 +10), 덩치가 클수록 경기에 크게 흔들린다
+      // (중소벤처기업부: 창업기업 5년 생존율 약 34%, 중견기업까지 크는 곳은 1% 남짓)
+      if (roll > 26 + p.jobLevel * 10 && p.jobLevel < j.maxLevel) {
         p.jobLevel++;
         s.fame += p.jobLevel * 0.5;
         msg = `🚀 ${name}의 회사가 ${jobTitle(p)}(으)로 성장했다!`;
+      } else if (p.jobLevel >= 2 && roll < -12 + p.jobLevel * 6 && chance(s, 0.5)) {
+        p.jobLevel--;
+        msg = `${name}의 회사가 경기 한파에 몸집을 줄였다 (${jobTitle(p)})`;
       } else if (roll < -30) {
         if (p.jobLevel === 0) {
           p.job = 'none';
@@ -335,14 +339,16 @@ export function workYear(s: GameState, p: Person): { income: number; msg?: strin
       const c = CREATORS[p.job]!;
       const invest = Number(p.flags.find((f) => f.startsWith('invest:'))?.slice(7) ?? 0);
       const tal = hasTalent(p, c.talent) ? 0.07 : 0;
-      const up = (c.base + a[c.stat] / c.div + tal + invest * 0.012 + Math.min(0.04, p.jobYears * 0.004)) * Math.pow(0.8, p.jobLevel);
+      const up = (c.base + a[c.stat] / c.div + tal + invest * 0.012 + Math.min(0.05, p.jobYears * 0.005)) * Math.pow(0.84, p.jobLevel);
+      // 지난해 제 일(직업 행동)을 꾸준히 했으면 인기가 쉽게 식지 않는다
+      const worked = (s.storySeen?.['ja:' + p.id] ?? -99) >= s.year - 1;
       let msg: string | undefined;
       if (p.jobLevel < j.maxLevel && chance(s, up)) {
         p.jobLevel++;
         s.fame += p.jobLevel;
         msg = `🌟 ${name} ${jobTitle(p)} 달성!`;
         if (tal && discoverTalent(p, c.talent)) msg += ` [${TALENTS[c.talent].name}] 재능이 드러났다`;
-      } else if (p.jobLevel > 0 && chance(s, 0.09)) {
+      } else if (p.jobLevel > 0 && chance(s, worked ? 0.03 : 0.07)) {
         p.jobLevel--;
         msg = `${name} 인기가 식었다 (${jobTitle(p)})`;
       }

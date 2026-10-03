@@ -26,4 +26,16 @@ describe('계정 API', () => {
     expect((b.body.data as { bank: { points: number } }).bank.points).toBe(42);
     expect((await call(env, 'me', 'GET', undefined, 'f'.repeat(64))).status).toBe(401);
   });
+  it('큰 기록(blob): 계정별로 따로, 이름 검사, 지우기', async () => {
+    const env = { GAMUN_KV: kv() };
+    const a = String((await call(env, 'signup', 'POST', { user: 'aaa', pass: 'pass1234' })).body.token);
+    const b = String((await call(env, 'signup', 'POST', { user: 'bbb', pass: 'pass1234' })).body.token);
+    expect((await call(env, 'blob/fam-1', 'PUT', { data: 'gz:abc' }, a)).status).toBe(200);
+    expect((await call(env, 'blob/fam-1', 'GET', undefined, a)).body.data).toBe('gz:abc');
+    expect((await call(env, 'blob/fam-1', 'GET', undefined, b)).body.data).toBe(null);
+    expect((await call(env, 'blob/../u:aaa', 'GET', undefined, a)).status).toBe(400);
+    expect((await call(env, 'blob/fam-1', 'GET')).status).toBe(401);
+    await call(env, 'blob/fam-1', 'DELETE', undefined, a);
+    expect((await call(env, 'blob/fam-1', 'GET', undefined, a)).body.data).toBe(null);
+  });
 });

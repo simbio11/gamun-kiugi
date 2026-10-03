@@ -2,7 +2,7 @@
 //  · 서버(Cloudflare Pages Functions + KV, functions/api)가 있으면 ☁ 클라우드 계정 — 어느 기기에서든 같은 계정.
 //  · 서버가 없거나(GitHub Pages 미러·KV 미연결) 연결이 안 되면 📱 이 기기 계정 — 같은 브라우저에서만.
 //  · 로그인하지 않아도 이 기기의 "손님 기록"에 쌓이고, 로그인하면 계정으로 합쳐진다.
-import type { GameState } from '../core/types';
+import type { Ancestor, GameState } from '../core/types';
 
 export interface LegacyBank {
   points: number;
@@ -21,7 +21,26 @@ export interface Collected {
 export interface CloudSave {
   label: string;
   at: number;
-  data: string;
+  /** 예전 저장: 게임을 그대로 담았다. 지금은 큰 기록(blob) 'save-칸' 에 따로 둔다 */
+  data?: string;
+  blob?: string;
+}
+/** 📚 지난 가문 기록 (요약). 가계도·연대기가 담긴 게임 전체는 큰 기록 'fam-id' 에 */
+export interface FamilyArchive {
+  id: string;
+  family: string;
+  era?: string;
+  from: number;
+  to: number;
+  gens: number;
+  score: number;
+  legacy: number;
+  reason: string;
+  /** 대대 가주: "1대 김철수 (1955~2031) · 대기업 사장" */
+  heads: string[];
+  cards: number;
+  at: number;
+  voluntary?: boolean;
 }
 export interface Profile {
   bank: LegacyBank;
@@ -30,6 +49,12 @@ export interface Profile {
   /** 끝난 가문 수 · 최고 점수 */
   runs: number;
   best: number;
+  /** 지난 가문들 (최근 30개) */
+  archives: FamilyArchive[];
+  /** 💠 가문 내력 (영구로 산 것) */
+  perma: string[];
+  /** 🪦 다음 가문에 내려갈 조상 카드 */
+  ancestor?: Ancestor;
 }
 export interface Account {
   user?: string;
@@ -42,7 +67,7 @@ const ACC_KEY = 'gamun-kiugi-account';
 const PROFILE_KEY = (who: string) => `gamun-kiugi-profile:${who}`;
 const LOCAL_USERS = 'gamun-kiugi-local-users';
 
-const empty = (): Profile => ({ bank: { points: 0, cart: {} }, collection: {}, saves: {}, runs: 0, best: 0 });
+const empty = (): Profile => ({ bank: { points: 0, cart: {} }, collection: {}, saves: {}, runs: 0, best: 0, archives: [], perma: [] });
 function read<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -72,6 +97,9 @@ function normalize(p: Partial<Profile> | null | undefined): Profile {
     saves: p.saves && typeof p.saves === 'object' ? p.saves : {},
     runs: Number(p.runs) || 0,
     best: Number(p.best) || 0,
+    archives: Array.isArray(p.archives) ? p.archives : [],
+    perma: Array.isArray(p.perma) ? p.perma : [],
+    ancestor: p.ancestor && typeof p.ancestor === 'object' ? p.ancestor : undefined,
   };
 }
 
@@ -119,6 +147,10 @@ function merge(a: Profile, b: Profile): Profile {
   for (const [k, s] of Object.entries(b.saves)) if (!out.saves[k] || out.saves[k].at < s.at) out.saves[k] = s;
   out.runs = a.runs + b.runs;
   out.best = Math.max(a.best, b.best);
+  const seen = new Set(out.archives.map((x) => x.id));
+  out.archives = [...out.archives, ...b.archives.filter((x) => !seen.has(x.id))].sort((x, y) => y.at - x.at).slice(0, ARCHIVE_MAX);
+  out.perma = [...new Set([...a.perma, ...b.perma])];
+  out.ancestor = a.ancestor ?? b.ancestor;
   return out;
 }
 
@@ -255,16 +287,110 @@ export function recordCards(g: GameState, nameOf: (personId: string) => string):
   return changed;
 }
 
-export function putSave(slot: string, label: string, g: GameState): boolean {
+// ───────── 큰 기록 (blob): 저장 칸의 게임 · 지난 가문의 가계도·연대기 ─────────
+//  계정 요약(유산·컬렉션·목록)과 따로 둔다 — 요약은 작게 유지해야 로그인·동기화가 빠르다.
+//  gzip 으로 줄여(보통 1/8~1/12) base64 로 담는다. 이 기기에도 같이 두고, ☁ 계정이면 서버에도 올린다.
+export const ARCHIVE_MAX = 30;
+const BLOB_KEY = (name: string) => `gamun-kiugi-blob:${who()}:${name}`;
+async function pack(text: string): Promise<string> {
+  if (typeof CompressionStream === 'undefined') return 'raw:' + text;
+  const buf = await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+  let bin = '';
+  const u8 = new Uint8Array(buf);
+  for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode(...u8.subarray(i, i + 0x8000));
+  return 'gz:' + btoa(bin);
+}
+async function unpack(v: string): Promise<string> {
+  if (v.startsWith('raw:')) return v.slice(4);
+  if (!v.startsWith('gz:')) return v;
+  const bin = atob(v.slice(3));
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+/** 큰 기록 저장. 이 기기 저장이 꽉 차도 ☁ 계정이면 서버에는 올라간다 */
+export async function putBlob(name: string, text: string): Promise<boolean> {
+  const v = await pack(text);
+  const local = write(BLOB_KEY(name), v);
+  if (account.mode === 'cloud' && account.token) {
+    try {
+      const r = await call('blob/' + name, { method: 'PUT', body: JSON.stringify({ data: v }) });
+      return r.status === 200 || local;
+    } catch {
+      return local;
+    }
+  }
+  return local;
+}
+export async function getBlob(name: string): Promise<string | undefined> {
+  let v = read<string | null>(BLOB_KEY(name), null);
+  if (!v && account.mode === 'cloud' && account.token) {
+    try {
+      const r = await call('blob/' + name);
+      if (typeof r.body.data === 'string') v = r.body.data;
+    } catch {
+      /* 오프라인 */
+    }
+  }
+  return v ? unpack(v) : undefined;
+}
+export function delBlob(name: string) {
+  try {
+    localStorage.removeItem(BLOB_KEY(name));
+  } catch {
+    /* noop */
+  }
+  if (account.mode === 'cloud' && account.token) void call('blob/' + name, { method: 'DELETE' }).catch(() => undefined);
+}
+
+/** 가문이 끝나면: 요약은 목록에, 게임 전체(가계도·연대기)는 큰 기록으로 */
+export async function archiveFamily(meta: FamilyArchive, g: GameState): Promise<void> {
   const p = profile();
-  p.saves[slot] = { label, at: Date.now(), data: JSON.stringify(g) };
-  const size = JSON.stringify(p).length;
-  if (account.mode === 'cloud' && size > 880_000) return false;
+  if (p.archives.some((x) => x.id === meta.id)) return;
+  p.archives = [meta, ...p.archives];
+  for (const old of p.archives.slice(ARCHIVE_MAX)) delBlob('fam-' + old.id);
+  p.archives = p.archives.slice(0, ARCHIVE_MAX);
+  saveProfile(p);
+  await putBlob('fam-' + meta.id, JSON.stringify(g));
+}
+export async function loadArchive(id: string): Promise<GameState | undefined> {
+  const t = await getBlob('fam-' + id);
+  return t ? (JSON.parse(t) as GameState) : undefined;
+}
+export function deleteArchive(id: string) {
+  const p = profile();
+  p.archives = p.archives.filter((x) => x.id !== id);
+  saveProfile(p);
+  delBlob('fam-' + id);
+}
+
+export async function putSave(slot: string, label: string, g: GameState): Promise<boolean> {
+  const name = 'save-' + slot.toLowerCase();
+  const ok = await putBlob(name, JSON.stringify(g));
+  if (!ok) return false;
+  const p = profile();
+  p.saves[slot] = { label, at: Date.now(), blob: name };
   saveProfile(p);
   return true;
 }
+export async function getSave(slot: string): Promise<string | undefined> {
+  const cs = profile().saves[slot];
+  if (!cs) return undefined;
+  return cs.data ?? (cs.blob ? getBlob(cs.blob) : undefined);
+}
 export function delSave(slot: string) {
   const p = profile();
+  const cs = p.saves[slot];
   delete p.saves[slot];
   saveProfile(p);
+  if (cs?.blob) delBlob(cs.blob);
+}
+/** ☁ 자동 저장: 로그인해 있으면 지금 가문을 계정의 '자동' 칸에 (너무 자주는 말고) */
+let lastAuto = 0;
+export function autoCloudSave(label: string, g: GameState, force = false) {
+  if (!account.user) return;
+  const now = Date.now();
+  if (!force && now - lastAuto < 20_000) return;
+  lastAuto = now;
+  void putSave('auto', label, g);
 }

@@ -7,6 +7,7 @@ import { fmt, getFatigue, grow, jitter, rollTier, stat, TIER_MARK, type Delta, t
 import { clamp, head, mark } from './people';
 import { formatMoney, jobTitle } from './economy';
 import { sideJobOf } from './tracks';
+import { seatOdds } from './rank';
 import type { GameState, Person, StatKey } from './types';
 import { JA1 } from './job-acts-1';
 import { JA2 } from './job-acts-2';
@@ -114,7 +115,9 @@ function runJa(s: GameState, p: Person, job: string, a: JA, boost: number): stri
   out.push(['행복', hp]);
   let tail = '';
   const j = JOBS[job];
-  if (kind === 'promo' && job === p.job && j && p.jobLevel < j.maxLevel && ((t === 'great' && chance(s, 0.45 * boost)) || (t === 'good' && chance(s, 0.08)))) {
+  if (job === p.job) (s.storySeen ??= {})['ja:' + p.id] = s.year; // 올해 제 일을 열심히 했다 (창작 직업 인기 유지)
+  const top = seatOdds(p); // 꼭대기 한 자리는 평정만으로 잘 안 열린다
+  if (kind === 'promo' && job === p.job && j && p.jobLevel < j.maxLevel && ((t === 'great' && chance(s, 0.45 * boost * top)) || (t === 'good' && chance(s, 0.08 * top)))) {
     // 평정이 좋아도 승진 연한은 채워야 한다 (rank.ts STEPS)
     if (tryPromote(s.year, p, 1)) tail += `\n→ ${jobTitle(p)}(으)로 승진!`;
     else tail += `\n(평가는 좋았지만 ${jobTitle(p)} 승진 연한이 아직 남았다)`;

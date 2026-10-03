@@ -51,7 +51,7 @@ import { HONOR_JOBS, scandalLabel } from '../core/scandal';
 import { willLine, willOf } from '../core/autonomy';
 import { buyPerk, HONORS, PERKS, perkCost, perkLv, RANKS, RARITY_NAME, rankOf, type Reward } from '../core/rewards';
 import { fameNeed } from '../core/career';
-import { activeSynergies, CARD, CARD_THEME, CARDS, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
+import { activeSynergies, CARD, CARD_GROUPS, CARD_THEME, CARDS, cardGroup, cardNo, cardTitle, effText, SYN_THEME, SYNERGIES, tierOf as cardTier, type CardDef } from '../core/cards';
 import { applyTheme, type Theme as HeadTheme } from './theme';
 import { BIG_BY_ID } from '../core/big-events';
 
@@ -195,14 +195,16 @@ import {
   resolveChoice,
   sellAsset,
   simulateYear,
+  canConclude,
+  concludeFamily,
 } from '../core/sim';
 import type { Difficulty } from '../core/sim';
-import { LEGACY_BY_ID, LEGACY_ITEMS, legacyEarn } from '../core/legacy';
+import { ancestorOf, LEGACY_BY_ID, LEGACY_CAP, LEGACY_ITEMS, legacyEarn, legacyParts, PERMA_BY_ID, PERMA_ITEMS } from '../core/legacy';
 import { looksLabel, looksOf, resembleLabel } from '../core/looks';
 import { canHandOver } from '../core/handover';
 import { obituary } from '../core/obituary';
 import { shareObituary } from './obit-card';
-import { account, delSave, login, logout, profile, putSave, recordCards, refresh, saveProfile } from './account';
+import { account, archiveFamily, autoCloudSave, deleteArchive, delSave, getSave, loadArchive, login, logout, profile, putSave, recordCards, refresh, saveProfile } from './account';
 import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, MarketKey, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
 import { sceneArtURL, sceneFor, type SceneKey } from '../render/scene';
@@ -243,8 +245,16 @@ interface UIState {
   /** 업적 탭에서 펼친 목록 (카드 도감·시너지) */
   open?: Record<string, boolean>;
   confirmReset?: boolean;
-  /** 첫 화면: 계정 카드 컬렉션 펼침 */
+  /** 첫 화면: 계정 카드 컬렉션 화면 (분야 · 고른 카드) */
   collection?: boolean;
+  collGroup?: string;
+  collCard?: string;
+  /** 📚 지난 가문 기록실 */
+  archives?: boolean;
+  /** 기록실에서 연 지난 가문 (읽기 전용으로 본다) */
+  archiveView?: string;
+  /** 가문 이야기 마치기 확인 */
+  confirmEnd?: boolean;
   /** 가문이 끝난 뒤 연대기를 보는 중 (결과 창을 잠시 내린다) */
   overLog?: boolean;
   /** 행동력 남았을 때 턴 넘김 경고 모달 */
@@ -326,6 +336,7 @@ function savePrefs() {
   }
 }
 function save() {
+  if (ui.archiveView) return; // 지난 가문 기록을 보는 중엔 아무것도 저장하지 않는다
   try {
     if (ui.game) localStorage.setItem(SAVE_KEY, JSON.stringify(ui.game));
   } catch {
@@ -334,6 +345,8 @@ function save() {
   // 이 가문에서 얻은 카드는 계정 컬렉션에도 남는다 (가문이 끝나도 사라지지 않게)
   const g = ui.game;
   if (g) recordCards(g, (id) => (g.people[id] ? fullName(g.people[id]) : '?'));
+  // ☁ 로그인해 있으면 계정의 '자동' 칸에도 (다른 기기에서 이어 하기)
+  if (g && !g.gameOver) autoCloudSave(slotLabel(g), g);
 }
 // ───────── 저장 슬롯 (자동 저장과 별개로 3칸) · 저장 코드 (다른 기기로 옮기기) ─────────
 const SLOT_KEY = (i: number) => `gamun-kiugi-slot-${i}`;
@@ -442,7 +455,9 @@ export function mount(el: HTMLElement) {
   root.addEventListener('input', onInput);
   // 한 손 조작: 화면을 좌우로 쓸면 옆 탭으로 (행동 탭에선 옆 분류로)
   root.addEventListener('touchstart', swipeStart, { passive: true });
+  root.addEventListener('touchmove', swipeMove, { passive: false });
   root.addEventListener('touchend', swipeEnd, { passive: true });
+  root.addEventListener('touchcancel', () => ((swipe = null), swipeRelease(root.querySelector('.screen'))), { passive: true });
   root.addEventListener('pointermove', tilt);
   root.addEventListener('pointerdown', spinStart);
   root.addEventListener('pointermove', spinMove);
@@ -578,7 +593,7 @@ function renderInner() {
   root.innerHTML = `
     ${header(g)}
     <main class="screen">${body}</main>
-    ${g.gameOver && ui.overLog ? `<button class="next-year" data-action="over-back">🏁 가문 결과로 돌아가기</button>` : ''}
+    ${g.gameOver && ui.overLog ? `<button class="next-year" data-action="over-back">${ui.archiveView ? '📚 기록 요약으로' : '🏁 가문 결과로 돌아가기'}</button>` : ''}
     ${!g.gameOver && (ui.tab === 'tree' || ui.tab === 'act') ? `<button class="next-year" data-action="next">${g.events.length ? `이벤트 ${g.events.length}개 ▶` : `${g.year + 1}년으로 ▶${apLeft(g) ? `<small>행동력 ${apLeft(g)} 남음</small>` : ''}`}</button>` : ''}
     ${nav()}
     ${modal}
@@ -696,6 +711,8 @@ function titleScreen(): string {
     ${account.user ? cloudSaveCard(false) : ''}
     ${[1, 2, 3].some((i) => slotInfo(i)) ? `<section class="card"><h2>💾 저장한 가문</h2>${slotRows(false)}</section>` : ''}
     <p class="fine">v0.3 · 다섯 살부터 · 직업 128종 · 수능과 입시 · 인생사 · 업적 70+</p>
+    ${ui.collection ? collectionView() : ''}
+    ${ui.archives ? archiveView() : ''}
   </div>`;
 }
 
@@ -716,34 +733,83 @@ function accountCard(): string {
   return `<section class="card account">
     <div class="acc-top"><b>👤 ${esc(account.user)}</b><small>${account.mode === 'cloud' ? '☁ 계정 (어느 기기에서나)' : '📱 이 기기 계정'}</small><button class="mini" data-action="acc-logout">로그아웃</button></div>
     <div class="acc-stats"><span>🏺 유산 <b>${pf.bank.points}</b></span><span>🃏 카드 <b>${got.length}</b>/${CARDS.length}종</span><span>🏁 끝난 가문 <b>${pf.runs}</b></span>${pf.best ? `<span>🏅 최고 <b>${pf.best.toLocaleString()}</b>점</span>` : ''}</div>
-    <button class="btn wide" data-action="coll-open">${ui.collection ? '▲ 카드 컬렉션 접기' : '🃏 지금까지 모은 카드 컬렉션 보기'}</button>
-    ${ui.collection ? collectionView() : ''}
+    <div class="row2"><button class="btn" data-action="coll-open">🃏 카드 컬렉션</button><button class="btn" data-action="arch-open">📚 지난 가문 ${pf.archives.length}</button></div>
     ${msg}
   </section>`;
 }
 
-/** 🃏 계정 카드 컬렉션: 모든 가문에서 얻은 카드 (얻은 횟수·주인) */
+/** 🃏 계정 카드 컬렉션 (전체 화면): 분야별로 모아 보고, 누르면 얻는 법·효과·주인 */
 function collectionView(): string {
   const pf = profile();
+  const got = (d: CardDef) => !!pf.collection[d.id];
+  const groups = CARD_GROUPS.map((gr) => {
+    const list = CARDS.filter((d) => cardGroup(d) === gr.id);
+    return { ...gr, list, n: list.filter(got).length };
+  }).filter((gr) => gr.list.length);
+  const cur = groups.find((gr) => gr.id === ui.collGroup);
+  const total = CARDS.filter(got).length;
   const tile = (d: CardDef) => {
     const c = pf.collection[d.id];
-    return `<div class="dx ${c ? (d.hidden ? 'hid' : d.rarity) : 'locked'}"><span class="dx-c">${cardImg(d, !c, 'dx-art')}${!d.hidden ? `<i class="dx-nm">${c ? d.name : '???'}</i>` : ''}</span><small>${c ? `×${c.n} · ${esc(c.names.slice(0, 2).join(', '))}` : d.hidden ? '???' : '미획득'}</small></div>`;
+    return `<button class="dx ${c ? (d.hidden ? 'hid' : d.rarity) : 'locked'}" data-action="coll-card" data-id="${d.id}"><span class="dx-c">${cardImg(d, !c, 'dx-art')}${!d.hidden ? `<i class="dx-nm">${c ? d.name : '???'}</i>` : ''}</span><small>${c ? `×${c.n}` : d.hidden ? '???' : '미획득'}</small></button>`;
   };
-  const n1 = NORMAL_CARDS.filter((d) => pf.collection[d.id]).length;
-  const n2 = HIDDEN_CARDS.filter((d) => pf.collection[d.id]).length;
-  return `<div class="coll">
-    <h3>🃏 명예의 전당 ${n1}/${NORMAL_CARDS.length}</h3>
-    <div class="cdex">${[...NORMAL_CARDS].sort((a, b) => Number(!!pf.collection[b.id]) - Number(!!pf.collection[a.id])).map(tile).join('')}</div>
-    <h3>🌑 히든 ${n2}/${HIDDEN_CARDS.length}</h3>
-    <div class="cdex">${[...HIDDEN_CARDS].sort((a, b) => Number(!!pf.collection[b.id]) - Number(!!pf.collection[a.id])).map(tile).join('')}</div>
+  const section = (gr: (typeof groups)[number]) =>
+    `<h3 class="coll-h">${gr.icon} ${gr.name} <small>${gr.n}/${gr.list.length}</small></h3><div class="cdex">${[...gr.list].sort((a, b) => Number(got(b)) - Number(got(a))).map(tile).join('')}</div>`;
+  const sel = ui.collCard ? CARD[ui.collCard] : undefined;
+  const sc = sel ? pf.collection[sel.id] : undefined;
+  return `<div class="fullpage coll-page" data-noswipe>
+    <header class="fp-head"><button class="mini" data-action="coll-close">◀ 돌아가기</button><b>🃏 카드 컬렉션</b><small>${total}/${CARDS.length}</small></header>
+    <div class="coll-bar"><i style="width:${Math.round((total / CARDS.length) * 100)}%"></i></div>
+    <div class="cat-chips coll-chips"><button class="${!cur ? 'on' : ''}" data-action="coll-group" data-v="">전체</button>${groups.map((gr) => `<button class="${cur?.id === gr.id ? 'on' : ''}" data-action="coll-group" data-v="${gr.id}">${gr.icon} ${gr.name} <small>${gr.n}/${gr.list.length}</small></button>`).join('')}</div>
+    ${cur ? section(cur) : groups.map(section).join('')}
     <p class="fine">가문이 끝나도 카드는 계정에 남는다. 같은 가문의 같은 사람은 한 번만 센다.</p>
+    ${
+      sel
+        ? `<div class="modal" data-action="coll-card" data-id=""><div class="sheet coll-detail" data-stop>
+            <div class="hcard ${sc ? (sel.hidden ? 'hidden-hc' : sel.rarity) : 'locked'}">${cardImg(sel, !sc, 'hc-art')}<div class="hc-title">${sc || !sel.hidden ? esc(sel.name) : '???'}</div></div>
+            <p>${'★'.repeat(cardTier(sel))} · ${{ common: '일반', rare: '희귀', epic: '영웅', legend: '전설' }[sel.rarity]}</p>
+            <p class="fine">얻는 법: ${esc(sc || !sel.hidden ? sel.how : '??? (얻으면 알게 된다)')}</p>
+            <p class="fine">효과: ${esc(effText(sel.eff))}</p>
+            ${sc ? `<p class="fine">${sc.n}번 얻음 · ${esc(sc.names.join(', '))}</p>` : ''}
+            <button class="btn big" data-action="coll-card" data-id="">닫기</button>
+          </div></div>`
+        : ''
+    }
+  </div>`;
+}
+
+/** 📚 지난 가문 기록실 (전체 화면): 끝난 가문들 · 누르면 그 가문의 가계도·연대기를 연다 */
+function archiveView(): string {
+  const pf = profile();
+  return `<div class="fullpage arch-page" data-noswipe>
+    <header class="fp-head"><button class="mini" data-action="arch-close">◀ 돌아가기</button><b>📚 지난 가문 기록실</b><small>${pf.archives.length}</small></header>
+    ${ui.saveMsg ? `<p class="save-msg">${esc(ui.saveMsg)}</p>` : ''}
+    ${
+      pf.archives.length
+        ? pf.archives
+            .map(
+              (a) => `<section class="card arch">
+          <div class="arch-top"><b>${a.voluntary ? '📕' : '⚰'} ${esc(a.family)}씨 가문</b><small>${a.era === 'history' ? '📜 근현대사 · ' : ''}${a.from}~${a.to} · ${a.gens}대</small></div>
+          <div class="arch-stats"><span>🏅 ${a.score.toLocaleString()}점</span><span>🏺 +${a.legacy}</span><span>🃏 ${a.cards}종</span></div>
+          <ol class="arch-heads">${a.heads.slice(0, 8).map((h) => `<li>${esc(h)}</li>`).join('')}${a.heads.length > 8 ? `<li>… ${a.heads.length - 8}명 더</li>` : ''}</ol>
+          <p class="fine">${esc(a.reason)}</p>
+          <div class="row2"><button class="btn primary" data-action="arch-view" data-id="${a.id}">🌳 가계도·연대기 보기</button><button class="mini" data-action="arch-del" data-id="${a.id}">지우기</button></div>
+        </section>`,
+            )
+            .join('')
+        : `<p class="fine">아직 끝난 가문이 없다. 가문이 단절되거나 "가문 이야기 마치기"를 하면 여기에 가계도·연대기가 남는다.</p>`
+    }
   </div>`;
 }
 
 /** ☁ 계정 저장 칸 3개 (설정: 저장·불러오기·비우기 / 첫 화면: 불러오기) */
 function cloudSaveCard(inGame: boolean): string {
   const pf = profile();
-  return `<section class="card cloud-saves"><h3 class="set-h">${account.mode === 'cloud' ? '☁' : '📱'} 계정 저장 칸</h3>${['A', 'B', 'C']
+  const auto = pf.saves.auto;
+  return `<section class="card cloud-saves"><h3 class="set-h">${account.mode === 'cloud' ? '☁' : '📱'} 계정 저장 칸</h3>${
+    auto && !inGame
+      ? `<div class="slot auto"><div class="slot-i"><b>⏱ 자동</b><small>${esc(auto.label)}<br>${whenLabel(auto.at)} · 마지막으로 하던 가문</small></div><div class="slot-b"><button class="mini do" data-action="cs-load" data-v="auto">이어하기</button></div></div>`
+      : ''
+  }${['A', 'B', 'C']
     .map((k) => {
       const cs = pf.saves[k];
       return `<div class="slot ${cs ? '' : 'empty'}"><div class="slot-i"><b>칸 ${k}</b><small>${cs ? `${esc(cs.label)}<br>${whenLabel(cs.at)} 저장` : '비어 있음'}</small></div><div class="slot-b">${inGame ? `<button class="mini" data-action="cs-save" data-v="${k}">저장</button>` : ''}${cs ? `<button class="mini do" data-action="cs-load" data-v="${k}">불러오기</button>` : ''}${cs && inGame ? `<button class="mini" data-action="cs-del" data-v="${k}">비우기</button>` : ''}</div></div>`;
@@ -751,17 +817,28 @@ function cloudSaveCard(inGame: boolean): string {
     .join('')}</section>`;
 }
 
-/** 🏺 유산 상점: 지난 가문이 남긴 유산으로 다음 가문의 시작 혜택을 산다 (가문 시작 버튼을 누르면 적용되고 사라진다) */
+/** 🏺 유산 상점: 지난 가문이 남긴 유산으로 다음 가문의 시작 혜택을 산다 (가문 시작 버튼을 누르면 적용되고 사라진다) + 💠 가문 내력(영구) */
 function legacyShop(): string {
   const b = loadBank();
+  const pf = profile();
   const spent = Object.entries(b.cart).reduce((t, [id, n]) => t + (LEGACY_BY_ID[id]?.cost ?? 0) * n, 0);
-  if (!b.points && !spent) return '';
-  return `<details class="card legacy-shop" ${spent || ui.open?.legacy ? 'open' : ''}><summary>🏺 유산 상점 · 남은 유산 <b>${b.points}</b>${spent ? ` · 담은 혜택 ${spent}` : ''}</summary>
-    <p class="fine">지난 가문들이 남긴 유산으로 다음 가문의 출발을 돕는다. 담은 혜택은 <b>가문 시작</b>을 누르면 이번 가문에 적용되고 사라진다. 다시 누르면 빼서 돌려받는다.</p>
+  if (!b.points && !spent && !pf.perma.length && !pf.ancestor) return '';
+  const room = LEGACY_CAP - spent;
+  return `<details class="card legacy-shop" ${spent || ui.open?.legacy ? 'open' : ''}><summary>🏺 유산 상점 · 남은 유산 <b>${b.points}</b>${spent ? ` · 담은 혜택 ${spent}/${LEGACY_CAP}` : ''}</summary>
+    ${pf.ancestor ? `<div class="ancestor-card"><span class="anc-i">🪦</span><div><b>조상 카드: ${esc(pf.ancestor.family)}씨 ${pf.ancestor.gen}대 가주 ${esc(pf.ancestor.name)}</b><small>${pf.ancestor.born}~${pf.ancestor.died ?? ''} · ${esc(pf.ancestor.role)} · ${STAT_NAMES[pf.ancestor.stat]} ${pf.ancestor.value}<br>다음 가문 아이에게 ${STAT_NAMES[pf.ancestor.stat]}의 피가 흐른다 (잠재력 +3, 무료)</small></div></div>` : ''}
+    <h3 class="set-h">🎁 이번 가문 시작 혜택 <small>한 번에 ${LEGACY_CAP}까지</small></h3>
+    <p class="fine">담은 혜택은 <b>가문 시작</b>을 누르면 이번 가문에 적용되고 사라진다. 다시 누르면 빼서 돌려받는다.</p>
     ${LEGACY_ITEMS.map((it) => {
       const n = b.cart[it.id] ?? 0;
       const max = it.max ?? 1;
-      return `<div class="perk ${n ? 'max' : ''}"><span class="pk-i">${it.icon}</span><div class="pk-m"><b>${esc(it.name)}${n ? ` <small>×${n}</small>` : ''}</b><small>${esc(it.desc)}</small></div>${n ? `<button class="mini" data-action="legacy-undo" data-id="${it.id}">빼기</button>` : ''}<button class="mini do" data-action="legacy-buy" data-id="${it.id}" ${b.points < it.cost || n >= max ? 'disabled' : ''}>${it.cost}🏺</button></div>`;
+      const over = it.cost > room;
+      return `<div class="perk ${n ? 'max' : ''}"><span class="pk-i">${it.icon}</span><div class="pk-m"><b>${esc(it.name)}${n ? ` <small>×${n}</small>` : ''}</b><small>${esc(it.desc)}</small></div>${n ? `<button class="mini" data-action="legacy-undo" data-id="${it.id}">빼기</button>` : ''}<button class="mini do" data-action="legacy-buy" data-id="${it.id}" ${b.points < it.cost || n >= max || over ? 'disabled' : ''}>${it.cost}🏺</button></div>`;
+    }).join('')}
+    <h3 class="set-h">💠 가문 내력 <small>영구 · 앞으로의 모든 가문에</small></h3>
+    <p class="fine">비싸지만 한 번 들이면 계정에 영원히 남는다. 돈·명예가 아니라 집안의 "규칙"이 바뀐다.</p>
+    ${PERMA_ITEMS.map((it) => {
+      const own = pf.perma.includes(it.id);
+      return `<div class="perk perma ${own ? 'max' : ''} ${it.locked ? 'locked' : ''}"><span class="pk-i">${it.icon}</span><div class="pk-m"><b>${esc(it.name)}${own ? ' <small>✔ 보유</small>' : ''}${it.locked ? ' <small>🔒 준비 중</small>' : ''}</b><small>${esc(it.desc)}</small></div>${own ? '' : `<button class="mini do" data-action="perma-buy" data-id="${it.id}" ${it.locked || b.points < it.cost ? 'disabled' : ''}>${it.locked ? '🔒' : `${it.cost}🏺`}</button>`}</div>`;
     }).join('')}
   </details>`;
 }
@@ -1953,16 +2030,19 @@ function gameOverModal(g: GameState): string {
   return `
   <div class="modal">
     <div class="event">
-      <h3>가문 단절</h3>
+      <h3>${ui.archiveView ? '📚 지난 가문 기록' : g.gameOver!.voluntary ? '📕 가문 이야기 완결' : '가문 단절'}</h3>
       <p class="ev-text">${nl(g.gameOver!.reason)}</p>
       <div class="score">
         <div>${g.startYear}–${g.year}년 · ${g.generation}대</div>
         <div>업적 ${g.achievements.length}개 · 명성 ${Math.round(g.fame)}</div>
         <div class="big-num">${g.gameOver!.score.toLocaleString('ko-KR')}점</div>
-        ${g.gameOver!.legacy ? `<div>🏺 남긴 유산 <b>+${g.gameOver!.legacy}</b> · 보유 ${loadBank().points} — ${account.user ? '다음 가문을 세울 때 유산 상점에서 쓸 수 있다' : '로그인하면 유산 상점에서 쓸 수 있다 (지금 유산은 손님 기록에 보관)'}</div>` : ''}
+        ${g.gameOver!.legacy && !ui.archiveView ? `<div>🏺 남긴 유산 <b>+${g.gameOver!.legacy}</b> · 보유 ${loadBank().points} — ${account.user ? '다음 가문을 세울 때 유산 상점에서 쓸 수 있다' : '로그인하면 유산 상점에서 쓸 수 있다 (지금 유산은 손님 기록에 보관)'}</div>
+        <div class="lg-parts">${legacyParts(g).map(([l, v]) => `<span>${esc(l)} <b>+${v}</b></span>`).join('')}</div>` : ''}
+        ${!ui.archiveView && profile().ancestor ? `<div class="fine">🪦 ${esc(iga(profile().ancestor!.name))} 조상이 되어 다음 가문 아이에게 ${STAT_NAMES[profile().ancestor!.stat]}의 피를 물려준다.</div>` : ''}
+        ${!ui.archiveView ? `<div class="fine">📚 이 가문의 가계도·연대기는 ${account.user ? '계정' : '이 기기'}의 기록실에 남았다.</div>` : ''}
       </div>
-      <button class="btn" data-action="tab" data-v="log">연대기 보기</button>
-      <button class="btn primary" data-action="restart">새 가문 세우기</button>
+      <div class="row2"><button class="btn" data-action="tab" data-v="tree">가계도 보기</button><button class="btn" data-action="tab" data-v="log">연대기 보기</button></div>
+      ${ui.archiveView ? `<button class="btn big primary" data-action="arch-exit">◀ 기록실로 돌아가기</button>` : `<button class="btn big primary" data-action="restart">새 가문 세우기</button>`}
     </div>
   </div>`;
 }
@@ -2298,6 +2378,14 @@ function settingsModal(g: GameState): string {
       ${slotRows(true)}
       ${account.user ? cloudSaveCard(true) : `<p class="fine">👤 첫 화면에서 로그인하면 계정 저장 칸·유산 상점·카드 컬렉션이 생긴다 (다른 기기로 옮길 때도 로그인).</p>`}
       ${ui.saveMsg ? `<p class="save-msg">${esc(ui.saveMsg)}</p>` : ''}
+      ${
+        canConclude(g)
+          ? ui.confirmEnd
+            ? `<div class="danger"><p>📕 ${esc(g.familyName)}씨 가문의 이야기를 여기서 마칠까? 가문 점수만큼 🏺 유산을 받고(3대 이상이면 완결 보너스), 가계도·연대기는 기록실에 남는다. ${esc(fullName(h))}은(는) 조상 카드가 된다.</p>
+               <div class="row2"><button class="btn" data-action="conclude-cancel">아니, 계속할래</button><button class="btn primary" data-action="conclude">이야기 마치기</button></div></div>`
+            : `<button class="btn wide" data-action="conclude-ask">📕 가문 이야기 마치기 (유산 받기)</button>`
+          : `<p class="fine">📕 가문 이야기 마치기: 가주가 40세가 넘거나 2대부터 할 수 있다.</p>`
+      }
       ${
         ui.confirmReset
           ? `<div class="danger"><p>지금 가문을 지우고 처음부터 시작할까? 되돌릴 수 없다.</p>
@@ -2819,41 +2907,166 @@ function onClick(e: MouseEvent) {
   handle(el);
 }
 
-let swipe: { x: number; y: number; t: number } | null = null;
-function swipeStart(e: TouchEvent) {
-  const t = e.touches[0];
-  const el = e.target as HTMLElement;
-  // 가로로 스크롤되는 줄·카드·창 안에서는 쓸기를 탭 이동으로 쓰지 않는다
-  if (!t || e.touches.length > 1 || el.closest('.cv-card, .prop-row, .cat-chips, .modal, select, input, .job-tabs, [data-noswipe]')) return (swipe = null), undefined;
-  swipe = { x: t.clientX, y: t.clientY, t: e.timeStamp };
+// ─── 한 손 쓸기: 손가락을 따라 화면이 끌려오고, 놓으면 옆 탭(행동 탭에선 옆 분류)으로 미끄러진다 ───
+// 1) 처음 10px 움직인 방향으로 축을 잠근다 (세로면 그냥 스크롤, 가로면 쓸기) → 스크롤하다 탭이 넘어가는 일이 없다
+// 2) 끄는 동안 화면이 손가락을 절반쯤 따라오고, 갈 곳이 없으면 고무줄처럼 버틴다
+// 3) 화면 폭 22% 이상 끌었거나 빠르게 튕기면 넘어간다 (아니면 제자리로 튕겨 돌아온다)
+const TAB_NAME: Record<Tab, string> = { tree: '가계도', act: '행동', policy: '방침', assets: '자산', log: '연대기', achv: '업적' };
+let swipe: { x: number; y: number; t: number; axis?: 'x' | 'y'; dx: number; lastX: number; lastT: number; v: number; armed: boolean } | null = null;
+let swipeHint: HTMLElement | null = null;
+
+/** 가로로 스크롤되는 상자 안인가 (그 안에서는 상자를 스크롤해야 한다) */
+function inHScroller(el: HTMLElement | null): boolean {
+  for (let n = el; n && n !== root; n = n.parentElement) {
+    if (n.scrollWidth > n.clientWidth + 2) {
+      const ox = getComputedStyle(n).overflowX;
+      if (ox === 'auto' || ox === 'scroll') return true;
+    }
+  }
+  return false;
 }
-function swipeEnd(e: TouchEvent) {
-  const s0 = swipe;
-  swipe = null;
-  const t = e.changedTouches[0];
-  const g = ui.game;
-  if (!s0 || !t || !g || g.events.length || ui.sheet || ui.report || ui.outcome) return;
-  const dx = t.clientX - s0.x;
-  const dy = t.clientY - s0.y;
-  if (Math.abs(dx) < 70 || Math.abs(dy) > 45 || e.timeStamp - s0.t > 600) return;
-  const dir = dx < 0 ? 1 : -1;
+/** 이 방향으로 쓸면 어디로 가나 (없으면 undefined) */
+function swipeTarget(dir: 1 | -1): { kind: 'cat' | 'tab'; v: string; label: string } | undefined {
   if (ui.tab === 'act') {
     const chips = [...root.querySelectorAll<HTMLElement>('.cat-chips button')];
     const on = chips.findIndex((b) => b.classList.contains('on'));
     const nx = chips[on + dir];
-    if (nx) {
-      ui.actCat = nx.dataset.v;
-      buzz(6);
-      render();
-      return;
-    }
+    if (nx) return { kind: 'cat', v: nx.dataset.v ?? '', label: nx.textContent?.trim() ?? '' };
   }
-  const i = TAB_ORDER.indexOf(ui.tab) + dir;
-  if (i < 0 || i >= TAB_ORDER.length) return;
-  ui.tab = TAB_ORDER[i];
-  window.scrollTo(0, 0);
-  buzz(6);
-  render();
+  const t = TAB_ORDER[TAB_ORDER.indexOf(ui.tab) + dir];
+  return t ? { kind: 'tab', v: t, label: TAB_NAME[t] } : undefined;
+}
+function swipeAllowed(): boolean {
+  const g = ui.game;
+  return !!g && !g.events.length && !ui.sheet && !ui.report && !ui.outcome && !ui.collection;
+}
+function swipeStart(e: TouchEvent) {
+  const t = e.touches[0];
+  const el = e.target as HTMLElement;
+  swipe = null;
+  // 가로로 스크롤되는 줄·카드·창 안, 화면 맨 가장자리(브라우저 뒤로 가기 몸짓)에서는 쓰지 않는다
+  if (!t || e.touches.length > 1 || !swipeAllowed()) return;
+  if (t.clientX < 18 || t.clientX > window.innerWidth - 18) return;
+  if (el.closest('.cv-card, .prop-row, .cat-chips, .modal, select, input, textarea, .job-tabs, [data-noswipe]') || inHScroller(el)) return;
+  swipe = { x: t.clientX, y: t.clientY, t: e.timeStamp, dx: 0, lastX: t.clientX, lastT: e.timeStamp, v: 0, armed: false };
+}
+function swipeMove(e: TouchEvent) {
+  const sw = swipe;
+  const t = e.touches[0];
+  if (!sw || !t || e.touches.length > 1) return;
+  const dx = t.clientX - sw.x;
+  const dy = t.clientY - sw.y;
+  if (!sw.axis) {
+    if (Math.hypot(dx, dy) < 10) return;
+    sw.axis = Math.abs(dx) > Math.abs(dy) * 1.25 ? 'x' : 'y';
+    if (sw.axis === 'y') return void (swipe = null);
+  }
+  if (e.cancelable) e.preventDefault(); // 가로로 잠갔으면 페이지가 같이 흔들리지 않게
+  // 속도 (px/ms, 최근 움직임에 가중)
+  const dt = Math.max(1, e.timeStamp - sw.lastT);
+  sw.v = 0.7 * ((t.clientX - sw.lastX) / dt) + 0.3 * sw.v;
+  sw.lastX = t.clientX;
+  sw.lastT = e.timeStamp;
+  sw.dx = dx;
+  const dir = dx < 0 ? 1 : -1;
+  const target = swipeTarget(dir);
+  const scr = root.querySelector<HTMLElement>('.screen');
+  const w = window.innerWidth;
+  const pass = Math.abs(dx) > w * 0.22;
+  if (pass !== sw.armed && target) {
+    sw.armed = pass;
+    if (pass) buzz(4); // 넘어가는 문턱을 넘는 순간 톡
+  }
+  if (prefs.calm || !scr) return;
+  // 갈 곳이 없으면 고무줄 (많이 끌수록 덜 따라온다)
+  const pull = target ? dx * 0.55 : Math.sign(dx) * Math.min(40, Math.sqrt(Math.abs(dx)) * 3);
+  scr.style.transition = 'none';
+  scr.style.transform = `translate3d(${pull}px,0,0)`;
+  scr.style.opacity = String(target ? 1 - Math.min(0.35, Math.abs(dx) / (w * 1.4)) : 1);
+  // 가장자리에 "다음은 ○○" 꼬리표
+  if (target) {
+    if (!swipeHint) {
+      swipeHint = document.createElement('div');
+      swipeHint.className = 'swipe-hint';
+      root.appendChild(swipeHint);
+    }
+    swipeHint.textContent = dir > 0 ? `${target.label} ›` : `‹ ${target.label}`;
+    swipeHint.classList.toggle('right', dir > 0);
+    swipeHint.classList.toggle('armed', sw.armed);
+    swipeHint.style.setProperty('--p', String(Math.min(1, Math.abs(dx) / (w * 0.22))));
+  } else swipeHint?.remove(), (swipeHint = null);
+}
+function swipeRelease(scr: HTMLElement | null) {
+  swipeHint?.remove();
+  swipeHint = null;
+  if (!scr || !scr.style.transform) return;
+  scr.style.transition = 'transform .22s cubic-bezier(.2,.9,.3,1.2), opacity .22s ease-out';
+  scr.style.transform = '';
+  scr.style.opacity = '';
+  setTimeout(() => (scr.style.transition = ''), 240);
+}
+function swipeEnd(e: TouchEvent) {
+  const sw = swipe;
+  swipe = null;
+  const scr = root.querySelector<HTMLElement>('.screen');
+  if (!sw || sw.axis !== 'x' || !swipeAllowed()) return swipeRelease(scr);
+  const t = e.changedTouches[0];
+  const dx = t ? t.clientX - sw.x : sw.dx;
+  const w = window.innerWidth;
+  // 넘어가는 조건: 충분히 끌었거나, 짧아도 빠르게 튕겼다 (그리고 처음 쓴 방향과 마지막 속도가 같은 쪽)
+  const flick = Math.abs(sw.v) > 0.45 && Math.abs(dx) > 30 && Math.sign(sw.v) === Math.sign(dx);
+  const dir: 1 | -1 = dx < 0 ? 1 : -1;
+  const target = Math.abs(dx) > w * 0.22 || flick ? swipeTarget(dir) : undefined;
+  if (!target) return swipeRelease(scr);
+  swipeHint?.remove();
+  swipeHint = null;
+  buzz(8);
+  const go = () => {
+    if (target.kind === 'cat') ui.actCat = target.v;
+    else {
+      ui.tab = target.v as Tab;
+      window.scrollTo(0, 0);
+    }
+    render();
+    // 분류가 바뀌어도 탭처럼 옆에서 밀려 들어온다
+    if (target.kind === 'cat' && !prefs.calm) root.querySelector('.screen')?.classList.add(dir > 0 ? 'enter-r' : 'enter-l');
+  };
+  if (prefs.calm || !scr) return go();
+  // 끌던 방향으로 마저 밀려 나간 뒤 새 화면이 반대편에서 들어온다
+  scr.style.transition = 'transform .14s cubic-bezier(.4,0,1,1), opacity .14s linear';
+  scr.style.transform = `translate3d(${-dir * w * 0.45}px,0,0)`;
+  scr.style.opacity = '0';
+  setTimeout(go, 130);
+}
+
+/** 가문이 끝났을 때 (단절이든 스스로 마쳤든) 한 번만: 유산 · 조상 카드 · 기록실 보관 */
+function finishFamily(g: GameState) {
+  if (!g.gameOver || g.gameOver.legacy !== undefined) return;
+  const pts = legacyEarn(g);
+  g.gameOver.legacy = pts;
+  const pf = profile();
+  pf.bank.points += pts;
+  pf.runs += 1;
+  pf.best = Math.max(pf.best, g.gameOver.score);
+  pf.ancestor = ancestorOf(g) ?? pf.ancestor;
+  saveProfile(pf);
+  recordCards(g, (id) => (g.people[id] ? fullName(g.people[id]) : '?'));
+  // 📚 기록실: 대대 가주 목록 + 가계도·연대기 (게임 전체)
+  const heads = Object.values(g.people)
+    .filter((p) => p.flags.some((f) => f.startsWith('gen:')))
+    .sort((a, b) => Number(a.flags.find((f) => f.startsWith('gen:'))!.slice(4)) - Number(b.flags.find((f) => f.startsWith('gen:'))!.slice(4)))
+    .map((p) => {
+      const gen = p.flags.find((f) => f.startsWith('gen:'))!.slice(4);
+      const peak = p.flags.find((f) => f.startsWith('peakjob:'))?.split(':').slice(2).join(':');
+      return `${gen}대 ${fullName(p)} (${p.birthYear}~${p.deathYear ?? `${g.year} 생존`})${peak ? ` · ${peak}` : ''}`;
+    });
+  const id = `${g.seed.toString(36)}-${g.startYear}-${Date.now().toString(36)}`;
+  void archiveFamily({ id, family: g.familyName, era: g.era, from: g.startYear, to: g.year, gens: g.generation, score: g.gameOver.score, legacy: pts, reason: g.gameOver.reason.split('\n')[0], heads, cards: new Set((g.cards ?? []).map((c) => c.id)).size, at: Date.now(), voluntary: g.gameOver.voluntary }, g);
+  clearCloudAuto();
+}
+/** 끝난 가문은 '자동' 칸에서 지운다 (기록실로 갔다) */
+function clearCloudAuto() {
+  if (profile().saves.auto) delSave('auto');
 }
 
 function advanceTurn(g: GameState) {
@@ -2862,15 +3075,7 @@ function advanceTurn(g: GameState) {
   simulateYear(g);
   if (g.generation > gen) track(`generation-${g.generation}`, `${g.generation}대 도달`);
   if (g.gameOver) track('gameover', '게임 오버');
-  if (g.gameOver && g.gameOver.legacy === undefined) {
-    const pts = legacyEarn(g);
-    g.gameOver.legacy = pts;
-    const pf = profile();
-    pf.bank.points += pts;
-    pf.runs += 1;
-    pf.best = Math.max(pf.best, g.gameOver.score);
-    saveProfile(pf);
-  }
+  if (g.gameOver) finishFamily(g);
   if (g.year % 10 === 0) track(`played-${g.year}`, `${g.year}년 도달`);
   const lines = g.log.slice(start).filter((l) => !l.text.startsWith('──')).map((l) => l.text);
   ui.report = { title: `📜 ${g.year}년`, lines };
@@ -2967,28 +3172,111 @@ function handle(el: HTMLElement) {
       ui.collection = false;
       break;
     case 'coll-open':
-      ui.collection = !ui.collection;
+      ui.collection = true;
+      ui.collCard = undefined;
+      window.scrollTo(0, 0);
       break;
+    case 'coll-close':
+      ui.collection = false;
+      break;
+    case 'coll-group':
+      ui.collGroup = v || undefined;
+      root.querySelector('.coll-page')?.scrollTo(0, 0);
+      break;
+    case 'coll-card':
+      ui.collCard = id || undefined;
+      break;
+    case 'arch-open':
+      ui.archives = true;
+      ui.saveMsg = undefined;
+      break;
+    case 'arch-close':
+      ui.archives = false;
+      break;
+    case 'arch-del':
+      deleteArchive(id);
+      ui.saveMsg = '기록을 지웠다.';
+      break;
+    case 'arch-view':
+      ui.saveMsg = '기록을 여는 중…';
+      void loadArchive(id).then((ag) => {
+        if (!ag) ui.saveMsg = '이 기록을 찾지 못했다 (다른 기기에서 지웠거나 오프라인).';
+        else {
+          ui.game = migrate(ag);
+          ui.archiveView = id;
+          ui.archives = false;
+          ui.overLog = false;
+          ui.tab = 'tree';
+          ui.report = ui.outcome = ui.sheet = undefined;
+          ui.saveMsg = undefined;
+        }
+        render();
+      });
+      break;
+    case 'arch-exit':
+      ui.game = null;
+      ui.archiveView = undefined;
+      ui.archives = true;
+      ui.overLog = false;
+      ui.report = ui.outcome = ui.sheet = undefined;
+      break;
+    case 'conclude-ask':
+      ui.confirmEnd = true;
+      break;
+    case 'conclude-cancel':
+      ui.confirmEnd = false;
+      break;
+    case 'conclude':
+      if (g && concludeFamily(g)) {
+        finishFamily(g);
+        ui.settings = ui.confirmEnd = false;
+        ui.overLog = false;
+        ui.report = ui.outcome = ui.sheet = undefined;
+        save();
+      }
+      break;
+    case 'perma-buy': {
+      const it = PERMA_BY_ID[id];
+      const pf = profile();
+      if (it && !it.locked && !pf.perma.includes(id) && pf.bank.points >= it.cost) {
+        pf.bank.points -= it.cost;
+        pf.perma = [...pf.perma, id];
+        saveProfile(pf);
+        ui.toast = `💠 가문 내력 「${it.name}」 — 앞으로의 모든 가문에 이어진다`;
+      }
+      break;
+    }
     case 'cs-save': {
       if (!ui.game) break;
-      ui.saveMsg = putSave(v, slotLabel(ui.game), ui.game) ? `계정 저장 칸 ${v}에 저장했다.` : '저장 데이터가 너무 크다. 다른 칸을 비우고 다시 저장하자.';
+      const gg = ui.game;
+      ui.saveMsg = '저장하는 중…';
+      void putSave(v, slotLabel(gg), gg).then((ok) => {
+        ui.saveMsg = ok ? `계정 저장 칸 ${v}에 저장했다.` : '저장하지 못했다 (저장 공간이 꽉 찼거나 오프라인).';
+        render();
+      });
       break;
     }
     case 'cs-load': {
-      const cs = profile().saves[v];
-      if (!cs) break;
-      try {
-        ui.game = migrate(JSON.parse(cs.data) as GameState);
-      } catch {
-        ui.saveMsg = '저장 데이터를 읽지 못했다.';
-        break;
-      }
-      ui.tab = 'tree';
-      ui.report = ui.outcome = ui.sheet = undefined;
-      ui.settings = ui.confirmReset = false;
-      ui.saveMsg = undefined;
-      save();
-      hasSave = true;
+      if (!profile().saves[v]) break;
+      ui.saveMsg = '불러오는 중…';
+      void getSave(v).then((text) => {
+        try {
+          if (!text) throw new Error('none');
+          ui.game = migrate(JSON.parse(text) as GameState);
+        } catch {
+          ui.saveMsg = '저장 데이터를 읽지 못했다.';
+          return render();
+        }
+        ui.archiveView = undefined;
+        ui.tab = 'tree';
+        ui.report = ui.outcome = ui.sheet = undefined;
+        ui.settings = ui.confirmReset = false;
+        ui.collection = ui.archives = false;
+        ui.saveMsg = undefined;
+        save();
+        hasSave = true;
+        render();
+      });
       break;
     }
     case 'cs-del':
@@ -2999,7 +3287,9 @@ function handle(el: HTMLElement) {
       const sn = (ui.setup.surname || '김').slice(0, 2);
       const bank = loadBank();
       const legacy = Object.entries(bank.cart).flatMap(([id, n]) => Array.from({ length: Math.max(0, n) }, () => id));
-      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin, era: ui.setup.era === 'history' ? 'history' : undefined, legacy });
+      const pf0 = profile();
+      ui.archiveView = undefined;
+      ui.game = newGame({ familyName: sn, sex: ui.setup.sex, difficulty: ui.setup.origin === 'random' ? undefined : ui.setup.origin, era: ui.setup.era === 'history' ? 'history' : undefined, legacy, perma: pf0.perma, ancestor: pf0.ancestor });
       if (legacy.length) saveBank({ points: bank.points, cart: {} }); // 산 혜택은 이 가문에서 쓰였다
       if (typeof window !== 'undefined') {
         const pms = new URLSearchParams(window.location.search);
@@ -3016,6 +3306,14 @@ function handle(el: HTMLElement) {
       break;
     }
     case 'restart':
+      if (ui.archiveView) {
+        // 기록을 보던 중이면 지금 하던 가문(자동 저장)은 건드리지 않고 기록실로
+        ui.game = null;
+        ui.archiveView = undefined;
+        ui.archives = true;
+        ui.overLog = ui.settings = ui.confirmReset = false;
+        break;
+      }
       clearSave();
       hasSave = false;
       ui.game = null;
@@ -3163,7 +3461,8 @@ function handle(el: HTMLElement) {
       const b = loadBank();
       const it = LEGACY_BY_ID[id];
       const n = b.cart[id] ?? 0;
-      if (it && b.points >= it.cost && n < (it.max ?? 1)) {
+      const inCart = Object.entries(b.cart).reduce((t, [k, m]) => t + (LEGACY_BY_ID[k]?.cost ?? 0) * m, 0);
+      if (it && b.points >= it.cost && n < (it.max ?? 1) && inCart + it.cost <= LEGACY_CAP) {
         b.points -= it.cost;
         b.cart[id] = n + 1;
         saveBank(b);

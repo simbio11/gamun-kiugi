@@ -328,7 +328,7 @@ export function careerYear(s: GameState): string[] {
       p.jobLevel = 2;
       if (main) grant(s, '🎓', `정교수 승진: ${fullName(p)}`, `논문 ${p.papers}편. 학계에서 이름이 통한다.`, 'epic');
     }
-    if (p.job === 'professor' && p.jobLevel === 2 && (p.papers ?? 0) >= 45 && chance(s, 0.2)) {
+    if (p.job === 'professor' && p.jobLevel === 2 && (p.papers ?? 0) >= 50 && chance(s, 0.06)) { // 교수 승진은 테뉴어·논문으로만 (economy 정기 승진 없음)
       p.jobLevel = 3;
       s.fame += 8;
       if (main) grant(s, '🏅', `석좌교수 추대: ${fullName(p)}`, '대학이 이름을 걸고 모시는 석학이 됐다.', 'legend');

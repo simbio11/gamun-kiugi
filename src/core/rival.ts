@@ -57,6 +57,8 @@ export function initRival(s: GameState, ourWorth: number) {
     boss: name + randomName(s, chance(s, 0.5) ? 'M' : 'F', born),
     bossBorn: born,
   };
+  // 💠 숙적의 그림자: 라이벌 가문이 약하게, 앙심 없이 시작한다
+  if (s.perma?.includes('rival_bane')) (s.rival.worth = Math.round(s.rival.worth * 0.6)), (s.rival.fame = Math.round(s.rival.fame * 0.6)), (s.rival.feud = 0);
 }
 
 export function rivalMood(r: Rival): string {

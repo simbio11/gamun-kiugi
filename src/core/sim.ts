@@ -30,7 +30,7 @@ import { rivalYear } from './rival';
 import { careerYear, ministerLeaves, presidentLeaves } from './career';
 import { powerYear } from './power';
 import { power2Year, presTerm } from './power2';
-import { applyLegacy } from './legacy';
+import { applyAncestor, applyLegacy, applyPerma, hasPerma } from './legacy';
 import { handoverYear } from './handover';
 import { dutyDone, dutyYear, onDuty } from './duty';
 import { GLORY_SCALE, achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
@@ -93,7 +93,7 @@ import {
   randomName,
   addTrait,
 } from './people';
-import type { AssetKind, GameState, MarketKey, Person, Sex, WillMode } from './types';
+import type { Ancestor, AssetKind, GameState, MarketKey, Person, Sex, WillMode } from './types';
 
 export interface NewGameOpts {
   seed?: number;
@@ -107,6 +107,10 @@ export interface NewGameOpts {
   era?: 'history';
   /** 유산 상점에서 산 시작 혜택 (legacy.ts) */
   legacy?: string[];
+  /** 계정의 가문 내력 (영구) */
+  perma?: string[];
+  /** 지난 가문의 조상 카드 */
+  ancestor?: Ancestor;
 }
 
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'hell';
@@ -452,6 +456,8 @@ export function newGame(o: NewGameOpts): GameState {
   const worth = personWorth(s, father) + personWorth(s, mother) + familyWorth(s);
   // 유산 상점에서 산 혜택 (지난 가문이 남긴 것)
   const legacyLines = o.legacy?.length ? applyLegacy(s, o.legacy) : [];
+  const permaLines = o.perma?.length ? applyPerma(s, o.perma) : [];
+  const ancestorLine = o.ancestor ? applyAncestor(s, o.ancestor) : '';
   queue(s, 'notice', me.id, {
     title: `${o.familyName}씨 가문의 시작`,
     text:
@@ -464,7 +470,9 @@ export function newGame(o: NewGameOpts): GameState {
       (tycoon ? '\n💎 재벌가의 자손이다!' : '') +
       (rareStory.length ? '\n' + rareStory.join('\n') : '') +
       (dif ? `\n🎚 난이도: ${dif.name}` : '\n🎲 운명에 맡겼다') +
+      (ancestorLine ? `\n\n${ancestorLine}` : '') +
       (legacyLines.length ? `\n\n🏺 지난 가문이 남긴 유산\n${legacyLines.join('\n')}` : '') +
+      (permaLines.length ? `\n\n💠 가문 내력 (영구): ${permaLines.join(' · ')}` : '') +
       (hist
         ? `\n\n${pastLines}\n\n📜 지금 ${START_YEAR}년 봄. 3·15 부정선거로 온 나라가 들끓고 있다. ${eun(fullName(me))} 다섯 살.\n군사정변, 산업화, 유신, 광주, 올림픽, IMF, 월드컵, 촛불… 이 아이는 대한민국 현대사를 온몸으로 겪으며 자란다.\n해마다 그해의 신문이 오고, 역사의 큰 사건은 호외로 들이닥친다.\n\n💱 돈은 그해 물가로 보여 준다 (설정에서 "2025년 돈 가치"로 바꿔 볼 수 있다). 그 시절의 가난은 버는 돈이 적은 것으로 느껴진다.`
         : `\n\n지금 ${START_YEAR}년, ${eun(fullName(me))} 다섯 살.\n이제부터 당신이 이 아이의 인생을, 그리고 가문을 이끈다.\n학창 시절 → 수능 → 진로 → 결혼 → 자녀·손주 → 유언과 승계.`),
@@ -794,7 +802,8 @@ function retirementAndGraduation(s: GameState) {
       p.flags.push('student', 'univ_local', 'grad:' + (s.year + 4));
     }
     // 정년 (창작·스포츠·정치는 따로)
-    const ra = JOBS[p.job].retireAge;
+    // 대기업 임원(상무 이상)은 정년 대신 계약 — 65세까지 (임원 평균 퇴임 나이 50대 후반~60대 초, 유니코써치 100대 기업 임원 조사)
+    const ra = p.job === 'corp' && p.jobLevel >= 5 ? 65 : JOBS[p.job].retireAge;
     if (ra && a >= ra) {
       const sev = severance(s, p);
       if (p.job !== 'none' && p.job !== 'parttime') log(s, `${fullName(p)} ${JOBS[p.job].kind === 'salary' ? '정년퇴직' : '은퇴'}${sev ? ` (퇴직금 ${formatMoney(sev)})` : ''}`, 'life');
@@ -988,6 +997,13 @@ function deaths(s: GameState) {
   const living = Object.values(s.people).filter(alive);
   for (const p of living) {
     if (!alive(p) || !chance(s, deathChance(s, p))) continue;
+    // 💠 조상의 가호: 가주마다 한 번, 65세 전의 죽음을 비켜 간다
+    if (p.id === s.headId && hasPerma(s, 'ancestor_guard') && age(s, p) < 65 && !(s.storySeen ??= {})['guard:' + p.id]) {
+      s.storySeen['guard:' + p.id] = s.year;
+      p.actual.hp = Math.max(p.actual.hp, 35);
+      log(s, `🕯 ${fullName(p)}, 생사의 고비에서 기적처럼 깨어났다. 꿈에 조상이 나와 등을 떠밀었다고 한다. (조상의 가호)`, 'life');
+      continue;
+    }
     const wasHead = p.id === s.headId;
     const mainline = isMainline(s, p) || isRelevant(s, p);
     const cause = causeOf(s, p);
@@ -1231,6 +1247,20 @@ function randomEvents(s: GameState) {
       }
     }
   }
+}
+
+/** 📕 가문 이야기 마치기: 가주가 40세를 넘었거나 2대 이상이면, 스스로 가문의 이야기를 끝내고 유산을 받는다 */
+export function canConclude(s: GameState): boolean {
+  const h = head(s);
+  return !s.gameOver && !s.events.length && (s.generation >= 2 || age(s, h) >= 40);
+}
+export function concludeFamily(s: GameState): boolean {
+  if (!canConclude(s)) return false;
+  const h = head(s);
+  if (!h.inLaw && age(s, h) >= 15 && h.lifeScore === undefined) lifeReport(s, h);
+  endGame(s, `${s.familyName}씨 가문 ${s.generation}대 가주 ${iga(fullName(h))} 붓을 내려놓았다. "우리 집안 이야기는 여기까지."\n${s.startYear}년부터 ${s.year}년까지, ${s.generation}대에 걸친 이야기가 족보에 남는다.`);
+  s.gameOver!.voluntary = true;
+  return true;
 }
 
 function endGame(s: GameState, reason: string) {

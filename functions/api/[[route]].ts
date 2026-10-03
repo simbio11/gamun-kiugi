@@ -6,6 +6,9 @@
 //   POST /api/login  {user, pass}  → {token, user, data}
 //   GET  /api/me     (Bearer)      → {user, data}
 //   PUT  /api/me     (Bearer) {data} → {ok}
+//   GET    /api/blob/<name> (Bearer)        → {data}      큰 기록(저장 칸 게임·지난 가문 가계도·연혁)은 따로
+//   PUT    /api/blob/<name> (Bearer) {data} → {ok}
+//   DELETE /api/blob/<name> (Bearer)        → {ok}
 //   POST /api/logout (Bearer)      → {ok}
 //   GET  /api/health               → {ok, kv}
 //
@@ -32,7 +35,9 @@ interface UserRec {
 }
 
 const SESSION_TTL = 60 * 60 * 24 * 90;
-const MAX_DATA = 900_000; // KV 값 한도(25MB)보다 훨씬 작게: 저장 슬롯 3개 + 컬렉션
+const MAX_DATA = 900_000; // KV 값 한도(25MB)보다 훨씬 작게: 계정 요약(유산·컬렉션·목록)
+const MAX_BLOB = 3_000_000; // 큰 기록 하나 (압축된 게임 한 판·지난 가문 하나)
+const validBlob = (n: string) => /^[a-z0-9_-]{1,40}$/.test(n);
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 const err = (msg: string, status = 400) => json({ error: msg }, status);
 
@@ -123,6 +128,26 @@ export async function onRequest(ctx: Ctx): Promise<Response> {
     r.data = body.data ?? null;
     await kv.put(key, JSON.stringify(r));
     return json({ ok: true });
+  }
+  if (route.startsWith('blob/')) {
+    const name = route.slice(5);
+    if (!validBlob(name)) return err('잘못된 이름');
+    const bkey = `b:${who}:${name}`;
+    if (req.method === 'GET') return json({ data: await kv.get(bkey) });
+    if (req.method === 'DELETE') return await kv.delete(bkey), json({ ok: true });
+    if (req.method === 'PUT') {
+      const text = await req.text();
+      if (text.length > MAX_BLOB) return err('저장 데이터가 너무 큽니다', 413);
+      let body: { data?: unknown };
+      try {
+        body = JSON.parse(text);
+      } catch {
+        return err('잘못된 요청');
+      }
+      if (typeof body.data !== 'string') return err('잘못된 요청');
+      await kv.put(bkey, body.data);
+      return json({ ok: true });
+    }
   }
   if (route === 'logout' && req.method === 'POST') {
     const t = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');

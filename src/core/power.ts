@@ -321,14 +321,14 @@ const LEGAL: Story[] = [
   {
     id: 'lg_prosecutor_general',
     title: '검찰총장 후보',
-    ok: (s, p) => p.job === 'prosecutor' && p.jobLevel === 4 && age(s, p) >= 50,
+    ok: (s, p) => p.job === 'prosecutor' && p.jobLevel === 4 && age(s, p) >= 50 && markOf(p, 'pg_miss') < 1, // 총장 후보 기회는 한 번 (떨어지면 동기 총장 아래서 옷을 벗는 게 관례)
     text: (c) => `검찰총장후보추천위원회가 ${who(c)} 검사장을 추천했다. 임기 2년, 2천 명 검사의 수장. 인사청문회가 기다린다.`,
     choices: (c) => [
       {
         label: '청문회에 선다',
-        odds: checkOdds(c.p.actual.mor * 0.4 + c.p.actual.cha * 0.3 + c.p.actual.int * 0.3 + markOf(c.p, 'law_rep') * 2 + markOf(c.p, 'favor') * 2, 62, 8),
+        odds: checkOdds(c.p.actual.mor * 0.4 + c.p.actual.cha * 0.3 + c.p.actual.int * 0.3 + Math.min(10, (markOf(c.p, 'law_rep') + markOf(c.p, 'favor')) * 2), 66, 8),
         run: (x) => {
-          if (!check(x.s, x.p.actual.mor * 0.4 + x.p.actual.cha * 0.3 + x.p.actual.int * 0.3 + markOf(x.p, 'law_rep') * 2 + markOf(x.p, 'favor') * 2, 62, 8)) return '다른 후보가 지명됐다. 동기가 총장이 되면 옷을 벗는 게 관례다…';
+          if (!check(x.s, x.p.actual.mor * 0.4 + x.p.actual.cha * 0.3 + x.p.actual.int * 0.3 + Math.min(10, (markOf(x.p, 'law_rep') + markOf(x.p, 'favor')) * 2), 66, 8)) return (mark(x.p, 'pg_miss', 1), '다른 후보가 지명됐다. 동기가 총장이 되면 옷을 벗는 게 관례다…');
           x.p.jobLevel = 5;
           x.s.fame += 20;
           addFlag(x.p, 'was_top_prosecutor');
@@ -759,6 +759,14 @@ export function powerYear(s: GameState): string[] {
     if ((hasFlag(p, 'torturer') || hasFlag(p, 'spy_frameup') || hasFlag(p, 'yushin_judge')) && hist(s) && s.year >= 2005 && !hasFlag(p, 'truth_seen') && chance(s, 0.3)) {
       addFlag(p, 'truth_seen');
       q(s, 'truth_returns', p);
+    }
+    // 최고위 임명 (대법관·대법원장·검찰총장): 자격이 되면 몇 해에 한 번은 후보에 오른다
+    for (const id of ['lg_justice_nominee', 'lg_chief_justice', 'lg_prosecutor_general']) {
+      const d = LEGAL.find((x) => x.id === id)!;
+      if (d.ok(s, p) && !pending(s, id, p) && s.year - (seen(s, p.id + ':' + id) ?? -99) >= 3 && chance(s, 0.3)) {
+        see(s, p.id + ':' + id);
+        q(s, id, p);
+      }
     }
     // 이야기
     const pool = [...LEGAL, ...AGENCY, ...MILITARY].filter((d) => d.ok(s, p) && s.year - (seen(s, p.id + ':' + d.id) ?? -99) >= (d.id === 'mil_purge' ? 99 : 5));

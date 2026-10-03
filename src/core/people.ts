@@ -163,7 +163,7 @@ export function inherit(s: GameState, father: Person, mother: Person, surname: s
   }
   const talents: Talent[] = [];
   for (const t of [...father.talents, ...mother.talents]) {
-    if (!talents.some((x) => x.id === t.id) && chance(s, 0.3)) talents.push({ id: t.id, discovered: false });
+    if (!talents.some((x) => x.id === t.id) && chance(s, s.perma?.includes('talent_line') ? 0.55 : 0.3)) talents.push({ id: t.id, discovered: false }); // 💠 재능의 핏줄
   }
   if (chance(s, 0.03)) {
     const t = pick(s, TALENT_IDS);

@@ -121,7 +121,7 @@ const STEPS: Record<string, number[]> = {
   judge: [11, 4, 5, 5, 5],
   prosecutor: [10, 2, 3, 3, 5],
   diplomat: [3, 4, 5, 4, 4],
-  corp: [3, 4, 4, 4, 5, 3, 4],
+  corp: [3, 4, 4, 4, 4, 3, 3],
   office: [2, 2, 3, 4, 4],
   sme_worker: [2, 2, 3, 4, 4],
   banker: [3, 3, 4, 4, 5, 5],
@@ -136,7 +136,7 @@ const STEPS: Record<string, number[]> = {
   researcher: [4, 5, 5, 5, 5],
   chip_engineer: [4, 4, 5, 5, 5, 4],
   hotelier: [2, 3, 5, 5, 5],
-  pilot: [6, 5, 5],
+  pilot: [6, 7, 8],
   flight_attendant: [4, 5, 5, 5],
   aide: [2, 3, 4, 4],
   secretary: [3, 4, 4, 4],
@@ -173,9 +173,25 @@ export function promoReady(year: number, birthYear: number, p: Person, slack = 0
   if (j.kind === 'business' || j.kind === 'creator' || j.kind === 'athlete') return true;
   if (p.job === 'politician' || p.job === 'mayor' || p.job === 'professor') return false; // 선거·논문으로만
   if (appointedOnly(p.job, p.jobLevel)) return false;
-  const toTop = p.jobLevel + 1 === j.maxLevel && j.maxLevel >= 4;
-  if (toTop && year - birthYear < 45) return false;
+  // 맨 꼭대기 한 자리: 50세 넘어 바로 아래 자리에서 5년 이상 (해마다 승진 판정과 같은 기준, 특채도 예외 없음)
+  if (isTopSeat(p)) return year - birthYear >= 50 && yearsAtLevel(year, p) >= Math.max(5, minYears(p.jobLevel, j.maxLevel, p.job));
   return yearsAtLevel(year, p) >= Math.max(1, minYears(p.jobLevel, j.maxLevel, p.job) - slack);
+}
+
+/** 다음 자리가 그 직업의 맨 꼭대기(사장·대사·미쉐린 스타…)인가: 자리 하나를 두고 다투므로 행동·이벤트의 승진 확률도 낮춘다 */
+export function isTopSeat(p: Person): boolean {
+  const j = JOBS[p.job];
+  return !!j && j.kind === 'salary' && j.maxLevel >= 4 && p.jobLevel + 1 === j.maxLevel;
+}
+
+/**
+ * 좁은 문: 다음 자리로 오를 확률 배수 (1 = 보통).
+ *   대령 → 준장: 대령 가운데 장군이 되는 사람은 해마다 5~6% 남짓 (국방부 장성 진급 인사, 대령 약 3천 명 중 연 70~80명)
+ *   부기장·기장 → 수석기장: 대형 항공사 수석기장은 기장 중 일부만 (보직)
+ */
+const NARROW: Record<string, Record<number, number>> = { officer: { 5: 0.2 }, pilot: { 2: 0.15 } };
+export function seatOdds(p: Person): number {
+  return isTopSeat(p) ? 0.3 : (NARROW[p.job]?.[p.jobLevel] ?? 1);
 }
 
 /** 조건이 되면 한 단계 올린다 (못 올리면 false) */

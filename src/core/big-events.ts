@@ -226,7 +226,7 @@ export const BIGS: BigDef[] = [
     ],
     end: (x, sc) => {
       if (sc >= 5) {
-        if ((x.p.job === 'chef' || x.p.job === 'restaurant') && x.p.jobLevel < JOBS[x.p.job].maxLevel) x.p.jobLevel += 1;
+        if ((x.p.job === 'chef' || x.p.job === 'restaurant') && x.p.jobLevel < JOBS[x.p.job].maxLevel - 1) x.p.jobLevel += 1; // 미쉐린 별(맨 꼭대기)은 대회 우승만으로는 안 준다
         return '🏆 우승! 다음 날부터 예약이 석 달 치 꽉 찼다.' + reward(x, { cash: 3000, fame: 4, hap: 20, stats: { int: 2, cha: 3 }, flag: 'cook_win', title: `요리 서바이벌 우승: ${fullName(x.p)}`, icon: '🍳', rarity: 'epic' });
       }
       if (sc >= 3) return '🥈 준우승. "그 요리사"를 찾아오는 손님이 늘었다.' + reward(x, { cash: 800, fame: 2, hap: 8, stats: { cha: 2 } });

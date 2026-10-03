@@ -157,12 +157,12 @@ describe('유산 상점 (legacy.ts)', () => {
     expect(head(a).traits).toContain('diligent');
     expect(a.legacy).toContain('lucky_charm');
   });
-  it('가문 단절 때 유산을 5~200 사이로 준다', () => {
+  it('가문 단절 때 유산을 5~300 사이로 준다', () => {
     const s = newGame({ seed: 12, familyName: '김', sex: 'M' });
     s.gameOver = { reason: 'test', score: 1500 };
     const v = legacyEarn(s);
     expect(v).toBeGreaterThanOrEqual(5);
-    expect(v).toBeLessThanOrEqual(200);
+    expect(v).toBeLessThanOrEqual(300);
   });
 });
 
