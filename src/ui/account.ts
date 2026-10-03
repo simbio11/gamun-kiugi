@@ -295,7 +295,8 @@ export function recordCards(g: GameState, nameOf: (personId: string) => string):
 export const ARCHIVE_MAX = 30;
 const BLOB_KEY = (name: string) => `gamun-kiugi-blob:${who()}:${name}`;
 async function pack(text: string): Promise<string> {
-  if (typeof CompressionStream === 'undefined') return 'raw:' + text;
+  // 압축은 이 기기가 풀 수도 있을 때만 (오래된 브라우저는 그대로 둔다)
+  if (typeof CompressionStream === 'undefined' || typeof DecompressionStream === 'undefined') return 'raw:' + text;
   const buf = await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
   let bin = '';
   const u8 = new Uint8Array(buf);
@@ -305,6 +306,7 @@ async function pack(text: string): Promise<string> {
 async function unpack(v: string): Promise<string> {
   if (v.startsWith('raw:')) return v.slice(4);
   if (!v.startsWith('gz:')) return v;
+  if (typeof DecompressionStream === 'undefined') throw new Error('이 브라우저는 압축된 기록을 풀 수 없다 (브라우저를 최신으로 업데이트해 주세요)');
   const bin = atob(v.slice(3));
   const u8 = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);

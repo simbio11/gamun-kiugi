@@ -619,6 +619,7 @@ function renderInner() {
   const body = { tree: treeScreen, act: actionsScreen, policy: policyScreen, assets: assetsScreen, log: logScreen, achv: achvScreen }[ui.tab](g);
   root.innerHTML = `
     ${header(g)}
+    ${ui.archiveView && g.gameOver ? `<div class="arch-banner"><span>📚 <b>${esc(g.familyName)}씨 가문 기록</b> <small>${g.startYear}~${g.year} · ${g.generation}대 · 보기만 가능</small></span><button class="mini" data-action="arch-exit">◀ 기록실</button></div>` : ''}
     <main class="screen">${body}</main>
     ${g.gameOver && ui.overLog ? `<button class="next-year" data-action="over-back">${ui.archiveView ? '📚 기록 요약으로' : '🏁 가문 결과로 돌아가기'}</button>` : ''}
     ${!g.gameOver && (ui.tab === 'tree' || ui.tab === 'act') ? `<button class="next-year" data-action="next">${g.events.length ? `이벤트 ${g.events.length}개 ▶` : `${g.year + 1}년으로 ▶${apLeft(g) ? `<small>행동력 ${apLeft(g)} 남음</small>` : ''}`}</button>` : ''}
@@ -763,6 +764,11 @@ function accountCard(): string {
       <label class="field">아이디 <input id="acc-user" maxlength="16" autocomplete="username" placeholder="2~16자"></label>
       <label class="field">비밀번호 <input id="acc-pass" type="password" maxlength="64" autocomplete="current-password" placeholder="4자 이상"></label>
       <div class="row2"><button class="btn primary" data-action="acc-login">로그인</button><button class="btn" data-action="acc-signup">가입</button></div>
+      ${(() => {
+        const gp = profile();
+        const n = Object.keys(gp.collection).length;
+        return n || gp.archives.length ? `<p class="fine">이 기기의 손님 기록: 카드 ${n}종 · 지난 가문 ${gp.archives.length} (로그인하면 계정으로 합쳐진다)</p><div class="row2"><button class="btn" data-action="coll-open">🃏 카드 컬렉션</button><button class="btn" data-action="arch-open">📚 지난 가문 ${gp.archives.length}</button></div>` : '';
+      })()}
       ${msg}
     </section>`;
   const pf = profile();
@@ -3306,21 +3312,30 @@ function handle(el: HTMLElement) {
       ui.saveMsg = '기록을 지웠다.';
       break;
     case 'arch-view':
-      ui.saveMsg = '기록을 여는 중…';
-      void loadArchive(id).then((ag) => {
-        if (!ag) ui.saveMsg = '이 기록을 찾지 못했다 (다른 기기에서 지웠거나 오프라인).';
-        else {
-          ui.game = migrate(ag);
-          ui.game.rewards = []; // 기록 보기는 읽기 전용: 남은 보상 알림은 띄우지 않는다
+      ui.saveMsg = '📚 기록을 여는 중…';
+      void loadArchive(id)
+        .then((ag) => {
+          if (!ag) {
+            ui.saveMsg = '⚠ 이 기록의 가계도·연대기를 찾지 못했다. (이 기기 저장 공간이 부족했거나, 개인정보 보호 모드였거나, 다른 기기에서 지웠을 수 있다)';
+            return;
+          }
+          const gg = migrate(ag);
+          gg.rewards = []; // 기록 보기는 읽기 전용: 남은 보상 알림은 띄우지 않는다
+          gg.events = [];
+          ui.game = gg;
           ui.archiveView = id;
           ui.archives = false;
-          ui.overLog = false;
+          ui.overLog = true; // 결과 창 없이 바로 가계도로
           ui.tab = 'tree';
           ui.report = ui.outcome = ui.sheet = undefined;
           ui.saveMsg = undefined;
-        }
-        render();
-      });
+          window.scrollTo(0, 0);
+        })
+        .catch((err: unknown) => {
+          console.error(err);
+          ui.saveMsg = `⚠ 기록을 열지 못했다: ${err instanceof Error ? err.message : String(err)}`;
+        })
+        .finally(() => render());
       break;
     case 'arch-exit':
       ui.game = null;
