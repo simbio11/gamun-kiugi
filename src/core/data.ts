@@ -30,11 +30,19 @@ export const TALENTS: Record<TalentId, TalentDef> = {
   healer: { id: 'healer', name: '약손', desc: '손만 대도 아픈 데가 낫는 것 같다. 성품 성장 ×1.2 · 의료직에서 빨리 크고 큰 치료에 강하다', stat: 'mor', mult: 1.2, tag: 'study', cats: ['medical'] },
   craft: { id: 'craft', name: '손재주', desc: '뭐든 고치고 만든다. 근력 성장 ×1.3 · 기술직·공학에서 빨리 큰다', stat: 'str', mult: 1.3, tag: 'free', cats: ['trade', 'tech'] },
   linguist: { id: 'linguist', name: '언어 천재', desc: '외국어가 귀에 쏙쏙. 지능 성장 ×1.3 · 외교·번역·유학에 유리', stat: 'int', mult: 1.3, tag: 'study', cats: ['public', 'media'] },
-  iron: { id: 'iron', name: '강철 체력', desc: '지치지 않는 몸. 건강 성장 ×1.6 · 몸 쓰는 일과 야근에 강하다', stat: 'hp', mult: 1.6, tag: 'sport', cats: ['sport', 'transport'] },
+  iron: { id: 'iron', name: '강철 체력', desc: '지치지 않는 몸. 건강 성장 ×1.6 · 몸 쓰는 일과 야근에 강하다 · 운동·운송·기능직에서 빨리 큰다', stat: 'hp', mult: 1.6, tag: 'sport', cats: ['sport', 'transport', 'trade'] },
   empath: { id: 'empath', name: '공감 능력', desc: '남의 아픔을 내 것처럼 느낀다. 성품 성장 ×1.5 · 교육·돌봄에서 빛난다', stat: 'mor', mult: 1.5, tag: 'public', cats: ['edu', 'medical'] },
   strategist: { id: 'strategist', name: '승부사', desc: '수 싸움에 강하다. 지능 성장 ×1.2 · 금융·사업·체스에서 빨리 큰다', stat: 'int', mult: 1.2, tag: 'business', cats: ['office', 'biz'] },
   pitch: { id: 'pitch', name: '절대음감', desc: '한 번 들은 음은 잊지 않는다. 매력 성장 ×1.3 · 가수·음악가로 크게 된다', stat: 'cha', mult: 1.3, tag: 'stage', cats: ['media'] },
   palate: { id: 'palate', name: '절대미각', desc: '한 숟갈이면 재료와 비율이 보인다 · 요리·서비스업에서 빨리 큰다', stat: 'hp', mult: 1.1, tag: 'business', cats: ['service', 'farm'] },
+  // 재능이 드물던 분야(공공·운송·농업·서비스·정치)를 채우는 재능들
+  justice: { id: 'justice', name: '정의감', desc: '불의를 보면 못 참는다. 성품 성장 ×1.3 · 경찰·소방·검사·판사에서 빨리 큰다', stat: 'mor', mult: 1.3, tag: 'public', cats: ['public', 'legal'] },
+  commander: { id: 'commander', name: '통솔력', desc: '사람들이 저절로 따른다. 매력 성장 ×1.2 · 정치·군·경영에서 빨리 큰다', stat: 'cha', mult: 1.2, tag: 'public', cats: ['etc', 'public', 'biz'] },
+  navigator: { id: 'navigator', name: '길눈', desc: '한 번 간 길은 잊지 않는다. 지능 성장 ×1.1 · 운전·항해·비행·관제에서 빨리 큰다', stat: 'int', mult: 1.1, tag: 'free', cats: ['transport'] },
+  greenthumb: { id: 'greenthumb', name: '초록 손', desc: '심는 것마다 잘 자란다. 건강 성장 ×1.2 · 농업·원예·자연 일에서 빨리 큰다', stat: 'hp', mult: 1.2, tag: 'free', cats: ['farm'] },
+  beauty: { id: 'beauty', name: '미적 감각', desc: '색과 모양을 고르는 눈. 매력 성장 ×1.2 · 미용·패션·인테리어·디자인에서 빨리 큰다', stat: 'cha', mult: 1.2, tag: 'stage', cats: ['service', 'media'] },
+  scholar: { id: 'scholar', name: '탐구심', desc: '왜?를 끝까지 묻는다. 지능 성장 ×1.3 · 연구·교육·공학에서 빨리 큰다', stat: 'int', mult: 1.3, tag: 'study', cats: ['tech', 'edu'] },
+  animal: { id: 'animal', name: '동물 교감', desc: '동물이 먼저 다가온다. 성품 성장 ×1.2 · 수의사·축산·반려동물 일에서 빨리 큰다', stat: 'mor', mult: 1.2, tag: 'free', cats: ['farm', 'medical', 'service'] },
 };
 export const TALENT_IDS = Object.keys(TALENTS) as TalentId[];
 
@@ -69,10 +77,11 @@ export const TRAITS: Record<string, TraitDef> = {
   hypnotic_eye: { name: '맑은 눈', desc: '사람의 마음을 읽는 또렷한 눈빛 (선천 희귀 특성)', good: true },
   blood_thirst: { name: '흡혈 적성', desc: '햇빛이 버겁고, 붉은 것에 끌린다 (선천 1% · 슈퍼 히든 핏빛 후작부인의 쉬운 길)', good: true },
   dark_artist: { name: '예술의 손', desc: '남다른 미적 감각 (선천 희귀 특성)', good: true },
-  chess_prodigy: { name: '체스 신동', desc: '64칸 판 위에서 수십 수를 내다보는 천재적인 두뇌 (적성검사 4% 발현 · 슈퍼 히든 체스 그랜드마스터 열쇠)', good: true },
+  chess_prodigy: { name: '체스 신동', desc: '64칸 판 위에서 수십 수를 내다보는 천재적인 두뇌 (여아 1.5% · 체스판 가보 · 13세 체스 대회 → 슈퍼 히든 체스 그랜드마스터 열쇠)', good: true },
+  keen_nose: { name: '개코', desc: '남들이 못 맡는 냄새까지 구별한다 (선천 2% · 슈퍼 히든 조향사 열쇠)', good: true },
 };
 export const SUPER_RARE_TRAIT_IDS = ['speed_demon', 'hypnotic_eye', 'dark_artist'] as const;
-export const TRAIT_IDS = Object.keys(TRAITS).filter((k) => !SUPER_RARE_TRAIT_IDS.includes(k as any) && k !== 'blood_thirst' && k !== 'chess_prodigy');
+export const TRAIT_IDS = Object.keys(TRAITS).filter((k) => !SUPER_RARE_TRAIT_IDS.includes(k as any) && k !== 'blood_thirst' && k !== 'chess_prodigy' && k !== 'keen_nose');
 
 export const TAG_NAMES: Record<CareerTag, string> = {
   study: '공부로 성공',

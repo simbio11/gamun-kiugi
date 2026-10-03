@@ -3,6 +3,7 @@
 // 특별한 직업 활동, 위업 달성, 전설적 선택을 통해 획득하며 가문에 영구히 보존된다.
 // 가보는 후손에게 고유 스탯/명성/자산 혜택을 주고, 특정 직업이나 히든 루트로 이어지는 운명의 열쇠가 된다.
 
+import { chance } from './rng';
 import type { GameState, Person } from './types';
 import { age, alive, fullName, head } from './people';
 import { grant } from './rewards';
@@ -232,7 +233,7 @@ function checkRelicRouteEvents(s: GameState): void {
       kid.flags.push('relic_ev:chess');
       kid.actual.int = Math.min(100, kid.actual.int + 8);
       kid.potential.int = Math.min(100, kid.potential.int + 8);
-      if (!kid.traits?.includes('chess_prodigy') && Math.random() < 0.4) {
+      if (!kid.traits?.includes('chess_prodigy') && chance(s, 0.4)) {
         kid.traits = [...(kid.traits ?? []), 'chess_prodigy'];
       }
       s.events.push({

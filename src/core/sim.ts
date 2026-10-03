@@ -29,7 +29,7 @@ import { EVENTS, RANDOM_EVENTS } from './registry';
 import { eraYear } from './era';
 import { rivalYear } from './rival';
 import { careerYear, ministerLeaves, presidentLeaves } from './career';
-import { achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
+import { GLORY_SCALE, achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
 import { cardCapBonus, cardYear } from './cards';
 import { scandalYear } from './scandal';
@@ -54,6 +54,7 @@ import { hiddenYear } from './hidden';
 import { inlawYear, kinDrift } from './inlaws';
 import { superHiddenYear } from './super-hidden';
 import { gateYear } from './super-gates';
+import { casinoYear } from './casino';
 import { commEvent } from './devices';
 import { pathYear } from './hidden-paths';
 import { photoYear } from './photos';
@@ -61,9 +62,7 @@ import { relicYear } from './relics';
 import { vipCureYear } from './vip-cure';
 import { bigYear } from './big-events';
 import { treasureSellValue, treasureYear } from './treasure';
-import { HIDDEN, HIDDEN_BY_ID, isHoH, isSuperHidden } from './hidden-data';
-const STARTER_SUPER = HIDDEN.filter((h) => isSuperHidden(h.id) && !isHoH(h.id)).map((h) => h.id);
-const STARTER_HIDDEN = HIDDEN.filter((h) => !isSuperHidden(h.id) && h.id !== 'hj_hermit').map((h) => h.id);
+import { HIDDEN_BY_ID, isSuperHidden } from './hidden-data';
 import { eun, iga } from './ev-util';
 import { deathChance, growthYear } from './growth';
 import {
@@ -108,10 +107,10 @@ export interface NewGameOpts {
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'hell';
 /** 난이도별: 형편, 재벌가 확률, 부모 잠재력 보정, 아이 잠재력 보정, 부모 직급 보정 */
 export const DIFFICULTY: Record<Difficulty, { name: string; desc: string; origin: GameState['origin']; tycoon: number; parentQ: number; childQ: number; level: number }> = {
-  easy: { name: '쉬움 · 금수저', desc: '부유한 집(재벌가일 수도), 전문직 부모와 높은 직급, 뛰어난 유전자 — 잠재력↑, 재능 하나는 타고난다, 좋은 성격. 정점 도전이 쉽지만 명예는 0.8배', origin: 'rich', tycoon: 0.4, parentQ: 6, childQ: 10, level: 1 },
+  easy: { name: '쉬움 · 금수저', desc: '부유한 집(재벌가일 수도), 전문직 부모와 높은 직급, 뛰어난 유전자 — 잠재력↑, 재능 하나는 타고난다, 좋은 성격. 정점 도전이 쉽지만 명예는 0.8배', origin: 'rich', tycoon: 0.12, parentQ: 3, childQ: 5, level: 1 },
   normal: { name: '보통 · 중산층', desc: '평범한 직장인 부모, 수도권·지방 아파트, 보통의 유전자', origin: 'middle', tycoon: 0, parentQ: 0, childQ: 0, level: 0 },
-  hard: { name: '어려움 · 흙수저', desc: '가난한 집, 빚과 반지하, 생계형 직업 부모, 불리한 유전자 — 잠재력↓, 재능 없음, 약점 하나. 정점 도전이 어렵고 라이벌이 강하지만 명예를 1.25배 받는다', origin: 'poor', tycoon: 0, parentQ: -4, childQ: -8, level: -1 },
-  hell: { name: '지옥 · 무일푼', desc: '가장 가난한 집, 약한 유전자, 부자 라이벌. 정점 도전 판정이 훨씬 어렵다. 대신 명예를 1.5배 받는다 — 여기서 대통령을 내면 전설이다', origin: 'poor', tycoon: 0, parentQ: -8, childQ: -14, level: -1 },
+  hard: { name: '어려움 · 흙수저', desc: '가난한 집, 빚과 반지하, 생계형 직업 부모, 불리한 유전자 — 잠재력↓, 재능 없음, 약점 하나. 정점 도전이 어렵고 라이벌이 강하지만 명예를 1.25배 받는다', origin: 'poor', tycoon: 0, parentQ: -2, childQ: -4, level: -1 },
+  hell: { name: '지옥 · 무일푼', desc: '가장 가난한 집, 약한 유전자, 부자 라이벌. 정점 도전 판정이 훨씬 어렵다. 대신 명예를 1.5배 받는다 — 여기서 대통령을 내면 전설이다', origin: 'poor', tycoon: 0, parentQ: -4, childQ: -5, level: -1 },
 };
 
 const BASE_START = 2025;
@@ -142,7 +141,7 @@ export function migrate(s: GameState): GameState {
   s.achievements ??= [];
   // 보상 시스템 이전 저장: 이미 이룬 업적만큼 명예를 채워 준다 (팝업 없이)
   if (s.gloryTotal === undefined) {
-    const pts = { common: 5, rare: 12, epic: 30, legend: 80 } as const;
+    const pts = { common: 5, rare: 12, epic: 30, legend: 80 } as const; // 옛 눈금 (아래 v4 이전에서 다시 줄인다)
     const t = s.achievements.reduce((sum, id) => {
       const r = ACHIEVEMENTS[id] ? achvRarity(id, ACHIEVEMENTS[id].cat) : undefined;
       return sum + (r ? pts[r] : 0);
@@ -179,7 +178,12 @@ export function migrate(s: GameState): GameState {
       s.missions = [];
       initMissions(s);
     }
-    s.version = 3;
+    (s as { version: number }).version = 3;
+  }
+  if ((s.version as number) < 4) {
+    // 명예 배점이 절반으로 줄었다 (rewards.ts GLORY_SCALE): 누적 명예도 같은 눈금으로 맞춘다. 쓸 수 있는 명예(✦)는 그대로.
+    s.gloryTotal = Math.round((s.gloryTotal ?? 0) * GLORY_SCALE);
+    s.version = 4;
   }
   foldFamilyPot(s);
   if (!s.listings) {
@@ -194,8 +198,48 @@ export function migrate(s: GameState): GameState {
 const PARENT_JOBS: Record<GameState['origin'], string[]> = {
   poor: ['factory', 'delivery_rider', 'taxi', 'courier', 'parttime', 'caregiver', 'cvs_owner', 'mechanic', 'welder', 'shopkeeper', 'trucker', 'farmer', 'plumber', 'carpenter', 'nurse_aide', 'hairdresser', 'barista', 'fisher', 'rancher', 'crane_operator', 'mail_carrier', 'pet_groomer', 'nail_artist', 'restaurant', 'online_shop', 'big_factory', 'bus_driver', 'shipbuilder', 'youtuber', 'insurance', 'sales'],
   middle: ['office', 'civil', 'teacher', 'nurse', 'corp', 'police', 'banker', 'developer', 'public_corp', 'firefighter', 'restaurant', 'pharmacist', 'electrician', 'bus_driver', 'mail_carrier', 'hr', 'marketer', 'sales', 'insurance', 'trader', 'pt', 'radiographer', 'clinical', 'emt', 'kinder_teacher', 'librarian', 'chef', 'hotelier', 'flight_attendant', 'big_factory', 'shipbuilder', 'train_driver', 'navigator', 'designer', 'journalist', 'pd', 'writer', 'youtuber', 'trainer', 'coach', 'cafe_owner', 'online_shop', 'smart_farmer', 'game_dev', 'mech_engineer', 'architect', 'researcher', 'tax_officer', 'coast_guard', 'social_worker', 'realtor', 'tutor', 'photographer', 'scrivener', 'labor_attorney', 'customs_broker', 'vet', 'data_scientist', 'security', 'chip_engineer', 'founder', 'musician', 'officer'],
-  rich: ['doctor', 'lawyer', 'dentist', 'founder', 'corp', 'professor', 'accountant', 'kmd', 'judge', 'pilot', 'prosecutor', 'diplomat', 'patent_attorney', 'tax_accountant', 'appraiser', 'analyst', 'aero_engineer', 'entertainer', 'architect', 'vet', 'pharmacist', 'announcer', 'tutor', 'restaurant', 'online_shop', 'data_scientist', 'chip_engineer', 'founder', 'doctor'],
+  rich: ['doctor', 'lawyer', 'dentist', 'founder', 'corp', 'professor', 'accountant', 'kmd', 'judge', 'pilot', 'prosecutor', 'diplomat', 'patent_attorney', 'tax_accountant', 'appraiser', 'analyst', 'aero_engineer', 'entertainer', 'architect', 'vet', 'pharmacist', 'announcer', 'tutor', 'restaurant', 'online_shop', 'data_scientist', 'chip_engineer', 'fund_manager', 'consultant', 'sme_ceo', 'franchise_ceo', 'developer_re', 'film_director', 'film_actor', 'singer', 'fashion_designer', 'curator', 'star_lecturer', 'ai_engineer', 'bio_researcher', 'public_corp', 'landlord', 'politician', 'sommelier', 'interior_designer'],
 };
+
+/** 쉬움(금수저) 부모의 높은 자리: 재벌 총수만이 아니라 법조·의료·학계·정계·금융·문화계의 정점들.
+ *  직급은 높게 시작한다 (giveJob 에서 +1~2). */
+const ELITE_JOBS = ['judge', 'prosecutor', 'lawyer', 'doctor', 'dentist', 'professor', 'diplomat', 'politician', 'fund_manager', 'consultant', 'sme_ceo', 'franchise_ceo', 'developer_re', 'film_director', 'film_actor', 'singer', 'entertainer', 'announcer', 'architect', 'pilot', 'patent_attorney', 'accountant', 'star_lecturer', 'public_corp', 'corp', 'landlord', 'researcher', 'aero_engineer', 'fashion_designer', 'curator'];
+/** 지옥(무일푼): 가장 불안정한 일들 */
+const HELL_JOBS = ['parttime', 'delivery_rider', 'courier', 'caregiver', 'nurse_aide', 'factory', 'taxi', 'trucker', 'security_guard', 'tile_worker', 'barista', 'fisher', 'farmer'];
+/** 부모의 원래 직업 → 이어질 수 있는 희귀 직업 (부모 나이 30~43세, 성별·나이 조건이 맞는 것만) */
+const RARE_FROM: Record<string, string[]> = {
+  fisher: ['hj_pirate', 'hj_smuggler'], navigator: ['hj_pirate', 'hj_smuggler'], shipbuilder: ['hj_pirate'], ship_captain: ['hj_pirate', 'hj_smuggler'],
+  trucker: ['hj_smuggler', 'hj_nomad'], taxi: ['hj_nomad', 'hj_drifter'], delivery_rider: ['hj_nomad', 'hj_fighter'], courier: ['hj_smuggler', 'hj_nomad'], bus_driver: ['hj_nomad'],
+  factory: ['hj_fighter'], big_factory: ['hj_fighter'], welder: ['hj_fighter', 'hj_mercenary'], mechanic: ['hj_drifter', 'hj_smuggler'], crane_operator: ['hj_mercenary'],
+  officer: ['hj_mercenary', 'hj_bodyguard'], police: ['hj_bounty', 'hj_bodyguard'], coast_guard: ['hj_bounty', 'hj_pirate'], firefighter: ['hj_bodyguard'],
+  security: ['hj_hacker'], developer: ['hj_hacker'], game_dev: ['hj_hacker', 'hj_memecoin'], data_scientist: ['hj_hacker', 'hj_trader'], chip_engineer: ['hj_hacker'], ai_engineer: ['hj_hacker'],
+  aero_engineer: ['hj_space_analyst'], pilot: ['hj_space_analyst', 'hj_smuggler'], air_controller: ['hj_space_analyst'],
+  trader: ['hj_trader', 'hj_memecoin'], banker: ['hj_trader'], analyst: ['hj_trader'], fund_manager: ['hj_trader', 'hj_memecoin'], insurance: ['hj_gambler'], sales: ['hj_gambler', 'hj_magician'],
+  clergy: ['hj_exorcist', 'hj_stargazer'], social_worker: ['hj_tarot', 'hj_stargazer'], psychologist: ['hj_tarot', 'hj_stargazer'],
+  entertainer: ['hj_magician'], actor: ['hj_magician'], film_actor: ['hj_magician'], musician: ['hj_magician', 'hj_nomad'], singer: ['hj_magician'], comedian: ['hj_magician'],
+  painter: ['hj_forger', 'hj_art_investigator'], designer: ['hj_forger'], illustrator: ['hj_forger'], curator: ['hj_art_investigator', 'hj_conservator'], appraiser: ['hj_art_investigator'],
+  photographer: ['hj_adventurer', 'hj_nomad'], journalist: ['hj_spy', 'hj_adventurer'], pd: ['hj_adventurer'], tour_guide: ['hj_nomad', 'hj_adventurer'], flight_attendant: ['hj_nomad'], translator: ['hj_spy'], diplomat: ['hj_spy'],
+  chef: ['hj_michelin_inspector'], restaurant: ['hj_michelin_inspector'], sommelier: ['hj_michelin_inspector', 'hj_perfumer'], baker: ['hj_michelin_inspector'],
+  pharmacist: ['hj_perfumer'], florist: ['hj_perfumer'], makeup_artist: ['hj_perfumer', 'hj_tarot'], hairdresser: ['hj_tarot'], nail_artist: ['hj_tarot'],
+  librarian: ['hj_conservator'], researcher: ['hj_conservator', 'hj_hacker'], professor: ['hj_conservator'],
+  farmer: ['hj_natural', 'hj_shaman'], smart_farmer: ['hj_natural'], rancher: ['hj_natural'],
+  athlete: ['hj_fighter', 'hj_bodyguard'], trainer: ['hj_fighter', 'hj_bodyguard'], coach: ['hj_fighter'], sports_instructor: ['hj_fighter', 'hj_bodyguard'],
+  landlord: ['hj_trader', 'hj_mafia', 'hj_godmother'], founder: ['hj_trader', 'hj_memecoin'], sme_ceo: ['hj_gambler', 'hj_mafia', 'hj_godmother'], franchise_ceo: ['hj_mafia', 'hj_godmother'], developer_re: ['hj_gambler', 'hj_mafia', 'hj_godmother'],
+  bartender: ['hj_gambler', 'hj_underground_dealer'], parttime: ['hj_gambler', 'hj_fighter'], none: ['hj_gambler', 'hj_natural'],
+};
+function parentRareFrom(p: Person, from: string, origin: GameState['origin'], a: number): string[] {
+  const list = RARE_FROM[from] ?? (origin === 'poor' ? ['hj_gambler', 'hj_fighter'] : origin === 'rich' ? ['hj_trader'] : []);
+  return list.filter((id) => {
+    if (!HIDDEN_BY_ID[id]) return false;
+    if (id === 'hj_mafia') return p.sex === 'M';
+    if (id === 'hj_fighter') return a <= 40;
+    if (id === 'hj_godmother' || id === 'hj_drifter') return p.sex === 'F';
+    if (id === 'hj_underground_dealer') return a <= 40;
+    if (id === 'hj_stargazer') return a >= 30;
+    return true;
+  });
+}
+
 
 export function newGame(o: NewGameOpts): GameState {
   const seed = o.seed ?? Math.floor(Math.random() * 2 ** 31);
@@ -203,7 +247,7 @@ export function newGame(o: NewGameOpts): GameState {
   const hist = o.era === 'history';
   const START_YEAR = hist ? HIST_START : BASE_START;
   const s: GameState = {
-    version: 3,
+    version: 4,
     rng: seed,
     seed,
     year: START_YEAR,
@@ -252,27 +296,49 @@ export function newGame(o: NewGameOpts): GameState {
   father.bond = mother.bond = int(s, 35, 90);
   s.people[father.id] = father;
   s.people[mother.id] = mother;
-  const giveJob = (p: Person, pool: string[]) => {
-    p.job = tycoon && p === father ? 'founder' : pick(s, pool);
+  const giveJob = (p: Person, pool: string[], avoid?: string) => {
+    const cands = pool.filter((j) => j !== avoid && JOBS[j]);
+    p.job = tycoon && p === father ? 'founder' : pick(s, cands.length ? cands : pool);
     const j = JOBS[p.job];
     p.jobYears = Math.max(0, age(s, p) - 27);
-    p.jobLevel = tycoon && p === father ? 4 : clamp(int(s, 0, Math.floor(p.jobYears / 4)) + (dif?.level ?? 0), 0, j.maxLevel);
+    const elite = o.difficulty === 'easy' && ELITE_JOBS.includes(p.job) ? int(s, 1, 2) : 0; // 금수저 부모는 높은 자리에서 시작
+    p.jobLevel = tycoon && p === father ? 4 : clamp(int(s, 0, Math.floor(p.jobYears / 4)) + (dif?.level ?? 0) + elite, 0, j.maxLevel);
   };
-  const jobPool = hist ? HIST_PARENT_JOBS : PARENT_JOBS;
-  giveJob(father, jobPool[origin]);
-  // 1960년대 어머니는 대개 살림을 했다 (여성 경제활동참가율 30%대)
-  if (chance(s, hist ? (origin === 'poor' ? 0.45 : 0.75) : origin === 'poor' ? 0.2 : 0.35)) mother.job = 'none';
-  else giveJob(mother, hist ? (origin === 'poor' ? ['farmer', 'parttime', 'factory'] : origin === 'middle' ? ['teacher', 'shopkeeper', 'nurse'] : ['landlord', 'doctor']) : PARENT_JOBS[origin]);
-  // 아주 드물게 부모가 이미 히든 직업: 각자 0.7% 히든, 어머니는 0.5% 슈퍼 히든
+  // 난이도에 맞는 부모 직업 후보: 쉬움은 높은 자리, 지옥은 가장 불안정한 일. 보통·어려움은 열에 하나쯤 한 칸 위·아래도 섞인다
+  const poolFor = (): string[] => {
+    if (hist) return HIST_PARENT_JOBS[origin];
+    if (o.difficulty === 'easy') return chance(s, 0.75) ? ELITE_JOBS : PARENT_JOBS.rich;
+    if (o.difficulty === 'hell') return chance(s, 0.8) ? HELL_JOBS : PARENT_JOBS.poor;
+    if (o.difficulty === 'normal' && chance(s, 0.1)) return PARENT_JOBS.rich;
+    if (o.difficulty === 'hard' && chance(s, 0.1)) return PARENT_JOBS.middle;
+    return PARENT_JOBS[origin];
+  };
+  giveJob(father, poolFor());
+  // 1960년대 어머니는 대개 살림을 했다 (여성 경제활동참가율 30%대). 지금은 맞벌이가 더 흔하다 (2023 기혼 여성 고용률 약 64%, 통계청 지역별고용조사)
+  if (chance(s, hist ? (origin === 'poor' ? 0.45 : 0.75) : origin === 'poor' ? 0.15 : 0.22)) mother.job = 'none';
+  else giveJob(mother, hist ? (origin === 'poor' ? ['farmer', 'parttime', 'factory'] : origin === 'middle' ? ['teacher', 'shopkeeper', 'nurse'] : ['landlord', 'doctor']) : poolFor(), father.job);
+  // 아주 드물게 부모가 이미 히든 직업 (각자 약 1%): 아무 직업이나가 아니라 원래 하던 일·집안 형편에서 이어지는 길로.
+  //   어부였던 아버지가 밀수에 손을 대고, 큐레이터였던 어머니가 국제 미술품 수사관이 된다. 원래 직업은 "was:" 로 남는다.
+  const rareStory: string[] = [];
   for (const par of [father, mother]) {
-    const sup = par.sex === 'F' && chance(s, 0.005);
-    if (!sup && !chance(s, 0.007)) continue;
-    const pool = sup ? STARTER_SUPER : STARTER_HIDDEN;
-    const id = pick(s, pool);
+    if (hist || !chance(s, 0.012)) continue;
+    const from = par.job;
+    const cands = parentRareFrom(par, from, origin, age(s, par));
+    if (!cands.length) continue;
+    // 슈퍼 히든은 넷 중 하나꼴
+    const sup = cands.filter((id) => isSuperHidden(id));
+    const nor = cands.filter((id) => !isSuperHidden(id));
+    const id = sup.length && (!nor.length || chance(s, 0.25)) ? pick(s, sup) : pick(s, nor);
+    if (from !== 'none') addFlag(par, 'was:' + from);
+    if (id === 'hj_perfumer') addTrait(par, 'keen_nose');
+    if (id === 'hj_drifter') addTrait(par, 'speed_demon');
     par.job = id;
     par.jobLevel = 0;
-    par.jobYears = Math.max(1, age(s, par) - 28);
+    par.jobYears = int(s, 1, Math.max(1, age(s, par) - 28));
     addFlag(par, 'hidden:' + id);
+    const who = par === father ? '아버지' : '어머니';
+    const was = from === 'none' ? (origin === 'poor' ? '변변한 일자리가 없었는데' : '집에 있었는데') : `원래 ${JOBS[from]?.name ?? from}였는데`;
+    rareStory.push(`✨ ${who}는 ${was}, 어느 날부터 ${HIDDEN_BY_ID[id]?.icon ?? ''} ${HIDDEN_BY_ID[id]?.name ?? id}의 길을 걷고 있다.`);
   }
   const pastLines = hist ? histOrigins(s, father, mother) : '';
 
@@ -280,7 +346,8 @@ export function newGame(o: NewGameOpts): GameState {
   if (origin === 'poor') {
     father.cash = int(s, -4000, 2500);
     mother.cash = int(s, 0, 800);
-    if (chance(s, 0.35)) addAsset(s, 'apt_local', father.id, s.market.apt_local * 0.6, '낡은 빌라');
+    // 낡은 빌라라도 내 집이 있는 집: 어려움 25% · 지옥 8% (나머지는 반지하·원룸 월세)
+    if (chance(s, o.difficulty === 'hell' ? 0.08 : o.difficulty === 'hard' ? 0.25 : 0.35)) addAsset(s, 'apt_local', father.id, s.market.apt_local * 0.6, '낡은 빌라');
   } else if (origin === 'middle') {
     father.cash = int(s, 2000, 15000);
     mother.cash = int(s, 0, 5000);
@@ -387,6 +454,7 @@ export function newGame(o: NewGameOpts): GameState {
       (father.cash < 0 ? ` (빚 ${formatMoney(-father.cash)})` : '') +
       [father, mother].flatMap((q) => woesOf(q).map((w) => `\n⚠ ${q === father ? '아버지' : '어머니'}의 짐: ${WOES[w].icon} ${WOES[w].name} — ${WOES[w].desc}`)).join('') +
       (tycoon ? '\n💎 재벌가의 자손이다!' : '') +
+      (rareStory.length ? '\n' + rareStory.join('\n') : '') +
       (dif ? `\n🎚 난이도: ${dif.name}` : '\n🎲 운명에 맡겼다') +
       (hist
         ? `\n\n${pastLines}\n\n📜 지금 ${START_YEAR}년 봄. 3·15 부정선거로 온 나라가 들끓고 있다. ${eun(fullName(me))} 다섯 살.\n군사정변, 산업화, 유신, 광주, 올림픽, IMF, 월드컵, 촛불… 이 아이는 대한민국 현대사를 온몸으로 겪으며 자란다.\n해마다 그해의 신문이 오고, 역사의 큰 사건은 호외로 들이닥친다.\n\n💱 돈은 그해 물가로 보여 준다 (설정에서 "2025년 돈 가치"로 바꿔 볼 수 있다). 그 시절의 가난은 버는 돈이 적은 것으로 느껴진다.`
@@ -461,6 +529,7 @@ export function simulateYear(s: GameState): void {
   for (const m of cardYear(s)) log(s, m, 'life');
   for (const m of hiddenYear(s)) log(s, m, 'life');
   gateYear(s);
+  for (const m of casinoYear(s)) log(s, m, 'life');
   pathYear(s);
   photoYear(s);
   relicYear(s);

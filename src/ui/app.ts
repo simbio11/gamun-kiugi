@@ -1,6 +1,6 @@
 import { standingLabel } from '../core/school';
 import { sideJobOf, sideTrackOf, TRACK_NAMES, trackOf } from '../core/tracks';
-import { HOME_TYPE, buyCurrentHome, homeBuyQuote, moveInQuote, moveInto, moveIntoOwned, moveQuote, moveTo, ownedHomes, residence, tierOf, tiers } from '../core/housing';
+import { HOME_FX, HOME_TYPE, parentTopUp, receiveTopUp, refundOf, buyCurrentHome, homeBuyQuote, moveInQuote, moveInto, moveIntoOwned, moveQuote, moveTo, ownedHomes, residence, tierOf, tiers } from '../core/housing';
 import { creditGrade, debtRate, inRehab, walletNet } from '../core/debt';
 import { fixJosa, iga } from '../core/ev-util';
 import { LOAN_RATE, liab, acqTax, buyListing, buyQuote, gainsTax, homesOf, isHouse, isPrimary, isRealty, rentable, repayLoan, yieldOf } from '../core/realty';
@@ -189,7 +189,6 @@ import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, Marke
 import { portraitURL } from '../render/portrait';
 import { sceneArtURL, sceneFor, type SceneKey } from '../render/scene';
 import { bustURL } from '../render/bust';
-import { kitPortraitURL, onKitReady } from '../render/kit';
 import { commEvent, pcOf, phoneOf, type CommKind } from '../core/devices';
 
 type Tab = 'tree' | 'act' | 'policy' | 'assets' | 'log' | 'achv';
@@ -461,6 +460,15 @@ function render() {
   }
 }
 
+/** "다시 표시하지 않음"을 골랐나 (설정 → 행동력 남을 때 경고에서 되돌릴 수 있다) */
+function apWarnOff(): boolean {
+  try {
+    return localStorage.getItem('suppress_ap_warn') === '1';
+  } catch {
+    return false;
+  }
+}
+
 function apWarnModalHTML(ap: number): string {
   return `
   <div class="modal" data-action="close-ap-warn">
@@ -468,7 +476,7 @@ function apWarnModalHTML(ap: number): string {
       <div class="ap-warn-icon">⚡</div>
       <h3>행동력이 남아 있습니다</h3>
       <p class="ev-text">아직 사용하지 않은 행동력이 <b>${ap}</b> 남았습니다.<br>올해의 할 일을 더 하지 않고 다음 해로 넘어가시겠습니까?</p>
-      <label class="ap-warn-chk"><input type="checkbox" id="chk-suppress-ap-warn"> 해당 경고를 다시는 표시하지 않음</label>
+      <label class="ap-warn-chk"><input type="checkbox" id="chk-suppress-ap-warn"> 다시 표시하지 않음 <small>(⚙ 설정에서 다시 켤 수 있음)</small></label>
       <div class="ap-warn-btns">
         <button class="btn" data-action="close-ap-warn">행동하러 가기</button>
         <button class="btn primary" data-action="confirm-next-turn">턴 넘기기</button>
@@ -766,10 +774,14 @@ function homeCard(g: GameState): string {
       const j = moveQuote(g, me, t, 'jeonse');
       const w = moveQuote(g, me, t, 'wolse');
       const here = cur?.id === t.id && h?.type !== 'own';
+      // 💝 부모님 찬스: 전세 보증금이 모자라도 넉넉한 부모님이 보태 주실 수 있으면
+      const short = j.ok ? 0 : j.need - (walletNet(g, me) + refundOf(h));
+      const help = !j.ok && !(here && h?.type === 'jeonse') ? parentTopUp(g, me, short + 100) : 0;
       return `<div class="mv ${here ? 'here' : ''}">
         <div class="mv-h"><span>${esc(t.name)}${here ? ' <b class="tag home">지금</b>' : ''}</span><small>시세 ${formatMoney(t.price)}</small></div>
+        <small class="muted mv-fx">${esc(HOME_FX[t.rank]?.line ?? '')}${!w.ok && w.why?.startsWith('소득') ? ` · 🔒 ${esc(w.why)}` : ''}</small>
         <div class="mv-b">
-          <button class="mini" data-action="move" data-id="${t.id}" data-v="jeonse" ${j.ok && !(here && h?.type === 'jeonse') ? '' : 'disabled'}>전세 ${formatMoney(j.deposit)}</button>
+          ${help ? `<button class="mini" data-action="move-help" data-id="${t.id}" data-amt="${help}" title="부모님이 ${formatMoney(help)}을 보태 주신다 (증여)">💝 전세 ${formatMoney(j.deposit)}</button>` : `<button class="mini" data-action="move" data-id="${t.id}" data-v="jeonse" ${j.ok && !(here && h?.type === 'jeonse') ? '' : 'disabled'}>전세 ${formatMoney(j.deposit)}</button>`}
           <button class="mini" data-action="move" data-id="${t.id}" data-v="wolse" ${w.ok && !(here && h?.type === 'wolse') ? '' : 'disabled'}>월세 연 ${formatMoney(w.rent)}</button>
         </div>
       </div>`;
@@ -782,7 +794,7 @@ function homeCard(g: GameState): string {
     ${buy ? `<div class="arow"><span>이 집을 산다 <small>(보증금 돌려받아 보태고, 대출 ${formatMoney(buy.loan)})</small></span><span>${formatMoney(buy.price)} <button class="mini" data-action="buy-home" ${cash >= buy.need ? '' : 'disabled'}>매수</button></span></div>` : ''}
     <details class="moves"><summary>이사 가기 (전세·월세)</summary>
       ${rows}
-      <p class="fine">전세: 5년마다 재계약(그사이 오른 시세만큼 보증금 조정). 보증금의 최대 80%(${formatMoney(20000)}·연 소득 4배 한도)까지 전세대출(연 4%). 월세: 보증금 조금 + 해마다 월세.<br>집을 사려면 부동산 매물에서 산다. 첫 집을 사면 그 집으로 이사하고, 지금 보증금은 돌려받는다.<br>자가에서 전세·월세로 옮기면 살던 집은 세를 놓는다. 집을 팔면 한 단계 작은 집 월세로 옮긴다.</p>
+      <p class="fine">더 좋은 집으로 옮기려면 월세가 가구 소득의 40% 이하여야 한다 (통장에 5년 치 월세가 있거나, 넉넉한 부모님이 보증을 서 주시면 예외). 💝 표시는 부모님이 모자란 전세금을 보태 주시는 집 (증여 · 부모님 현금의 절반까지). 월세를 못 내고 통장도 비면 한 단계 작은 집으로 밀려난다. 집 단계가 오를수록 동네 학군도 좋아진다.<br>전세: 5년마다 재계약(그사이 오른 시세만큼 보증금 조정). 보증금의 최대 80%(${formatMoney(20000)}·연 소득 4배 한도)까지 전세대출(연 4%). 월세: 보증금 조금 + 해마다 월세.<br>집을 사려면 부동산 매물에서 산다. 첫 집을 사면 그 집으로 이사하고, 지금 보증금은 돌려받는다.<br>자가에서 전세·월세로 옮기면 살던 집은 세를 놓는다. 집을 팔면 한 단계 작은 집 월세로 옮긴다.</p>
     </details>
   </section>`;
 }
@@ -1302,27 +1314,10 @@ function lifeRows(g: GameState, p: Person): string {
   return rows.join('');
 }
 
-/** 인물 창 큰 초상화: 그려 온 부품을 조립한 초상화 (부품을 받는 동안은 도트 초상화) */
+/** 인물 창 큰 초상화: 사건 그림과 같은 도트 초상화 (48×48) */
 function bustHTML(p: Person, a: number, year: number, dead: boolean): string {
-  const kit = kitPortraitURL(p, a, year);
-  const kitBlink = kit && !dead ? kitPortraitURL(p, a, year, true) : null;
-  const src = kit ?? bustURL(p, a, year);
-  const blink = dead ? null : kit ? kitBlink : bustURL(p, a, year, 'normal', true);
-  const data = kit ? '' : ` data-kit="${p.id}" data-age="${a}" data-year="${year}"`;
-  return `<span class="bust-wrap anim2 ${dead ? 'dead' : ''}${kit ? ' kit' : ''}"${data}><img class="px big bust" src="${src}">${blink ? `<img class="px big bust blink" src="${blink}">` : ''}</span>`;
+  return `<span class="bust-wrap anim2 ${dead ? 'dead' : ''}"><img class="px big bust" src="${bustURL(p, a, year)}">${dead ? '' : `<img class="px big bust blink" src="${bustURL(p, a, year, 'normal', true)}">`}</span>`;
 }
-
-// 부품이 도착하면 열린 인물 창의 도트 초상화를 조립 초상화로 바꿔 끼운다
-onKitReady(() => {
-  const g = ui.game;
-  if (!g) return;
-  root.querySelectorAll<HTMLElement>('.bust-wrap[data-kit]').forEach((el) => {
-    const p = g.people[el.dataset.kit!];
-    if (!p) return;
-    const html = bustHTML(p, Number(el.dataset.age), Number(el.dataset.year), el.classList.contains('dead'));
-    el.outerHTML = html;
-  });
-});
 
 function personSheet(g: GameState, p: Person): string {
   const dead = !alive(p);
@@ -2207,6 +2202,7 @@ function settingsModal(g: GameState): string {
       <div class="set-row"><span>진동</span>${seg('pref-vibe', vibeOn() ? 1 : 0, [[1, '📳 켜기'], [0, '끄기']])}</div>
       <div class="set-row"><span>움직임</span>${seg('pref-calm', prefs.calm ? 1 : 0, [[0, '보통'], [1, '줄이기']])}</div>
       <div class="set-row"><span>가주 테마</span>${seg('pref-theme', prefs.theme === false ? 0 : 1, [[1, '켜기'], [0, '끄기']])}</div>
+      <div class="set-row"><span>행동력 남을 때 경고</span>${seg('pref-apwarn', apWarnOff() ? 0 : 1, [[1, '켜기'], [0, '끄기']])}</div>
       <div class="set-row"><span>돈 표시</span>${seg('pref-money', prefs.money ?? 'nominal', [['nominal', '그해 물가'], ['real', '2025년 돈']])}</div>
       <div class="set-row"><span>글자 크기</span>${seg('pref-text', prefs.text ?? 'm', [['s', '작게'], ['m', '보통'], ['l', '크게']])}</div>
       <div class="set-row"><span>가계도 보기</span>${seg('zoom', ui.zoom, [['big', '크게'], ['mid', '보통'], ['small', '작게']])}</div>
@@ -2937,6 +2933,14 @@ function handle(el: HTMLElement) {
       prefs.theme = v === '1';
       savePrefs();
       break;
+    case 'pref-apwarn':
+      try {
+        if (v === '1') localStorage.removeItem('suppress_ap_warn');
+        else localStorage.setItem('suppress_ap_warn', '1');
+      } catch {
+        /* 저장소를 못 쓰면 그냥 이번만 */
+      }
+      break;
     case 'pref-calm':
       prefs.calm = v === '1';
       savePrefs();
@@ -3039,8 +3043,7 @@ function handle(el: HTMLElement) {
       if (!g) break;
       if (!g.events.length) {
         const ap = apLeft(g);
-        const suppress = typeof localStorage !== 'undefined' && localStorage.getItem('suppress_ap_warn') === '1';
-        if (ap > 0 && !suppress) {
+        if (ap > 0 && !apWarnOff()) {
           ui.apWarnModal = { ap };
           break;
         }
@@ -3137,6 +3140,19 @@ function handle(el: HTMLElement) {
       const r = moveTo(g!, head(g!), id, v as 'jeonse' | 'wolse');
       if (r.startsWith('이사할 수 없다')) (ui.toast = r), sfx('error');
       else ui.outcome = { title: '🚚 이사', text: r };
+      break;
+    }
+    case 'move-help': {
+      const me = head(g!);
+      const amt = Number(el.dataset.amt);
+      if (!parentTopUp(g!, me, amt)) {
+        (ui.toast = '부모님도 지금은 어려우시다'), sfx('error');
+        break;
+      }
+      const help = receiveTopUp(g!, me, amt);
+      const r = moveTo(g!, me, id, 'jeonse');
+      if (r.startsWith('이사할 수 없다')) (ui.toast = r), sfx('error');
+      else ui.outcome = { title: '💝 부모님 찬스', text: `${help}\n${r}` };
       break;
     }
     case 'move-in': {

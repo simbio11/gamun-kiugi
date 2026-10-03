@@ -13,6 +13,7 @@ export function eraMortality(y: number): number {
 const TECH: [string, number][] = [
   ['regen_joint', 0.92], ['organ:heart', 0.75], ['organ:kidney', 0.85], ['organ:liver', 0.85], ['organ:lung', 0.85],
   ['rejuvenated', 0.7], ['nano_bots', 0.72], ['cell_regen', 0.6], ['gene_fix', 0.8], ['brain_backup', 0.95],
+  ['cancer_vax', 0.88], ['retina', 0.97], ['dementia_vax', 0.9], ['mito_swap', 0.75],
 ];
 export function lifeTechMult(p: Person): number {
   let m = 1;

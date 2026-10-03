@@ -1,12 +1,13 @@
 // 숨은 길 (단계별 미션): 단서 → 세 단계 시험 → 히든 직업 제안.
 // 단서는 ① 해마다 뜻밖의 사건 ② 「숨은 길」 탐색 행동 ③ 직업 행동에서 대박이 났을 때 찾아온다.
 // 번듯한 직업이 없는 사람(백수·알바·신참·영세 자영업)에게 훨씬 잘 온다. 번듯한 고위직은 드물다.
+import { HIDDEN_RATE, hiddenMastery, novelty } from './hidden-mastery';
 import type { ActionDef } from './actions';
 import { JOBS, STAT_NAMES } from './data';
 import { HIDDEN_BY_ID, isSuperHidden } from './hidden-data';
 import { addFlag, age, alive, clamp, fullName, head, isMainline } from './people';
 import { fmt, rollTier, TIER_MARK, type Tier } from './practice';
-import { chance, pick } from './rng';
+import { chance, next, pick } from './rng';
 import type { GameState, Person, StatKey } from './types';
 import type { EventDef } from './ev-util';
 
@@ -114,9 +115,15 @@ export function questYear(s: GameState): void {
     }
     if (busy(p) || (seen[`hqx:${p.id}`] ?? -99) > s.year - 4) continue;
     const ids = eligible(s, p);
-    if (!ids.length || !chance(s, 0.035 * lowly(p))) continue;
+    if (!ids.length) continue;
+    // 가문에서 이미 나온 직업일수록 덜 고른다 (대대로 다른 길)
+    const w = ids.map((id) => novelty(s, id));
+    const tot = w.reduce((a, b) => a + b, 0);
+    if (!chance(s, 0.035 * HIDDEN_RATE * hiddenMastery(s).hid * lowly(p) * Math.min(1, tot / Math.max(1, ids.length) * 1.5))) continue;
+    let r = next(s) * tot;
+    const id = ids.find((_, i) => (r -= w[i]) < 0) ?? ids[ids.length - 1];
     seen[`hqx:${p.id}`] = s.year;
-    s.events.push({ uid: s.eventSeq++, defId: 'hid_clue', personId: p.id, data: { id: pick(s, ids) } });
+    s.events.push({ uid: s.eventSeq++, defId: 'hid_clue', personId: p.id, data: { id } });
   }
 }
 

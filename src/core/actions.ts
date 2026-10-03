@@ -19,6 +19,7 @@ import { bonusAP } from './rewards';
 import { CAREER_ACTIONS } from './career';
 import { RIVAL_ACTIONS } from './rival';
 import { MONEY_ACTIONS } from './scandal';
+import { CASINO_ACTION } from './casino';
 import { AUTONOMY_ACTIONS, obeys } from './autonomy';
 import { STUDENT_ACTIONS } from './student-actions';
 import { HIST_ACTIONS } from './histpack';
@@ -1371,7 +1372,7 @@ const STAGE_ACTIONS: ActionDef[] = [
 // 올해의 기회: 목록 맨 앞 (분류 칩도 맨 앞에 선다)
 ACTIONS.unshift(...oppActions((s) => stageOf(s, h(s))), ...QUEST_ACTIONS, ...jobActions());
 ACTIONS.push(...PHOTO_ACTIONS);
-ACTIONS.push(...HIST_ACTIONS, ...DEVICE_ACTIONS, ...SPACE_ACTIONS, ...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...INLAW_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, ...MONEY_ACTIONS, ...AUTONOMY_ACTIONS, {
+ACTIONS.push(...HIST_ACTIONS, ...DEVICE_ACTIONS, ...SPACE_ACTIONS, ...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...INLAW_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, ...MONEY_ACTIONS, CASINO_ACTION, ...AUTONOMY_ACTIONS, {
   id: 'license',
   cat: '진로·자기계발',
   icon: '🚦',

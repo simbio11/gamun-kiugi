@@ -91,7 +91,8 @@ function randomStats(r: RngHolder, mean: number, sd: number): Stats {
   return st;
 }
 
-export function randomTalents(r: RngHolder, p = 0.06): Talent[] {
+/** 재능은 한 사람에 평균 0.84개 (처음 14종 × 6%였던 비율을 재능 수가 늘어도 유지) */
+export function randomTalents(r: RngHolder, p = 0.84 / TALENT_IDS.length): Talent[] {
   return TALENT_IDS.filter(() => chance(r, p)).map((id) => ({ id, discovered: false }));
 }
 
@@ -346,6 +347,8 @@ export function randomTraits(r: RngHolder, base: string[] = []): string[] {
     addTrait(out, rare);
   }
   if (chance(r, 0.01)) addTrait(out, 'blood_thirst'); // 흡혈 적성 1%
+  if (chance(r, 0.02)) addTrait(out, 'keen_nose'); // 개코 2% (후각 예민형 — 조향사 지원자 중에서도 드물다)
+  if (chance(r, 0.015)) addTrait(out, 'chess_prodigy'); // 체스 신동 1.5% (성별은 루트에서 본다)
   const n = pick(r, [0, 1, 1, 1, 2, 2]);
   for (let i = 0; i < n; i++) addTrait(out, pick(r, TRAIT_IDS));
   return out.slice(0, 3);

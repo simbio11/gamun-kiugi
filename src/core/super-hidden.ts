@@ -5,11 +5,16 @@
 import { HIDDEN_BY_ID, isHoH, isSuperHidden } from './hidden-data';
 import { gate, type EventDef } from './ev-util';
 import { addFlag, age, alive, clamp, fullName, isMainline, markOf } from './people';
-import { chance } from './rng';
+import { chance, next } from './rng';
 import { myVehicles } from './vehicle';
 import { formatMoney } from './economy';
 import type { GameState, Person } from './types';
-import { GATE_ONLY, GATE_READY } from './super-gates';
+import { GATE_ONLY, GATE_RATE, GATE_READY } from './super-gates';
+import { doorOpens, stepPasses } from './super-doors';
+import { hiddenMastery, novelty } from './hidden-mastery';
+
+/** 입구(ready)가 열린 사람에게 해마다 첫 장면이 올 기본 확률 (루트마다 GATE_RATE 로 따로) */
+const STAT_RATE = 0.45;
 import { awardCard } from './cards';
 
 interface SuperStep {
@@ -23,6 +28,8 @@ interface SuperStep {
   yesLabel?: string;
   noLabel?: string;
   onNo?: (x: { s: GameState; p: Person }) => string;
+  /** 이 단계 장면이 오는 조건 (없으면 앞 단계 다음 해에 바로) — 고문서 복원가는 지능 78·80 */
+  when?: (p: Person) => boolean;
 }
 
 interface SuperRoute {
@@ -128,13 +135,13 @@ export const SUPER_ROUTES: SuperRoute[] = [
     name: '밤의 대부',
     icon: '🥃',
     ready: (s, p) =>
-      p.sex === 'M' && A(s, p) >= 28 && A(s, p) <= 70 && ST(p).cha >= 56 &&
+      p.sex === 'M' && A(s, p) >= 28 && A(s, p) <= 70 && ST(p).cha >= 53 &&
       (markOf(p, 'cheat') >= 1 || markOf(p, 'risk') >= 3 ||
         p.flags.includes('hidden:hj_gambler') || p.flags.includes('hidden:hj_smuggler')),
     step1: {
       title: '🥃 대부의 부름',
       text: '시가 연기 자욱한 방. 늙은 대부가 {n}을 부른다. "내 자리를 물려줄 사람은 너뿐이다. 조직은 가족이야." 식탁 위에 반지 하나가 놓여 있다.',
-      check: (p) => ST(p).cha >= 56,
+      check: (p) => ST(p).cha >= 53,
       rate: 0.92,
       succText: '반지에 입을 맞췄다. 이제 밤의 거리에서 {n}의 말이 통한다.',
       succMoney: 6000,
@@ -143,7 +150,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     step2: {
       title: '⚔ 가문 전쟁',
       text: '경쟁 조직이 항구 창고와 구역 셋을 동시에 쳤다. 다섯 가문이 긴 탁자에 모였고, 판을 정리할 사람은 {n}뿐이다.',
-      check: (p) => ST(p).cha >= 60 && ST(p).int >= 55,
+      check: (p) => ST(p).cha >= 57 && ST(p).int >= 55,
       rate: 0.9,
       succText: '한 사람도 다치지 않고 판을 정리했다. 다섯 가문이 {n}의 이름을 새겼다.',
       succMoney: 16000,
@@ -152,7 +159,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     step3: {
       title: '👑 도시의 왕',
       text: '늙은 대부가 눈을 감았다. 장례 미사에 도시의 절반이 모였다. 관 앞에서 회중시계와 반지를 함께 내미는 손. "이제 밤은 당신 것이오."',
-      check: (p) => ST(p).cha >= 64,
+      check: (p) => ST(p).cha >= 61,
       rate: 0.95,
       succText: '도시의 밤이 새 주인을 얻었다. 사람들은 {n}을 대부라 부른다.',
       succMoney: 30000,
@@ -218,15 +225,18 @@ export const SUPER_ROUTES: SuperRoute[] = [
     icon: '🂡',
     ready: (s, p) => {
       if (p.sex !== 'M' || A(s, p) < 20 || A(s, p) > 65) return false;
+      // 아무 남자에게나 오던 권유 → 승부 기질이 있는 사람에게만 (한탕 성향·노름 버릇·타짜·가문 내 노름꾼)
+      const knack = markOf(p, 'risk') >= 3 || markOf(p, 'cheat') >= 1 || p.flags.includes('gambler') || p.traits?.includes('gambler') || p.job === 'hj_gambler';
+      if (!knack || !chance(s, 0.12)) return false;
       const last = s.storySeen?.['casino_refused:' + p.id];
       if (last != null && s.year - Number(last) < 10) return false;
       return true;
     },
     step1: {
-      title: '🂡 친구의 권유 (카지노 1차 방문)',
-      text: '오랜 친구가 은밀하게 다가와 어깨를 툭 친다. "야, 도심 지하에 기가 막힌 카지노가 있는데 딱 한 번만 가볼래? 가볍게 게임만 하자. 손해 보면 내가 메꿔줄게!"',
-      yesLabel: '호기심에 친구를 따라 카지노에 가본다',
-      noLabel: '도박은 위험하다며 단호히 거절한다',
+      title: '🂡 VIP 룸의 초대 (세 번째 승리 뒤)',
+      text: '세 번째로 칩을 쓸어 담은 밤, 검은 정장의 사내가 명함 한 장을 내밀었다. 앞면엔 아무것도 없고 뒷면엔 주소 하나. "당신 손은 이기는 법을 압니다. 진짜 테이블은 지하에 있지요. 오늘은 구경만 하셔도 됩니다."',
+      yesLabel: '명함의 주소로 내려가 본다',
+      noLabel: '명함을 찢고 다시는 카지노에 가지 않는다',
       check: (p) => ST(p).cha >= 50 || ST(p).int >= 50,
       rate: 0.92,
       succText: '화려한 조명과 칩 소리에 매료되었다! 첫 배팅에서 승리하며 짜릿한 쾌감이 온몸을 감싼다.',
@@ -239,7 +249,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
       },
     },
     step2: {
-      title: '🃏 카지노의 밤 (카지노 2차 방문과 중독)',
+      title: '🃏 지하 테이블의 밤',
       text: '지난번 방문 이후 귓가에 칩 소리가 맴돌아 일이 손에 잡히지 않는다. 결국 또다시 홀린 듯 지하 카지노 문 앞까지 왔다. 오늘 밤도 배팅을 시작할까?',
       yesLabel: '짜릿한 손맛을 잊지 못하고 카지노로 들어간다',
       noLabel: '더 깊이 빠지기 전에 충동을 누르고 돌아선다',
@@ -255,8 +265,8 @@ export const SUPER_ROUTES: SuperRoute[] = [
       },
     },
     step3: {
-      title: '👑 도박의 왕 (카지노 3차 방문과 전직)',
-      text: '어느덧 3번째 카지노 방문. 이제는 손님으로 만족할 수 없는 지경에 이르렀다. 카지노의 총지배인이 {n}의 비범한 재능과 서늘한 눈빛을 보고 VIP 테이블을 총괄하는 전설의 딜러 자리를 제안한다. "베팅은 자유입니다. 다만 지면, 제게 하나만 약속하십시오."',
+      title: '👑 도박의 왕',
+      text: '지하 테이블을 드나든 지 일 년. 이제는 손님으로 만족할 수 없는 지경에 이르렀다. 카지노의 총지배인이 {n}의 비범한 재능과 서늘한 눈빛을 보고 VIP 테이블을 총괄하는 전설의 딜러 자리를 제안한다. "베팅은 자유입니다. 다만 지면, 제게 하나만 약속하십시오."',
       yesLabel: '카지노의 왕(비밀 카지노 딜러)이 된다',
       noLabel: '마지막 순간 파멸을 직감하고 손을 뗀다',
       check: (p) => ST(p).int >= 60 || ST(p).cha >= 60,
@@ -278,13 +288,13 @@ export const SUPER_ROUTES: SuperRoute[] = [
     name: '밤의 대모',
     icon: '🖤',
     ready: (s, p) =>
-      p.sex === 'F' && A(s, p) >= 28 && A(s, p) <= 70 && ST(p).cha >= 56 &&
+      p.sex === 'F' && A(s, p) >= 28 && A(s, p) <= 70 && ST(p).cha >= 53 &&
       (markOf(p, 'cheat') >= 1 || markOf(p, 'risk') >= 3 ||
         p.flags.includes('hidden:hj_gambler') || p.flags.includes('hidden:hj_smuggler')),
     step1: {
       title: '🖤 대모의 부름',
       text: '대부가 병석에 누운 뒤, 그의 아내가 {n}을 뒷방으로 불렀다. "조직은 총으로만 굴러가지 않아. 장부와 사람, 그게 진짜 힘이야."',
-      check: (p) => ST(p).cha >= 56,
+      check: (p) => ST(p).cha >= 53,
       rate: 0.92,
       succText: '장부를 넘겨받았다. 이제 밤의 거리에서 {n}의 말이 조용히 통한다.',
       succMoney: 5500,
@@ -293,7 +303,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     step2: {
       title: '⚖ 다섯 가문의 중재',
       text: '전쟁으로 다섯 가문이 흩어졌다. 긴 탁자에 앉은 원로들이 서로를 노려본다. 총 대신 말로 판을 정리할 사람이 필요하다.',
-      check: (p) => ST(p).cha >= 60 && ST(p).int >= 55,
+      check: (p) => ST(p).cha >= 57 && ST(p).int >= 55,
       rate: 0.9,
       succText: '한 사람도 다치지 않게 판을 갈랐다. 다섯 가문이 {n}의 이름을 새겼다.',
       succMoney: 15000,
@@ -302,7 +312,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     step3: {
       title: '👑 밤의 어머니',
       text: '대부의 회중시계가 멈췄다. 조직의 원로들이 {n}의 방문 앞에 줄을 섰다. "대모, 이제 밤을 맡아 주십시오."',
-      check: (p) => ST(p).cha >= 64,
+      check: (p) => ST(p).cha >= 61,
       rate: 0.95,
       succText: '도시의 밤이 {n}의 손에 들어왔다. 총소리 없이, 장부 하나로.',
       succMoney: 30000,
@@ -310,10 +320,10 @@ export const SUPER_ROUTES: SuperRoute[] = [
     },
   },
 
-  // ♟️ 여성 체스 그랜드마스터: 적성검사 [체스 신동] → 체스 선수 고유 루트 → 35세까지 유지
+  // ♟️ 체스 그랜드마스터: [체스 신동] → 13세 대회 통과로 체스 선수 → 30세까지 유지 (super-gates.ts)
   {
     id: 'hj_chess_master',
-    name: '여성 체스 그랜드마스터',
+    name: '체스 그랜드마스터',
     icon: '♟️',
     ready: (s, p) => p.sex === 'F' && p.job === 'chess_player' && (p.traits?.includes('chess_prodigy') ?? false) && A(s, p) >= 35,
     step1: {
@@ -335,11 +345,11 @@ export const SUPER_ROUTES: SuperRoute[] = [
       failText: '시간 부족으로 마지막 1분을 남기고 실수를 범했다.',
     },
     step3: {
-      title: '🏛 전설의 여성 체스 그랜드마스터',
+      title: '🏛 전설의 체스 그랜드마스터',
       text: '국제 체스 연맹 역사상 가장 완벽한 경기력. 전 세계 체스인들의 기립 박수 속에서 그랜드마스터의 왕관을 받는다.',
       check: (p) => ST(p).int >= 80,
       rate: 0.95,
-      succText: '인류 지성의 정점! 여성 체스 그랜드마스터의 위업을 달성했다.',
+      succText: '인류 지성의 정점! 체스 그랜드마스터의 위업을 달성했다.',
       succMoney: 35000,
       failText: '아쉽게 타이틀 방어에 실패했다.',
     },
@@ -420,7 +430,7 @@ export const SUPER_ROUTES: SuperRoute[] = [
     id: 'hj_conservator',
     name: '고문서 복원가',
     icon: '📜',
-    ready: (s, p) => A(s, p) >= 24 && A(s, p) <= 65 && ST(p).int >= 68,
+    ready: (s, p) => A(s, p) >= 28 && A(s, p) <= 65 && ST(p).int >= 72 && ST(p).mor >= 55,
     step1: {
       title: '📜 2천년 전 파피루스 사본',
       text: '사막의 동굴에서 바스러지기 직전의 고대 파피루스 사본이 발견되었다. 숨결 하나만 잘못 닿아도 영원히 사라질 위기. 정밀한 해체 작업이 필요하다.',
@@ -667,7 +677,28 @@ export const SUPER_ROUTES: SuperRoute[] = [
     ['🏰 고성의 안주인', '후작이 긴 잠에 들며 성의 열쇠를 {n}에게 넘긴다. "이제 밤은 당신의 것이오."', (p) => ST(p).cha >= 74, 0.9, '핏빛 후작부인. 천 년의 고성과 밤의 왕관을 물려받았다.', 22000, '열쇠를 받지 못했다.']),
 ];
 
-// 직업마다의 새 사연(super-gates.ts)으로 문을 연다. 단계 성공률은 조금 낮춰 실패도 있게
+// 단계 판정을 새 입구에 맞춘다: 입구 조건에서 한두 걸음씩만 더. w = 그 단계 장면이 오는 조건 (능력치가 오를 때까지 기다린다)
+type Chk = (p: Person) => boolean;
+const TUNE: Record<string, { c: [Chk, Chk, Chk]; w?: [Chk, Chk] }> = {
+  hj_vtuber: { c: [(p) => ST(p).cha >= 60, (p) => ST(p).cha >= 63 && ST(p).int >= 50, (p) => ST(p).cha >= 66], w: [(p) => ST(p).cha >= 63, (p) => ST(p).cha >= 66] },
+  hj_private_jet: { c: [(p) => ST(p).cha >= 52, (p) => ST(p).cha >= 55 && ST(p).int >= 50, (p) => ST(p).cha >= 57] },
+  hj_conservator: { c: [(p) => ST(p).int >= 75, (p) => ST(p).int >= 78, (p) => ST(p).int >= 80], w: [(p) => ST(p).int >= 78, (p) => ST(p).int >= 80] },
+  hj_space_analyst: { c: [(p) => ST(p).int >= 72, (p) => ST(p).int >= 75, (p) => ST(p).int >= 78], w: [(p) => ST(p).int >= 75, (p) => ST(p).int >= 78] },
+  hj_detective: { c: [(p) => ST(p).int >= 62, (p) => ST(p).int >= 64 && ST(p).cha >= 56, (p) => ST(p).int >= 66 && ST(p).hp >= 50] },
+  hj_perfumer: { c: [(p) => ST(p).hp >= 60 && ST(p).cha >= 65, (p) => ST(p).cha >= 66, (p) => ST(p).cha >= 68] },
+  hj_pope: { c: [(p) => ST(p).mor >= 75, (p) => ST(p).mor >= 77 && ST(p).cha >= 50, (p) => ST(p).mor >= 79] },
+  hj_bodyguard: { c: [(p) => ST(p).str >= 65, (p) => ST(p).str >= 67 && ST(p).hp >= 60, (p) => ST(p).str >= 69] },
+  hj_art_investigator: { c: [(p) => ST(p).int >= 65, (p) => ST(p).int >= 67 && ST(p).cha >= 55, (p) => ST(p).int >= 69] },
+  hj_michelin_inspector: { c: [(p) => ST(p).int >= 55, (p) => ST(p).int >= 60, (p) => ST(p).cha >= 60] },
+  hj_stargazer: { c: [(p) => ST(p).cha >= 60, (p) => ST(p).cha >= 62 && ST(p).int >= 52, (p) => ST(p).cha >= 65] },
+};
+for (const [id, tu] of Object.entries(TUNE)) {
+  const r = SUPER_ROUTES.find((x) => x.id === id)!;
+  [r.step1.check, r.step2.check, r.step3.check] = tu.c;
+  if (tu.w) [r.step2.when, r.step3.when] = tu.w;
+}
+
+// 입구는 super-gates.ts 의 루트별 사연으로 연다. 단계 성공률은 조금 낮춰 실패도 있게
 for (const r of SUPER_ROUTES) {
   const gateReady = GATE_READY[r.id];
   const old = r.ready;
@@ -687,12 +718,19 @@ export function superHiddenYear(s: GameState): string[] {
     // 이미 히든 직업이면 스킵
     if (p.job.startsWith('hj_')) continue;
 
-    for (const r of SUPER_ROUTES) {
+    // 해마다 순서를 섞는다: 늘 앞쪽 직업만 먼저 걸리지 않게
+    const order = [...SUPER_ROUTES];
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(next(s) * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    for (const r of order) {
       const f1 = `sh:${r.id}:1`;
       const f2 = `sh:${r.id}:2`;
 
       // 3단계 미션 체크
       if (p.flags.includes(f2)) {
+        if (r.step3.when && !r.step3.when(p)) continue;
         const lastFail3 = s.storySeen?.['sh_fail_step3:' + r.id + ':' + p.id];
         if (lastFail3 !== undefined && s.year - lastFail3 < 2) continue; // 실패 후 2년 쿨다운
         if (!s.events.some((e) => e.defId === 'sh_step3' && e.personId === p.id && e.data?.id === r.id)) {
@@ -703,6 +741,7 @@ export function superHiddenYear(s: GameState): string[] {
 
       // 2단계 미션 체크
       if (p.flags.includes(f1)) {
+        if (r.step2.when && !r.step2.when(p)) continue;
         const lastFail2 = s.storySeen?.['sh_fail_step2:' + r.id + ':' + p.id];
         if (lastFail2 !== undefined && s.year - lastFail2 < 2) continue; // 실패 후 2년 쿨다운
         if (!s.events.some((e) => e.defId === 'sh_step2' && e.personId === p.id && e.data?.id === r.id)) {
@@ -719,9 +758,11 @@ export function superHiddenYear(s: GameState): string[] {
         if (s.year - lastFail1 < 3) continue;
         if (!chance(s, 0.35)) continue;
       }
-      if (r.ready(s, p)) {
+      // 능력치 문(ready) 또는 다른 문(super-doors: 관련 직업·재능·성격·지나온 길, 아주 드물게 운)
+      const byStats = r.ready(s, p);
+      if (byStats || doorOpens(s, p, r.id, (pct) => chance(s, pct))) {
         const hasRare = p.traits?.some((t) => ['speed_demon', 'hypnotic_eye', 'dark_artist'].includes(t));
-        if ((hasRare || chance(s, 0.75)) && !s.events.some((e) => e.defId === 'sh_step1' && e.personId === p.id)) {
+        if ((hasRare || !byStats || chance(s, (GATE_RATE[r.id] ?? STAT_RATE) * hiddenMastery(s).sup * novelty(s, r.id))) && !s.events.some((e) => e.defId === 'sh_step1' && e.personId === p.id)) {
           s.events.push({ uid: s.eventSeq++, defId: 'sh_step1', personId: p.id, data: { id: r.id } });
           msgs.push(`✨ ${fullName(p)}에게 특별한 제안이 찾아왔다 (${r.icon} ${r.name})`);
           break;
@@ -748,7 +789,7 @@ const step1Event: EventDef = {
       {
         label: r.step1.yesLabel ?? `도전한다 (자격 확인)`,
         run: (x) => {
-          const ok = r.step1.check(x.p) && chance(x.s, r.step1.rate);
+          const ok = stepPasses(x.s, x.p, r.id, r.step1.check(x.p), (pct) => chance(x.s, pct)) && chance(x.s, r.step1.rate);
           if (ok) {
             addFlag(x.p, `sh:${r.id}:1`);
             x.p.cash += r.step1.succMoney;
@@ -788,7 +829,7 @@ const step2Event: EventDef = {
       {
         label: r.step2.yesLabel ?? `한 단계 더 나아간다 (2단계 돌파)`,
         run: (x) => {
-          const ok = r.step2.check(x.p) && chance(x.s, r.step2.rate);
+          const ok = stepPasses(x.s, x.p, r.id, r.step2.check(x.p), (pct) => chance(x.s, pct)) && chance(x.s, r.step2.rate);
           if (ok) {
             addFlag(x.p, `sh:${r.id}:2`);
             x.p.cash += r.step2.succMoney;
@@ -826,7 +867,7 @@ const step3Event: EventDef = {
       {
         label: r.step3.yesLabel ?? `모든 것을 걸고 정점에 선다 (최종 전직)`,
         run: (x) => {
-          const ok = r.step3.check(x.p) && chance(x.s, r.step3.rate);
+          const ok = stepPasses(x.s, x.p, r.id, r.step3.check(x.p), (pct) => chance(x.s, pct)) && chance(x.s, r.step3.rate);
           if (ok) {
             const id = r.id;
             x.p.job = id;

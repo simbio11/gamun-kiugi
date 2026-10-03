@@ -2,7 +2,7 @@ export type StatKey = 'str' | 'int' | 'cha' | 'mor' | 'hp';
 export type Stats = Record<StatKey, number>;
 export type Sex = 'M' | 'F';
 
-export type TalentId = 'genius' | 'athlete' | 'star' | 'merchant' | 'artist' | 'orator' | 'healer' | 'craft' | 'linguist' | 'iron' | 'empath' | 'strategist' | 'pitch' | 'palate';
+export type TalentId = 'genius' | 'athlete' | 'star' | 'merchant' | 'artist' | 'orator' | 'healer' | 'craft' | 'linguist' | 'iron' | 'empath' | 'strategist' | 'pitch' | 'palate' | 'justice' | 'commander' | 'navigator' | 'greenthumb' | 'beauty' | 'scholar' | 'animal';
 export interface Talent {
   id: TalentId;
   discovered: boolean;
@@ -215,7 +215,7 @@ export interface Mission {
 export type MarketKey = 'apt_seoul' | 'apt_local' | 'land' | 'building' | 'stock' | 'coin' | 'art';
 
 export interface GameState {
-  version: 3;
+  version: 4;
   rng: number;
   seed: number;
   year: number;

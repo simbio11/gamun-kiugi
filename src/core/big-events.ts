@@ -111,7 +111,7 @@ const carTier = (s: GameState, p: Person) => {
   return m ? VEHICLES.filter((v) => !v.yacht).findIndex((v) => v.id === m.id) : -1;
 };
 
-// ───────────────────────── 15개 승부 ─────────────────────────
+// ───────────────────────── 20개 승부 ─────────────────────────
 export const BIGS: BigDef[] = [
   {
     id: 'race', title: '🏁 심야의 레이스', icon: '🏁', meter: '순위', goal: 5, again: 6,
@@ -502,6 +502,128 @@ export const BIGS: BigDef[] = [
       if (sc >= 5) return '🍀 컨디션 최고! 시험장을 나서며 엄마를 꼭 안았다.' + tail + reward(x, { hap: 12, stats: { int: 2 }, mark: 'study' });
       if (sc >= 2) return '📝 무난하게 끝냈다. 결과는 하늘에 맡긴다.' + tail + reward(x, { hap: 4 });
       return '😣 망한 것 같다… 교문 앞에서 엉엉 울었다.' + tail + reward(x, { hap: -10 });
+    },
+  },
+  {
+    id: 'pitch', title: '💡 창업 경진대회 결선', icon: '💡', meter: '투자 의향', goal: 6, again: 10,
+    ok: (s, p) => s.year >= 2000 && A(s, p) >= 22 && A(s, p) <= 60 && (working(p, ['founder', 'startup_emp', 'developer', 'ai_engineer', 'game_dev', 'data_scientist', 'ux_designer', 'sme_ceo']) || hasTalent(p, 'merchant') || (p.actual.int >= 66 && p.actual.cha >= 55)),
+    bonus: (_s, p) => (hasTalent(p, 'merchant') ? 8 : 0) + (hasTalent(p, 'orator') ? 6 : 0),
+    rounds: [
+      { title: '서류 · 한 줄 소개', text: '지원 팀 1,200곳. {n}의 사업을 한 줄로 설명해야 한다.', opts: [
+        { label: '숫자로 말한다 (지능)', stat: 'int', need: 58, win: 2, lose: -1, wt: '"월 사용자 30% 성장." 심사위원이 펜을 들었다.', lt: '숫자가 너무 작았다.' },
+        { label: '불편함에서 시작한 이야기', stat: 'cha', need: 55, win: 2, lose: 0, wt: '"나도 그거 불편했어." 공감을 샀다.', lt: '흔한 이야기로 들렸다.' },
+      ] },
+      { title: '본선 · 5분 발표', text: '무대 위 타이머가 5:00에서 줄어든다. 슬라이드가 갑자기 멈췄다!', opts: [
+        { label: '슬라이드 없이 말로 이어 간다', stat: 'cha', need: 62, win: 3, lose: -2, wt: '오히려 눈을 마주치며 말하니 객석이 빨려 들어왔다.', lt: '말이 꼬였다. 5분이 50분 같았다.' },
+        { label: '침착하게 재부팅을 기다린다', stat: 'luck', need: 55, win: 1, lose: -1, wt: '30초 만에 돌아왔다. "잠깐 쉬어 가는 타임이었습니다." 웃음이 터졌다.', lt: '결국 시간이 모자랐다.' },
+      ] },
+      { title: '결선 · 질의응답', text: '심사위원: "대기업이 똑같은 걸 만들면요?"', opts: [
+        { label: '"우리만 가진 데이터가 있습니다"', stat: 'int', need: 64, win: 2, lose: -1, wt: '심사위원이 처음으로 고개를 끄덕였다.', lt: '"그 데이터, 사실 누구나 모을 수 있죠?"' },
+        { label: '"그럼 저희를 인수하시겠죠"', stat: 'cha', need: 60, win: 2, lose: -2, wt: '객석이 웃었고, 심사위원도 웃었다.', lt: '농담이 통하지 않았다.' },
+        { label: '"솔직히 그게 제일 무섭습니다"', stat: 'mor', need: 55, win: 1, lose: 0, wt: '정직한 답에 신뢰 점수가 올랐다.', lt: '자신감이 없어 보였다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 6) return '🏆 대상! 시드 투자 제안이 세 군데서 들어왔다.' + reward(x, { cash: 5000, fame: 3, hap: 18, stats: { int: 2, cha: 2 }, mark: 'risk', promo: true, title: `창업 경진대회 대상: ${fullName(x.p)}`, icon: '💡', rarity: 'epic' });
+      if (sc >= 3) return '🥈 우수상. 명함이 한 뭉치 생겼다.' + reward(x, { cash: 1000, fame: 1, hap: 7, stats: { cha: 1 } });
+      return '본선 탈락. 피드백 노트를 들고 사무실로 돌아왔다.' + reward(x, { hap: -4, stats: { int: 1 } });
+    },
+  },
+  {
+    id: 'esports', title: '🎮 e스포츠 결승', icon: '🎮', meter: '세트 스코어', goal: 3,
+    ok: (s, p) => s.year >= 2002 && A(s, p) >= 16 && A(s, p) <= 27 && (working(p, ['gamer', 'streamer', 'game_dev']) || (p.actual.int >= 60 && hasTalent(p, 'strategist'))),
+    bonus: (_s, p) => (p.job === 'gamer' ? 10 : 0) + (hasTalent(p, 'strategist') ? 6 : 0),
+    rounds: [
+      { title: '1세트', text: '관중 1만 명, 동시 시청자 300만. 헤드셋을 쓰니 함성이 멀어진다.', opts: [
+        { label: '연습한 전략대로', stat: 'int', need: 56, win: 1, lose: -1, wt: '교과서 같은 운영. 1세트 승!', lt: '상대가 우리 전략을 읽고 있었다.' },
+        { label: '초반 기습', stat: 'luck', need: 50, win: 1, lose: -1, wt: '기습 성공! 해설진이 소리를 질렀다.', lt: '기습이 막혔다.' },
+      ] },
+      { title: '2세트', text: '상대가 밴 카드를 바꿨다. 우리 주력이 막혔다.', opts: [
+        { label: '비장의 픽을 꺼낸다', stat: 'int', need: 64, win: 1, lose: -1, wt: '"저걸 꺼내요?!" 아무도 대비하지 못했다.', lt: '숙련도가 아직 부족했다.' },
+        { label: '팀원을 믿고 서포트한다', stat: 'cha', need: 55, win: 1, lose: -1, wt: '팀원이 캐리했다. 세트 승!', lt: '호흡이 한 박자 어긋났다.' },
+      ] },
+      { title: '마지막 세트', text: '세트 스코어가 엎치락뒤치락. 마지막 한타가 승부를 가른다.', opts: [
+        { label: '이니시를 건다', stat: 'str', need: 58, win: 2, lose: -1, wt: '손이 먼저 움직였다. 전설의 한타!', lt: '반 박자 빨랐다.' },
+        { label: '침착하게 기다린다', stat: 'mor', need: 55, win: 1, lose: -1, wt: '상대가 먼저 무너졌다.', lt: '기다리다 진영이 갈렸다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 3) {
+        if (['none', 'parttime'].includes(x.p.job) && !x.p.flags.includes('student') && A(x.s, x.p) >= 18) (x.p.job = 'gamer'), (x.p.jobLevel = 1), (x.p.jobYears = 0);
+        return '🏆 우승! 트로피를 들어 올리자 꽃가루가 쏟아졌다.' + reward(x, { cash: 4000, fame: 4, hap: 22, stats: { int: 2 }, title: `e스포츠 우승: ${fullName(x.p)}`, icon: '🎮', rarity: 'epic' });
+      }
+      if (sc >= 1) return '🥈 준우승. 경기가 끝나고 한참을 자리에서 못 일어났다.' + reward(x, { cash: 800, fame: 1, hap: 4 });
+      return '완패. 그래도 결승 무대는 아무나 서는 곳이 아니다.' + reward(x, { hap: -6 });
+    },
+  },
+  {
+    id: 'concours', title: '🎻 국제 음악 콩쿠르', icon: '🎻', meter: '심사 점수', goal: 6,
+    ok: (s, p) => A(s, p) >= 13 && A(s, p) <= 30 && (working(p, ['musician', 'singer']) || hasTalent(p, 'pitch') || (hasTalent(p, 'artist') && p.actual.cha >= 55)),
+    bonus: (_s, p) => (hasTalent(p, 'pitch') ? 12 : 0) + (hasTrait(p, 'diligent') ? 5 : 0),
+    rounds: [
+      { title: '1차 · 지정곡', text: '바르샤바의 작은 홀. 심사위원 열두 명이 악보를 펼쳤다.', opts: [
+        { label: '악보에 충실하게', stat: 'int', need: 55, win: 2, lose: 0, wt: '흠잡을 데 없는 연주. 2차 진출!', lt: '정확했지만 밋밋했다.' },
+        { label: '나만의 해석으로', stat: 'cha', need: 62, win: 3, lose: -2, wt: '한 심사위원이 연필을 내려놓고 들었다.', lt: '"작곡가의 의도와 다르다"는 평.' },
+      ] },
+      { title: '2차 · 자유곡', text: '연주 도중 줄이 하나 끊어졌다!', opts: [
+        { label: '그대로 끝까지 간다', stat: 'str', need: 58, win: 3, lose: -1, wt: '남은 줄로 끝까지 해냈다. 기립 박수!', lt: '음이 흔들렸다.' },
+        { label: '양해를 구하고 다시 시작', stat: 'mor', need: 52, win: 1, lose: 0, wt: '침착한 태도가 오히려 점수를 얻었다.', lt: '흐름이 끊겼다.' },
+      ] },
+      { title: '결선 · 오케스트라 협연', text: '오케스트라가 숨을 고른다. 지휘자가 {n}에게 눈짓했다.', opts: [
+        { label: '오케스트라와 대화하듯', stat: 'cha', need: 62, win: 2, lose: -1, wt: '협연이 아니라 하나의 음악이었다.', lt: '템포가 자꾸 어긋났다.' },
+        { label: '압도적인 기교로', stat: 'int', need: 66, win: 3, lose: -1, wt: '카덴차에서 객석이 숨을 멈췄다.', lt: '빠른 패시지에서 미스가 났다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 6) return '🏆 1위! 고국의 뉴스 첫머리에 이름이 나왔다.' + reward(x, { cash: 4000, fame: 5, hap: 22, stats: { cha: 4 }, flag: 'concours_win', title: `국제 콩쿠르 1위: ${fullName(x.p)}`, icon: '🎻', rarity: 'epic' });
+      if (sc >= 3) return '🥉 입상. 유럽 공연 기획사에서 연락이 왔다.' + reward(x, { cash: 800, fame: 2, hap: 8, stats: { cha: 2 } });
+      return '본선 탈락. 귀국 비행기에서 이어폰으로 우승자의 연주를 들었다.' + reward(x, { hap: -6, stats: { int: 1 } });
+    },
+  },
+  {
+    id: 'soccer', title: '⚽ 동네 조기축구 결승', icon: '⚽', meter: '골', goal: 3, again: 6,
+    ok: (s, p) => A(s, p) >= 28 && A(s, p) <= 62 && p.actual.hp >= 45 && (p.actual.str >= 52 || hasTalent(p, 'athlete')),
+    bonus: (_s, p) => (hasTalent(p, 'athlete') ? 10 : 0) + (hasTalent(p, 'commander') ? 4 : 0),
+    rounds: [
+      { title: '전반전', text: '일요일 아침 7시, 구청장배 결승. 상대 팀엔 왕년의 실업 선수가 있다.', opts: [
+        { label: '전방 압박', stat: 'str', need: 55, win: 1, lose: 0, wt: '공을 빼앗아 그대로 골! 1:0', lt: '숨이 턱까지 찼다.', hurt: 2 },
+        { label: '수비부터 단단히', stat: 'int', need: 50, win: 0, lose: -1, wt: '0:0으로 버텼다.', lt: '한 골 먹었다.' },
+      ] },
+      { title: '후반전', text: '후반 30분. 다리에 쥐가 나기 시작했다.', opts: [
+        { label: '중거리 슛', stat: 'luck', need: 45, win: 1, lose: 0, wt: '골대를 맞고 들어갔다!', lt: '공이 하늘로 날아갔다.' },
+        { label: '후배에게 패스', stat: 'cha', need: 52, win: 1, lose: 0, wt: '정확한 패스, 후배의 골! 서로 얼싸안았다.', lt: '패스가 끊겼다.' },
+      ] },
+      { title: '승부차기', text: '동점. 마지막 키커가 {n}이다.', opts: [
+        { label: '구석으로 강하게', stat: 'str', need: 55, win: 1, lose: -1, wt: '그물이 출렁였다!', lt: '골키퍼가 막았다…' },
+        { label: '파넨카 칩슛', stat: 'luck', need: 50, win: 2, lose: -2, wt: '골키퍼가 넘어진 사이 공이 천천히 들어갔다. 전설이 됐다.', lt: '골키퍼가 가만히 서서 받았다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 3) return '🏆 우승! 막걸리 잔에 트로피를 부어 돌려 마셨다.' + reward(x, { cash: 50, hap: 15, stats: { str: 1, hp: 1 }, title: `조기축구 우승: ${fullName(x.p)}`, icon: '⚽', rarity: 'rare' });
+      if (sc >= 1) return '아쉬운 준우승. 해장국집에서 "내년엔 꼭" 다짐했다.' + reward(x, { hap: 6, stats: { hp: 1 } });
+      return '완패. 다음 날 온몸이 쑤셨다.' + reward(x, { hap: 1 });
+    },
+  },
+  {
+    id: 'goldenbell', title: '🔔 도전! 골든벨', icon: '🔔', meter: '맞힌 문제', goal: 5,
+    ok: (s, p) => s.year >= 1999 && A(s, p) >= 16 && A(s, p) <= 18 && p.actual.int >= 55,
+    bonus: (_s, p) => (hasTalent(p, 'genius') ? 10 : 0) + (hasTalent(p, 'scholar') ? 6 : 0),
+    rounds: [
+      { title: '10번 문제', text: '전교생 100명이 강당 바닥에 앉았다. 화이트보드와 마커 하나씩.', opts: [
+        { label: '자신 있게 쓴다', stat: 'int', need: 50, win: 1, lose: -5, wt: '정답! 아직 70명이 남았다.', lt: '탈락… 친구들이 등을 두드려 줬다.' },
+      ] },
+      { title: '30번 문제', text: '남은 사람 열 명. 카메라가 {n}의 얼굴을 잡는다.', opts: [
+        { label: '정답을 쓴다', stat: 'int', need: 60, win: 2, lose: -5, wt: '정답! 반 친구들이 소리를 질렀다.', lt: '아깝게 틀렸다.' },
+        { label: '옆 친구 보드를 슬쩍…', stat: 'luck', need: 10, win: 0, lose: -5, wt: '', lt: '"부정행위!" 녹화가 잠시 멈췄다. 얼굴이 화끈거렸다.', show: (_s, p) => p.actual.mor < 45 },
+      ] },
+      { title: '50번 · 골든벨 문제', text: '혼자 남았다. 패자부활전으로 돌아온 친구들이 뒤에서 응원한다.', opts: [
+        { label: '떨리는 손으로 쓴다', stat: 'int', need: 72, win: 2, lose: -5, wt: '🔔 땡~! 골든벨이 울렸다!', lt: '"아…" 강당이 탄식으로 가득 찼다.' },
+      ] },
+    ],
+    end: (x, sc) => {
+      if (sc >= 5) return '🔔 골든벨을 울렸다! 학교 정문에 현수막이 걸렸다.' + reward(x, { cash: 300, fame: 2, hap: 20, stats: { int: 2 }, mark: 'study', flag: 'goldenbell', title: `골든벨: ${fullName(x.p)}`, icon: '🔔', rarity: 'epic' });
+      if (sc >= 1) return '최후의 몇 명까지 남았다. 방송에 얼굴이 꽤 오래 나왔다.' + reward(x, { hap: 6, stats: { int: 1 } });
+      return '초반 탈락. 그래도 방송 끝 단체 인사에는 나왔다.' + reward(x, { hap: 1 });
     },
   },
 ];

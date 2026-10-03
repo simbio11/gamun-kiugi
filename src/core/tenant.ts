@@ -52,7 +52,7 @@ const mineOf = (s: GameState) => {
   return new Set([h.id, ...(sp && alive(sp) ? [sp.id] : [])]);
 };
 
-type TKind = 'arrears' | 'repair' | 'leak' | 'raise' | 'good' | 'damage' | 'remodel' | 'renew';
+type TKind = 'arrears' | 'repair' | 'leak' | 'raise' | 'good' | 'damage' | 'remodel' | 'renew' | 'noise' | 'sublet' | 'early' | 'mold';
 
 /** 해마다: 세를 준 우리 집마다 가끔 일이 생긴다 */
 export function tenantYear(s: GameState, rented: Asset[]) {
@@ -61,7 +61,7 @@ export function tenantYear(s: GameState, rented: Asset[]) {
     if (!mine.has(a.ownerId) || s.events.some((e) => e.defId === 'tenant' && e.data?.assetId === a.id)) continue;
     if (!chance(s, 0.16)) continue;
     const l = leaseOf(a);
-    const pool: TKind[] = l === 'wolse' ? ['arrears', 'repair', 'leak', 'raise', 'good', 'damage', 'remodel'] : ['repair', 'leak', 'good'];
+    const pool: TKind[] = l === 'wolse' ? ['arrears', 'repair', 'leak', 'raise', 'good', 'damage', 'remodel', 'noise', 'sublet', 'early', 'mold'] : ['repair', 'leak', 'good', 'noise', 'mold'];
     s.events.push({ uid: s.eventSeq++, defId: 'tenant', personId: a.ownerId, data: { assetId: a.id, k: pick(s, pool) } });
   }
 }
@@ -85,6 +85,10 @@ const tenantEv: EventDef = {
       damage: `${a.name} 세입자가 이사 나간 뒤 가 보니 벽지·장판이 엉망이고 문짝이 부서져 있다. 반려동물을 몰래 키웠던 모양이다.`,
       remodel: `${a.name}이(가) 낡아서 새 세입자가 잘 안 구해진다. 중개사가 올수리를 권한다.`,
       renew: '',
+      noise: `${a.name} 아랫집에서 관리사무소를 통해 민원이 들어왔다. 우리 세입자 집에서 밤마다 쿵쿵거린다고. (층간소음 민원은 해마다 수만 건 — 환경부 층간소음 이웃사이센터)`,
+      sublet: `${a.name} 현관에 낯선 캐리어를 끈 관광객들이 드나든다. 세입자가 몰래 공유 숙박으로 다시 세를 놓은 모양이다. (집주인 동의 없는 전대는 계약 해지 사유 — 민법 629조)`,
+      early: `${a.name} 세입자가 해외 발령이 났다며 계약 기간 전에 나가고 싶다고 한다. 보증금을 먼저 돌려 달란다.`,
+      mold: `${a.name} 세입자가 사진을 보냈다. 북쪽 벽 모서리에 곰팡이가 까맣게 번졌다. 결로 때문인지 단열 문제인지 모르겠다.`,
     };
     return T[k];
   },
@@ -139,6 +143,23 @@ const tenantEv: EventDef = {
       case 'damage':
         out.push({ label: '보증금에서 원상복구비를 뺀다', run: () => (chance(c.s, 0.7) ? '사진을 보여 주니 순순히 인정했다. 보증금에서 수리비를 뺐다.' : ((o.cash -= 200), '"원래 그랬다"며 버틴다. 소액 소송까지 가긴 번거로워 200만 원을 내가 댔다.')) });
         out.push({ label: '그냥 내 돈으로 고친다', cost: 300, run: () => '도배·장판을 새로 했다. 새 세입자가 금방 구해졌다.' });
+        break;
+      case 'noise':
+        out.push({ label: '세입자에게 정중히 알리고 매트를 선물한다', cost: 40, run: () => (chance(c.s, 0.75) ? '세입자가 미안해하며 슬리퍼까지 샀다. 민원이 끊겼다.' : '조금 나아졌지만 아랫집은 여전히 예민하다.') });
+        out.push({ label: '세입자끼리 알아서 하라고 한다', run: () => (chance(c.s, 0.4) ? ((a.yield = Math.round((a.yield ?? 0.03) * 0.97 * 10000) / 10000), '다툼 끝에 세입자가 나갔다. 소문이 나서 월세를 조금 낮춰야 했다.') : '어찌어찌 서로 합의를 봤다고 한다.') });
+        break;
+      case 'sublet':
+        out.push({ label: '전대를 그만두게 하고 경고한다', run: () => (chance(c.s, 0.7) ? '세입자가 사과하고 손님을 더 받지 않았다.' : ((o.cash -= Math.round(rent * 0.2)), '세입자가 버티다 나갔다. 공실 두 달.')) });
+        out.push({ label: '"수익을 나누자"고 제안한다', run: () => (chance(c.s, 0.5) ? ((o.cash += Math.round(rent * 0.15)), '세입자가 받아들였다. 짭짤한 부수입이 생겼다.') : ((o.cash -= 300), '이웃 신고로 구청 단속에 걸렸다. 미신고 숙박업 과태료 일부를 함께 물었다.')) });
+        out.push({ label: '계약을 해지한다', run: () => ((o.cash -= Math.round(rent * 0.25)), '내용증명을 보내 계약을 끝냈다. 새 세입자를 구하는 석 달 동안 공실.') });
+        break;
+      case 'early':
+        out.push({ label: '흔쾌히 보내 준다', run: () => ((o.cash -= Math.round(rent * 0.2)), '"감사합니다!" 세입자가 떠난 자리를 두 달 만에 채웠다.') });
+        out.push({ label: '새 세입자를 직접 구해 오면 보내 준다고 한다', run: () => (chance(c.s, 0.6) ? '세입자가 후배를 데려왔다. 공실 하루 없이 넘어갔다.' : '사람이 안 구해져 세입자가 애를 태웠다. 결국 남은 기간 월세를 받았다.') });
+        break;
+      case 'mold':
+        out.push({ label: '단열 보강 공사', cost: 250, run: () => ((a.value = Math.round(a.value * 1.004)), '벽을 뜯어 단열재를 넣었다. 겨울 난방비도 줄었다며 세입자가 좋아한다.') });
+        out.push({ label: '"환기를 자주 하세요"라고만 한다', run: () => (chance(c.s, 0.5) ? '봄이 되자 곰팡이가 줄었다.' : ((o.cash -= 150), '세입자 아이가 기침을 달고 산다며 손해배상을 요구했다. 합의금을 물었다.')) });
         break;
       case 'remodel':
         out.push({
