@@ -619,7 +619,6 @@ function renderInner() {
   const body = { tree: treeScreen, act: actionsScreen, policy: policyScreen, assets: assetsScreen, log: logScreen, achv: achvScreen }[ui.tab](g);
   root.innerHTML = `
     ${header(g)}
-    ${ui.archiveView && g.gameOver ? `<div class="arch-banner"><span>📚 <b>${esc(g.familyName)}씨 가문 기록</b> <small>${g.startYear}~${g.year} · ${g.generation}대 · 보기만 가능</small></span><button class="mini" data-action="arch-exit">◀ 기록실</button></div>` : ''}
     <main class="screen">${body}</main>
     ${g.gameOver && ui.overLog ? `<button class="next-year" data-action="over-back">${ui.archiveView ? '📚 기록 요약으로' : '🏁 가문 결과로 돌아가기'}</button>` : ''}
     ${!g.gameOver && (ui.tab === 'tree' || ui.tab === 'act') ? `<button class="next-year" data-action="next">${g.events.length ? `이벤트 ${g.events.length}개 ▶` : `${g.year + 1}년으로 ▶${apLeft(g) ? `<small>행동력 ${apLeft(g)} 남음</small>` : ''}`}</button>` : ''}

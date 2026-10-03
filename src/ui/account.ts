@@ -226,6 +226,7 @@ export async function login(user: string, pass: string, signup: boolean): Promis
     write(PROFILE_KEY(who()), merged);
     await push(merged);
     clearGuest();
+    adoptGuestBlobs();
     return { ok: true, msg: signup ? `☁ 가입 완료! 어느 기기에서든 "${user}"로 로그인하면 이어진다.` : `☁ ${user} 로그인 — 유산과 카드 컬렉션을 불러왔다.` };
   }
   // 서버가 없다: 이 기기 계정
@@ -238,6 +239,7 @@ export async function login(user: string, pass: string, signup: boolean): Promis
   const mine = normalize(read<Partial<Profile> | null>(PROFILE_KEY(who()), null));
   write(PROFILE_KEY(who()), merge(mine, guest));
   clearGuest();
+  adoptGuestBlobs();
   return { ok: true, msg: `📱 ${user} 로그인 (이 기기 계정 — 계정 서버가 연결되면 다른 기기에서도 이어진다)` };
 }
 function clearGuest() {
@@ -326,8 +328,35 @@ export async function putBlob(name: string, text: string): Promise<boolean> {
   }
   return local;
 }
+/** 손님일 때 쌓인 큰 기록(지난 가문 가계도·연대기)을 로그인한 계정으로 옮긴다 — 목록만 옮겨지고 기록은 손님 칸에 남던 문제 */
+function adoptGuestBlobs() {
+  if (who() === 'guest') return;
+  const from = 'gamun-kiugi-blob:guest:';
+  try {
+    for (const k of Object.keys(localStorage).filter((x) => x.startsWith(from))) {
+      const name = k.slice(from.length);
+      const v = localStorage.getItem(k);
+      if (v && !localStorage.getItem(BLOB_KEY(name))) {
+        localStorage.setItem(BLOB_KEY(name), v);
+        if (account.mode === 'cloud' && account.token) void call('blob/' + name, { method: 'PUT', body: JSON.stringify({ data: JSON.parse(v) }) }).catch(() => undefined);
+      }
+      localStorage.removeItem(k);
+    }
+  } catch {
+    /* 저장 공간 부족: 아래 getBlob 이 손님 칸도 찾아본다 */
+  }
+}
 export async function getBlob(name: string): Promise<string | undefined> {
+  // 이 주인 칸 → (없으면) 이 기기의 다른 칸(손님·예전 계정) 순서로 찾는다
   let v = read<string | null>(BLOB_KEY(name), null);
+  if (!v) {
+    try {
+      const k = Object.keys(localStorage).find((x) => x.startsWith('gamun-kiugi-blob:') && x.endsWith(':' + name));
+      if (k) v = read<string | null>(k, null);
+    } catch {
+      /* noop */
+    }
+  }
   if (!v && account.mode === 'cloud' && account.token) {
     try {
       const r = await call('blob/' + name);

@@ -1,5 +1,5 @@
 // 오프라인용 캐시 (네트워크 우선, 실패 시 캐시)
-const CACHE = 'gamun-kiugi-v17';
+const CACHE = 'gamun-kiugi-v18';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) =>
