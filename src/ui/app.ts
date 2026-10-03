@@ -466,7 +466,8 @@ function back(): boolean {
 // ───────── 휴대폰 뒤로 가기: 앱이 바로 꺼지지 않게 ─────────
 //  방문 기록에 '가림막' 한 칸을 얹어 두고, 뒤로 가기로 그 칸이 빠지면(popstate) 다시 얹은 뒤
 //  열린 창부터 닫는다. 닫을 게 없으면 "정말 종료할까?"를 묻고, 그 창에서 한 번 더 누르면 나간다.
-//  (크롬은 사용자 터치 없이 쌓은 기록을 건너뛰므로, 가림막은 첫 터치 때 얹는다)
+//  (크롬은 사용자 동작 없이 쌓은 기록을 건너뛴다. 터치의 pointerdown은 '사용자 동작'으로 치지 않으므로
+//   가림막은 click·touchend·keydown 때 얹는다)
 const GUARD = 'gamun-guard';
 let exiting = false;
 function armGuard() {
@@ -528,7 +529,16 @@ export function mount(el: HTMLElement) {
   hasSave = canContinue();
   root.addEventListener('click', onClick);
   window.addEventListener('popstate', onPopState);
-  document.addEventListener('pointerdown', armGuard, true);
+  for (const ev of ['click', 'touchend', 'keydown']) document.addEventListener(ev, armGuard, true);
+  // 새로고침(당겨서 새로고침 포함)해도 하던 가문으로 바로 돌아온다 (이 탭에서 게임 중이었으면)
+  try {
+    if (sessionStorage.getItem(PLAYING_KEY) && canContinue()) {
+      const lg = load();
+      if (lg) ((ui.game = lg), (ui.tab = (sessionStorage.getItem(PLAYING_KEY) as Tab) || 'tree'), (hasSave = true));
+    }
+  } catch {
+    /* 저장소를 못 쓰면 타이틀로 */
+  }
   root.addEventListener('touchstart', () => {}, { passive: true }); // iOS에서 :active 눌림 효과 켜기
   root.addEventListener('pointerdown', (e) => {
     const b = (e.target as Element).closest?.('.btn:not(:disabled), .next-year, .choice:not(:disabled), .seg button, .coll-tabs button, .mini.do:not(:disabled), .file-btn');
@@ -637,8 +647,15 @@ function toastTimer() {
   }, 2200);
 }
 
+const PLAYING_KEY = 'gamun-kiugi-playing';
 function renderInner() {
   const g = ui.game;
+  try {
+    if (g && !ui.archiveView && !g.gameOver) sessionStorage.setItem(PLAYING_KEY, ui.tab);
+    else sessionStorage.removeItem(PLAYING_KEY);
+  } catch {
+    /* 저장소를 못 쓰는 환경 */
+  }
   if (g) setMoneyYear(g.year), setHistCur(g); // 성향(MBTI) 표시 같은 시대 판단을 화면에도
   root.classList.toggle('calm', !!prefs.calm);
   // 근현대사 모드: 시대 분위기 (1960~70년대 신문지·1980년대·1990~2000년대)

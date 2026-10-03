@@ -29,7 +29,7 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; background: var(--bg); color: var(--panel); }
+html, body { margin: 0; background: var(--bg); color: var(--panel); overscroll-behavior-y: none; } /* 당겨서 새로고침 막기 */
 body {
   font-family: 'Galmuri11', 'Galmuri9', system-ui, sans-serif;
   font-size: 14px;
