@@ -36,6 +36,7 @@ import { handoverYear } from './handover';
 import { companyStoryYear, companyYear } from './companies';
 import { joblossYear } from './jobloss';
 import { gigYear } from './sidegig';
+import { campusYear } from './campus';
 import { sagaYear, startInheritanceDrama } from './saga';
 import { obituary } from './obituary';
 import { dutyDone, dutyYear, onDuty } from './duty';
@@ -610,6 +611,7 @@ export function simulateYear(s: GameState): void {
     if (age(s, p) >= 20) s.fame += JOBS[p.job].fame * 0.5 * (hasTrait(p, 'ambitious') && JOBS[p.job].fame > 0 ? 1.3 : 1);
   }
   recordJobs(s);
+  for (const m of campusYear(s)) log(s, m, 'life');
   companyYear(s);
   companyStoryYear(s);
   for (const m of joblossYear(s)) log(s, m, 'life');

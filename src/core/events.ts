@@ -718,6 +718,8 @@ function specialChoices(c: Ctx, cat: string): Choice[] {
 
 const firstJob: EventDef = {
   id: 'first_job',
+  // 졸업 전에 입사 제안을 받아 이미 일자리가 정해졌으면 건너뛴다 (campus.ts)
+  valid: (c) => !c.p.flags.includes('offer_taken:' + c.s.year),
   title: () => '진로 선택',
   text: (c) => {
     const p = c.p;

@@ -1115,6 +1115,8 @@ function enroll(x: Ctx, pr: Program): string {
   p.flags.push('school:' + programName(pr));
   if (pr.elite) addFlag(p, 'elite:' + pr.elite);
   if (pr.special === 'abroad' || pr.special === 'voc') addFlag(p, 'abroad_grad');
+  if (pr.special === 'sci') addFlag(p, 'kaist'); // 과학기술원 (campus.ts: 연구실·창업·계약학과)
+  if (pr.special === 'abroad' && pr.cut >= 97) addFlag(p, 'ivy'); // 세계 최상위 대학
   return `🎓 ${programName(pr)} 입학! (${pr.years}년 · 등록금 연 ${formatMoney(pr.tuition ?? t.tuition)})` + applyDesire(x, pr.tag);
 }
 
