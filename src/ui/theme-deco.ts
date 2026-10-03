@@ -85,6 +85,24 @@ export const SPR: Record<string, Grid> = {
   goldpile: S(['....yy....', '...yWyy...', '..yyyyyy..', '.yyyWyyyy.', 'yyyyyyyyyy', 'dddddddddd'], { y: '#f0c040', W: '#fff8c0', d: '#a07810' }),
   goldpile2: S(['....yy....', '...yyyW...', '..yWyyyy..', '.yyyyyyWy.', 'yyyyyyyyyy', 'dddddddddd'], { y: '#f0c040', W: '#fff8c0', d: '#a07810' }),
   fedora: S(['..kkkk..', '.kkkkkk.', '.krrrrk.', 'kkkkkkkk'], { k: '#1a1a1a', r: '#7a1a1a' }),
+  // ── 슈퍼 히든 9종 소품 ──
+  frame: S(['yyyyyyyyy', 'ygggggggy', 'ygbbbbbgy', 'ygbsssbgy', 'ygbbsbbgy', 'yggggggly', 'yyyyyyyyy'], { y: '#d0a040', g: '#3a5a3a', b: '#6a8ab0', s: '#f0e0b0', l: '#a07020' }),
+  magnifier: S(['.kkk...', 'kcCck..', 'kccck..', 'kccck..', '.kkkb..', '....bb.', '.....bb'], { k: '#2a2a30', c: '#a0d0f0', C: '#ffffff', b: '#7a4a2a' }),
+  cloche: S(['....y....', '..sssss..', '.sSsssss.', 'sSsssssss', 'sssssssss', 'yyyyyyyyy', '.wwwwwww.'], { y: '#d0a040', s: '#c8ccd4', S: '#ffffff', w: '#f4f0e8' }),
+  fork: S(['s.s.s', 's.s.s', 'sssss', '.sss.', '..s..', '..s..', '..s..', '..s..'], { s: '#d0d4dc' }),
+  rstar: S(['..r..', '.rrr.', 'rrRrr', '.rrr.', 'r...r'], { r: '#c01a2a', R: '#ff8a8a' }),
+  scroll: S(['bpppppb', 'bpkkkpb', 'bpppppb', 'bpkkppb', 'bpppppb', 'bpkkkpb', 'bpppppb'], { b: '#8a5a2a', p: '#efe0b8', k: '#7a6a50' }),
+  quill: S(['.....ww', '....wWw', '...wWw.', '..wWw..', '.wWw...', '.kw....', 'k......'], { w: '#e8e4d8', W: '#ffffff', k: '#2a2a2a' }),
+  shield: S(['bbbbbbb', 'bBbbbBb', 'bbbyb.b', 'bbyyybb', '.bbybb.', '..bbb..', '...b...'], { b: '#2a3a5a', B: '#6a8ab0', y: '#d0b050' }),
+  shades: S(['kkkk.kkkk', 'kwkkkkwkk', '.kk...kk.'], { k: '#101014', w: '#8a9ab0' }),
+  footprint: S(['.k.k', 'k.k.', '.kk.', 'kkkk', 'kkkk', '.kk.'], { k: 'rgba(40,30,20,.75)' }),
+  bottle: S(['..k..', '..y..', '.yyy.', 'pPppp', 'ppPpp', 'ppppp', '.ppp.'], { k: '#5a3a2a', y: '#d0a040', p: '#e890b0', P: '#ffe0ec' }),
+  amber: S(['.k.', '.y.', 'aAa', 'aaa', 'aaa'], { k: '#3a2a1a', y: '#c09030', a: '#c0701a', A: '#f0b060' }),
+  orb: S(['..ppp..', '.pPppp.', 'ppPpppp', 'ppppppp', '.ppppp.', '..yyy..', '.yyyyy.'], { p: '#9a60e0', P: '#f0d8ff', y: '#c0903a' }),
+  cross: S(['..y..', '.yyy.', '..y..', 'yyyyy', '..y..', '..y..', '..y..', '.yyy.'], { y: '#f0c840' }),
+  keys: S(['yy.....ss', 'yyy...sss', '.yyy.sss.', '..yyyss..', '..ssyyy..', '.sss.yyy.', 'ss.....yy'], { y: '#f0c840', s: '#d0d4dc' }),
+  satellite: S(['bb.....bb', 'bb..w..bb', 'bbwwwwwbb', 'bb.www.bb', 'bb..r..bb'], { b: '#3a6ab0', w: '#e8eef4', r: '#ff3040' }),
+  warn: S(['...r...', '..ryr..', '..ryr..', '.rryrr.', '.rrrrr.', 'rrryrrr', 'rrrrrrr'], { r: '#e03030', y: '#ffe060' }),
 };
 
 // ───────────────────────── 테두리 띠 (SVG) ─────────────────────────
@@ -262,6 +280,25 @@ export const DECO: Record<string, Deco> = {
   hj_chess_master: { edge: 'checker', ec: '#e8e0d0', ec2: '#1a1a1a', sil: [['knight', 2, 'float', 50], ['queen', 2, 'float', 40]], ptc: [['star', 8, 'twinkle', 6]], corner: 'knight', over: 'spot' },
   hj_mafia: { edge: 'chain', ec: '#8a8a90', ec2: '#3a3a40', sil: [['fedora', 2, 'float', 44], ['glass', 2, 'float', 30]], ptc: [['smoke', 6, 'rise', 80], ['rain', 18, 'fall', 1]], corner: 'fedora', over: 'noir' },
   hj_godmother: { edge: 'lace', ec: '#140810', ec2: '#a01a3a', sil: [['rose', 4, 'float', 30], ['web', 2, 'float', 50]], ptc: [['petal', 12, 'sway', 9], ['smoke', 3, 'rise', 70]], corner: 'rose', over: 'noir' },
+  // ── 슈퍼 히든 9종 ──
+  // 예술품 수사관: 금빛 액자 띠 · 떠다니는 명화와 돋보기 · 수장고 먼지
+  hj_art_investigator: { edge: 'gold', ec: '#c89a3a', ec2: '#4a2a14', sil: [['frame', 3, 'float', 44], ['magnifier', 2, 'float', 36]], ptc: [['mote', 12, 'float', 3], ['star', 4, 'twinkle', 6]], corner: 'magnifier', over: 'spot' },
+  // 미슐랭 평가원: 테이블보 레이스 · 클로슈와 포크 · 붉은 별(스타)
+  hj_michelin_inspector: { edge: 'lace', ec: '#f4efe4', ec2: '#c8a050', sil: [['cloche', 2, 'float', 46], ['fork', 2, 'float', 30]], ptc: [['rstar', 8, 'twinkle', 9], ['mote', 8, 'float', 2]], corner: 'rstar', over: 'spot' },
+  // 고문서 복원가: 찢긴 양피지 띠 · 두루마리와 깃펜 · 종이 먼지
+  hj_conservator: { edge: 'torn', ec: '#e8dab4', ec2: '#8a6a40', sil: [['scroll', 3, 'float', 24], ['quill', 2, 'sway', 34]], ptc: [['mote', 14, 'float', 3]], corner: 'quill', over: 'spot' },
+  // 전속 경호원: 보안 레이저 · 방패와 선글라스 · 도시 불빛
+  hj_bodyguard: { edge: 'laser', ec: '#ff3a3a', ec2: '#0a0e18', sil: [['shield', 2, 'float', 44], ['shades', 2, 'float', 40]], ptc: [['rain', 14, 'fall', 1], ['mote', 6, 'float', 2]], corner: 'shield', over: 'noir' },
+  // 사립탐정: 블라인드 그림자 · 중절모와 돋보기·발자국 · 비와 담배 연기
+  hj_detective: { edge: 'blinds', ec: '#1a140e', ec2: '#c8a060', sil: [['fedora', 2, 'float', 42], ['magnifier', 1, 'float', 40], ['footprint', 4, 'float', 18]], ptc: [['rain', 20, 'fall', 1], ['smoke', 4, 'rise', 70]], corner: 'magnifier', over: 'noir' },
+  // 조향사: 장미 레이스 · 향수병과 호박색 시약병 · 꽃잎과 향기
+  hj_perfumer: { edge: 'lace', ec: '#f0d8e0', ec2: '#c06080', sil: [['bottle', 3, 'float', 36], ['amber', 4, 'float', 26]], ptc: [['petal', 10, 'sway', 9], ['smoke', 3, 'rise', 60]], corner: 'bottle', over: 'fog' },
+  // 별을 읽는 점술사: 구슬 띠 · 수정구와 달 · 쏟아지는 별
+  hj_stargazer: { edge: 'beads', ec: '#9a70e0', ec2: '#e0c060', sil: [['orb', 1, 'float', 40], ['moon', 1, 'float', 60]], ptc: [['star', 18, 'twinkle', 8], ['mote', 6, 'float', 2]], corner: 'orb', over: 'stars' },
+  // 교황: 금빛 띠 · 십자가·천국의 열쇠·비둘기 · 빛 가루
+  hj_pope: { edge: 'gold', ec: '#e8c860', ec2: '#f4f0e8', sil: [['dove', 3, 'fly', 40], ['cross', 1, 'float', 34], ['keys', 1, 'float', 40]], ptc: [['star', 10, 'twinkle', 7], ['mote', 10, 'float', 3]], corner: 'cross', over: 'spot' },
+  // 위성 궤도 분석가: 흐르는 궤도 데이터 · 위성과 충돌 경보 · 관제 스캔라인
+  hj_space_analyst: { edge: 'code', ec: '#40e0ff', ec2: '#06101e', sil: [['satellite', 3, 'fly', 38], ['warn', 2, 'float', 24]], ptc: [['star', 12, 'twinkle', 5], ['code', 10, 'fall', 9]], corner: 'satellite', over: 'scan' },
 };
 
 // ───────────────────────── 그리기 ─────────────────────────
