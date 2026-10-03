@@ -132,16 +132,21 @@ export const COMPANY_JOBS: Record<string, Company['field'][]> = {
 export function hireTier(s: GameState, p: Person, job: string): CoTier {
   const f = (x: string) => p.flags.includes(x);
   const stem = p.flags.some((x) => /^major:(cs|ee|eng|math|phys|chem|bio|stats|ai|mech)/.test(x)) || f('kaist');
-  const score = (f('abroad_grad') || f('ivy') ? 40 : 0) + (f('univ_top') ? 40 : f('univ_seoul') ? 22 : f('univ_local') ? 6 : f('college') ? 0 : -8) + (f('kaist') ? 30 : 0) + (stem ? 6 : 0) + (f('phd') ? 8 : 0) + (p.actual.int - 60) / 3 + (p.actual.cha - 55) / 6 + markOf(p, 'network') * 2;
-  if (job === 'sme_worker') return score > 30 ? 'mid' : 'small';
-  if (job === 'office') return score > 45 ? 'B' : score > 25 ? 'mid' : 'small';
-  const r = score + (chance(s, 0.5) ? 8 : -8);
-  if (r >= 70 && (stem || f('abroad_grad') || f('ivy'))) return 'global';
-  if (r >= 52) return 'S';
-  if (r >= 36) return 'A';
-  if (r >= 22) return 'B';
-  if (r >= 10) return 'mid';
-  return chance(s, 0.3) ? 'startup' : 'small';
+  // 학력 점수: 사위·며느리처럼 학교 기록이 없는 사람은 '보통 대졸'로 본다
+  const known = p.flags.some((x) => /^(univ_|college$|abroad_grad$|ivy$|kaist$|school:)/.test(x));
+  const edu = f('abroad_grad') || f('ivy') ? 40 : f('univ_top') ? 40 : f('univ_seoul') ? 22 : f('univ_local') ? 6 : f('college') ? 0 : known || !p.inLaw ? -8 : 12;
+  const score = edu + (f('kaist') ? 30 : 0) + (stem ? 6 : 0) + (f('phd') ? 8 : 0) + (p.actual.int - 60) / 3 + (p.actual.cha - 55) / 6 + markOf(p, 'network') * 2;
+  if (job === 'sme_worker') return chance(s, clamp(0.25 + score / 120, 0.1, 0.6)) ? 'mid' : 'small';
+  // 대기업·중견 : 중소·스타트업 ≈ 6 : 4 (학벌·능력이 좋을수록 대기업 쪽으로)
+  //   참고: 대졸 신입 중 대기업·공공·중견 취업 비중은 대략 절반 안팎 (한국고용정보원 대졸자직업이동경로조사)
+  if (!chance(s, clamp(0.62 + score / 90, 0.35, 0.97))) return chance(s, 0.3) ? 'startup' : 'small';
+  const r = score + (chance(s, 0.5) ? 10 : -10);
+  if (job === 'office') return r >= 34 ? 'A' : r >= 6 ? 'B' : 'mid';
+  if (r >= 64 && (stem || f('abroad_grad') || f('ivy'))) return 'global';
+  if (r >= 42) return 'S';
+  if (r >= 22) return 'A';
+  if (r >= 2) return 'B';
+  return 'mid';
 }
 
 /** 회사를 하나 정해 준다 */

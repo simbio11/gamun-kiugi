@@ -147,7 +147,17 @@ const JOB_THEME_MAP: Record<string, string> = {
   hj_cult: 'hj_cult',
   // 점을 보는 일은 같은 방을 쓴다
   hj_tarot: 'hj_shaman',
-  hj_stargazer: 'hj_shaman',
+  hj_stargazer: 'hj_stargazer',
+  hj_drifter: 'hj_drifter',
+  hj_vampire: 'hj_vampire',
+  hj_art_investigator: 'hj_art_investigator',
+  hj_michelin_inspector: 'hj_michelin_inspector',
+  hj_conservator: 'hj_conservator',
+  hj_bodyguard: 'hj_bodyguard',
+  hj_detective: 'hj_detective',
+  hj_perfumer: 'hj_perfumer',
+  hj_pope: 'hj_pope',
+  hj_space_analyst: 'hj_space_analyst',
 };
 
 /** 집 단계 → 도트 배경: 반지하 tier1 · 원룸·빌라 tier2(골목) · 아파트 tier3(복도) · 서울 아파트 tier4(한강 거실) · 강남 tier5(저택) */

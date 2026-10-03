@@ -17,7 +17,8 @@ describe('회사 (companies.ts)', () => {
     p.flags.push('univ_local');
     p.actual.int = 55;
     const low = Array.from({ length: 40 }, () => hireTier(s, p, 'developer'));
-    expect(low.filter((t) => ['mid', 'small', 'startup'].includes(t)).length).toBeGreaterThan(30);
+    expect(low.filter((t) => ['mid', 'small', 'startup'].includes(t)).length).toBeGreaterThan(20); // 대기업:중소 ≈ 6:4 이지만 지방대·평범한 능력은 중견 이하가 더 많다
+    expect(low.filter((t) => ['global', 'S'].includes(t)).length).toBeLessThan(4);
   });
   it('입사하면 회사 이름이 붙고, 회사 급에 따라 연봉이 다르다', () => {
     const s = newGame({ seed: 2, familyName: '김', sex: 'M' });
