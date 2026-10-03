@@ -258,6 +258,8 @@ interface UIState {
   confirmEnd?: boolean;
   /** 이어할 가문이 있는데 새 가문을 시작하려 할 때 확인 */
   confirmStart?: boolean;
+  /** 뒤로 가기로 더 닫을 게 없을 때: 정말 종료할지 묻는다 */
+  confirmExit?: boolean;
   /** 부동산: 내 부동산 / 올해 매물 */
   reView?: 'own' | 'market';
   /** 가문이 끝난 뒤 연대기를 보는 중 (결과 창을 잠시 내린다) */
@@ -409,20 +411,97 @@ let root: HTMLElement;
 let hasSave = false;
 
 /**
- * 안드로이드 뒤로 가기 (앱 WebView가 부른다): 열린 창을 닫고, 다른 탭이면 가계도로. 처리했으면 true.
- * 이벤트(선택이 필요한 창)와 게임 오버 창은 닫지 않는다.
+ * 뒤로 가기 (휴대폰 뒤로 버튼·브라우저 ←, 안드로이드 앱 WebView도 부른다).
+ * 맨 위에 열린 것부터 하나씩 닫는다: 확인 창 → 거래·보상·결과 창 → 인물·설정 → 다른 탭이면 가계도로.
+ * 더 닫을 게 없으면 false (= 종료할지 물어본다). 선택이 필요한 이벤트 창은 닫지 않는다.
  */
 function back(): boolean {
+  const close = (f: () => unknown) => (f(), (fx.modalKey = ''), render(), true);
+  if (ui.confirmStart) return close(() => (ui.confirmStart = false));
+  if (ui.confirmEnd) return close(() => (ui.confirmEnd = false));
+  if (ui.confirmReset) return close(() => (ui.confirmReset = false));
   const g = ui.game;
-  if (!g) return false;
-  if (ui.settings || ui.sheet) return (ui.settings = ui.confirmReset = false), (ui.sheet = undefined), render(), true;
-  if (ui.cardView || ui.honorView !== undefined) return (ui.cardView = ui.honorView = undefined), (fx.modalKey = ''), render(), true;
-  if (ui.outcome) return (ui.outcome = undefined), (fx.modalKey = ''), render(), true;
-  if (ui.game?.rewards?.length) return ui.game.rewards.shift(), (fx.modalKey = ''), render(), true;
-  if (ui.report) return (ui.report = undefined), (fx.modalKey = ''), render(), true;
-  if (g.events.length || g.gameOver) return true;
+  if (!g) {
+    // 타이틀: 카드 컬렉션(크게 본 카드 → 화면) · 기록실을 닫는다
+    if (ui.collCard) return close(() => (ui.collCard = undefined));
+    if (ui.collection) return close(() => (ui.collection = false));
+    if (ui.archives) return close(() => (ui.archives = false));
+    if (ui.settings) return close(() => (ui.settings = false));
+    return false;
+  }
+  if (ui.apWarnModal) return close(() => (ui.apWarnModal = undefined));
+  if (ui.trade) return close(() => (ui.trade = undefined));
+  if (ui.settings || ui.sheet) return close(() => ((ui.settings = false), (ui.sheet = undefined)));
+  if (ui.cardView || ui.honorView !== undefined) return close(() => (ui.cardView = ui.honorView = undefined));
+  if (ui.outcome) return close(() => (ui.outcome = undefined));
+  if (g.rewards?.length) return close(() => g.rewards!.shift());
+  if (ui.report) return close(() => (ui.report = undefined));
+  if (ui.archiveView) {
+    // 지난 가문 기록을 보는 중이면 기록실로 돌아간다
+    return close(() => {
+      ui.game = null;
+      ui.archiveView = undefined;
+      ui.archives = true;
+      ui.overLog = false;
+    });
+  }
+  if (g.gameOver && ui.overLog) return close(() => (ui.overLog = false));
+  if (g.events.length && !g.gameOver) return true;
   if (ui.tab !== 'tree') return (ui.tab = 'tree'), render(), true;
   return false;
+}
+
+// ───────── 휴대폰 뒤로 가기: 앱이 바로 꺼지지 않게 ─────────
+//  방문 기록에 '가림막' 한 칸을 얹어 두고, 뒤로 가기로 그 칸이 빠지면(popstate) 다시 얹은 뒤
+//  열린 창부터 닫는다. 닫을 게 없으면 "정말 종료할까?"를 묻고, 그 창에서 한 번 더 누르면 나간다.
+//  (크롬은 사용자 터치 없이 쌓은 기록을 건너뛰므로, 가림막은 첫 터치 때 얹는다)
+const GUARD = 'gamun-guard';
+let exiting = false;
+function armGuard() {
+  if (exiting || typeof history === 'undefined') return;
+  if ((history.state as { k?: string } | null)?.k !== GUARD) history.pushState({ k: GUARD }, '');
+}
+function leave() {
+  save();
+  exiting = true;
+  ui.confirmExit = false;
+  render();
+  // 가림막 위면 두 칸, 이미 빠졌으면(뒤로 가기로 물었을 때) 한 칸 → 페이지(앱)를 떠난다
+  history.go((history.state as { k?: string } | null)?.k === GUARD ? -2 : -1);
+  // 떠날 곳이 없으면(첫 화면으로 연 앱) 창을 닫아 보고, 그래도 남아 있으면 안내만
+  setTimeout(() => {
+    if (document.visibilityState !== 'visible') return;
+    try {
+      window.close();
+    } catch {
+      /* 닫을 수 없는 창 */
+    }
+    setTimeout(() => {
+      if (document.visibilityState !== 'visible') return;
+      exiting = false;
+      ui.toast = '저장했다. 이제 홈 버튼으로 나가도 된다.';
+      render();
+    }, 300);
+  }, 400);
+}
+function onPopState() {
+  if (exiting) return;
+  if (ui.confirmExit) return leave(); // 묻는 창에서 한 번 더 뒤로 → 종료
+  armGuard();
+  if (back()) return save();
+  ui.confirmExit = true;
+  fx.modalKey = '';
+  sfx('choose');
+  render();
+}
+function exitModal(): string {
+  const g = ui.game;
+  return `<div class="modal" data-action="exit-cancel"><div class="sheet start-warn" data-stop>
+      <h2>🚪 가문 키우기를 종료할까?</h2>
+      <p>${g ? `<b>${esc(g.familyName)}씨 가문 ${g.year}년</b>까지 자동 저장된다. 다음에 <b>이어하기</b>로 돌아오면 된다.` : '언제든 다시 와서 가문을 이어 가면 된다.'}</p>
+      <p class="fine">이 창에서 뒤로 가기를 한 번 더 누르면 바로 종료된다.</p>
+      <div class="row2"><button class="btn" data-action="exit-cancel">계속하기</button>${g && !ui.archiveView ? `<button class="btn" data-action="exit-title">🏠 처음 화면</button>` : ''}<button class="btn warn" data-action="exit-ok">종료</button></div>
+    </div></div>`;
 }
 
 export function mount(el: HTMLElement) {
@@ -436,6 +515,8 @@ export function mount(el: HTMLElement) {
   ui.game = null;
   hasSave = canContinue();
   root.addEventListener('click', onClick);
+  window.addEventListener('popstate', onPopState);
+  document.addEventListener('pointerdown', armGuard, true);
   root.addEventListener('touchstart', () => {}, { passive: true }); // iOS에서 :active 눌림 효과 켜기
   root.addEventListener('pointerdown', (e) => {
     const b = (e.target as Element).closest?.('.btn:not(:disabled), .next-year, .choice:not(:disabled), .seg button, .coll-tabs button, .mini.do:not(:disabled), .file-btn');
@@ -594,7 +675,8 @@ function renderInner() {
   }
   let modal = '';
   let modalKey = '';
-  if (g.gameOver && !ui.overLog) (modal = gameOverModal(g)), (modalKey = 'over');
+  if (ui.confirmExit) (modal = exitModal()), (modalKey = 'exit');
+  else if (g.gameOver && !ui.overLog) (modal = gameOverModal(g)), (modalKey = 'over');
   else if (ui.apWarnModal) (modal = apWarnModalHTML(ui.apWarnModal.ap)), (modalKey = 'apwarn');
   else if (ui.trade) (modal = tradeModal(ui.trade)), (modalKey = 'trade' + ui.trade.a + ui.trade.id);
   else if (ui.report) (modal = reportModal(ui.report)), (modalKey = 'rep' + ui.report.title);
@@ -743,6 +825,7 @@ function titleScreen(): string {
       <p class="fine">남겨 두고 싶으면 📂 데이터 파일 → 📤 내보내기로 먼저 백업하거나, 이어하기 → 설정 → 📕 가문 이야기 마치기로 끝내면 유산을 받고 기록실에 남는다.</p>
       <div class="row2"><button class="btn" data-action="start-cancel">아니, 그만둘래</button><button class="btn warn" data-action="start-ok">지우고 새로 시작</button></div>
     </div></div>` : ''}
+    ${ui.confirmExit ? exitModal() : ''}
   </div>`;
 }
 
@@ -3380,6 +3463,21 @@ function handle(el: HTMLElement) {
     }
     case 'start-cancel':
       ui.confirmStart = false;
+      break;
+    case 'exit-cancel':
+      ui.confirmExit = false;
+      break;
+    case 'exit-ok':
+      leave();
+      return;
+    case 'exit-title':
+      save();
+      ui.confirmExit = false;
+      ui.game = null;
+      hasSave = canContinue();
+      ui.report = ui.outcome = ui.sheet = ui.trade = undefined;
+      ui.settings = ui.overLog = false;
+      window.scrollTo(0, 0);
       break;
     case 'start-ok':
     case 'start': {
