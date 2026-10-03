@@ -74,7 +74,7 @@ export const GATE_READY: Record<string, (s: GameState, p: Person) => boolean> = 
   // 🛡 몸이 무기: 22~45세 · 근력 65+·건강 60+ · 제복·운동 경력이나 군필
   hj_bodyguard: (s, p) => A(s, p) >= 22 && A(s, p) <= 45 && st(p).str >= 65 && st(p).hp >= 60 && (did(p, 'police', 'officer', 'nco', 'security_guard', 'athlete', 'firefighter', 'coast_guard', 'sports_instructor', 'hj_fighter', 'hj_mercenary') || p.flags.some((f) => f.startsWith('served'))),
   // 🕵 경찰·기자·검사… 그 일을 그만둔 뒤 50세가 넘어서 · 지능 62+·매력 55+·건강 50+
-  hj_detective: (s, p) => A(s, p) >= 50 && A(s, p) <= 72 && LAW.some((j) => p.flags.includes('was:' + j)) && !LAW.includes(p.job) && st(p).int >= 62 && st(p).cha >= 55 && st(p).hp >= 50,
+  hj_detective: (s, p) => A(s, p) >= 50 && A(s, p) <= 72 && LAW.some((j) => p.flags.includes('vet:' + j)) && !LAW.includes(p.job) && st(p).int >= 62 && st(p).cha >= 55 && st(p).hp >= 50,
   // 🥃 [개코] · 건강 60+ · 매력 65+
   hj_perfumer: (s, p) => A(s, p) >= 20 && A(s, p) <= 60 && tr(p, 'keen_nose') && st(p).hp >= 60 && st(p).cha >= 65,
   // 🔮 사람의 운을 봐 온 사람: 30~70세 · 매력 60+ · 타로·무당 이력이나 공감 능력·맑은 눈
@@ -123,6 +123,8 @@ export function gateYear(s: GameState): void {
     }
     // 💼 지나온 직업: 2년 넘게 한 일은 "was:직업"으로 남는다 (은퇴한 경찰의 탐정 루트 등)
     if (!['none', 'parttime', 'pension'].includes(p.job) && (p.jobYears ?? 0) >= 2) addFlag(p, 'was:' + p.job);
+    // 8년 넘게 한 일은 "vet:직업" (베테랑: 사립탐정은 수사 쪽 일을 8년 이상)
+    if (!['none', 'parttime', 'pension'].includes(p.job) && (p.jobYears ?? 0) >= 8) addFlag(p, 'vet:' + p.job);
     // ♟️ 체스 신동: 13세에 첫 공식 대회 (못 넘으면 15세까지 한 번 더)
     if (p.traits?.includes('chess_prodigy') && p.job !== 'chess_player' && !hasFlag(p, 'route:chess_player') && !hasFlag(p, 'chess_hobby') && !p.job.startsWith('hj_') && a >= 13 && a <= 15 && num(p, 'chess_try') < 2 && sn[k('chess_try')] !== s.year) {
       push(s, 'gt_chess_prodigy', p);

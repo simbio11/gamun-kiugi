@@ -1513,6 +1513,8 @@ describe('부모님 유산', () => {
     expect(GATE_READY.hj_detective(s, h)).toBe(false);
     h.flags.push('was:police');
     h.job = 'none';
+    expect(GATE_READY.hj_detective(s, h)).toBe(false); // 2년만 해서는 모자라다: 수사 쪽 일 8년 이상
+    h.flags.push('vet:police');
     expect(GATE_READY.hj_detective(s, h)).toBe(true);
     h.actual.hp = 40;
     expect(GATE_READY.hj_detective(s, h)).toBe(false);
