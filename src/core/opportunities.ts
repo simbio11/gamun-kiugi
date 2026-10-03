@@ -1,4 +1,5 @@
 // 올해의 기회: 해마다 다른 5개가 열리는 한정 행동. 인생 단계·길·형편에 맞는 것 중에서 해마다 돌아가며 뜬다.
+import { canHop, tryPromote } from './rank';
 import type { ActionDef, Stage } from './actions';
 import type { GameState, Person, StatKey } from './types';
 import { chance, int, pick } from './rng';
@@ -63,9 +64,9 @@ const OPPS: Opp[] = [
       p.flags = p.flags.filter((f) => !f.startsWith('hop:'));
       p.flags.push('hop:' + s.year);
       if (t === 'great') {
-        p.jobLevel = Math.min(JOBS[p.job].maxLevel, p.jobLevel + 1);
-        p.jobYears = 0;
-        return ['직급 +1'];
+        if (canHop(p.job) && tryPromote(s.year, p, 1)) return ['직급 +1'];
+        p.cash += Math.round(JOBS[p.job].perLevel * 0.3);
+        return ['같은 직급으로 옮기며 연봉 소폭↑'];
       }
       if (t === 'good') {
         const bonus = Math.round(JOBS[p.job].perLevel * 0.4);
@@ -226,10 +227,7 @@ const OPPS: Opp[] = [
     id: 'o_mentor', icon: '🧑‍🏫', name: '선배 멘토링', desc: '업계 선배에게 조언 · 승진·이직에 도움', stages: ['adult'], when: working, stat: 'cha',
     lines: L(['선배가 자기 팀에 자리를 만들어 줬다!'], ['커리어 로드맵을 같이 그렸다.'], ['좋은 말씀 감사합니다…'], ['선배가 자기 자랑만 두 시간.']),
     eff: (s, p, t) => {
-      if (t === 'great' && p.jobLevel < JOBS[p.job].maxLevel && chance(s, 0.5)) {
-        p.jobLevel++;
-        return ['직급 +1'];
-      }
+      if (t === 'great' && chance(s, 0.5) && tryPromote(s.year, p, 1)) return ['직급 +1'];
       if (ok(t)) mark(p, 'network', 1);
       return [stat('cha', grow(s, p, 'cha', t))];
     },
@@ -364,7 +362,7 @@ OPPS.push(
     eff: (_s, p, t) => { const g = { great: 1500, good: 300, meh: 0, bad: -100 }[t]; p.cash += g; mark(p, 'i:biz', ok(t) ? 1 : 0); return [g ? `부업 ${g > 0 ? '+' : ''}${formatMoney(g)}` : '본전']; } },
   { id: 'o_mba', icon: '🎓', name: '야간 MBA 과정', desc: '지능·매력↑ · 승진에 유리 (2천만)', cost: 2000, stages: ['adult'], when: (s) => working(s) && age(s, h(s)) <= 50, stat: 'int',
     lines: L(['수석 졸업! 동기 네트워크가 든든하다.'], ['주경야독 끝에 학위를 받았다.'], ['과제만 겨우 냈다.'], ['피곤해서 절반은 결석.']),
-    eff: (s, p, t) => { if (ok(t)) { mark(p, 'network', 2); if (chance(s, t === 'great' ? 0.5 : 0.2) && p.jobLevel < JOBS[p.job].maxLevel) { p.jobLevel++; return [stat('int', grow(s, p, 'int', t)), '직급 +1']; } } return [stat('int', grow(s, p, 'int', t)), stat('cha', grow(s, p, 'cha', t))]; } },
+    eff: (s, p, t) => { if (ok(t)) { mark(p, 'network', 2); if (chance(s, t === 'great' ? 0.5 : 0.2) && tryPromote(s.year, p, 1)) { return [stat('int', grow(s, p, 'int', t)), '직급 +1']; } } return [stat('int', grow(s, p, 'int', t)), stat('cha', grow(s, p, 'cha', t))]; } },
   { id: 'o_lotto_group', icon: '🎰', name: '직장 동료 로또 공동구매', desc: '만 원씩 모아서 · 거의 안 되지만…', cost: 1, stages: ['adult'], when: working, stat: 'mor',
     lines: L(['4등이 세 장! 회식비가 생겼다.'], ['5등 두 장. 커피 한 잔씩.'], ['꽝.'], ['꽝. 동료가 번호 하나를 잘못 적었다고 한다.']),
     eff: (s, p, t) => { if (chance(s, 0.0008)) { p.cash += 30000; s.fame += 1; return ['🎉 2등 당첨! 내 몫 3억!']; } const g = { great: 15, good: 1, meh: 0, bad: 0 }[t]; p.cash += g; return g ? [`+${g}만`] : []; } },

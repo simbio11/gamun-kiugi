@@ -29,6 +29,13 @@ import { EVENTS, RANDOM_EVENTS } from './registry';
 import { eraYear } from './era';
 import { rivalYear } from './rival';
 import { careerYear, ministerLeaves, presidentLeaves } from './career';
+import { powerYear } from './power';
+import { power2Year, presTerm } from './power2';
+import { applyAncestor, applyLegacy, applyPerma, hasPerma } from './legacy';
+import { handoverYear } from './handover';
+import { sagaYear, startInheritanceDrama } from './saga';
+import { obituary } from './obituary';
+import { dutyDone, dutyYear, onDuty } from './duty';
 import { GLORY_SCALE, achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
 import { cardCapBonus, cardYear } from './cards';
@@ -90,7 +97,7 @@ import {
   randomName,
   addTrait,
 } from './people';
-import type { AssetKind, GameState, MarketKey, Person, Sex, WillMode } from './types';
+import type { Ancestor, AssetKind, GameState, MarketKey, Person, Sex, WillMode } from './types';
 
 export interface NewGameOpts {
   seed?: number;
@@ -102,6 +109,12 @@ export interface NewGameOpts {
   difficulty?: Difficulty;
   /** 근현대사 모드 (1960년 시작) */
   era?: 'history';
+  /** 유산 상점에서 산 시작 혜택 (legacy.ts) */
+  legacy?: string[];
+  /** 계정의 가문 내력 (영구) */
+  perma?: string[];
+  /** 지난 가문의 조상 카드 */
+  ancestor?: Ancestor;
 }
 
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'hell';
@@ -436,6 +449,7 @@ export function newGame(o: NewGameOpts): GameState {
 
   s.headId = me.id;
   s.founderId = me.id;
+  me.flags.push('gen:1');
   s.policy.children[me.id] = { budget: 1, focus: 'free' };
   father.affinity = int(s, 30, 80);
   mother.affinity = int(s, 40, 90);
@@ -444,6 +458,10 @@ export function newGame(o: NewGameOpts): GameState {
   const sibTxt = father.childIds.length === 1 ? '외동' : `${father.childIds.length}남매 중 ${father.childIds.indexOf(me.id) + 1}째`;
   const home = assetsOf(s, father.id).concat(assetsOf(s, mother.id));
   const worth = personWorth(s, father) + personWorth(s, mother) + familyWorth(s);
+  // 유산 상점에서 산 혜택 (지난 가문이 남긴 것)
+  const legacyLines = o.legacy?.length ? applyLegacy(s, o.legacy) : [];
+  const permaLines = o.perma?.length ? applyPerma(s, o.perma) : [];
+  const ancestorLine = o.ancestor ? applyAncestor(s, o.ancestor) : '';
   queue(s, 'notice', me.id, {
     title: `${o.familyName}씨 가문의 시작`,
     text:
@@ -456,6 +474,9 @@ export function newGame(o: NewGameOpts): GameState {
       (tycoon ? '\n💎 재벌가의 자손이다!' : '') +
       (rareStory.length ? '\n' + rareStory.join('\n') : '') +
       (dif ? `\n🎚 난이도: ${dif.name}` : '\n🎲 운명에 맡겼다') +
+      (ancestorLine ? `\n\n${ancestorLine}` : '') +
+      (legacyLines.length ? `\n\n🏺 지난 가문이 남긴 유산\n${legacyLines.join('\n')}` : '') +
+      (permaLines.length ? `\n\n💠 가문 내력 (영구): ${permaLines.join(' · ')}` : '') +
       (hist
         ? `\n\n${pastLines}\n\n📜 지금 ${START_YEAR}년 봄. 3·15 부정선거로 온 나라가 들끓고 있다. ${eun(fullName(me))} 다섯 살.\n군사정변, 산업화, 유신, 광주, 올림픽, IMF, 월드컵, 촛불… 이 아이는 대한민국 현대사를 온몸으로 겪으며 자란다.\n해마다 그해의 신문이 오고, 역사의 큰 사건은 호외로 들이닥친다.\n\n💱 돈은 그해 물가로 보여 준다 (설정에서 "2025년 돈 가치"로 바꿔 볼 수 있다). 그 시절의 가난은 버는 돈이 적은 것으로 느껴진다.`
         : `\n\n지금 ${START_YEAR}년, ${eun(fullName(me))} 다섯 살.\n이제부터 당신이 이 아이의 인생을, 그리고 가문을 이끈다.\n학창 시절 → 수능 → 진로 → 결혼 → 자녀·손주 → 유언과 승계.`),
@@ -516,7 +537,9 @@ export function simulateYear(s: GameState): void {
   for (const m of leverageYear(s)) log(s, m, 'money');
   // 우리 가족이 대통령이면, 실제 역사·미래 뉴스 속 "대통령" 기사는 빼고 우리 대통령 소식으로
   const ourPres = Object.values(s.people).find((p) => alive(p) && p.job === 'president');
-  const presNews = (m: string) => !ourPres || !m.startsWith('📰') || !/대통령|대선|청와대|대통령실|탄핵|취임식|국정 지지율/.test(m);
+  // 근현대사에서 우리 가문이 한 번이라도 정권을 잡았다면(가상 역사) 실제 대통령 기사는 계속 뺀다
+  const altHist = s.storySeen?.['althist'] !== undefined;
+  const presNews = (m: string) => (!ourPres && !altHist) || !m.startsWith('📰') || !/대통령|대선|청와대|대통령실|탄핵|취임식|국정 지지율|박정희|윤보선|최규하|전두환|노태우|김영삼|김대중|노무현|이명박|박근혜|문재인|윤석열|이재명|3선 개헌|유신헌법|6·29 선언/.test(m);
   for (const m of histYear(s)) if (presNews(m)) log(s, m, 'market');
   for (const m of timelineYear(s)) if (presNews(m)) log(s, m, 'market');
   if (ourPres) log(s, `📰 ${fullName(ourPres)} 대통령, 국정 지지율 ${ourPres.pol?.approval ?? 50}% · ${pick(s, ['민생 경제 점검 회의 주재', '정상회담 참석차 출국', '신년 기자회견', '재난 현장 방문', '국무회의에서 개혁안 발표', '청년 간담회 개최'])}`, 'market');
@@ -526,6 +549,11 @@ export function simulateYear(s: GameState): void {
   for (const m of eraYear(s)) log(s, m, 'market');
   for (const m of rivalYear(s, familyTotal(s))) log(s, m, 'life');
   for (const m of careerYear(s)) log(s, m, 'life');
+  for (const m of powerYear(s)) log(s, m, 'life');
+  for (const m of power2Year(s)) log(s, m, 'life');
+  dutyYear(s);
+  handoverYear(s);
+  sagaYear(s);
   for (const m of cardYear(s)) log(s, m, 'life');
   for (const m of hiddenYear(s)) log(s, m, 'life');
   gateYear(s);
@@ -577,6 +605,15 @@ export function simulateYear(s: GameState): void {
     if (msg) log(s, `🏠 ${fullName(householder(s))}: ${msg}`, 'money');
   }
   rollListings(s);
+}
+
+/** 휴대폰(연락 수단) 창으로 오는 사건인가 (제목을 만들 때 상황이 필요한 사건은 아니라고 본다) */
+function isCommDef(d: LifeDef): boolean {
+  try {
+    return !!commEvent(d.id, d.title({} as never));
+  } catch {
+    return !!commEvent(d.id, '');
+  }
 }
 
 /** 인생사: 성격·금슬·병역·질병·난임·선거·유언 + 무작위 사건 (한 해 최대 2건) */
@@ -631,7 +668,7 @@ function lifeYear(s: GameState) {
     if (p.job === 'founder' && p.jobLevel >= 4 && !p.flags.some((f) => f === 'ipo' || f === 'ipo_declined')) queue(s, 'ipo', p.id);
     // 대선
     if (isElectionYear(s.year) && a >= 45 && a <= 72 && !hasFlag(p, 'draft_dodger') && p.job !== 'president' && !hasFlag(p, 'president')) {
-      if ((p.job === 'politician' && p.jobLevel >= 2 && s.fame >= 100 && (p.pol?.approval ?? 0) >= 45) || (hasFlag(p, 'was_minister') && s.fame >= 140)) queue(s, 'presidential', p.id);
+      if ((p.job === 'politician' && p.jobLevel >= 2 && s.fame >= 100 && (p.pol?.approval ?? 0) >= 45) || (hasFlag(p, 'was_minister') && s.fame >= 140) || (hasFlag(p, 'was_top_prosecutor') && s.fame >= 120) || hasFlag(p, 'was_premier') || hasFlag(p, 'party_leader') || hasFlag(p, 'un_sg')) queue(s, 'presidential', p.id);
     }
   }
   // 유언장: 가주 65세부터 5년마다
@@ -646,7 +683,9 @@ function lifeYear(s: GameState) {
   romanceYear(s);
   nestYear(s);
   for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM, ...ROMANCE_RANDOM, ...SEED_EVENTS, ...DECEPTION_EVENTS, ...K_REALITY_RANDOM]) {
+    if (onDuty(p)) break;
     if (onCooldown(s, p.id + ':' + d.id, 6)) continue;
+    if (onCooldown(s, 'fam:' + d.id, isCommDef(d) ? 8 : 3)) continue; // 같은 사건이 식구만 바꿔 연달아 오지 않게
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) pool.push([d, p, w]);
   }
@@ -654,6 +693,7 @@ function lifeYear(s: GameState) {
   const stories: [LifeDef, Person, number][] = [];
   const histNow = inHistory(s);
   for (const p of members) for (const d of STORIES) {
+    if (onDuty(p)) break; // 군 복무·해외 파견 중엔 그곳의 이야기만 (duty.ts)
     if (d.id.startsWith('st_wk_')) continue; // 직장 이야기는 따로 (workEvents)
     if (BOSS_STORIES.has(d.id.slice(3)) && selfBoss(p)) continue; // 상사·회사가 없는 사람에게 회사원 이야기는 없다
     if (histNow && d.raw && anachronistic(s, d.raw)) continue; // 그 시절에 없던 이야기
@@ -662,14 +702,21 @@ function lifeYear(s: GameState) {
     if (w > 0) stories.push([d, p, w]);
   }
   // 휴대폰(연락 수단)으로 오는 이야기는 따로 한 번 더: 해마다 2/3쯤은 폰이 울린다
-  const calls = stories.filter(([d]) => commEvent(d.id, d.title({} as never)));
-  if (calls.length && chance(s, 0.65)) {
+  //  같은 연락 이야기가 식구만 바꿔 또 오지 않게: 가문 전체로 10년은 쉰다 (예전엔 사람마다 따로 세서 한 판에 같은 문자가 네댓 번 왔다)
+  const isCall = isCommDef;
+  const commSeen = (d: LifeDef) => s.year - (s.storySeen?.['comm:' + d.id] ?? -99) < 10;
+  for (let i = stories.length - 1; i >= 0; i--) if (isCall(stories[i][0]) && commSeen(stories[i][0])) stories.splice(i, 1);
+  const calls = stories.filter(([d]) => isCall(d));
+  if (calls.length && chance(s, 0.5)) {
     const total = calls.reduce((t, [, , w]) => t + w, 0);
     let r = next(s) * total;
     const hit = calls.find(([, , w]) => (r -= w) <= 0) ?? calls[calls.length - 1];
     queue(s, hit[0].id, hit[1].id);
+    (s.storySeen ??= {})['comm:' + hit[0].id] = s.year;
     stories.splice(stories.indexOf(hit), 1);
   }
+  // 일반 이야기 가운데 연락 수단으로 오는 것도 같은 해에 또 오지 않게
+  for (let i = stories.length - 1; i >= 0; i--) if (isCall(stories[i][0])) stories.splice(i, 1);
   for (let i = 0; i < 2 && stories.length && chance(s, i === 0 ? 0.85 : 0.35); i++) {
     const total = stories.reduce((t, [, , w]) => t + w, 0);
     let r = next(s) * total;
@@ -684,6 +731,7 @@ function lifeYear(s: GameState) {
     const hit = pool.find(([, , w]) => (r -= w) <= 0) ?? pool[pool.length - 1];
     queue(s, hit[0].id, hit[1].id);
     (s.storySeen ??= {})[hit[1].id + ':' + hit[0].id] = s.year;
+    s.storySeen['fam:' + hit[0].id] = s.year;
     pool.splice(pool.indexOf(hit), 1);
   }
 }
@@ -709,9 +757,14 @@ function retirementAndGraduation(s: GameState) {
     const serving = p.flags.find((f) => f.startsWith('serving:'));
     if (serving && Number(serving.slice(8)) < s.year) {
       p.flags = p.flags.filter((f) => f !== serving);
-      addFlag(p, 'served');
-      log(s, `🎖 ${fullName(p)} 만기 전역`, 'life');
-      if (hasFlag(p, 'officer_served') && isMainline(s, p)) queue(s, 'officer_stay', p.id);
+      const away = dutyDone(p);
+      if (away) log(s, away, 'life');
+      else {
+        addFlag(p, 'served');
+        log(s, `🎖 ${fullName(p)} 만기 전역`, 'life');
+        if (hasFlag(p, 'officer_served') && isMainline(s, p)) queue(s, 'officer_stay', p.id);
+        else if (hasFlag(p, 'nco_offer') && isMainline(s, p)) queue(s, 'nco_stay', p.id);
+      }
     }
     // 장관 2년, 대통령 5년
     if (p.job === 'minister' && p.jobYears >= 2) {
@@ -726,13 +779,16 @@ function retirementAndGraduation(s: GameState) {
           pl = '0';
         }
       }
+      const role = p.flags.includes('role:premier') ? '국무총리' : p.flags.includes('role:deputy_pm') ? '부총리' : p.flags.includes('role:chief') ? '대통령 비서실장' : '장관';
+      p.flags = p.flags.filter((f) => !f.startsWith('role:'));
       p.job = pj;
       p.jobLevel = Number(pl) || 0;
       p.jobYears = 5;
-      log(s, `${fullName(p)} 장관 퇴임 (${JOBS[pj]?.name ?? pj} 복귀)`, 'life');
+      log(s, `${fullName(p)} ${role} 퇴임 (${JOBS[pj]?.name ?? pj} 복귀)`, 'life');
       ministerLeaves(s, p);
     }
-    if (p.job === 'president' && p.jobYears >= 5) {
+    // 대통령 5년 단임 (거사로 오른 대통령은 7년 단임: 제5공화국 헌법)
+    if (p.job === 'president' && p.jobYears >= presTerm(p)) {
       p.job = 'pension';
       p.flags = p.flags.filter((f) => !f.startsWith('pens:'));
       p.flags.push('pens:15000', 'ex_president');
@@ -761,7 +817,8 @@ function retirementAndGraduation(s: GameState) {
       p.flags.push('student', 'univ_local', 'grad:' + (s.year + 4));
     }
     // 정년 (창작·스포츠·정치는 따로)
-    const ra = JOBS[p.job].retireAge;
+    // 대기업 임원(상무 이상)은 정년 대신 계약 — 65세까지 (임원 평균 퇴임 나이 50대 후반~60대 초, 유니코써치 100대 기업 임원 조사)
+    const ra = p.job === 'corp' && p.jobLevel >= 5 ? 65 : JOBS[p.job].retireAge;
     if (ra && a >= ra) {
       const sev = severance(s, p);
       if (p.job !== 'none' && p.job !== 'parttime') log(s, `${fullName(p)} ${JOBS[p.job].kind === 'salary' ? '정년퇴직' : '은퇴'}${sev ? ` (퇴직금 ${formatMoney(sev)})` : ''}`, 'life');
@@ -845,6 +902,18 @@ function graduate(s: GameState, p: Person, track?: string) {
     case 'flight_univ':
       addFlag(p, 'flight_school');
       return prep('pilot');
+    case 'jtri': {
+      // 사법연수원 수료: 본가는 진로를 고르고, 방계는 성적대로
+      addFlag(p, 'jtri_done');
+      if (main) {
+        queue(s, 'law_path', p.id, { jtri: true });
+        return;
+      }
+      const sc = p.actual.int;
+      setJob(sc >= 72 ? 'judge' : sc >= 64 ? 'prosecutor' : 'lawyer');
+      log(s, `⚖ ${fullName(p)} 사법연수원 수료, ${JOBS[p.job].name}(으)로`, 'life');
+      return;
+    }
     case 'grad_school':
       log(s, `🎓 ${fullName(p)} 박사 학위 취득 (논문 ${p.papers ?? 0}편)`, 'life');
       addFlag(p, 'phd');
@@ -958,6 +1027,13 @@ function deaths(s: GameState) {
   const living = Object.values(s.people).filter(alive);
   for (const p of living) {
     if (!alive(p) || !chance(s, deathChance(s, p))) continue;
+    // 💠 조상의 가호: 가주마다 한 번, 65세 전의 죽음을 비켜 간다
+    if (p.id === s.headId && hasPerma(s, 'ancestor_guard') && age(s, p) < 65 && !(s.storySeen ??= {})['guard:' + p.id]) {
+      s.storySeen['guard:' + p.id] = s.year;
+      p.actual.hp = Math.max(p.actual.hp, 35);
+      log(s, `🕯 ${fullName(p)}, 생사의 고비에서 기적처럼 깨어났다. 꿈에 조상이 나와 등을 떠밀었다고 한다. (조상의 가호)`, 'life');
+      continue;
+    }
     const wasHead = p.id === s.headId;
     const mainline = isMainline(s, p) || isRelevant(s, p);
     const cause = causeOf(s, p);
@@ -978,7 +1054,9 @@ function deaths(s: GameState) {
       if (adopted) addFlag(next, 'adopted_heir');
       transferHeadship(s, next);
       s.policy.lifestyle = 'balance';
+      startInheritanceDrama(s, p, next);
       const text =
+        `🗞 ${obituary(s, p).headline}\n\n` +
         `${iga(fullName(p))} ${cause} 세상을 떠났다. (향년 ${age(s, p)}세)` +
         (hasFlag(p, 'will_written') ? '' : '\n유언장은 남기지 않았다.') +
         (adopted ? `\n뒤를 이을 자손이 없어, 문중 회의 끝에 조카를 양자로 들이기로 했다.` : '') +
@@ -1134,13 +1212,13 @@ function adultEvents(s: GameState) {
     const single = !p.spouseId || !alive(s.people[p.spouseId]);
     // 소개팅은 같은 사람에게 2년에 한 번까지 (해마다 같은 장면이 반복되지 않게)
     const lastBd = s.storySeen?.['bd:' + p.id];
-    if (single && !p.partnerId && !hasFlag(p, 'single_life') && !hasFlag(p, 'in_prison') && !p.flags.some((f) => f.startsWith('serving:')) && !pending('blind_date') && !(lastBd !== undefined && s.year - lastBd < 2) && chance(s, dateChance(a, p.id === h.id) * (p.spouseId || hasFlag(p, 'divorced') ? 0.5 : 1))) {
+    if (single && !onDuty(p) && !hasFlag(p, 'in_prison') && !p.partnerId && !hasFlag(p, 'single_life') && !pending('blind_date') && !(lastBd !== undefined && s.year - lastBd < 2) && chance(s, dateChance(a, p.id === h.id) * (p.spouseId || hasFlag(p, 'divorced') ? 0.5 : 1))) {
       (s.storySeen ??= {})['bd:' + p.id] = s.year;
       queue(s, 'blind_date', p.id, { cand: makeDate(s, p) });
     }
 
     // 범죄 및 유혹 이벤트 (경범죄 → 스노우볼)
-    if (!hasFlag(p, 'in_prison')) {
+    if (!hasFlag(p, 'in_prison') && !onDuty(p)) {
       if (hasLicense(p, 'doctor') && ['doctor', 'dentist'].includes(p.job) && a >= 32 && !hasFlag(p, 'crm:medical_crime') && !pending('crm_medical_step1') && chance(s, 0.04)) {
         queue(s, 'crm_medical_step1', p.id);
       } else if (['business', 'salary'].includes(JOBS[p.job]?.kind) && a >= 28 && !hasFlag(p, 'crm:tax_fraud') && !pending('crm_tax_step1') && chance(s, 0.03)) {
@@ -1160,8 +1238,7 @@ function adultEvents(s: GameState) {
 /** 직장 생활 이야기: 일하는 가족에게 그 직업다운 일이 해마다 생긴다 (가주는 자주, 다른 가족은 가끔, 한 해 최대 2건) */
 const WORK_DEFS = STORIES.filter((d) => d.id.startsWith('st_wk_'));
 function workEvents(s: GameState) {
-  const workers = mainlineMembers(s).filter((p) => age(s, p) >= 20 && !['none', 'parttime', 'pension'].includes(p.job) && !p.flags.includes('student') && !p.flags.some((f) => f.startsWith('serving:') || f === 'in_prison' || f.startsWith('leave:')));
-
+  const workers = mainlineMembers(s).filter((p) => age(s, p) >= 20 && !['none', 'parttime', 'pension'].includes(p.job) && !p.flags.includes('student') && !onDuty(p) && !p.flags.some((f) => f === 'in_prison' || f.startsWith('leave:')));
   workers.sort((a, b) => Number(b.id === s.headId) - Number(a.id === s.headId));
   let n = 0;
   for (const p of workers) {
@@ -1185,7 +1262,7 @@ function onCooldown(s: GameState, key: string, years: number): boolean {
 
 function randomEvents(s: GameState) {
   const h = head(s);
-  if (age(s, h) < 20) return;
+  if (age(s, h) < 20 || onDuty(h)) return;
   const rolls = chance(s, 0.5) ? (chance(s, 0.15) ? 2 : 1) : 0;
   const used = new Set<string>();
   for (let i = 0; i < rolls; i++) {
@@ -1204,6 +1281,20 @@ function randomEvents(s: GameState) {
       }
     }
   }
+}
+
+/** 📕 가문 이야기 마치기: 가주가 40세를 넘었거나 2대 이상이면, 스스로 가문의 이야기를 끝내고 유산을 받는다 */
+export function canConclude(s: GameState): boolean {
+  const h = head(s);
+  return !s.gameOver && !s.events.length && (s.generation >= 2 || age(s, h) >= 40);
+}
+export function concludeFamily(s: GameState): boolean {
+  if (!canConclude(s)) return false;
+  const h = head(s);
+  if (!h.inLaw && age(s, h) >= 15 && h.lifeScore === undefined) lifeReport(s, h);
+  endGame(s, `${s.familyName}씨 가문 ${s.generation}대 가주 ${iga(fullName(h))} 붓을 내려놓았다. "우리 집안 이야기는 여기까지."\n${s.startYear}년부터 ${s.year}년까지, ${s.generation}대에 걸친 이야기가 족보에 남는다.`);
+  s.gameOver!.voluntary = true;
+  return true;
 }
 
 function endGame(s: GameState, reason: string) {

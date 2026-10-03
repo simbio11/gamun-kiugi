@@ -721,10 +721,11 @@ describe('관심사와 지정 상속', () => {
     const s = newGame({ seed: 8, familyName: '최', sex: 'F' });
     const h = head(s);
     s.events = [{ uid: s.eventSeq++, defId: 'hobby', personId: h.id }];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       s.events = [{ uid: s.eventSeq++, defId: 'hobby', personId: h.id }];
-      currentEvent(s);
-      resolveChoice(s, 0);
+      const cur = currentEvent(s)!;
+      const star = cur.choices.findIndex((c) => c.label.startsWith('★') && !c.disabled);
+      resolveChoice(s, star >= 0 ? star : 0);
     }
     expect(topInterests(h, 1).length).toBe(1);
     s.year = h.birthYear + 24;
@@ -1591,7 +1592,7 @@ describe('현물 자산 (금·은·보석)', () => {
 describe('대형 이벤트 (미니게임)', () => {
   it('15개 모두 끝까지 플레이되고, 선택지마다 확률이 보인다', async () => {
     const { BIGS } = await import('../src/core/big-events');
-    expect(BIGS.length).toBe(20);
+    expect(BIGS.length).toBe(28);
     for (const b of BIGS) {
       for (const pickIdx of [0, 1]) {
         const s = newGame({ seed: 300 + b.id.length + pickIdx, familyName: '한', sex: 'M' });

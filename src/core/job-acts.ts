@@ -7,6 +7,7 @@ import { fmt, getFatigue, grow, jitter, rollTier, stat, TIER_MARK, type Delta, t
 import { clamp, head, mark } from './people';
 import { formatMoney, jobTitle } from './economy';
 import { sideJobOf } from './tracks';
+import { seatOdds } from './rank';
 import type { GameState, Person, StatKey } from './types';
 import { JA1 } from './job-acts-1';
 import { JA2 } from './job-acts-2';
@@ -17,6 +18,7 @@ import { JA6 } from './job-acts-6';
 import { hiddenActs } from './job-acts-hidden';
 import { jobDoor } from './hidden-quest';
 import { grantRelic, hasRelic } from './relics';
+import { nextTitle, tryPromote } from './rank';
 
 /** cash 수입 · fame 명성 · promo 승진 · skill 능력치 · net 인맥 · care 보람 · risk 한탕 · hp 체력 · (히든) dark 큰 판 · legend 전설 · rest 숨 고르기 · jackpot 일생일대 */
 export type JaKind = 'cash' | 'fame' | 'promo' | 'skill' | 'net' | 'care' | 'risk' | 'hp' | 'dark' | 'legend' | 'rest' | 'jackpot';
@@ -113,10 +115,12 @@ function runJa(s: GameState, p: Person, job: string, a: JA, boost: number): stri
   out.push(['행복', hp]);
   let tail = '';
   const j = JOBS[job];
-  if (kind === 'promo' && job === p.job && j && p.jobLevel < j.maxLevel && ((t === 'great' && chance(s, 0.45 * boost)) || (t === 'good' && chance(s, 0.08)))) {
-    p.jobLevel++;
-    p.jobYears = 0;
-    tail += `\n→ ${jobTitle(p)}(으)로 승진!`;
+  if (job === p.job) (s.storySeen ??= {})['ja:' + p.id] = s.year; // 올해 제 일을 열심히 했다 (창작 직업 인기 유지)
+  const top = seatOdds(p); // 꼭대기 한 자리는 평정만으로 잘 안 열린다
+  if (kind === 'promo' && job === p.job && j && p.jobLevel < j.maxLevel && ((t === 'great' && chance(s, 0.45 * boost * top)) || (t === 'good' && chance(s, 0.08 * top)))) {
+    // 평정이 좋아도 승진 연한은 채워야 한다 (rank.ts STEPS)
+    if (tryPromote(s.year, p, 1)) tail += `\n→ ${jobTitle(p)}(으)로 승진!`;
+    else tail += `\n(평가는 좋았지만 ${jobTitle(p)} 승진 연한이 아직 남았다)`;
   }
   // 히든 일의 대가: 삐끗하면 위기가 찾아온다
   const riskP = { dark: 0.4, jackpot: 0.6, legend: 0.2 }[kind as 'dark'] ?? 0;
@@ -198,6 +202,17 @@ export function jobActions(): ActionDef[] {
         desc: `${a[2] ? a[2] + ' · ' : ''}${HINT[a[4]](a[3])} (${STAT_NAMES[a[3]]})${band === 'lo' ? ' · 신참 때만' : band === 'hi' ? ' · 고참만' : ''}${opp ? ' · 올해만' : ''}`,
         ap: a[4] === 'jackpot' ? 2 : 1,
         cost,
+        // 승진 행동은 지금 직급에 맞춰 "다음 자리"를 보여 준다 (3급인데 '6급·5급을 향해'가 뜨지 않게)
+        label:
+          a[4] === 'promo'
+            ? (s) => {
+                const p = head(s);
+                const nx = p.job === job ? nextTitle(p) : undefined;
+                const name = a[1] + (band === 'lo' ? ' 🌱' : band === 'hi' ? ' 🎖' : '');
+                const goal = nx ? `${nx}을(를) 향해 · ${STAT_NAMES[a[3]]}↑ · 대박이면 승진 (승진 연한을 채워야)` : `이미 최고 자리 · ${STAT_NAMES[a[3]]}↑ · 평판 관리`;
+                return { name, desc: `${goal} (${STAT_NAMES[a[3]]})${opp ? ' · 올해만' : ''}` };
+              }
+            : undefined,
         stages: ['univ', 'prep', 'adult', 'senior'],
         show: (s) => {
           const p = head(s);

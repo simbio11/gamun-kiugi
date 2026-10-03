@@ -249,6 +249,9 @@ export function transferHeadship(s: GameState, next: Person, newGen = true) {
     s.generation++;
     rollMissions(s);
   }
+  // 몇 대 가주였나 (인생 신문·족보용)
+  next.flags = next.flags.filter((f) => !f.startsWith('gen:'));
+  next.flags.push('gen:' + s.generation);
   for (const p of Object.values(s.people)) {
     if (!alive(p) || p.id === next.id) continue;
     if (p.id === next.spouseId) p.affinity = 60;

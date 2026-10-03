@@ -4,6 +4,7 @@
 // · 가난한 사돈은 생활비·병원비를 기대지만, 정이 깊다
 // · 두 집안 형편 차이가 크면 금슬이 더 빨리 식고 갈등이 잦다 → 데이트·선물·사돈 챙기기로 붙잡아야 한다
 // · 배우자 건강: 약해지면 가주의 행복이 깎이고, 돌보면 금슬이 오른다. 병이 나면 간병을 고른다
+import { tryPromote } from './rank';
 import type { ActionDef } from './actions';
 import { formatMoney, personWorth } from './economy';
 import { gate, type EventDef } from './ev-util';
@@ -91,8 +92,7 @@ const IL: IlDef[] = [
         label: '소개를 받는다',
         run: (x) => {
           const j = JOBS[x.p.job];
-          if (j && j.maxLevel && x.p.jobLevel < j.maxLevel && chance(x.s, 0.5)) {
-            x.p.jobLevel++;
+          if (j && j.maxLevel && chance(x.s, 0.5) && tryPromote(x.s.year, x.p, 1)) {
             return '거물의 한마디에 길이 열렸다. 직급이 한 단계 올랐다! 다만 "사돈 덕"이라는 뒷말이 따라붙는다.';
           }
           x.s.fame += 1;

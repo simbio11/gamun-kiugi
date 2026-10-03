@@ -7,7 +7,7 @@ import { chance, int, pick } from './rng';
 import { type Choice, type EventDef } from './ev-util';
 import { expectedIncome, formatMoney, personWorth } from './economy';
 import { wageIndex } from './pay';
-import { addFlag, age, alive, clamp, fullName, hasFlag, head, mark, parentsOf, relationLabel } from './people';
+import { addFlag, age, alive, clamp, fullName, hasFlag, head, mark, markOf, parentsOf, relationLabel } from './people';
 import type { GameState, Person } from './types';
 
 type Band = 'none' | 'poor' | 'tight' | 'normal' | 'comfy' | 'rich' | 'tycoon';
@@ -21,8 +21,8 @@ function baseFor(s: GameState, p: Person): number {
   if (a < 13) return 24;
   if (a < 16) return 60;
   if (a < 19) return 90;
-  // 성인: 학생·취준생만 (일하면 오히려 생활비를 보탠다)
-  if (p.job !== 'none' && p.job !== 'parttime') return 0;
+  // 성인: 대학생·취준생·백수는 계속 받는다. 돈을 벌기 시작하면 부모님이 "이제 그만"을 꺼낸다 (allowance_end)
+  if (hasFlag(p, 'allow_cut') && !p.flags.includes('student') && p.job !== 'none') return 0;
   return p.flags.includes('student') ? 420 : 300;
 }
 
@@ -57,6 +57,14 @@ const ORDER: Band[] = ['none', 'poor', 'tight', 'normal', 'comfy', 'rich', 'tyco
 const lastBand = (p: Person) => p.flags.find((f) => f.startsWith('allow_band:'))?.slice(11) as Band | undefined;
 
 /** 해마다: 용돈 지급. 형편이 두 단계 이상 바뀌면 부모님이 이야기를 꺼낸다 */
+/** 용돈 중 쓰지 않고 남기는 몫: 아이들도 군것질·학용품·친구 만나는 데 대부분 쓴다 */
+function keepRate(p: Person): number {
+  const t = p.traits ?? [];
+  return clamp((t.includes('frugal') ? 0.55 : t.includes('spender') ? 0.1 : 0.3) + Math.min(0.2, markOf(p, 'thrift') * 0.04), 0.05, 0.75);
+}
+/** 돈을 버는 중인가 (학생 알바는 빼고) */
+const earning = (s: GameState, p: Person) => !p.flags.includes('student') && p.job !== 'none' && (p.job !== 'parttime' || expectedIncome(s, p) > 1500 * wageIndex(s.year));
+
 export function allowanceYear(s: GameState) {
   const h = head(s);
   if (!alive(h)) return;
@@ -64,8 +72,23 @@ export function allowanceYear(s: GameState) {
   const pars = parentsOf(s, h).filter(alive);
   const payer = pars.sort((a, b) => b.cash - a.cash)[0];
   if (amount > 0 && payer) {
-    payer.cash -= amount;
-    h.cash += amount;
+    // 반만 준다고 했던 해 (조른 결과)
+    const half = hasFlag(h, 'allow_half');
+    const given = half ? Math.round(amount / 2) : amount;
+    h.flags = h.flags.filter((f) => f !== 'allow_half');
+    payer.cash -= given;
+    // 대부분은 그해에 쓴다 (군것질·교통비·친구·옷) — 남는 몫만 통장에
+    h.cash += Math.round(given * keepRate(h));
+  }
+  const pending = (id: string) => s.events.some((e) => e.defId === id);
+  // 돈을 벌기 시작했는데 아직 용돈을 받는다: 부모님이 "이제 그만"을 꺼낼 확률이 높다 (일반 직장 70%/년, 알바만 25%/년)
+  if (amount > 0 && payer && age(s, h) >= 20 && earning(s, h) && !pending('allowance_end') && chance(s, h.job === 'parttime' ? 0.25 : 0.7))
+    s.events.push({ uid: s.eventSeq++, defId: 'allowance_end', personId: h.id, data: { payerId: payer.id, amount } });
+  // 용돈을 너무 안 써서 많이 쌓였다: 돈 쓸 일이 생긴다 (3년에 한 번까지)
+  const pile = Math.max(600, amount * 3) * (age(s, h) < 20 ? 1 : 2);
+  if (!hasFlag(h, 'indep') && age(s, h) >= 10 && age(s, h) < 30 && h.cash > pile && !pending('allowance_spree') && s.year - (s.storySeen?.['spree:' + h.id] ?? -99) >= 3 && chance(s, 0.6)) {
+    (s.storySeen ??= {})['spree:' + h.id] = s.year;
+    s.events.push({ uid: s.eventSeq++, defId: 'allowance_spree', personId: h.id });
   }
   const prev = lastBand(h);
   h.flags = h.flags.filter((f) => !f.startsWith('allow_band:'));
@@ -124,4 +147,72 @@ const talk: EventDef = {
   },
 };
 
-export const ALLOWANCE_EVENTS = [talk];
+/** 돈을 벌기 시작한 자식에게: "이제 용돈은 그만" */
+const allowanceEnd: EventDef = {
+  id: 'allowance_end',
+  title: () => '💸 이제 용돈은 그만',
+  valid: (c) => alive(c.p) && !hasFlag(c.p, 'indep') && !c.p.spouseId && !hasFlag(c.p, 'allow_cut'),
+  portraits: (c) => [c.s.people[c.ev.data.payerId], c.p].filter(Boolean),
+  text: (c) => {
+    const payer = c.s.people[c.ev.data.payerId];
+    return `${payer ? relationLabel(c.s, payer) : '부모님'}이(가) 저녁 식탁에서 말을 꺼냈다.
+"이제 너도 ${c.p.job === 'parttime' ? '알바로 꽤 버는 것 같던데' : '월급을 받으니'}, 용돈은 이번 달까지만 주마. 대신 집에 생활비를 좀 보태면 좋겠구나."
+(지금 용돈 월 ${formatMoney(Math.round(c.ev.data.amount / 12))})`;
+  },
+  choices: () => [
+    {
+      label: '당연하죠. 생활비도 보탤게요',
+      run: (x) => {
+        addFlag(x.p, 'allow_cut');
+        mark(x.p, 'filial');
+        const v = Math.min(Math.max(0, x.p.cash), Math.round(300 * wageIndex(x.s.year)));
+        x.p.cash -= v;
+        const payer = x.s.people[x.ev.data.payerId];
+        if (payer) (payer.cash += v), (payer.affinity = clamp(payer.affinity + 10, -100, 100));
+        return `첫 생활비 봉투를 내밀었다. 어머니가 봉투를 한참 쓰다듬었다.${v ? ` (${formatMoney(v)})` : ''}`;
+      },
+    },
+    { label: '알겠어요, 이제 제 힘으로', run: (x) => (addFlag(x.p, 'allow_cut'), mark(x.p, 'selfmade'), '용돈 통장이 조용해졌다. 진짜 어른이 된 기분이다.') },
+    {
+      label: '조금만 더 주시면 안 돼요…',
+      run: (x) => {
+        const payer = x.s.people[x.ev.data.payerId];
+        if (chance(x.s, 0.45)) {
+          addFlag(x.p, 'allow_half');
+          if (payer) payer.affinity = clamp(payer.affinity - 4, -100, 100);
+          return '"그럼 올해까지만 반만 주마." 마지못해 고개를 끄덕이셨다. 내년엔 정말 끝이다.';
+        }
+        addFlag(x.p, 'allow_cut');
+        if (payer) payer.affinity = clamp(payer.affinity - 8, -100, 100);
+        x.p.happiness = clamp(x.p.happiness - 4, 0, 100);
+        return '"돈 버는 애가 무슨 용돈이니." 단칼에 잘렸다.';
+      },
+    },
+  ],
+};
+
+/** 용돈을 너무 안 써서 많이 모였다: 쓸 일이 생긴다 */
+const allowanceSpree: EventDef = {
+  id: 'allowance_spree',
+  title: () => '🐷 불어난 저금통',
+  valid: (c) => alive(c.p) && c.p.cash > 0,
+  text: (c) => `${fullName(c.p)}의 통장에 용돈이 ${formatMoney(c.p.cash)}이나 쌓였다. 친구들이 "너 부자네?" 한다. 갖고 싶은 것도, 하고 싶은 것도 많다.`,
+  choices: (c) => {
+    const a = age(c.s, c.p);
+    const spend = (r: number) => (x: { p: Person }) => {
+      const v = Math.round(Math.max(0, x.p.cash) * r);
+      x.p.cash -= v;
+      return v;
+    };
+    const big = a < 14 ? '최신 게임기와 게임' : a < 20 ? '최신 휴대폰과 무선 이어폰' : '노트북과 명품 지갑';
+    return [
+      { label: `${big}을(를) 산다`, run: (x) => { const v = spend(0.45)(x); x.p.happiness = clamp(x.p.happiness + 10, 0, 100); mark(x.p, 'spend'); return `${big}을(를) 손에 넣었다. 며칠 동안 잠도 설쳤다. (−${formatMoney(v)})`; } },
+      { label: a < 18 ? '친구들에게 한턱 쏜다' : '친구들과 여행을 간다', run: (x) => { const v = spend(0.25)(x); x.p.happiness = clamp(x.p.happiness + 8, 0, 100); x.p.actual.cha = clamp(x.p.actual.cha + 1, 0, 100); return `${a < 18 ? '떡볶이·노래방·영화까지 풀코스.' : '바닷가로 2박 3일.'} 추억이 쌓였다. (−${formatMoney(v)}, 매력 +1)`; } },
+      { label: '부모님 선물을 산다', run: (x) => { const v = spend(0.15)(x); for (const q of parentsOf(x.s, x.p).filter(alive)) q.affinity = clamp(q.affinity + 8, -100, 100); mark(x.p, 'filial'); return `부모님 내복과 화장품을 샀다. 어머니가 한참 말을 잇지 못하셨다. (−${formatMoney(v)})`; } },
+      { label: a < 15 ? '학원 교재·책을 산다' : '배우고 싶던 걸 배운다', run: (x) => { const v = spend(0.2)(x); x.p.actual.int = clamp(x.p.actual.int + 2, 0, 100); return `${a < 15 ? '서점에서 한 아름 사 왔다.' : '주말 강좌에 등록했다.'} (−${formatMoney(v)}, 지능 +2)`; } },
+      { label: '그래도 모은다 (적금 통장)', run: (x) => { mark(x.p, 'thrift', 2); x.p.happiness = clamp(x.p.happiness - 2, 0, 100); return '"나중에 크게 쓸 거야." 친구들은 짠돌이라 놀리지만, 통장 숫자를 보면 든든하다.'; } },
+    ];
+  },
+};
+
+export const ALLOWANCE_EVENTS = [talk, allowanceEnd, allowanceSpree];

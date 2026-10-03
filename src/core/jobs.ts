@@ -157,10 +157,10 @@ job('police', '경찰관', 'public', 'salary', 3400, 700, 6, { fame: 1, color: '
 job('coast_guard', '해양경찰', 'public', 'salary', 3500, 700, 6, { fame: 1, color: '#1d4a7a', promote: 0.12, pension: 0.5, risk: 0.04, stats: { str: 0.5, hp: 0.3, mor: 0.2 }, titles: ['순경', '경장', '경사', '경위', '경감', '경정', '총경'], entry: exam('coast_guard', 'public', { maxAge: 40 }) });
 job('firefighter', '소방관', 'public', 'salary', 3500, 650, 5, { fame: 1.5, color: '#b8452d', promote: 0.11, pension: 0.5, risk: 0.05, stats: BODY, titles: ['소방사', '소방교', '소방장', '소방위', '소방경', '소방령'], entry: exam('firefighter', 'public', { maxAge: 40 }) });
 job('prison_guard', '교도관', 'public', 'salary', 3300, 650, 5, { fame: 0.5, color: '#3b4a3b', promote: 0.1, pension: 0.5, stats: { str: 0.4, mor: 0.6 }, titles: ['교도', '교사', '교위', '교감', '교정관', '소장'], entry: exam('corrections', 'public') });
-job('mail_carrier', '집배원', 'public', 'salary', 3000, 450, 4, { fame: 0.5, color: '#c83a3a', promote: 0.08, pension: 0.5, risk: 0.03, stats: BODY, titles: ['집배원', '선임', '팀장', '과장', '우체국장'], entry: exam('postal', 'public') });
-job('officer', '직업군인', 'public', 'salary', 3600, 1000, 6, { fame: 1.5, color: '#4b5a2e', retireAge: 56, promote: 0.1, pension: 0.5, risk: 0.02, stats: { str: 0.4, mor: 0.4, int: 0.2 }, titles: ['소위', '중위', '대위', '소령', '중령', '대령', '장군'], entry: school('사관학교·ROTC', 'public') });
+job('officer', '직업군인', 'public', 'salary', 3600, 1000, 9, { fame: 1.5, color: '#4b5a2e', retireAge: 58, promote: 0.1, pension: 0.5, risk: 0.02, stats: { str: 0.4, mor: 0.4, int: 0.2 }, titles: ['소위', '중위', '대위', '소령', '중령', '대령', '준장', '소장', '중장', '대장'], entry: school('사관학교·ROTC', 'public') });
+// 정보기관: 중앙정보부(1961) → 국가안전기획부(1981) → 국가정보원(1999). 7급 상당 공채(국정원 공개채용)로 들어가 원장(부장)까지. 이름은 그 시대 말로 바뀐다 (histpack WORDS)
+job('agent', '국정원 요원', 'public', 'salary', 4200, 1200, 5, { fame: 0.5, color: '#1c1c28', retireAge: 60, promote: 0.09, pension: 0.5, risk: 0.02, stats: { int: 0.5, cha: 0.3, mor: 0.2 }, titles: ['요원', '조정관', '과장', '단장', '차장', '원장'], entry: exam('nis', 'public', { univ: true, maxAge: 40 }) });
 job('diplomat', '외교관', 'public', 'salary', 4500, 1300, 5, { fame: 3, color: '#27405e', retireAge: 62, promote: 0.1, pension: 0.5, stats: { int: 0.6, cha: 0.4 }, titles: ['3등 서기관', '2등 서기관', '1등 서기관', '참사관', '공사', '대사'], entry: exam('diplomat', 'public', { univ: true, maxAge: 40 }) });
-
 job('judge', '판사', 'public', 'salary', 8000, 2000, 5, { fame: 4, color: '#111', retireAge: 70, promote: 0.08, pension: 0.5, stats: { int: 0.7, mor: 0.3 }, titles: ['판사', '부장판사', '고법판사', '법원장', '대법관', '대법원장'], entry: exam('judge', 'study', { needFlags: ['passed:bar'], needNote: '변호사시험 합격' }) });
 job('prosecutor', '검사', 'public', 'salary', 7500, 2000, 5, { fame: 3.5, color: '#151520', retireAge: 63, promote: 0.1, pension: 0.5, stats: { int: 0.6, cha: 0.2, mor: 0.2 }, titles: ['평검사', '부부장', '부장검사', '차장검사', '검사장', '검찰총장'], entry: exam('prosecutor', 'study', { needFlags: ['passed:bar'], needNote: '변호사시험 합격' }) });
 
@@ -258,7 +258,7 @@ job('announcer', '아나운서', 'media', 'salary', 4500, 1500, 4, { fame: 2.5, 
 
 // ── 스포츠 ──
 job('athlete', '운동선수', 'sport', 'athlete', 3000, 4000, 5, { fame: 2, color: '#2f7d4a', retireAge: 0, risk: 0.06, titles: ['신인', '1군', '주전', '에이스', '국가대표', '레전드'], entry: special('프로 입단 테스트', 'sport') });
-job('gamer', '프로게이머', 'sport', 'creator', 0, 0, 5, { fame: 1, color: '#3a3a8c', retireAge: 0, titles: ['연습생', '2군', '1군', '주전', '국가대표', '월드 챔피언'], creator: { incomes: [0, 2000, 5000, 12000, 30000, 60000], stat: 'int', talent: 'athlete', base: 0.05, div: 900 }, entry: special('입단 테스트 (24세 이하)', 'sport') });
+job('gamer', '프로게이머', 'sport', 'creator', 0, 0, 5, { fame: 1, color: '#3a3a8c', retireAge: 0, titles: ['연습생', '2군', '1군', '주전', '국가대표', '월드 챔피언'], creator: { incomes: [0, 2000, 5000, 12000, 30000, 60000], stat: 'int', talent: 'athlete', base: 0.22, div: 500 }, entry: special('입단 테스트 (24세 이하)', 'sport') });
 job('trainer', '트레이너', 'sport', 'salary', 2600, 900, 4, { color: '#2a8a5a', retireAge: 60, promote: 0.12, stats: { str: 0.6, cha: 0.4 }, titles: ['트레이너', '팀장', 'PT 원장', '연예인 트레이너', '피트니스 체인'], entry: hire(45, 'sport', { cost: 300, needNote: '생활체육지도사', text: 'PT 회원을 모으러 헬스장에 나갔다.' }) });
 job('coach', '코치', 'sport', 'salary', 3500, 1500, 4, { fame: 1, color: '#2a6a3a', retireAge: 65, promote: 0.1, stats: { str: 0.3, mor: 0.4, cha: 0.3 }, titles: ['코치', '수석코치', '감독', '명감독', '국가대표 감독'], entry: special('선수 은퇴 후', 'sport') });
 job('chess_player', '프로 체스 선수', 'sport', 'athlete', 3800, 3200, 5, { fame: 3, color: '#2b3a55', retireAge: 0, titles: ['신인 기사', '국내 마스터', '인터내셔널 마스터', '국가대표', '세계 랭커', '전설의 기사'], entry: special('체스 신동 고유 루트', 'study') });
@@ -391,7 +391,7 @@ export interface ExamDef {
 /** 국가공무원법상 금고 이상 전과(criminal) 시 결격 대상 공직/교원/사법 시험 */
 export const PUBLIC_EXAMS = new Set([
   'civil', 'civil5', 'tax_civil', 'police', 'coast_guard', 'firefighter',
-  'corrections', 'postal', 'diplomat', 'judge', 'prosecutor', 'teacher',
+  'corrections', 'postal', 'diplomat', 'nis', 'judge', 'prosecutor', 'teacher',
 ]);
 
 const X = (name: string, job: string, stats: Partial<Stats>, pass: number, desc: string, o: Partial<ExamDef> = {}): ExamDef => ({ name, job, level: 0, stats, pass, desc, ...o });
@@ -409,6 +409,9 @@ export const EXAMS: Record<string, ExamDef> = {
   corrections: X('교정직 시험', 'prison_guard', { int: 0.5, mor: 0.5 }, 48, '교도소가 직장이 된다.', { maxAge: 45, publicOnly: true }),
   postal: X('우정직 시험', 'mail_carrier', { int: 0.5, hp: 0.5 }, 44, '우체국 집배원 채용.', { publicOnly: true }),
   diplomat: X('외교관 후보자 시험', 'diplomat', { int: 0.7, cha: 0.3 }, 76, '외교부의 문은 좁다.', { univ: true, bonusFlags: ['univ_top'], maxAge: 40, publicOnly: true }),
+  nis: X('국정원 공개채용', 'agent', { int: 0.6, cha: 0.2, mor: 0.2 }, 66, '신원 조회만 몇 달. 합격해도 가족에게 직장을 말할 수 없다.', { univ: true, bonusFlags: ['served', 'univ_top'], maxAge: 40, publicOnly: true }),
+  // 사법시험 (1963~2017): 합격하면 사법연수원 2년 → 성적순으로 판사·검사·변호사
+  sashi: X('사법시험', 'lawyer', { int: 0.9, mor: 0.1 }, 74, '고시원에서 몇 해를 버티는 "고시 낭인"도 흔하다. 합격하면 사법연수원으로 간다.', { bonusFlags: ['univ_top'] }),
   judge: X('판사 임용', 'judge', { int: 0.8, mor: 0.2 }, 76, '법조 경력과 성적이 모두 필요하다.', { publicOnly: true }),
   prosecutor: X('검사 임용', 'prosecutor', { int: 0.7, cha: 0.3 }, 72, '로스쿨 성적과 실무수습 평가.', { publicOnly: true }),
   teacher: X('교원 임용고시', 'teacher', { int: 0.6, mor: 0.4 }, 60, '교대·사범대 출신이 유리하다.', { univ: true, bonusFlags: ['edu_school'], publicOnly: true }),

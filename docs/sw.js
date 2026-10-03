@@ -1,5 +1,5 @@
 // 오프라인용 캐시 (네트워크 우선, 실패 시 캐시)
-const CACHE = 'gamun-kiugi-v8';
+const CACHE = 'gamun-kiugi-v13';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) =>
@@ -8,7 +8,9 @@ self.addEventListener('activate', (e) =>
   ),
 );
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== self.location.origin) return;
+  const u = new URL(e.request.url);
+  // 계정 API는 캐시하지 않는다
+  if (e.request.method !== 'GET' || u.origin !== self.location.origin || u.pathname.includes('/api/')) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {

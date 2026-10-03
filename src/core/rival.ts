@@ -1,3 +1,4 @@
+import { canHop, tryPromote } from './rank';
 import { selfBoss } from './boss';
 // 라이벌 가문: 같은 동네에서 대대로 엎치락뒤치락하는 집안.
 // 해마다 저쪽 재산도 불어나거나 줄고, 가끔 두 집안이 부딪친다. 앙숙이 될 수도, 사돈이 될 수도 있다.
@@ -37,6 +38,8 @@ export interface Rival {
   lead?: number;
   /** 올해 저쪽이 한 일 (화면 표시용) */
   move?: string;
+  /** 저쪽 집안 사람들 (자식·손주): 세월을 두고 같은 사람이 다시 나온다 (saga.ts) */
+  kin?: { name: string; born: number; sex: 'M' | 'F' }[];
 }
 
 const rv = (s: GameState) => s.rival!;
@@ -56,6 +59,8 @@ export function initRival(s: GameState, ourWorth: number) {
     boss: name + randomName(s, chance(s, 0.5) ? 'M' : 'F', born),
     bossBorn: born,
   };
+  // 💠 숙적의 그림자: 라이벌 가문이 약하게, 앙심 없이 시작한다
+  if (s.perma?.includes('rival_bane')) (s.rival.worth = Math.round(s.rival.worth * 0.6)), (s.rival.fame = Math.round(s.rival.fame * 0.6)), (s.rival.feud = 0);
 }
 
 export function rivalMood(r: Rival): string {
@@ -290,7 +295,7 @@ const RIVAL_RANDOM: RivalDef[] = [
     },
     choices: (c) =>
       choices(c, [
-        { label: '실력으로 보여준다', run: (x) => (check(x.s, x.p.actual.int, 55, 12) ? ((x.p.jobLevel += 1), feud(x.s, 6), '분기 실적 1위. 팀장을 건너뛰고 본부장이 직접 승진시켰다!') : ((x.p.happiness = clamp(x.p.happiness - 8, 0, 100)), '밤을 새웠지만 이번엔 밀렸다.')) },
+        { label: '실력으로 보여준다', run: (x) => (check(x.s, x.p.actual.int, 55, 12) && tryPromote(x.s.year, x.p, 2) ? (feud(x.s, 6), '분기 실적 1위. 팀장을 건너뛰고 본부장이 직접 승진시켰다!') : ((x.p.happiness = clamp(x.p.happiness - 8, 0, 100)), '밤을 새웠지만 이번엔 밀렸다.')) },
         { label: '인사팀에 부당함을 알린다', run: (x) => (check(x.s, x.p.actual.mor, 45, 12) ? (feud(x.s, 10), '감사 결과 팀장이 교체됐다. 사내에서 조용히 영웅이 됐다.') : ((x.p.happiness = clamp(x.p.happiness - 10, 0, 100)), '"개인 감정 아니에요?" 오히려 찍혔다.')) },
         { label: '이직을 알아본다', run: (x) => ((x.p.happiness = clamp(x.p.happiness + 2, 0, 100)), `이력서를 업데이트했다. 올해 '이직' 행동이 눈에 들어온다.`) },
         { label: '술 한잔하며 푼다', run: (x) => (check(x.s, x.p.actual.cha, 50, 10) ? (feud(x.s, -15), (x.p.actual.cha = clamp(x.p.actual.cha + 1, 0, 100)), '"집안 일이랑 회사 일은 별개죠." 형님 동생 사이가 됐다.') : '어색한 침묵만 흘렀다.') },
@@ -473,11 +478,10 @@ const HOSTILE: Move[] = [
     },
   },
   { // 스카우트
-    w: (s) => (mainAdults(s).some((p) => JOBS[p.job]?.kind === 'salary' && p.id !== s.headId) ? 0.7 : 0),
+    w: (s) => (mainAdults(s).some((p) => canHop(p.job) && p.id !== s.headId) ? 0.7 : 0),
     run: (s) => {
-      const p = pick(s, mainAdults(s).filter((q) => JOBS[q.job]?.kind === 'salary' && q.id !== s.headId));
-      if (chance(s, 0.5)) {
-        p.jobLevel = Math.min(JOBS[p.job].maxLevel, p.jobLevel + 1);
+      const p = pick(s, mainAdults(s).filter((q) => canHop(q.job) && q.id !== s.headId));
+      if (chance(s, 0.5) && tryPromote(s.year, p, 2)) {
         p.affinity = clamp(p.affinity - 10, -100, 100);
         rv(s).feud = clamp(rv(s).feud - 5, 0, 100);
         return `${R(s)} 계열사가 ${fullName(p)}을(를) 한 직급 높여 스카우트했다. 본인은 신났지만 집안 어른들은 서운하다.`;

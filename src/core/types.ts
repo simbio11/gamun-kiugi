@@ -87,6 +87,10 @@ export interface Person {
   study?: number;
   /** 지금까지 들어간 사교육비 (만원) */
   eduSpent?: number;
+  /** 타고난 외모 0~100 (유전). 매력 = 외모 + 꾸밈 + 사교성 (looks.ts) */
+  looks?: number;
+  /** 누구를 닮았나: 아빠·엄마·반반 */
+  resemble?: 'F' | 'M' | 'mix';
 }
 
 export type RealEstateKind = 'apt_seoul' | 'apt_local' | 'land';
@@ -214,6 +218,20 @@ export interface Mission {
 
 export type MarketKey = 'apt_seoul' | 'apt_local' | 'land' | 'building' | 'stock' | 'coin' | 'art';
 
+/** 🪦 조상 카드: 지난 가문의 마지막 가주 */
+export interface Ancestor {
+  name: string;
+  family: string;
+  gen: number;
+  /** 가장 높았던 자리 */
+  role: string;
+  /** 가장 뛰어났던 능력치 */
+  stat: StatKey;
+  value: number;
+  born: number;
+  died?: number;
+}
+
 export interface GameState {
   version: 4;
   rng: number;
@@ -266,7 +284,13 @@ export interface GameState {
   war?: { name: string; start: number; phase: 'war' | 'truce'; truceAt?: number; dead: number };
   /** 지난 전쟁이 끝난 해 */
   lastWarEnd?: number;
-  gameOver?: { reason: string; score: number };
+  gameOver?: { reason: string; score: number; /** 이 가문이 남긴 유산 (유산 상점, 한 번만 지급) */ legacy?: number; /** 스스로 이야기를 마쳤다 (가문 이야기 마치기) */ voluntary?: boolean };
+  /** 가훈 (saga.ts: 집안이 겪은 일에서 나온다) */
+  motto?: string;
+  /** 계정에 영구로 찍은 가문 내력 (legacy.ts PERMA_ITEMS) */
+  perma?: string[];
+  /** 지난 가문에서 내려온 조상 카드 (legacy.ts) */
+  ancestor?: Ancestor;
   /** 올해 부동산 매물 */
   listings?: Listing[];
   /** 이야기를 마지막으로 겪은 해 (같은 이야기가 자꾸 반복되지 않게): '사람id:이야기id' → 해 */
@@ -296,4 +320,6 @@ export interface GameState {
   cleanYears?: number;
   /** 라이벌 가문 */
   rival?: import('./rival').Rival;
+  /** 유산 상점에서 산 혜택 중 가문 내내 효과가 남는 것 (legacy.ts) */
+  legacy?: string[];
 }

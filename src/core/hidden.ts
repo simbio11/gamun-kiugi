@@ -54,7 +54,8 @@ const ROUTES: Route[] = [
   { id: 'hj_memecoin', years: [2013, 2200], when: (s, p) => A(s, p) >= 20 && A(s, p) <= 60 && myCoins(s, p) && (markOf(p, 'risk') >= 1 || hasTrait(p, 'gambler')), p: 0.022, title: '🐕 개 그림 코인',
     offer: '장난삼아 산 강아지 밈코인이 하룻밤에 300배가 됐다. 커뮤니티에선 {n}을 "고래"라 부른다. 지금 팔까, 아니면 이 판의 주인공이 될까?',
     yes: '전업 코인 인플루언서가 된다', yesText: '람보르기니 사진을 올렸다. 팔로워가 백만. 인생이 밈이 됐다.', noText: '조용히 절반만 팔았다. 그래도 큰돈이다.', risk: 0.08, riskText: '코인이 99% 폭락했다. 러그풀이었다.' },
-  { id: 'hj_gambler', when: (s, p) => A(s, p) >= 20 && st(p).cha >= 55 && (markOf(p, 'cheat') >= 2 || markOf(p, 'risk') >= 3 || p.flags.includes('gambler')), kin: job('hj_mafia'), p: 0.035, title: '🃏 화투판의 전설',
+  // 타짜: 투자·모험으로 쌓인 '위험 감수'만으로는 안 열린다. 카지노·하우스 도박을 실제로 해 봤어야 한다
+  { id: 'hj_gambler', when: (s, p) => A(s, p) >= 20 && st(p).cha >= 55 && (p.flags.some((f) => f.startsWith('casino_v:')) || markOf(p, 'gamble') >= 1 || hasTrait(p, 'gambler') || p.flags.includes('gambler')) && (markOf(p, 'cheat') >= 2 || markOf(p, 'risk') >= 3 || p.flags.includes('gambler')), kin: job('hj_mafia'), p: 0.035, title: '🃏 화투판의 전설',
     offer: '동네 하우스에서 판을 싹쓸이했다. 구석에서 지켜보던 사내가 다가온다. "손이 좋네. 큰 판에서 한번 놀아 볼 텐가? 설계는 내가 하지."',
     yes: '타짜의 길로', yesText: '밑장 빼기를 익혔다. 강원도에서 부산까지, 판마다 전설이 된다.', noText: '"도박은 끊었어요." 판을 떠났다.', risk: 0.07, riskText: '손목이 걸릴 뻔했다.' },
   { id: 'hj_natural', when: (s, p) => A(s, p) >= 40 && (p.happiness < 30 || st(p).hp < 40), p: 0.008, title: '🌿 산이 부른다',

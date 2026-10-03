@@ -1,6 +1,7 @@
 // 명예의 전당 카드: 가문 사람이 각 분야의 정점에 서면 카드가 생긴다.
 // 카드마다 그 사람이 살아 있는 동안 가문 전체에 효과를 준다. 도감을 채우면 세트 보상.
 
+import { tryPromote } from './rank';
 import { chance, int, pick } from './rng';
 import { gate, schedule, type Choice, type Ctx, type EventDef } from './ev-util';
 import { age, alive, check, checkOdds, clamp, fullName, hasFlag, isMainline, parentsOf } from './people';
@@ -82,7 +83,7 @@ export const CARDS: CardDef[] = [
   { id: 'billboard', name: '빌보드 1위', icon: '📀', rarity: 'legend', how: '음악가로 정점에', eff: { hap: 3, cash: 10000, fame: 3 }, auto: (_s, p) => lv(p, 'musician', 5) },
   { id: 'anchor', name: '9시 뉴스 앵커', icon: '📺', rarity: 'epic', how: '아나운서·기자로 메인 앵커 (정점 이벤트)', eff: { fame: 2, kid: 'cha' } },
   { id: 'bestseller', name: '밀리언셀러 작가', icon: '📚', rarity: 'epic', how: '작가로 100만 부 (정점 이벤트)', eff: { kid: 'int', cash: 3000 } },
-  { id: 'webtoon_ip', name: '글로벌 IP 작가', icon: '✏️', rarity: 'epic', how: '웹툰·웹소설 작가로 정점에', eff: { cash: 8000, fame: 1 }, auto: (_s, p) => lv(p, 'writer', 5) },
+  { id: 'webtoon_ip', name: '글로벌 IP 작가', icon: '✏️', rarity: 'epic', how: '웹툰·웹소설 작가로 드라마화 이상 (작품이 IP가 된다)', eff: { cash: 8000, fame: 1 }, auto: (_s, p) => lv(p, 'writer', 4) },
   { id: 'gold_button', name: '골드버튼 크리에이터', icon: '▶️', rarity: 'rare', how: '유튜버로 구독자 100만', eff: { fame: 1, cash: 2000 }, auto: (_s, p) => lv(p, 'youtuber', 4) },
   { id: 'star_tutor', name: '1타 강사', icon: '👨‍🏫', rarity: 'epic', how: '학원 강사로 정점에', eff: { study: 3 }, auto: (_s, p) => lv(p, 'tutor', 4) },
   // 스포츠
@@ -287,18 +288,24 @@ export const SUMMITS: Summit[] = [
     b: ['선수들과 소통하는 리더십', 'cha', 58, '📋 금메달! "형님 리더십"이 화제가 됐다.', '분위기는 좋았지만 결과가 따르지 않았다.'] },
   { card: 'architect', title: '🏗 세계 건축상', ok: (_s, p) => p.job === 'architect' && p.jobLevel >= 3,
     text: (c) => `${fullName(c.p)}이(가) 설계한 도서관이 해외 건축 잡지 표지에 실렸다. 세계적인 건축상 후보에 올랐다.`,
-    a: ['설계 철학을 담은 강연을 한다', 'int', 70, '🏗 한국인 최초 수상! 세계 건축계가 주목한다.', '최종 후보에서 멈췄다.'],
-    b: ['지역 공공건축에 집중한다', 'mor', 60, '🏗 수상! "사람을 위한 건축"이라는 평.', '수상은 불발. 그래도 동네 명소가 남았다.'] },
+    a: ['설계 철학을 담은 강연을 한다', 'int', 60, '🏗 한국인 최초 수상! 세계 건축계가 주목한다.', '최종 후보에서 멈췄다.'],
+    b: ['지역 공공건축에 집중한다', 'mor', 52, '🏗 수상! "사람을 위한 건축"이라는 평.', '수상은 불발. 그래도 동네 명소가 남았다.'] },
   { card: 'master_craft', title: '🛠 대한민국 명장 심사', ok: (_s, p) => ['welder', 'mechanic', 'electrician', 'carpenter', 'shipbuilder', 'big_factory', 'factory', 'plumber'].includes(p.job) && p.jobLevel >= 2 && p.jobYears >= 10,
     text: (c) => `30년 가까이 한 길을 걸은 ${fullName(c.p)}이(가) 고용노동부 "대한민국 명장" 후보에 올랐다. 실기 심사가 남았다.`,
     a: ['손끝으로 증명한다', 'str', 55, '🛠 대한민국 명장 선정! 국가가 인정한 장인이 됐다.', '아깝게 떨어졌다. 내년에 다시.'],
     b: ['후배 양성 실적을 내세운다', 'mor', 55, '🛠 명장 선정! 제자 50명이 축하하러 왔다.', '서류에서 밀렸다.'] },
   { card: 'star_farmer', title: '🌾 신지식 농업인', ok: (_s, p) => ['farmer', 'smart_farmer', 'rancher', 'fisher'].includes(p.job) && p.jobLevel >= 1,
     text: (c) => `${fullName(c.p)}의 농장이 새 재배법으로 수확량을 두 배로 늘렸다. 농림부가 "신지식 농업인" 후보로 올렸다.`,
-    a: ['재배법을 무료로 공개한다', 'mor', 50, '🌾 신지식 농업인 선정! 전국 농민들이 견학을 온다.', '심사에서 떨어졌지만 이웃들이 고마워한다.'],
-    b: ['특허를 내고 사업화한다', 'int', 58, '🌾 선정! 기술 이전료까지 들어온다.', '특허 분쟁에 휘말렸다.'] },
+    a: ['재배법을 무료로 공개한다', 'mor', 58, '🌾 신지식 농업인 선정! 전국 농민들이 견학을 온다.', '심사에서 떨어졌지만 이웃들이 고마워한다.'],
+    b: ['특허를 내고 사업화한다', 'int', 64, '🌾 선정! 기술 이전료까지 들어온다.', '특허 분쟁에 휘말렸다.'] },
+  { card: 'gamer_champ', title: '🎮 월드 챔피언십 결승', ok: (_s, p) => p.job === 'gamer' && p.jobLevel >= 2,
+    text: (c) => `${fullName(c.p)}의 팀이 월드 챔피언십 결승에 올랐다. 관중 4만 명, 동시 시청자 1억 명. 5전 3선승.`,
+    a: ['밤새 상대 빌드를 분석한다', 'int', 58, '🎮 우승! 트로피를 들어 올리는 손이 전 세계에 생중계됐다.', '2:3 역전패. 무대 뒤에서 한참을 울었다.'],
+    b: ['팀원들을 다독이며 멘탈을 잡는다', 'cha', 52, '🎮 우승! "원 팀"의 리더로 기억된다.', '팀이 흔들렸다. 준우승.'] },
   ...MORE_SUMMITS,
 ];
+/** 정점 도전 기회는 한 사람에게 몇 번까지: 전설 2번 · 영웅·희귀 3번 (떨어질수록 다음 도전은 쉬워진다) */
+export const summitTries = (card: string, s?: GameState) => (({ legend: 2, epic: 3 } as Record<string, number>)[CARD[card]?.rarity ?? ''] ?? 3) + (s?.perma?.includes('summit_grit') ? 1 : 0); // 💠 불굴의 혈통 +1
 const STAT_KO: Record<StatKey, string> = { str: '근력', int: '지능', cha: '매력', mor: '도덕성', hp: '건강' };
 /** 몇 단계 도전인가: 전설 카드는 무조건 3단계, 영웅 카드는 2단계 이상 */
 const stagesOf = (sm: Summit) => Math.max(sm.stages ?? 1, CARD[sm.card]?.rarity === 'legend' ? 3 : CARD[sm.card]?.rarity === 'epic' ? 2 : 1);
@@ -349,7 +356,7 @@ const summitDef = (sm: Summit): EventDef => ({
             if (sm.card === 'national_hero' && label.startsWith('직접')) x.p.actual.hp = clamp(x.p.actual.hp - 15, 0, 100);
             (x.s.storySeen ??= {})[`try:${x.p.id}:${sm.card}`] = tries + 1;
             x.s.fame += 1;
-            return `${lose}\n(도전 경험이 쌓였다: 다음 도전은 조금 더 쉽다 · 명성 +1)`;
+            return tries + 1 >= summitTries(sm.card, x.s) ? `${lose}\n(이 길의 정점 도전 기회는 여기까지였다 · 명성 +1)` : `${lose}\n(도전 경험이 쌓였다: 다음 도전은 조금 더 쉽다 · 남은 기회 ${summitTries(sm.card, x.s) - tries - 1}번 · 명성 +1)`;
           },
         };
       }),
@@ -388,7 +395,7 @@ export function cardYear(s: GameState): string[] {
     const j = JOBS[q.job];
     if (!alive(q) || !j || q.job === 'none' || q.job === 'pension' || q.jobLevel >= j.maxLevel - 1) continue;
     const best = Math.max(q.actual.int, q.actual.cha, q.actual.str);
-    if (q.jobYears >= 4 && chance(s, 0.04 + best / 1200)) q.jobLevel++;
+    if (q.jobYears >= 4 && chance(s, 0.04 + best / 1200)) tryPromote(s.year, q);
   }
   const open = (id: string) => s.year >= (CARD_FROM[id] ?? 0);
   for (const p of people) for (const d of CARDS) if (open(d.id) && d.auto?.(s, p)) awardCard(s, p, d.id);
@@ -399,10 +406,10 @@ export function cardYear(s: GameState): string[] {
   // 정점 이벤트: 한 해에 하나
   const cands: [Summit, Person][] = [];
   for (const p of people)
-    for (const sm of SUMMITS) if (open(sm.card) && !hasCard(s, p, sm.card) && sm.ok(s, p) && (seen[`summit:${p.id}:${sm.card}`] ?? -99) <= s.year - 2) cands.push([sm, p]);
+    for (const sm of SUMMITS) if (open(sm.card) && !hasCard(s, p, sm.card) && (seen[`try:${p.id}:${sm.card}`] ?? 0) < summitTries(sm.card, s) && sm.ok(s, p) && (seen[`summit:${p.id}:${sm.card}`] ?? -99) <= s.year - 2) cands.push([sm, p]);
   for (let i = 0; i < 2 && cands.length && chance(s, i === 0 ? 0.65 : 0.3); i++) {
     const [sm, p] = pick(s, cands);
-    if (CARD[sm.card]?.rarity === 'legend' && !chance(s, 0.4)) continue; // 전설은 기회 자체가 드물다
+    if (CARD[sm.card]?.rarity === 'legend' && !chance(s, 0.5)) continue; // 전설은 기회 자체가 드물다
     seen[`summit:${p.id}:${sm.card}`] = s.year;
     s.events.push({ uid: s.eventSeq++, defId: 'summit_' + sm.card, personId: p.id });
     cands.splice(cands.findIndex(([x, q]) => x === sm && q === p), 1);
@@ -514,3 +521,30 @@ export const SYN_THEME: Record<string, string> = {
 };
 /** 도감 번호 */
 export const cardNo = (id: string) => CARDS.findIndex((c) => c.id === id) + 1;
+
+/** 카드 컬렉션의 분야 (계정 컬렉션 화면에서 종류별로 모아 본다) */
+export const CARD_GROUPS: { id: string; icon: string; name: string; short: string }[] = [
+  { id: 'power', icon: '🏛', name: '권력·법·외교', short: '권력' },
+  { id: 'money', icon: '💰', name: '돈·사업', short: '돈' },
+  { id: 'mind', icon: '🔬', name: '학문·기술·우주', short: '학문' },
+  { id: 'medical', icon: '🩺', name: '의료', short: '의료' },
+  { id: 'culture', icon: '🎭', name: '연예·문화·언론', short: '문화' },
+  { id: 'sports', icon: '🏅', name: '스포츠', short: '스포츠' },
+  { id: 'craft', icon: '🛠', name: '장인·현장·자연', short: '장인' },
+  { id: 'life', icon: '👪', name: '삶·신념', short: '삶' },
+  { id: 'era', icon: '🕰', name: '시대', short: '시대' },
+  { id: 'hidden', icon: '🌑', name: '히든', short: '히든' },
+  { id: 'super', icon: '🌌', name: '슈퍼 히든', short: '슈퍼' },
+];
+const THEME_GROUP: Record<string, string> = {
+  power: 'power', law: 'power', military: 'power', diplo: 'power', hero: 'power',
+  money: 'money', science: 'mind', space: 'mind', tech: 'mind', medical: 'medical',
+  stage: 'culture', screen: 'culture', music: 'culture', press: 'culture', sports: 'sports',
+  service: 'craft', craft: 'craft', nature: 'craft', family: 'life', faith: 'life',
+};
+const ERA_IDS = new Set(ERA_CARDS.map((c) => c.id));
+export function cardGroup(d: CardDef): string {
+  if (d.hidden) return d.rarity === 'legend' ? 'super' : 'hidden';
+  if (ERA_IDS.has(d.id)) return 'era';
+  return THEME_GROUP[CARD_THEME[d.id] ?? ''] ?? 'life';
+}

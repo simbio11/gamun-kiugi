@@ -95,11 +95,124 @@ export function rankWord(jobId: string): RankWord {
   return BY_CAT[j.cat] ?? PROMO;
 }
 
+/**
+ * 직급마다 다음 자리까지 머물러야 하는 최소 햇수 (현실보다 조금 빠르게).
+ * 출처: 공무원임용령 제31조 승진소요최저연수(9→8급 1.5년, 8→7급 2년, 7→6급 2년, 6→5급 3.5년, 5→4급 4년, 4→3급 3년)와
+ *   인사혁신처 「공무원 인사통계」의 실제 평균 승진 소요(9급 공채 → 5급 약 25~28년) 사이에서 게임용으로 잡았다.
+ *   경찰·소방: 경찰공무원임용령 근속승진(순경→경장 4년, 경장→경사 5년, 경사→경위 6년6개월, 경위→경감 8년).
+ *   군: 군인사법 시행령 진급 최저복무기간(소위 1년, 중위 2년, 대위 6년, 소령 5년, 중령 5년, 대령 5년 안팎).
+ *   판·검사: 법관 임용 후 부장판사 보임 약 15년, 검사 임관 후 부장검사 약 13~15년 (법원·법무부 인사 관행).
+ *   대기업: 사원→대리 4년, 대리→과장 4년, 과장→차장 4년, 차장→부장 4~5년, 부장→임원 5년+ (잡코리아 직급별 체류 연한 조사).
+ */
+const STEPS: Record<string, number[]> = {
+  civil: [3, 3, 5, 7, 5, 5],
+  tax_officer: [3, 3, 5, 7, 5, 5],
+  court_officer: [3, 3, 5, 7, 5],
+  forest_ranger: [5, 7, 6, 5],
+  public_corp: [3, 4, 5, 5, 5],
+  police: [4, 5, 6, 7, 5, 5],
+  coast_guard: [4, 5, 6, 7, 5, 5],
+  firefighter: [4, 5, 6, 7, 5],
+  prison_guard: [4, 5, 6, 6, 5],
+  mail_carrier: [4, 6, 6, 5],
+  officer: [1, 2, 6, 5, 5, 5, 3, 3, 3],
+  agent: [4, 5, 6, 6, 5],
+  nco: [2, 6, 8, 5],
+  judge: [11, 4, 5, 5, 5],
+  prosecutor: [10, 2, 3, 3, 5],
+  diplomat: [3, 4, 5, 4, 4],
+  corp: [3, 4, 4, 4, 4, 3, 3],
+  office: [2, 2, 3, 4, 4],
+  sme_worker: [2, 2, 3, 4, 4],
+  banker: [3, 3, 4, 4, 5, 5],
+  teacher: [8, 7, 4, 4],
+  kinder_teacher: [5, 5, 5],
+  daycare_teacher: [4, 5, 5],
+  nurse: [5, 6, 6, 4],
+  lawyer: [3, 5, 4, 5, 5],
+  accountant: [1, 3, 4, 4, 5],
+  journalist: [1, 6, 5, 5, 5],
+  pd: [3, 5, 5, 5, 4],
+  researcher: [4, 5, 5, 5, 5],
+  chip_engineer: [4, 4, 5, 5, 5, 4],
+  hotelier: [2, 3, 5, 5, 5],
+  pilot: [6, 7, 8],
+  flight_attendant: [4, 5, 5, 5],
+  aide: [2, 3, 4, 4],
+  secretary: [3, 4, 4, 4],
+};
+
 /** 이 직급(lv)에서 다음으로 오르기까지 최소 햇수: 아래는 빨리, 위로 갈수록 오래 */
-export function minYears(lv: number, maxLevel: number): number {
-  if (maxLevel <= 2) return 2;
+export function minYears(lv: number, maxLevel: number, job?: string): number {
+  const st = job ? STEPS[job] : undefined;
+  if (st && st[lv] !== undefined) return st[lv];
+  if (maxLevel <= 2) return 3;
   const frac = lv / maxLevel;
-  return frac < 0.34 ? 2 : frac < 0.67 ? 3 : 4;
+  return frac < 0.2 ? 2 : frac < 0.5 ? 3 : frac < 0.8 ? 4 : 5;
+}
+
+/** 임명으로만 오르는 자리: 대법관·대법원장, 검찰총장, 정보기관장 (power.ts 이벤트) */
+export const appointedOnly = (job: string, lv: number) => (job === 'judge' && lv >= 3) || (job === 'prosecutor' && lv >= 4) || (job === 'agent' && lv >= 4);
+
+/** 지금 직급에 머문 햇수 (lv:직급:해 플래그, 읽기 전용) */
+function yearsAtLevel(year: number, p: Person): number {
+  const f = p.flags.find((x) => x.startsWith('lv:'));
+  if (!f) return p.jobYears;
+  const [, lv, y] = f.split(':');
+  return Number(lv) === p.jobLevel ? Math.max(0, year - Number(y)) : 0;
+}
+
+/**
+ * 승진할 자격이 됐나: 이벤트·행동·기회 등 어디서 올리든 이 문을 지나야 한다.
+ * slack = 특채·스카우트처럼 조금 일찍 올라가는 것을 몇 년까지 봐줄지.
+ * 맨 꼭대기(3급·장군·대법관·사장…)는 45세 이상.
+ */
+export function promoReady(year: number, birthYear: number, p: Person, slack = 0): boolean {
+  const j = JOBS[p.job];
+  if (!j || !j.maxLevel || p.jobLevel >= j.maxLevel) return false;
+  if (j.kind === 'business' || j.kind === 'creator' || j.kind === 'athlete') return true;
+  if (p.job === 'politician' || p.job === 'mayor' || p.job === 'professor') return false; // 선거·논문으로만
+  if (appointedOnly(p.job, p.jobLevel)) return false;
+  // 맨 꼭대기 한 자리: 50세 넘어 바로 아래 자리에서 5년 이상 (해마다 승진 판정과 같은 기준, 특채도 예외 없음)
+  if (isTopSeat(p)) return year - birthYear >= 50 && yearsAtLevel(year, p) >= Math.max(5, minYears(p.jobLevel, j.maxLevel, p.job));
+  return yearsAtLevel(year, p) >= Math.max(1, minYears(p.jobLevel, j.maxLevel, p.job) - slack);
+}
+
+/** 다음 자리가 그 직업의 맨 꼭대기(사장·대사·미쉐린 스타…)인가: 자리 하나를 두고 다투므로 행동·이벤트의 승진 확률도 낮춘다 */
+export function isTopSeat(p: Person): boolean {
+  const j = JOBS[p.job];
+  return !!j && j.kind === 'salary' && j.maxLevel >= 4 && p.jobLevel + 1 === j.maxLevel;
+}
+
+/**
+ * 좁은 문: 다음 자리로 오를 확률 배수 (1 = 보통).
+ *   대령 → 준장: 대령 가운데 장군이 되는 사람은 해마다 5~6% 남짓 (국방부 장성 진급 인사, 대령 약 3천 명 중 연 70~80명)
+ *   부기장·기장 → 수석기장: 대형 항공사 수석기장은 기장 중 일부만 (보직)
+ */
+const NARROW: Record<string, Record<number, number>> = { officer: { 5: 0.2 }, pilot: { 2: 0.15 } };
+export function seatOdds(p: Person): number {
+  return isTopSeat(p) ? 0.3 : (NARROW[p.job]?.[p.jobLevel] ?? 1);
+}
+
+/** 조건이 되면 한 단계 올린다 (못 올리면 false) */
+export function tryPromote(year: number, p: Person, slack = 0): boolean {
+  if (!promoReady(year, p.birthYear, p, slack)) return false;
+  p.jobLevel++;
+  return true;
+}
+
+/** 다음 자리 이름 (없으면 undefined) */
+export function nextTitle(p: Person): string | undefined {
+  const t = JOBS[p.job]?.titles;
+  return t?.[p.jobLevel + 1];
+}
+
+/** 이직해서 직급을 올리는 게 말이 되는 직업인가 (공무원·군·판검사는 '이직'으로 계급이 오르지 않는다) */
+export function canHop(job: string): boolean {
+  const j = JOBS[job];
+  if (!j || j.kind !== 'salary') return false;
+  if (j.cat === 'public') return false;
+  return !['teacher', 'nurse', 'kinder_teacher', 'daycare_teacher', 'judge', 'prosecutor', 'officer', 'nco', 'professor', 'doctor', 'librarian', 'aide'].includes(job);
 }
 
 /** 소식 한 줄 */

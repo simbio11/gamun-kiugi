@@ -12,6 +12,7 @@ import { wageIndex } from './pay';
 import { addFlag, age, alive, clamp, fullName, hasFlag, head, householder, isMainline, mark, parentsOf } from './people';
 import type { GameState, Person } from './types';
 import { NEWS_MORE } from './news-more';
+import { sendAway } from './duty';
 
 export const HIST_START = 1960;
 export const isHist = (s: GameState) => s.era === 'history';
@@ -82,7 +83,7 @@ export const NEWS: Record<number, string[]> = {
   1990: ['3당 합당 (민정·민주·공화 → 민주자유당)', '한소 수교 (9월)', '생활: 집값 폭등, 전셋값 급등으로 세입자 자살 잇따라', '범죄와의 전쟁 선포'],
   1991: ['남북한 유엔 동시 가입 (9월)', '낙동강 페놀 유출 사건', '생활: 분당 입주 시작, 삐삐(무선호출기) 유행'],
   1992: ['한중 수교 (8월)', '서태지와 아이들 데뷔 "난 알아요"', '김영삼, 14대 대통령 당선 (12월)', '생활: PC통신 하이텔·천리안 인기'],
-  1993: ['문민정부 출범, 하나회 숙청', '8월 12일 금융실명제 긴급명령', '대전 엑스포', '생활: 첫 대학수학능력시험 (8월·11월 두 번)'],
+  1993: ['문민정부 출범, 군 내 사조직 전격 숙청', '8월 12일 금융실명제 긴급명령', '대전 엑스포', '생활: 첫 대학수학능력시험 (8월·11월 두 번)'],
   1994: ['김일성 사망 (7월 8일)', '성수대교 붕괴 (10월 21일)', '생활: 이른바 "X세대", 삐삐와 PC방 이전의 오락실'],
   1995: ['삼풍백화점 붕괴 (6월 29일), 502명 사망', '첫 전국동시지방선거', '노태우 비자금·전두환·노태우 구속 (11~12월)', '생활: 인터넷 상용 서비스 시작'],
   1996: ['OECD 가입 (12월)', '연세대 한총련 사태', '생활: 1인당 국민소득 1만 달러 돌파, 해외여행 붐'],
@@ -231,14 +232,15 @@ const MAJORS: Major[] = [
         {
           label: c.p.sex === 'M' ? '광부로 간다 (3년)' : '간호조무 교육을 받고 간호사로 간다 (3년)',
           run: (x) => {
-            x.p.cash += earn;
-            x.p.actual.hp = clamp(x.p.actual.hp - (x.p.sex === 'M' ? 10 : 5), 0, 100);
+            // 3년 동안 실제로 서독에서 지낸다: 해마다 월급이 쌓이고, 그곳의 일만 할 수 있다 (duty.ts)
+            sendAway(x.s, x.p, 'germany', 3, 3000);
+            x.p.actual.hp = clamp(x.p.actual.hp - (x.p.sex === 'M' ? 4 : 2), 0, 100);
             x.p.actual.mor = clamp(x.p.actual.mor + 3, 0, 100);
             addFlag(x.p, 'germany');
             addFlag(x.p, 'abroad');
             mark(x.p, 'selfmade', 2);
             for (const q of parentsOf(x.s, x.p)) q.affinity = clamp(q.affinity + 15, -100, 100);
-            return `3년 뒤 돌아왔다. 통장에 ${formatMoney(earn)}. 부모님께 논 몇 마지기를 사 드리고도 남았다. 대신 ${x.p.sex === 'M' ? '폐가 예전 같지 않다' : '밤마다 향수병에 울었다'}.`;
+            return `김포공항에서 가족과 작별했다. 3년 계약 (해마다 약 ${formatMoney(Math.round(earn / 3))}). ${x.p.sex === 'M' ? '루르 탄광' : '서독 병원'}으로 간다.\n(파견 기간 동안 행동 탭엔 그곳에서 할 수 있는 일만 나온다)`;
           },
         },
         ok('한국에 남는다', '"여기서도 할 수 있다." 광고를 접었다.'),
@@ -268,7 +270,10 @@ const MAJORS: Major[] = [
           }
           if (chance(x.s, 0.25)) addFlag(x.p, 'agent_orange');
           x.p.actual.hp = clamp(x.p.actual.hp - 5, 0, 100);
-          return `정글에서 1년 반. 무사히 돌아왔다. 집에는 송금한 ${formatMoney(send)}으로 새 지붕이 올라갔다.`;
+          // 1년 반 동안 월남에서 지낸다 (복무 중이었다면 그 기간도 이어진다)
+          const end = Math.max(x.s.year + 1, Number(x.p.flags.find((f) => f.startsWith('serving:'))?.slice(8) ?? 0));
+          sendAway(x.s, x.p, 'vietnam', end - x.s.year + 1, 600);
+          return `수송선에 올랐다. 전투수당 ${formatMoney(send)}이 집으로 송금된다. ${end + 1}년에 돌아온다.`;
         },
       },
       ok('지원하지 않는다', '다른 부대로 배치됐다. 동기 몇은 월남에서 돌아오지 못했다.'),
@@ -350,11 +355,11 @@ const MAJORS: Major[] = [
         label: '간다 (2년)',
         run: (x) => {
           const earn = Math.round(2 * 2600 * wi(x.s));
-          householder(x.s).cash += earn;
-          x.p.actual.hp = clamp(x.p.actual.hp - 6, 0, 100);
+          sendAway(x.s, x.p, 'mideast', 2, 2600);
+          x.p.actual.hp = clamp(x.p.actual.hp - 3, 0, 100);
           addFlag(x.p, 'mideast');
           if (x.p.spouseId) x.p.bond = clamp((x.p.bond ?? 60) - 8, 0, 100);
-          return `까맣게 타서 돌아왔다. 송금한 돈 ${formatMoney(earn)}. 이 돈으로 셋방을 벗어날 수 있다.`;
+          return `김포공항에서 손을 흔들었다. 2년 계약, 모두 합쳐 약 ${formatMoney(earn)}을 벌어 온다. 섭씨 50도의 현장이 기다린다.`;
         },
       },
       ok('가족 곁에 남는다', '"돈보다 가족이지." 아내가 조용히 손을 잡았다.'),
@@ -723,7 +728,7 @@ export function histYear(s: GameState): string[] {
     if (s.year < m.y || s.year > (m.to ?? m.y)) continue;
     if (m.cond && !m.cond(s)) continue;
     // 우리 가족이 대통령이면 실제 대통령이 주인공인 사건(탄핵·암살 등)은 건너뛴다
-    if (/대통령|탄핵|10·26|청와대/.test(m.head + m.sub) && Object.values(s.people).some((p) => alive(p) && p.job === 'president')) continue;
+    if (/대통령|탄핵|10·26|청와대/.test(m.head + m.sub) && (seen['althist'] !== undefined || Object.values(s.people).some((p) => alive(p) && p.job === 'president'))) continue;
     const who = m.who ? m.who(s) : head(s);
     if (!who) continue;
     seen['hist:' + m.id] = s.year;

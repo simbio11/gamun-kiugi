@@ -9,7 +9,7 @@
 
 import { addFlag, age, alive, clamp, fullName, hasFlag, head, householder, isMainline } from './people';
 import { chance } from './rng';
-import { formatMoney } from './economy';
+import { addHolding, formatMoney } from './economy';
 import type { ActionDef } from './actions';
 import { unlock } from './achievements';
 import { wageIndex } from './pay';
@@ -376,6 +376,140 @@ const FUTURES: Future[] = [
       ok('반대에 투표한다', '"사람이 먼저다." 결과는 근소한 차이였다.', (x) => up(x.p, 'cha', 1)),
       ok('기권한다', '어느 쪽도 확신이 서지 않았다.'),
     ],
+  },
+  // ── 2050년 이후: 기후·인구·기술이 만든 전환점 (게임 속 상상, 국내외 장기 전망 보고서의 흐름을 참고) ──
+  {
+    id: 'sea_rise',
+    y: 2053,
+    head: '해수면 50cm 상승… 해안 저지대 "관리 후퇴" 시작',
+    sub: '정부, 침수 위험 지역 단계적 이주 지원',
+    body: (c) => `부산·인천·목포의 해안 저지대가 침수 위험 지역으로 묶였다. 이주하면 보상금이 나오지만 집값은 반 토막이다.${c.s.assets.some((a) => a.kind === 'apt_local' && a.ownerId !== 'family') ? '\n우리 집 지방 아파트도 해안 쪽이다.' : ''}`,
+    choices: (c) =>
+      gate(c.s, [
+        ok('보상금을 받고 내륙으로 옮긴다', '산 아래 새 도시로 옮겼다. 창밖에 바다 대신 숲이 보인다.', (x) => (householder(x.s).cash += W(x.s, 1500), hap(x.p, -2))),
+        spend('방수 리모델링으로 버틴다', (s) => W(s, 2000), '1층을 비우고 차수벽을 세웠다. "여기가 고향이다."', (x) => up(x.p, 'mor', 1))(c),
+        ok('기후 이주민 봉사에 나선다', '이웃 마을 이주를 도왔다. 명성이 조금 올랐다.', (x) => ((x.s.fame += 2), up(x.p, 'mor', 2))),
+      ]),
+  },
+  {
+    id: 'artificial_womb',
+    y: 2059,
+    head: '인공 자궁 출산 허가… 출산율 반등할까',
+    sub: '"임신은 선택, 출산은 지원" 국가 무상 지원',
+    cond: (s) => family(s).some((p) => age(s, p) >= 25 && age(s, p) <= 45),
+    who: (s) => family(s).filter((p) => age(s, p) >= 25 && age(s, p) <= 45).sort((a, b) => age(s, a) - age(s, b))[0],
+    body: (c) => `${fullName(c.p)} 또래 부부들 사이에서 인공 자궁이 화제다. 몸은 편하지만 "그래도 품어야 정이 든다"는 어른들 말도 여전하다.`,
+    choices: () => [
+      ok('새 기술을 반긴다', '"선택지가 늘어난 건 좋은 일이지." 출산 계획을 다시 세웠다.', (x) => (x.s.policy.familyPlan = Math.min(5, x.s.policy.familyPlan + 1), hap(x.p, 3))),
+      ok('전통 방식이 좋다', '"우린 우리 방식대로." 주변의 시선은 이제 반반이다.', (x) => up(x.p, 'mor', 1)),
+    ],
+  },
+  {
+    id: 'four_day',
+    y: 2061,
+    head: '주 4일·하루 6시간 근무제 법제화',
+    sub: '"AI가 일하고, 사람은 산다"',
+    body: (c) => `${jobsIn(c.s, ['office', 'corp', 'civil', 'banker', 'developer', 'teacher']).length ? '회사 다니는 식구들이 금요일마다 집에 있다.' : '장사하는 집은 오히려 바빠졌다. 금요일에 손님이 몰린다.'} 남는 시간을 어떻게 쓸까?`,
+    choices: () => [
+      ok('가족 시간으로 쓴다', '금요일마다 3대가 모여 밥을 먹는다.', (x) => {
+        for (const p of family(x.s)) hap(p, 3);
+      }),
+      ok('두 번째 직업을 배운다', '목요일 밤부터 공방에 다닌다. 손으로 만드는 일이 즐겁다.', (x) => (up(x.p, 'int', 1), up(x.p, 'str', 1))),
+      ok('부업으로 더 번다', '금요일엔 부업. 통장은 두둑해지고 얼굴은 핼쑥해졌다.', (x) => (householder(x.s).cash += W(x.s, 900), up(x.p, 'hp', -2))),
+    ],
+  },
+  {
+    id: 'rural_vanish',
+    y: 2068,
+    head: '인구 3,800만 시대… 군(郡) 절반이 소멸 위기',
+    sub: '"빈집 1채 1천 원" 귀촌 장려 정책',
+    body: () => '시골 빈집을 사실상 공짜로 준다. 드론 배송과 원격 진료가 되니 도시가 아니어도 살 만하다는 사람들이 늘었다.',
+    choices: (c) =>
+      gate(c.s, [
+        spend('시골 빈집을 고쳐 별장으로', (s) => W(s, 1200), '마당에 감나무가 있는 집. 주말마다 아이들이 흙을 만진다.', (x) => {
+          for (const p of family(x.s)) hap(p, 3);
+          addFlag(householder(x.s), 'country_house');
+        })(c),
+        ok('고향을 살리는 모임에 나간다', '고향 마을 청년회장이 됐다. 마을 이름이 지도에 남았다.', (x) => ((x.s.fame += 2), up(x.p, 'cha', 1))),
+        ok('도시에 남는다', '"사람은 사람 곁에 살아야지."'),
+      ]),
+  },
+  {
+    id: 'ai_judge',
+    y: 2074,
+    head: 'AI 판사 1심 도입… "판결 3일 만에"',
+    sub: '대법원, 소액·교통 사건부터 AI 재판',
+    body: (c) => `${jobsIn(c.s, ['judge', 'lawyer', 'prosecutor', 'court_officer', 'scrivener']).length ? `법조인 식구 ${jobsIn(c.s, ['judge', 'lawyer', 'prosecutor', 'court_officer', 'scrivener']).map(fullName).join('·')}의 일이 확 바뀐다.\n` : ''}재판은 빨라졌지만 "기계가 사람을 심판하느냐"는 시위도 이어진다.`,
+    choices: () => [
+      ok('효율을 반긴다', '밀린 소송이 사흘 만에 끝났다.', (x) => up(x.p, 'int', 1)),
+      ok('사람 재판을 지키자는 서명에 동참한다', '"마지막 판단은 사람이." 서명지에 가족 이름을 올렸다.', (x) => up(x.p, 'mor', 2)),
+    ],
+  },
+  {
+    id: 'unify_zone',
+    y: 2078,
+    head: '남북 공동 경제특구 개방… 서울-평양 고속철 개통',
+    sub: '개성·신의주에 자유 왕래 구역',
+    body: () => '서울역에서 평양까지 1시간 40분. 특구 땅값이 들썩이고, 이산가족 후손들의 상봉 신청이 몰린다.',
+    choices: (c) =>
+      gate(c.s, [
+        spend('특구 땅에 투자한다', (s) => W(s, 5000), '', (x) => {
+          if (chance(x.s, 0.6)) addHolding(x.s, 'stock', householder(x.s).id, W(x.s, 9000));
+          else hap(x.p, -6);
+        })(c),
+        ok('고속철을 타고 북쪽 도시를 여행한다', '대동강 물을 처음 봤다. 할아버지가 말하던 냉면 맛이 이거였구나.', (x) => {
+          for (const p of family(x.s)) hap(p, 4);
+        }),
+        ok('먼 친척을 찾는다', '', (x) => {
+          if (chance(x.s, 0.3)) (x.s.fame += 2), hap(x.p, 15);
+          else hap(x.p, 2);
+        }),
+      ]).map((ch) =>
+        ch.label.startsWith('특구') ? { ...ch, run: (x: Ctx) => (ch.run(x), x.p.happiness > 40 ? '특구 개발 지분이 크게 올랐다.' : '규제가 바뀌며 투자금이 묶였다.') } : ch.label.startsWith('먼 친척') ? { ...ch, run: (x: Ctx) => (ch.run(x), x.p.happiness > 60 ? '증조부의 동생 후손을 찾았다. 족보에 새 가지가 생겼다.' : '기록이 남아 있지 않았다. 대신 그 동네 사진을 찍어 왔다.') } : ch,
+      ),
+  },
+  {
+    id: 'climate_refugee',
+    y: 2081,
+    head: '동남아 기후 난민 10만 명 수용 결정',
+    sub: '"우리도 한때 떠나야 했던 사람들"',
+    body: () => '폭염과 해일로 살 곳을 잃은 사람들이 한국에 온다. 동네에도 새 이웃이 생겼다. 일손은 반갑지만 갈등도 있다.',
+    choices: () => [
+      ok('이웃으로 맞아들인다', '새 이웃 아이와 우리 아이가 단짝이 됐다. 식탁에 새 향신료가 올랐다.', (x) => (up(x.p, 'mor', 2), hap(x.p, 2))),
+      ok('가게에 일자리를 준다', '성실한 직원을 얻었다. 장사가 더 잘된다.', (x) => (householder(x.s).cash += W(x.s, 400))),
+      ok('거리를 둔다', '"좋은 일이긴 한데…" 조심스럽게 지켜본다.'),
+    ],
+  },
+  {
+    id: 'gene_edit',
+    y: 2089,
+    head: '배아 유전자 편집 일부 허용… "유전병만"',
+    sub: '디자이너 베이비 논쟁 재점화',
+    cond: (s) => family(s).some((p) => age(s, p) >= 25 && age(s, p) <= 42),
+    body: () => '유전병 예방은 합법, "키·지능 편집"은 불법이다. 그런데 해외 원정 시술 광고가 버젓이 돈다.',
+    choices: (c) =>
+      gate(c.s, [
+        ok('유전병 검사만 받는다', '건강한 아이를 기다린다.', (x) => up(x.p, 'mor', 1)),
+        spend('해외 원정 "능력 편집"을 알아본다', (s) => W(s, 8000), '', (x) => {
+          addFlag(x.p, 'gene_edit');
+          x.s.scandal = Math.min(100, (x.s.scandal ?? 0) + 10);
+        })(c),
+        ok('있는 그대로 사랑한다', '"어떤 아이든 우리 아이다."', (x) => hap(x.p, 3)),
+      ]).map((ch) => (ch.label.startsWith('해외') ? { ...ch, run: (x: Ctx) => (ch.run(x), '비밀 클리닉에 다녀왔다. 이 일은 언젠가 세상에 알려질지도 모른다.') } : ch)),
+  },
+  {
+    id: 'space_lottery',
+    y: 2096,
+    head: '달 정착촌 이민 추첨 시작',
+    sub: '"달빛골" 2차 정착민 1만 가구',
+    who: (s) => youngAdult(s),
+    body: (c) => `${fullName(c.p)}이(가) 추첨에 응모했다. 달 기지 기술자·의사·교사는 가산점이 있다. 당첨되면 지구 집은 처분해야 한다.`,
+    choices: () => [
+      ok('추첨에 응모한다', '', (x) => {
+        if (chance(x.s, ['space_tech', 'doctor', 'teacher', 'nurse', 'longevity_doc'].includes(x.p.job) ? 0.5 : 0.15)) addFlag(x.p, 'moon_settler'), (x.s.fame += 3), hap(x.p, 12);
+      }),
+      ok('지구에 남는다', '"달은 여행으로 충분해."'),
+    ].map((ch) => (ch.label.startsWith('추첨') ? { ...ch, run: (x: Ctx) => (ch.run(x), hasFlag(x.p, 'moon_settler') ? '🌙 당첨! 짐을 꾸렸다. 이제 고향 하늘에 지구가 뜬다.' : '낙첨. 다음 추첨을 기다린다.') } : ch)),
   },
   {
     id: 'c22',
