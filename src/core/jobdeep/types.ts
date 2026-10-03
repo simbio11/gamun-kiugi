@@ -13,7 +13,7 @@ export interface DSOpt {
   years?: [number, number];
   /** 평생 한 번 */
   once?: boolean;
-  /** 가중치 (기본 0.4) */
+  /** 가중치 (기본 0.55, 사건사고 0.4) */
   w?: number;
   /** 성별 한정 */
   sex?: 'M' | 'F';

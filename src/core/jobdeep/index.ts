@@ -58,7 +58,7 @@ function toStory(job: string, d: DS, i: number): Story {
     id: `jd_${job}_${i + 1}`,
     title,
     age: st === 'ret' ? [50, 95] : [18, 80],
-    w: o?.w ?? (st === 'risk' ? 0.3 : 0.4),
+    w: o?.w ?? (st === 'risk' ? 0.4 : 0.55),
     once: o?.once,
     cooldown: 12,
     years: o?.years,

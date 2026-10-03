@@ -13,7 +13,7 @@ describe('직업 전용 콘텐츠 밸런스 및 가보 연계 시스템 검증',
     for (const jid of targetJobs) {
       // 1. 행동 6종 존재 확인
       expect(JOB_ACTS[jid], `직업 ${jid}의 전용 행동`).toBeDefined();
-      expect(JOB_ACTS[jid].length, `직업 ${jid}의 행동 개수`).toBe(6);
+      expect(JOB_ACTS[jid].length, `직업 ${jid}의 행동 개수`).toBeGreaterThanOrEqual(6); // 직업 고증 팩(jobdeep)이 행동을 더 붙인다
 
       // 2. 직장 이야기 최소 3종 존재 확인
       const stories = WORK5_STORIES.filter((st) => st.cond?.({} as any, { job: jid, jobLevel: 1 } as any));
