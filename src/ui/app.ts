@@ -436,8 +436,8 @@ export function mount(el: HTMLElement) {
   root.addEventListener('click', onClick);
   root.addEventListener('touchstart', () => {}, { passive: true }); // iOS에서 :active 눌림 효과 켜기
   root.addEventListener('pointerdown', (e) => {
-    const b = (e.target as Element).closest?.('.btn.primary:not(:disabled), .next-year, .choice:not(:disabled)');
-    if (b && !prefs.calm) tapBurst(e.clientX, e.clientY);
+    const b = (e.target as Element).closest?.('.btn:not(:disabled), .next-year, .choice:not(:disabled), .seg button, .coll-tabs button, .mini.do:not(:disabled), .file-btn');
+    if (b && !prefs.calm) tapBurst(e.clientX, e.clientY, b.matches('.start-btn, .next-year, .btn.primary') ? 12 : 6);
   });
   root.addEventListener('input', onInput);
   root.addEventListener('change', (e) => (e.target as HTMLElement).id === 'data-file' && onDataFile(e.target as HTMLInputElement));
@@ -468,9 +468,25 @@ export function mount(el: HTMLElement) {
 // ─────────────────────────── 렌더 ───────────────────────────
 
 /** 그리다 오류가 나면 옛 창(닫히는 중이라 투명한 창)이 화면을 덮어 클릭을 먹는다: 문제 된 창을 치우고 다시 그린다 */
+/** 방금 누른 것: 다시 그려진 뒤에도 같은 버튼을 찾아 "톡" 튀게 한다 (화면이 통째로 바뀌어도 손맛이 남게) */
+let pressed: { a: string; v?: string; id?: string } | null = null;
+function popPressed() {
+  const p = pressed;
+  pressed = null;
+  if (!p || prefs.calm) return;
+  const sel = `[data-action="${p.a}"]${p.v !== undefined ? `[data-v="${CSS.escape(p.v)}"]` : ''}${p.id !== undefined ? `[data-id="${CSS.escape(p.id)}"]` : ''}`;
+  const el = root.querySelector<HTMLElement>(sel);
+  if (!el) return;
+  const box = el.closest<HTMLElement>('.perk') ?? el;
+  box.classList.remove('just-on');
+  void box.offsetWidth;
+  box.classList.add('just-on');
+  setTimeout(() => box.classList.remove('just-on'), 450);
+}
 function render() {
   try {
     renderInner();
+    popPressed();
   } catch (e) {
     console.error(e);
     const g = ui.game;
@@ -511,6 +527,21 @@ function apWarnModalHTML(ap: number): string {
   </div>`;
 }
 
+/** 토스트는 2.2초 뒤 스르륵 사라진다 */
+function toastTimer() {
+  if (!ui.toast) return;
+  const t = ui.toast;
+  setTimeout(() => {
+    if (ui.toast !== t) return;
+    root.querySelector('.toast')?.classList.add('out');
+    setTimeout(() => {
+      if (ui.toast !== t) return;
+      ui.toast = undefined;
+      root.querySelector('.toast')?.remove();
+    }, 260);
+  }, 2200);
+}
+
 function renderInner() {
   const g = ui.game;
   if (g) setMoneyYear(g.year), setHistCur(g); // 성향(MBTI) 표시 같은 시대 판단을 화면에도
@@ -541,6 +572,7 @@ function renderInner() {
       if (wasOpen) cur.querySelector('details.code-box')?.setAttribute('open', '');
       cur.classList.add('still');
     } else root.innerHTML = titleScreen();
+    toastTimer();
     fx.year = undefined;
     fx.fromTitle = true;
     return;
@@ -621,18 +653,8 @@ function renderInner() {
   }
   fx.wallet = w;
   fx.walletLabel = wallet(g).label;
-  if (ui.toast) {
-    const t = ui.toast;
-    setTimeout(() => {
-      if (ui.toast !== t) return;
-      root.querySelector('.toast')?.classList.add('out');
-      setTimeout(() => {
-        if (ui.toast !== t) return;
-        ui.toast = undefined;
-        root.querySelector('.toast')?.remove();
-      }, 260);
-    }, 2200);
-  }
+  toastTimer();
+
 }
 
 /**
@@ -695,10 +717,11 @@ function titleScreen(): string {
       </label>
       <div class="field">나의 성별 ${seg('setup-sex', o.sex, [['M', '남'], ['F', '여']])}</div>
       <div class="field">난이도 (태어날 집안과 유전자) ${seg('setup-origin', o.origin, [['random', '🎲 운명'], ['easy', '쉬움'], ['normal', '보통'], ['hard', '어려움'], ['hell', '🔥지옥']])}</div>
-      <p class="fine">${o.origin === 'random' ? '집안 형편(서민 30%·중산층 52%·부유층 18%), 부모 직업·재산, 타고난 능력치와 재능 모두 운에 맡긴다.' : `<b>${DIFFICULTY[o.origin].name}</b> — ${DIFFICULTY[o.origin].desc}`}<br>다섯 살부터 시작한다. 형제자매는 태어나 봐야 안다.</p>
+      <p class="fine seg-desc" data-k="${o.origin}">${o.origin === 'random' ? '집안 형편(서민 30%·중산층 52%·부유층 18%), 부모 직업·재산, 타고난 능력치와 재능 모두 운에 맡긴다.' : `<b>${DIFFICULTY[o.origin].name}</b> — ${DIFFICULTY[o.origin].desc}`}<br>다섯 살부터 시작한다. 형제자매는 태어나 봐야 안다.</p>
       <div class="field">시대 ${seg('setup-era', o.era ?? 'modern', [['modern', '현대 한국 (2025~)'], ['history', '📜 근현대사 (1960~)']])}</div>
       ${o.era === 'history' ? `<p class="fine hist-note">1960년 봄, 4·19 혁명의 해에 다섯 살 아이로 태어난다 (1955년생). 5·16, 산업화, 유신, 광주, 6월 항쟁, 올림픽, IMF, 월드컵, 촛불까지 — 해마다 실제 신문 기사가 오고, 큰 사건은 호외·TV 속보로 들이닥친다. 그 시절엔 없던 직업·입시 전형·복지는 열리지 않고, 집값·땅값·주가는 실제 역사대로 오르내린다. 2026년부터는 미래로 이어진다.</p>` : ''}
-      <button class="btn big primary" data-action="start">가문 시작</button>
+      ${startPerks()}
+      <button class="btn big primary start-btn" data-action="start">가문 시작</button>
     </section>
     ${accountCard()}
     ${account.user ? legacyShop() : ''}
@@ -711,7 +734,23 @@ function titleScreen(): string {
     <p class="fine">v0.3 · 다섯 살부터 · 직업 128종 · 수능과 입시 · 인생사 · 업적 70+</p>
     ${ui.collection ? collectionView() : ''}
     ${ui.archives ? archiveView() : ''}
+    ${ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ''}
   </div>`;
+}
+
+/** 가문 시작 버튼 위: 이번 가문에 따라오는 유산 (담은 선물 · 가문 내력 · 조상 카드) */
+function startPerks(): string {
+  if (!account.user) return '';
+  const pf = profile();
+  const cart = Object.entries(pf.bank.cart).filter(([id, n]) => LEGACY_BY_ID[id] && n > 0);
+  const perma = pf.perma.filter((id) => PERMA_BY_ID[id] && !PERMA_BY_ID[id].locked);
+  if (!cart.length && !perma.length && !pf.ancestor) return '';
+  const chip = (t: string) => `<span>${t}</span>`;
+  return `<div class="start-perks"><b>🏺 이 가문과 함께 시작하는 유산</b><div>${[
+    ...cart.map(([id, n]) => chip(`${LEGACY_BY_ID[id].icon} ${esc(LEGACY_BY_ID[id].name)}${n > 1 ? ` ×${n}` : ''}`)),
+    ...perma.map((id) => chip(`💠 ${esc(PERMA_BY_ID[id].name)}`)),
+    pf.ancestor ? chip(`🪦 조상 ${esc(pf.ancestor.name)}`) : '',
+  ].join('')}</div></div>`;
 }
 
 /** 👤 계정 카드: 로그인 전엔 아이디·비밀번호, 로그인 뒤엔 컬렉션·로그아웃 */
@@ -821,21 +860,22 @@ function legacyShop(): string {
   const spent = Object.entries(b.cart).reduce((t, [id, n]) => t + (LEGACY_BY_ID[id]?.cost ?? 0) * n, 0);
   if (!b.points && !spent && !pf.perma.length && !pf.ancestor) return '';
   const room = LEGACY_CAP - spent;
-  return `<details class="card legacy-shop" ${spent || ui.open?.legacy ? 'open' : ''}><summary>🏺 유산 상점 · 남은 유산 <b>${b.points}</b>${spent ? ` · 담은 혜택 ${spent}/${LEGACY_CAP}` : ''}</summary>
+  return `<details class="card legacy-shop" ${spent || ui.open?.legacy ? 'open' : ''}><summary>🏺 유산 상점 · 남은 유산 <b>${b.points}</b>${spent ? ` · 선물 ${spent}/${LEGACY_CAP} 담음` : ''}</summary>
+    <div class="lg-how"><b>언제 적용되나?</b> 여기서 고른 것은 <b>지금 하던 가문(이어하기)에는 들어가지 않고</b>, 위의 <b>「가문 시작」으로 새 가문을 세울 때</b> 적용된다.<ol><li>🎁 <b>시작 선물</b>: 담아 두면 다음 가문 하나에 쓰이고 사라진다 (빼면 유산을 돌려받는다)</li><li>💠 <b>가문 내력</b>: 사는 순간 계정에 새겨져, 앞으로 세우는 <b>모든</b> 가문에 적용된다</li></ol></div>
     ${pf.ancestor ? `<div class="ancestor-card"><span class="anc-i">🪦</span><div><b>조상 카드: ${esc(pf.ancestor.family)}씨 ${pf.ancestor.gen}대 가주 ${esc(pf.ancestor.name)}</b><small>${pf.ancestor.born}~${pf.ancestor.died ?? ''} · ${esc(pf.ancestor.role)} · ${STAT_NAMES[pf.ancestor.stat]} ${pf.ancestor.value}<br>다음 가문 아이에게 ${STAT_NAMES[pf.ancestor.stat]}의 피가 흐른다 (잠재력 +3, 무료)</small></div></div>` : ''}
-    <h3 class="set-h">🎁 이번 가문 시작 혜택 <small>한 번에 ${LEGACY_CAP}까지</small></h3>
-    <p class="fine">담은 혜택은 <b>가문 시작</b>을 누르면 이번 가문에 적용되고 사라진다. 다시 누르면 빼서 돌려받는다.</p>
+    <h3 class="set-h">🎁 다음 가문 시작 선물 <small>한 가문에 ${LEGACY_CAP}까지 · 지금 ${spent}/${LEGACY_CAP}</small></h3>
+    <div class="cap-bar"><i style="width:${Math.min(100, Math.round((spent / LEGACY_CAP) * 100))}%"></i></div>
     ${LEGACY_ITEMS.map((it) => {
       const n = b.cart[it.id] ?? 0;
       const max = it.max ?? 1;
       const over = it.cost > room;
-      return `<div class="perk ${n ? 'max' : ''}"><span class="pk-i">${it.icon}</span><div class="pk-m"><b>${esc(it.name)}${n ? ` <small>×${n}</small>` : ''}</b><small>${esc(it.desc)}</small></div>${n ? `<button class="mini" data-action="legacy-undo" data-id="${it.id}">빼기</button>` : ''}<button class="mini do" data-action="legacy-buy" data-id="${it.id}" ${b.points < it.cost || n >= max || over ? 'disabled' : ''}>${it.cost}🏺</button></div>`;
+      return `<div class="perk ${n ? 'max' : ''}"><span class="pk-i">${it.icon}</span><div class="pk-m"><b>${esc(it.name)}${n ? ` <small>×${n}</small>` : ''}</b><small>${esc(it.desc)}</small></div>${n ? `<button class="mini" data-action="legacy-undo" data-id="${it.id}">빼기</button>` : ''}<button class="mini do" data-action="legacy-buy" data-id="${it.id}" ${b.points < it.cost || n >= max || over ? 'disabled' : ''}>${n >= max ? '✓ 담김' : `담기 ${it.cost}🏺`}</button></div>`;
     }).join('')}
-    <h3 class="set-h">💠 가문 내력 <small>영구 · 앞으로의 모든 가문에</small></h3>
+    <h3 class="set-h">💠 가문 내력 <small>영구 · 다음에 세우는 가문부터 계속</small></h3>
     <p class="fine">비싸지만 한 번 들이면 계정에 영원히 남는다. 돈·명예가 아니라 집안의 "규칙"이 바뀐다.</p>
     ${PERMA_ITEMS.map((it) => {
       const own = pf.perma.includes(it.id);
-      return `<div class="perk perma ${own ? 'max' : ''} ${it.locked ? 'locked' : ''}"><span class="pk-i">${it.icon}</span><div class="pk-m"><b>${esc(it.name)}${own ? ' <small>✔ 보유</small>' : ''}${it.locked ? ' <small>🔒 준비 중</small>' : ''}</b><small>${esc(it.desc)}</small></div>${own ? '' : `<button class="mini do" data-action="perma-buy" data-id="${it.id}" ${it.locked || b.points < it.cost ? 'disabled' : ''}>${it.locked ? '🔒' : `${it.cost}🏺`}</button>`}</div>`;
+      return `<div class="perk perma ${own ? 'max' : ''} ${it.locked ? 'locked' : ''}"><span class="pk-i">${it.icon}</span><div class="pk-m"><b>${esc(it.name)}${own ? ' <small>✔ 보유</small>' : ''}${it.locked ? ' <small>🔒 준비 중</small>' : ''}</b><small>${esc(it.desc)}</small></div>${own ? '' : `<button class="mini do" data-action="perma-buy" data-id="${it.id}" ${it.locked || b.points < it.cost ? 'disabled' : ''}>${it.locked ? '🔒' : `새기기 ${it.cost}🏺`}</button>`}</div>`;
     }).join('')}
   </details>`;
 }
@@ -2919,6 +2959,7 @@ function onClick(e: MouseEvent) {
   if (el.classList.contains('modal') && target.closest('[data-stop]') && !target.closest('button')) return;
   if ((el as HTMLButtonElement).disabled) return;
   const a = el.dataset.action!;
+  pressed = { a, v: el.dataset.v, id: el.dataset.id };
   if (a !== 'act') sfx(SFX[a] ?? 'tap');
   buzz(a === 'next' || a === 'choose' ? 12 : 6);
   // 창을 닫을 땐 내려가는 모습을 보여 주고 처리
@@ -3308,7 +3349,7 @@ function handle(el: HTMLElement) {
         pf.bank.points -= it.cost;
         pf.perma = [...pf.perma, id];
         saveProfile(pf);
-        ui.toast = `💠 가문 내력 「${it.name}」 — 앞으로의 모든 가문에 이어진다`;
+        ui.toast = `💠 「${it.name}」을(를) 새겼다 — 다음에 세우는 가문부터 계속 적용`;
       }
       break;
     }
@@ -3492,6 +3533,7 @@ function handle(el: HTMLElement) {
       const n = b.cart[id] ?? 0;
       const inCart = Object.entries(b.cart).reduce((t, [k, m]) => t + (LEGACY_BY_ID[k]?.cost ?? 0) * m, 0);
       if (it && b.points >= it.cost && n < (it.max ?? 1) && inCart + it.cost <= LEGACY_CAP) {
+        ui.toast = `🎁 「${it.name}」을(를) 담았다 — 다음 「가문 시작」 때 적용`;
         b.points -= it.cost;
         b.cart[id] = n + 1;
         saveBank(b);
