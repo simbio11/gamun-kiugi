@@ -130,34 +130,31 @@ export function themeAssetURL(key: string): string | undefined {
 }
 
 const JOB_THEME_MAP: Record<string, string> = {
-  hj_private_jet: 'hj_private_jet',
-  hj_underground_dealer: 'hj_underground_dealer',
-  hj_gambler: 'hj_underground_dealer',
-  hj_mafia: 'hj_mafia',
-  hj_godmother: 'hj_mafia',
+  // 슈퍼 히든 (17종 - 대모는 대부 배경 공유, 나머지 전원 본인 전용 배경)
   hj_vtuber: 'hj_vtuber',
-  hj_chess_master: 'hj_chess_master',
-  hj_hacker: 'hj_hacker',
-  hj_shaman: 'hj_shaman',
-  hj_exorcist: 'hj_shaman',
-  hj_adventurer: 'hj_adventurer',
-  hj_pirate: 'hj_adventurer',
-  hj_memecoin: 'hj_memecoin',
-  hj_trader: 'hj_memecoin',
-  hj_cult: 'hj_cult',
-  // 점을 보는 일은 같은 방을 쓴다
-  hj_tarot: 'hj_shaman',
-  hj_stargazer: 'hj_stargazer',
   hj_drifter: 'hj_drifter',
   hj_vampire: 'hj_vampire',
+  hj_private_jet: 'hj_private_jet',
+  hj_underground_dealer: 'hj_underground_dealer',
+  hj_chess_master: 'hj_chess_master',
+  hj_mafia: 'hj_mafia',
+  hj_godmother: 'hj_mafia', // 밤의 대모는 대부와 같은 배경 공유
   hj_art_investigator: 'hj_art_investigator',
   hj_michelin_inspector: 'hj_michelin_inspector',
   hj_conservator: 'hj_conservator',
   hj_bodyguard: 'hj_bodyguard',
   hj_detective: 'hj_detective',
   hj_perfumer: 'hj_perfumer',
+  hj_stargazer: 'hj_stargazer',
   hj_pope: 'hj_pope',
   hj_space_analyst: 'hj_space_analyst',
+
+  // 일반 히든 중 본인 전용 배경이 있는 직업 (공유 직업은 집 배경으로 분리)
+  hj_hacker: 'hj_hacker',
+  hj_shaman: 'hj_shaman',
+  hj_adventurer: 'hj_adventurer',
+  hj_memecoin: 'hj_memecoin',
+  hj_cult: 'hj_cult',
 };
 
 /** 집 단계 → 도트 배경: 반지하 tier1 · 원룸·빌라 tier2(골목) · 아파트 tier3(복도) · 서울 아파트 tier4(한강 거실) · 강남 tier5(저택) */
