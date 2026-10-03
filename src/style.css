@@ -2277,3 +2277,4 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 .coll-sum .coll-bar { grid-column: 1 / -1; }
 .acts.enter-r { animation: screen-r .3s var(--ease) backwards; }
 .acts.enter-l { animation: screen-l .3s var(--ease) backwards; }
+.file-btn { display: flex; align-items: center; justify-content: center; cursor: pointer; }

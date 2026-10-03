@@ -204,6 +204,7 @@ import { looksLabel, looksOf, resembleLabel } from '../core/looks';
 import { canHandOver } from '../core/handover';
 import { obituary } from '../core/obituary';
 import { shareObituary } from './obit-card';
+import { exportData, importData } from './account';
 import { account, archiveFamily, autoCloudSave, cloudAutoAt, cloudAutoLabel, deleteArchive, delSave, dropOldSaveSlots, getSave, loadArchive, login, logout, ownerKey, profile, recordCards, refresh, saveProfile } from './account';
 import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, MarketKey, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
@@ -439,6 +440,7 @@ export function mount(el: HTMLElement) {
     if (b && !prefs.calm) tapBurst(e.clientX, e.clientY);
   });
   root.addEventListener('input', onInput);
+  root.addEventListener('change', (e) => (e.target as HTMLElement).id === 'data-file' && onDataFile(e.target as HTMLInputElement));
   // 한 손 조작: 화면을 좌우로 쓸면 옆 탭으로 (행동 탭에선 옆 분류로)
   root.addEventListener('touchstart', swipeStart, { passive: true });
   root.addEventListener('touchmove', swipeMove, { passive: false });
@@ -701,6 +703,11 @@ function titleScreen(): string {
     ${accountCard()}
     ${account.user ? legacyShop() : ''}
     ${hasSave ? `<button class="btn big continue" data-action="continue" style="margin-top:10px;">▶ 이어하기${continueLabel() ? `<small>${esc(continueLabel()!)}</small>` : ''}</button>` : ''}
+    <section class="card data-file">
+      <h2>📂 데이터 파일</h2>
+      <p class="fine">다른 기기로 옮기거나 받은 체험용 파일을 넣을 때. 불러오면 유산·카드는 ${account.user ? `<b>${esc(account.user)}</b> 계정` : '<b>손님 기록</b>'}에 더해지고, 파일 속 가문은 "이어하기"로 들어간다 (지금 하던 가문은 바뀐다).</p>
+      <div class="row2"><label class="btn file-btn">📥 불러오기<input id="data-file" type="file" accept=".json,application/json" hidden></label><button class="btn" data-action="data-export">📤 내보내기</button></div>
+    </section>
     <p class="fine">v0.3 · 다섯 살부터 · 직업 128종 · 수능과 입시 · 인생사 · 업적 70+</p>
     ${ui.collection ? collectionView() : ''}
     ${ui.archives ? archiveView() : ''}
@@ -2771,8 +2778,32 @@ function achvScreen(g: GameState): string {
 
 // ─────────────────────────── 입력 ───────────────────────────
 
+/** 📥 데이터 파일 불러오기 */
+function onDataFile(t: HTMLInputElement) {
+  const f = t.files?.[0];
+  if (!f) return;
+  void f.text().then((text) => {
+    const r = importData(text);
+    ui.saveMsg = r.msg;
+    if (r.ok && r.game) {
+      try {
+        const g = migrate(r.game);
+        localStorage.setItem(saveKey(), JSON.stringify(g));
+        localStorage.setItem(saveKey() + ':at', String(Date.now()));
+        autoCloudSave(slotLabel(g), g, true);
+      } catch {
+        ui.saveMsg += '\n(가문은 넣지 못했다: 저장 공간 부족)';
+      }
+    }
+    hasSave = canContinue();
+    t.value = '';
+    render();
+  });
+}
+
 function onInput(e: Event) {
   const t = e.target as HTMLInputElement;
+  if (t.id === 'data-file') return;
   if (t.id === 'surname') ui.setup.surname = t.value.trim();
   if (t.id.startsWith('heir-')) {
     const a = ui.game?.assets.find((x) => x.id === t.id.slice(5));
@@ -3188,6 +3219,17 @@ function handle(el: HTMLElement) {
         render();
       });
       return;
+    }
+    case 'data-export': {
+      const text = exportData(load());
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gamun-kiugi-${account.user ?? 'guest'}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      ui.saveMsg = '📤 데이터 파일을 저장했다.';
+      break;
     }
     case 'acc-logout':
       logout();

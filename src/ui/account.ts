@@ -412,3 +412,45 @@ export function dropOldSaveSlots() {
 /** 계정(☁)에 있는 '이어하기'가 이 기기 것보다 새것이면 그 시각을, 아니면 0 */
 export const cloudAutoAt = () => profile().saves.auto?.at ?? 0;
 export const cloudAutoLabel = () => profile().saves.auto?.label;
+
+// ───────── 📂 데이터 파일 (기기 사이 옮기기 · 백업 · 체험용 파일) ─────────
+export interface DataFile {
+  type: 'gamun-kiugi-data';
+  v: 1;
+  note?: string;
+  /** 계정 기록: 유산·컬렉션·가문 내력·조상 카드 (지금 기록에 더해진다) */
+  profile?: Partial<Profile>;
+  /** 하던 가문 (이어하기로 들어간다) */
+  game?: GameState;
+}
+/** 파일을 읽어 지금 주인(손님·계정)의 기록에 더한다. 하던 가문이 있으면 돌려준다 */
+export function importData(text: string): { ok: boolean; msg: string; game?: GameState } {
+  let d: DataFile;
+  try {
+    d = JSON.parse(text) as DataFile;
+  } catch {
+    return { ok: false, msg: '가문 키우기 데이터 파일이 아니다.' };
+  }
+  if (d?.type !== 'gamun-kiugi-data') return { ok: false, msg: '가문 키우기 데이터 파일이 아니다.' };
+  const parts: string[] = [];
+  if (d.profile) {
+    const add = normalize(d.profile);
+    add.saves = {};
+    const cur = profile();
+    const m = merge(cur, add);
+    m.ancestor = add.ancestor ?? cur.ancestor;
+    saveProfile(m);
+    if (add.bank.points) parts.push(`🏺 유산 +${add.bank.points}`);
+    if (Object.keys(add.collection).length) parts.push(`🃏 카드 ${Object.keys(add.collection).length}종`);
+    if (add.ancestor) parts.push(`🪦 조상 카드 ${add.ancestor.name}`);
+    if (add.perma.length) parts.push(`💠 가문 내력 ${add.perma.length}개`);
+  }
+  if (d.game) parts.push(`▶ 하던 가문 (${d.game.familyName}씨 ${d.game.generation}대 · ${d.game.year}년)`);
+  return { ok: true, msg: `📂 불러왔다: ${parts.join(' · ') || '내용 없음'}${d.note ? `\n${d.note}` : ''}`, game: d.game };
+}
+/** 지금 기록 + 하던 가문을 파일로 */
+export function exportData(game?: GameState | null): string {
+  const p = profile();
+  const data: DataFile = { type: 'gamun-kiugi-data', v: 1, profile: { ...p, saves: {}, archives: [] }, game: game ?? undefined };
+  return JSON.stringify(data);
+}
