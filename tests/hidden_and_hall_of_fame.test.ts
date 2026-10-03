@@ -157,8 +157,9 @@ describe('슈퍼 히든 3단계 전직 및 카드 해금 라이프사이클', ()
   it('슈퍼 히든 1단계에 승인(도전)했으나 실패한 경우 refused 플래그가 붙지 않고 재도전 기회가 보존된다', () => {
     const { s, p } = createTestState();
     const routeId = 'hj_private_jet';
-    // 스탯을 낮춰서 일부러 실패 유도
+    // 스탯을 낮추고 rng를 조절하여 확실한 실패 유도
     p.actual.cha = 20;
+    s.rng = 1; // next(s) = 0.627 > 0.1 -> 실패 확정
 
     const ctx = { s, p, ev: { uid: 1, defId: 'sh_step1', personId: p.id, data: { id: routeId } } } as any;
     const choices = step1Event.choices(ctx);
