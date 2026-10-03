@@ -131,11 +131,12 @@ const OPPS: Opp[] = [
     },
   },
   {
-    id: 'o_book', icon: '📚', name: '책 출간 제안', desc: '인세와 명성 (명성이 쌓였거나 똑똑하면)', stages: ['adult', 'senior'], when: (s) => s.fame >= 25 || h(s).actual.int >= 70, stat: 'int',
+    id: 'o_book', icon: '📚', name: '책 출간 제안', desc: '인세와 명성 (명성이 쌓였거나 똑똑하면)', stages: ['adult', 'senior'], when: (s) => (s.fame >= 45 || h(s).actual.int >= 80) && !h(s).flags.includes('published'), stat: 'int',
     lines: L(['베스트셀러 매대에 올랐다! 사인회가 잡혔다.'], ['2쇄를 찍었다.'], ['초판이 조용히 팔렸다.'], ['원고 마감을 세 번 미뤘다. 출판사가 연락을 끊었다.']),
     eff: (s, p, t) => {
       const royalty = { great: 2000, good: 500, meh: 100, bad: 0 }[t];
       p.cash += royalty;
+      if (t !== 'bad' && !p.flags.includes('published')) p.flags.push('published');
       if (ok(t)) s.fame += t === 'great' ? 3 : 1;
       return [...(royalty ? [`인세 ${formatMoney(royalty)}`] : []), stat('int', grow(s, p, 'int', t))];
     },

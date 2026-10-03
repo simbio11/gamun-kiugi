@@ -34,6 +34,8 @@ import { power2Year, presTerm } from './power2';
 import { applyAncestor, applyLegacy, applyPerma, hasPerma } from './legacy';
 import { handoverYear } from './handover';
 import { companyStoryYear, companyYear } from './companies';
+import { joblossYear } from './jobloss';
+import { gigYear } from './sidegig';
 import { sagaYear, startInheritanceDrama } from './saga';
 import { obituary } from './obituary';
 import { dutyDone, dutyYear, onDuty } from './duty';
@@ -610,6 +612,8 @@ export function simulateYear(s: GameState): void {
   recordJobs(s);
   companyYear(s);
   companyStoryYear(s);
+  for (const m of joblossYear(s)) log(s, m, 'life');
+  for (const m of gigYear(s, (p, v) => (p.cash += v))) log(s, m, 'money');
   s.fame = Math.max(0, Math.round(s.fame * 10) / 10);
 
   const after = homeTotal(s);

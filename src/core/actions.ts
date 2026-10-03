@@ -1,3 +1,4 @@
+import { gigOf, quitGig } from './sidegig';
 import { selfBoss } from './boss';
 import { canHop, rankWord, seatOdds, tryPromote } from './rank';
 import { isStudent } from './path';
@@ -1370,11 +1371,40 @@ const STAGE_ACTIONS: ActionDef[] = [
     },
   },
   {
+    id: 'gig_start',
+    cat: '재산',
+    icon: '🧩',
+    name: '부업 시작',
+    desc: '배달·쇼핑몰·과외·블로그·공방·공유숙박… 해마다 꾸준히 버는 부업을 하나 고른다',
+    ap: 1,
+    stages: ['univ', 'prep', 'adult', 'senior'],
+    show: (s) => !gigOf(me(s)) && age(s, me(s)) >= 19,
+    run: (s) => {
+      s.events.push({ uid: s.eventSeq++, defId: 'sj_pick', personId: me(s).id, data: {} });
+      return '어떤 부업을 할지 알아본다.';
+    },
+  },
+  {
+    id: 'gig_quit',
+    cat: '재산',
+    icon: '🧩',
+    name: '부업 접기',
+    desc: '지금 하는 부업을 그만둔다 · 저녁이 생긴다',
+    ap: 0,
+    stages: ['univ', 'prep', 'adult', 'senior'],
+    show: (s) => !!gigOf(me(s)),
+    label: (s) => {
+      const g = gigOf(me(s));
+      return { name: `부업 접기${g ? ` (${g.g.icon} ${g.g.name})` : ''}`, desc: g ? `${['취미 수준', '쏠쏠한 부수입', '월급만큼', '본업 수준'][g.lv]} · 그만두면 수입도 피로도 끝` : '' };
+    },
+    run: (s) => quitGig(me(s)),
+  },
+  {
     id: 'side_job',
     cat: '재산',
     icon: '🛒',
-    name: '부업',
-    desc: '퇴근 후 한 푼 더 · 대박도 손해도 있다 · 피로↑',
+    name: '하루 알바',
+    desc: '이번 해 한 번, 퇴근 후 한 푼 더 · 대박도 손해도 있다 · 피로↑ (꾸준한 부업은 "부업 시작")',
     ap: 1,
     stages: ['adult'],
     run: (s) => {

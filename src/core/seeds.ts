@@ -120,7 +120,8 @@ const warmthReturn: LifeDef = {
 
 const studyReturn: LifeDef = {
   id: 'seed_study',
-  weight: seed('study', 'study', 5, 0.12, (s, p) => age(s, p) >= 30),
+  // 책 출간은 드물게: 공부를 오래 했고 똑똑한 사람에게만 (예전엔 너무 자주 나왔다)
+  weight: seed('study', 'study', 5, 0.035, (s, p) => age(s, p) >= 35 && p.actual.int >= 65 && !p.flags.includes('published')),
   title: () => '출간 제안',
   text: (c) => `평생 책을 끼고 산 ${who(c)}의 블로그 글을 본 출판사에서 연락이 왔다. 책을 내보자고 한다.`,
   choices: () => [
@@ -128,6 +129,7 @@ const studyReturn: LifeDef = {
       label: '책을 쓴다',
       run: (x) => {
         fire(x, 'study');
+        x.p.flags.push('published');
         if (chance(x.s, 0.3)) {
           x.p.cash += 5000;
           x.s.fame += 8;
