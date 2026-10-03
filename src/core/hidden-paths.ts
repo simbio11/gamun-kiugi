@@ -49,9 +49,10 @@ const fill = (t: string, p: Person) => t.replaceAll('{n}', fullName(p));
 export function pathYear(s: GameState): void {
   const seen = (s.storySeen ??= {});
   for (const p of Object.values(s.people)) {
-    if (!alive(p) || !isMainline(s, p) || p.job.startsWith('hj_') || A(s, p) < 18) continue;
+    if (!alive(p) || p.job.startsWith('hj_') || A(s, p) < 18) continue;
     if (s.events.some((e) => e.defId === 'hp_step' && e.personId === p.id)) continue;
     const cur = key(p);
+    if (!cur && !isMainline(s, p)) continue; // 부모님처럼 본가 밖 사람은 이미 걷고 있는 길만 이어 간다
     if (cur) {
       const [, id, n] = cur.split(':');
       if (chance(s, 0.55)) s.events.push({ uid: s.eventSeq++, defId: 'hp_step', personId: p.id, data: { id, n: Number(n) } });
@@ -72,9 +73,12 @@ const step: EventDef = {
   valid: (c) => alive(c.p) && !c.p.job.startsWith('hj_'),
   text: (c) => {
     const n = c.ev.data.n as number;
-    const x = PATHS.find((q) => q.id === c.ev.data.id)!;
-    const body = n === 0 ? x.open : n === 1 ? MID[0] : MID[1];
-    return `${fullName(c.p)} (${JOBS[c.p.job]?.name ?? ''}): ${fill(body, c.p)}\n\n"${HIDDEN_BY_ID[x.id].hint}"\n(${n + 1}/3 · 끝까지 따라가면 히든 직업의 문이 열린다)`;
+    const id = c.ev.data.id as string;
+    const x = PATHS.find((q) => q.id === id);
+    // 직업 길(PATHS)에 없는 히든은 "하던 일에서 새어 나온 계기"로 시작한다 (부모님의 길 등)
+    const open = x?.open ?? `${JOBS[c.p.job]?.name ?? '지금'} 일을 하며 쌓은 감각이 엉뚱한 곳에서 눈에 띄었다. 한밤중, 낯선 번호로 연락이 왔다.`;
+    const body = n === 0 ? open : n === 1 ? MID[0] : MID[1];
+    return `${fullName(c.p)} (${JOBS[c.p.job]?.name ?? ''}): ${fill(body, c.p)}\n\n"${HIDDEN_BY_ID[id].hint}"\n(${n + 1}/3 · 끝까지 따라가면 히든 직업의 문이 열린다)`;
   },
   choices: (c) => {
     const n = c.ev.data.n as number;

@@ -9,6 +9,8 @@ import { chance, pick } from './rng';
 import type { GameState, Person } from './types';
 import { lowly, QUEST_EVENTS, questYear } from './hidden-quest';
 import { awardCard } from './cards';
+import { linkedHidden } from './hidden-links';
+import { isSuperHidden } from './hidden-data';
 
 interface Route {
   id: string;
@@ -150,7 +152,9 @@ export function hiddenYear(s: GameState): string[] {
   return msgs;
 }
 
-/** 아이가 자라는 동안 부모에게도 숨은 문이 열린다 (한 세대 최대 두 번) */
+/** 아이가 자라는 동안 부모에게도 숨은 문이 열린다 (한 세대 최대 두 번).
+ *  개연성: 아무 히든이나 바로 주지 않는다. 부모가 하던 일(또는 예전에 했던 일)에서 이어지는 길만,
+ *  그것도 세 장면(작은 틈 → 더 깊이 → 마지막 문)을 해마다 하나씩 지나야 제안이 온다 (hidden-paths 의 hp_step). */
 function parentsHidden(s: GameState) {
   const hd = s.people[s.headId];
   if (!hd || age(s, hd) >= 20) return;
@@ -159,21 +163,14 @@ function parentsHidden(s: GameState) {
   if ((seen[k] ?? 0) >= 2) return;
   for (const par of [s.people[hd.fatherId ?? ''], s.people[hd.motherId ?? '']]) {
     if (!par || !alive(par) || par.job.startsWith('hj_') || age(s, par) > 60) continue;
-    if (par.sex === 'F' && chance(s, 0.02)) {
-      const ids = ['hj_vtuber', 'hj_drifter'].filter((id) => !par.flags.includes('refused:' + id) && !seen[`refused:${id}:${par.id}`]);
-      if (ids.length) {
-        s.events.push({ uid: s.eventSeq++, defId: 'sh_step1', personId: par.id, data: { id: pick(s, ids) } });
-        seen[k] = (seen[k] ?? 0) + 1;
-      }
-    } else if (chance(s, 0.03)) {
-      const ids = ROUTES.filter((r) => r.id !== 'hj_hermit' && (!r.years || (s.year >= r.years[0] && s.year <= r.years[1])) && !par.flags.includes('refused:' + r.id) && !seen[`refused:${r.id}:${par.id}`]).map((r) => r.id);
-      if (ids.length) {
-        s.events.push({ uid: s.eventSeq++, defId: 'hid_offer', personId: par.id, data: { id: pick(s, ids) } });
-        seen[k] = (seen[k] ?? 0) + 1;
-      }
-    }
-
-
+    if (par.flags.some((f) => f.startsWith('hp:')) || s.events.some((e) => e.personId === par.id && (e.defId === 'hp_step' || e.defId === 'sh_step1'))) continue;
+    const ok = (id: string) => !par.flags.includes('refused:' + id) && !seen[`refused:${id}:${par.id}`];
+    const ids = linkedHidden(par, s.origin, age(s, par)).filter((id) => ok(id) && (ROUTE[id] || isSuperHidden(id)) && (!ROUTE[id]?.years || (s.year >= ROUTE[id].years![0] && s.year <= ROUTE[id].years![1])));
+    if (!ids.length || !chance(s, 0.025)) continue;
+    const id = pick(s, ids);
+    // 슈퍼 히든은 원래의 3단계 사연으로, 나머지는 세 장면을 지나는 길로
+    s.events.push(isSuperHidden(id) ? { uid: s.eventSeq++, defId: 'sh_step1', personId: par.id, data: { id } } : { uid: s.eventSeq++, defId: 'hp_step', personId: par.id, data: { id, n: 0 } });
+    seen[k] = (seen[k] ?? 0) + 1;
   }
 }
 
