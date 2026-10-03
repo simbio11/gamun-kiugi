@@ -344,6 +344,20 @@ export function paint96(p: Person, age: number, year: number, face: Face = 'norm
     for (let x = Math.floor(cx - mw - 1); x <= cx + mw; x++) g.set(x, my - 2, mc, 'hair'), Math.abs(x + 0.5 - cx) > 1.5 && g.set(x, my - 1, mc, 'hair');
   }
   if (!f && st === 'adult' && (h >>> 9) % 3 === 0) for (let y = my + 2; y < chinY - 1; y++) for (let x = cx - 12; x < cx + 12; x++) if ((x + y) % 2 === 0 && inFace(x, y) && g.get(x, y) === 'skin' && Math.abs(x + 0.5 - cx) > 2) S(x, y, mix(skin.sh, 0.9));
+  // 턱수염: 48칸 초상화와 같은 유전 비트 (1·3 염소수염, 2 덥수룩한 턱수염)
+  const beard = !f && (st === 'elder' || (st === 'adult' && age >= 28)) ? (h >>> 13) % 7 : 0;
+  if (beard >= 1 && beard <= 3) {
+    const bc = st === 'elder' ? '#d0ccc6' : hair.base;
+    if (beard === 3) for (let x = Math.floor(cx - mw - 1); x <= cx + mw; x++) g.set(x, my - 2, bc, 'hair');
+    for (let y = my + 2; y <= chinY + 1; y++)
+      for (let x = cx - 14; x < cx + 14; x++) {
+        const dx = Math.abs(x + 0.5 - cx);
+        const full = beard === 2 && (inFace(x, y) || y >= chinY) && (y > my + 1 || dx > mw + 1) && dx < (y >= chinY ? chinW * 0.8 : 14);
+        const goat = beard !== 2 && dx < (y >= chinY - 2 ? 2.5 : 3.5) && y >= my + 3;
+        if (full || goat) g.set(x, y, (x * 7 + y * 3) % 11 === 0 ? mix(bc, 1.15) : bc, 'hair');
+      }
+  }
+  if (f && !kid && (h >>> 21) % 6 === 0 && mark === 0) g.set(cx - sep - 2, eyeY + eh + 2, '#5a3a30', 'skin'); // 눈물점
   if (f && !kid && (h >>> 10) % 3 !== 0) {
     const E = (h >>> 12) % 2 ? '#f0c848' : '#f4f0f8';
     for (const s of [-1, 1]) g.set(cx + s * (W + 0.5), eyeY + 7, E, 'acc'), g.set(cx + s * (W + 0.5), eyeY + 8, E, 'acc');

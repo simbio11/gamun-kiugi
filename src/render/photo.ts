@@ -73,8 +73,191 @@ function studio(ctx: CanvasRenderingContext2D, w: number, h: number, year: numbe
   ctx.fillRect(0, 0, w, h);
 }
 
-/** 배경: 종류마다 두세 가지 중에서 사진마다 하나 */
+// ── 더 많은 배경: 사진 종류마다 기본 2~3가지 + 아래 장소들 중에서 섞어 쓴다 ──
+type Extra = 'snow' | 'tower' | 'amusement' | 'palace' | 'camping' | 'aquarium' | 'hanokvillage' | 'cafe' | 'stadium' | 'hanriver' | 'sunset' | 'banquet' | 'chapel' | 'yard' | 'library';
+const EXTRAS: Partial<Record<Scene, Extra[]>> = {
+  trip: ['snow', 'tower', 'amusement', 'palace', 'camping', 'aquarium', 'hanokvillage', 'sunset'],
+  family: ['hanokvillage', 'cafe', 'snow', 'amusement', 'stadium', 'camping'],
+  couple: ['hanriver', 'cafe', 'amusement', 'aquarium', 'sunset', 'tower'],
+  clan: ['palace', 'banquet', 'hanokvillage'],
+  grad: ['library', 'chapel'],
+  wedding: ['chapel', 'yard', 'banquet'],
+  hwangap: ['banquet', 'hanokvillage'],
+  dol: ['banquet'],
+};
+function extraScene(ctx: CanvasRenderingContext2D, e: Extra, w: number, h: number, year: number, r: R) {
+  switch (e) {
+    case 'snow': {
+      sky(ctx, w, h, '#b8c8d8', '#eef2f8');
+      mountains(ctx, w, h * 0.5, '#f4f8ff', r, h * 0.3);
+      rect(ctx, '#ffffff', 0, h * 0.55, w, h * 0.45);
+      for (let i = 0; i < 3; i++) tree(ctx, w * (0.15 + i * 0.35), h * 0.58, 12, '#e8f0f4');
+      for (let i = 0; i < 50; i++) rect(ctx, '#ffffff', r() * w, r() * h * 0.6, 2, 2);
+      break;
+    }
+    case 'tower': {
+      // 전망 타워 (서울 남산·파리 에펠·도쿄 타워 느낌)
+      sky(ctx, w, h, '#88c4f0', '#e4f2ff');
+      const tx = w * (0.55 + r() * 0.3);
+      const red = r() < 0.4;
+      for (let y = h * 0.08; y < h * 0.6; y += 2) {
+        const ww = 2 + ((y - h * 0.08) / (h * 0.52)) * (red ? 10 : 6);
+        rect(ctx, red ? (Math.floor(y / 6) % 2 ? '#e84a3a' : '#ffffff') : '#6a6a7a', tx - ww / 2, y, ww, 2);
+      }
+      rect(ctx, '#5a8a5a', 0, h * 0.6, w, h * 0.4);
+      for (let i = 0; i < 3; i++) tree(ctx, r() * w * 0.5, h * 0.62, 12, '#4a8a4a');
+      break;
+    }
+    case 'amusement': {
+      sky(ctx, w, h, '#9ad4ff', '#fff4e0');
+      const cx = w * 0.7, cy = h * 0.35, R0 = Math.min(w, h) * 0.28;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R0, 0, Math.PI * 2);
+      ctx.stroke();
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        rect(ctx, ['#ff6a8a', '#ffd048', '#6ac8ff', '#8ae07a'][i % 4], cx + Math.cos(a) * R0 - 3, cy + Math.sin(a) * R0 - 3, 6, 6);
+      }
+      rect(ctx, '#a8a8b8', cx - 1, cy, 2, h * 0.3);
+      for (let i = 0; i < 6; i++) rect(ctx, ['#ff6a8a', '#ffd048', '#6ac8ff'][i % 3], w * 0.05 + i * 9, h * 0.18 + (i % 2) * 4, 5, 7);
+      rect(ctx, '#d8c8a8', 0, h * 0.62, w, h * 0.38);
+      break;
+    }
+    case 'palace': {
+      sky(ctx, w, h, '#a8d4f4', '#f0f6fa');
+      rect(ctx, '#4a6a5a', w * 0.12, h * 0.2, w * 0.76, 6);
+      for (let x = w * 0.1; x < w * 0.9; x += 5) rect(ctx, '#2a3a32', x, h * 0.2 - 3, 4, 3);
+      rect(ctx, '#c8402a', w * 0.16, h * 0.2 + 6, w * 0.68, h * 0.26);
+      for (let x = w * 0.2; x < w * 0.82; x += w * 0.12) rect(ctx, '#8a2a1a', x, h * 0.2 + 6, 3, h * 0.26);
+      rect(ctx, '#3a8a6a', w * 0.16, h * 0.2 + 6, w * 0.68, 3);
+      rect(ctx, '#d8d0c0', 0, h * 0.46, w, h * 0.54);
+      for (let x = 0; x < w; x += 12) rect(ctx, '#c8c0b0', x, h * 0.46, 1, h * 0.54);
+      break;
+    }
+    case 'camping': {
+      sky(ctx, w, h, year >= 2010 ? '#1a2448' : '#2a3458', '#4a5a88');
+      for (let i = 0; i < 30; i++) rect(ctx, '#fff8d8', r() * w, r() * h * 0.4, 1, 1);
+      mountains(ctx, w, h * 0.55, '#2a3a4a', r, h * 0.25);
+      rect(ctx, '#3a4a32', 0, h * 0.55, w, h * 0.45);
+      ctx.fillStyle = pickR(r, ['#e8a838', '#4a8ac8', '#d84a3a']);
+      ctx.beginPath();
+      ctx.moveTo(w * 0.62, h * 0.62), ctx.lineTo(w * 0.78, h * 0.32), ctx.lineTo(w * 0.94, h * 0.62);
+      ctx.fill();
+      rect(ctx, '#ffb040', w * 0.2, h * 0.58, 6, 4), rect(ctx, '#ff6a2a', w * 0.2 + 1, h * 0.55, 4, 3);
+      break;
+    }
+    case 'aquarium': {
+      sky(ctx, w, h, '#0a3a6a', '#1a7ab0');
+      for (let i = 0; i < 6; i++) {
+        const fx = r() * w, fy = r() * h * 0.55, c = pickR(r, ['#ffb04a', '#ffe04a', '#8ae0ff', '#ff7a9a']);
+        rect(ctx, c, fx, fy, 6, 3), rect(ctx, c, fx - 2, fy - 1, 2, 5);
+      }
+      for (let i = 0; i < 12; i++) rect(ctx, 'rgba(255,255,255,.5)', r() * w, r() * h * 0.6, 1, 2);
+      rect(ctx, '#2a4a5a', 0, h * 0.62, w, h * 0.38);
+      break;
+    }
+    case 'hanokvillage': {
+      sky(ctx, w, h, '#a8d0f0', '#f4f0e4');
+      for (let i = 0; i < 3; i++) {
+        const x0 = i * w * 0.34;
+        rect(ctx, '#3a3a40', x0, h * 0.24 + (i % 2) * 6, w * 0.32, 5);
+        for (let x = x0; x < x0 + w * 0.32; x += 4) rect(ctx, '#2a2a30', x, h * 0.24 + (i % 2) * 6 - 2, 3, 2);
+        rect(ctx, '#e8dcc0', x0 + 3, h * 0.24 + (i % 2) * 6 + 5, w * 0.32 - 6, h * 0.2);
+        rect(ctx, '#8a6a4a', x0 + w * 0.14, h * 0.24 + (i % 2) * 6 + 5, 3, h * 0.2);
+      }
+      rect(ctx, '#c8b898', 0, h * 0.55, w, h * 0.45);
+      for (let x = 0; x < w; x += 8) rect(ctx, '#a89878', x, h * 0.55, 6, 3);
+      break;
+    }
+    case 'cafe': {
+      rect(ctx, pickR(r, ['#e8dccc', '#dcd4c8', '#f0e4d0']), 0, 0, w, h);
+      rect(ctx, '#ffffff', w * 0.08, h * 0.08, w * 0.4, h * 0.36), rect(ctx, '#b8e0f0', w * 0.08 + 2, h * 0.08 + 2, w * 0.4 - 4, h * 0.36 - 4);
+      for (let i = 0; i < 4; i++) rect(ctx, '#f4d888', w * (0.55 + i * 0.1), h * 0.08, 2, 6 + (i % 2) * 4), rect(ctx, '#ffe8a0', w * (0.55 + i * 0.1) - 2, h * 0.08 + 6 + (i % 2) * 4, 6, 4);
+      tree(ctx, w * 0.9, h * 0.55, 10, '#5a9a5a');
+      rect(ctx, '#8a6a4a', 0, h * 0.58, w, h * 0.42);
+      break;
+    }
+    case 'stadium': {
+      sky(ctx, w, h, '#7ac0f0', '#d8eeff');
+      for (let y = h * 0.12; y < h * 0.45; y += 4) for (let x = 0; x < w; x += 3) rect(ctx, pickR(r, ['#e84a4a', '#4a6ac8', '#ffffff', '#f8d048', '#3a3a4a']), x, y, 2, 2);
+      rect(ctx, '#2a6a3a', 0, h * 0.45, w, 4);
+      rect(ctx, '#4aa04a', 0, h * 0.5, w, h * 0.5);
+      rect(ctx, '#c89060', w * 0.3, h * 0.6, w * 0.4, h * 0.2);
+      break;
+    }
+    case 'hanriver': {
+      sky(ctx, w, h, '#0c1430', '#283a70');
+      for (let x = 0; x < w; x += 12) {
+        const bh = h * (0.12 + r() * 0.25);
+        rect(ctx, '#18203c', x, h * 0.42 - bh, 10, bh);
+        for (let j = 0; j < bh - 3; j += 4) if (r() < 0.5) rect(ctx, '#ffe080', x + 2, h * 0.42 - bh + 2 + j, 2, 2);
+      }
+      rect(ctx, '#1a2a50', 0, h * 0.42, w, h * 0.2);
+      for (let x = 0; x < w; x += 6) rect(ctx, pickR(r, ['#ff6ab0', '#6ae0ff', '#ffe060']), x, h * 0.44 + (x % 12 ? 2 : 0), 3, 1);
+      rect(ctx, '#7a8aa8', 0, h * 0.4, w, 2);
+      rect(ctx, '#3a3a4a', 0, h * 0.62, w, h * 0.38);
+      break;
+    }
+    case 'sunset': {
+      sky(ctx, w, h, '#ff8a5a', '#ffd890');
+      ctx.fillStyle = '#fff0b0';
+      ctx.beginPath();
+      ctx.arc(w * 0.5, h * 0.42, 14, 0, Math.PI * 2);
+      ctx.fill();
+      rect(ctx, '#e86a4a', 0, h * 0.42, w, h * 0.16);
+      for (let x = 0; x < w; x += 8) rect(ctx, '#ffc070', x, h * 0.46 + ((x / 8) % 2) * 3, 5, 1);
+      rect(ctx, '#d8b080', 0, h * 0.58, w, h * 0.42);
+      break;
+    }
+    case 'banquet': {
+      rect(ctx, '#f4e8d0', 0, 0, w, h);
+      for (let i = 0; i < 4; i++) rect(ctx, '#f8e8a0', w * (0.15 + i * 0.22), h * 0.06, 8, 8), rect(ctx, '#fff8d8', w * (0.15 + i * 0.22) + 2, h * 0.06 + 8, 4, 3);
+      rect(ctx, '#c83848', w * 0.1, h * 0.22, w * 0.8, 10);
+      for (let x = w * 0.14; x < w * 0.86; x += 6) rect(ctx, '#ffe080', x, h * 0.22 + 3, 3, 4);
+      rect(ctx, '#ffffff', 0, h * 0.6, w, h * 0.4);
+      for (let i = 0; i < 6; i++) rect(ctx, pickR(r, ['#e86a4a', '#f8d048', '#8ac85a', '#f0a0b0']), w * (0.08 + i * 0.15), h * 0.62, 8, 5);
+      break;
+    }
+    case 'chapel': {
+      rect(ctx, '#e8e0f0', 0, 0, w, h);
+      for (const x0 of [w * 0.15, w * 0.62]) {
+        rect(ctx, '#3a3a5a', x0, h * 0.08, w * 0.22, h * 0.42);
+        for (let y = h * 0.1; y < h * 0.48; y += 6) for (let x = x0 + 2; x < x0 + w * 0.22 - 2; x += 6) rect(ctx, pickR(r, ['#e84a6a', '#4a8ae8', '#f8d048', '#5ac87a']), x, y, 5, 5);
+      }
+      rect(ctx, '#d8c8b0', 0, h * 0.6, w, h * 0.4);
+      rect(ctx, '#ffffff', w * 0.42, h * 0.6, w * 0.16, h * 0.4);
+      break;
+    }
+    case 'yard': {
+      // 전통 혼례: 마당의 초례상
+      sky(ctx, w, h, '#a8d4f0', '#f0f4f0');
+      rect(ctx, '#5a3a2a', 0, h * 0.14, w, 5);
+      rect(ctx, '#e8dcc0', 0, h * 0.14 + 5, w, h * 0.3);
+      rect(ctx, '#2a5aa8', w * 0.3, h * 0.48, w * 0.4, 6);
+      rect(ctx, '#c83030', w * 0.3, h * 0.54, w * 0.4, 6);
+      for (let x = w * 0.32; x < w * 0.68; x += 8) rect(ctx, pickR(r, ['#f8d048', '#e86a4a', '#8ac85a']), x, h * 0.44, 5, 4);
+      rect(ctx, '#c8b890', 0, h * 0.62, w, h * 0.38);
+      break;
+    }
+    case 'library': {
+      rect(ctx, '#e8dcc0', 0, 0, w, h);
+      for (let y = h * 0.06; y < h * 0.56; y += h * 0.1) {
+        rect(ctx, '#6a4a2a', 0, y + h * 0.08, w, 2);
+        for (let x = 2; x < w - 4; x += 4) rect(ctx, pickR(r, ['#a83a3a', '#3a5a8a', '#3a7a4a', '#c8a048', '#6a3a6a']), x, y + h * 0.08 - (5 + (x % 3)), 3, 5 + (x % 3));
+      }
+      rect(ctx, '#a07850', 0, h * 0.58, w, h * 0.42);
+      break;
+    }
+  }
+}
+
+/** 배경: 종류마다 기본 두세 가지 + 장소 여러 곳 중에서 사진마다 하나 */
 function backdrop(ctx: CanvasRenderingContext2D, kind: Scene, w: number, h: number, year: number, r: R) {
+  const extras = (EXTRAS[kind] ?? []).filter((e) => !(e === 'hanriver' && year < 1990) && !(e === 'aquarium' && year < 1985) && !(e === 'cafe' && year < 1990));
+  // 절반쯤은 새 장소 (예전 사진은 기본 배경이 더 자주)
+  if (extras.length && r() < (year < 1990 ? 0.3 : 0.55)) return extraScene(ctx, pickR(r, extras), w, h, year, r);
   const v = Math.floor(r() * 3);
   switch (kind) {
     case 'trip': {

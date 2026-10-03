@@ -119,6 +119,7 @@ interface Build {
   accent: string;
   style: string;
   fringe: string;
+  eyeShape: number; // 0 기본 · 1 고양이(올라간) · 2 처진 · 3 홑꺼풀(가는)
 }
 
 const FEMALE_STYLES = [
@@ -150,15 +151,19 @@ function plan(p: Person, age: number, year: number): Build {
     [7, 8, 9, 10, 10, 10, 10, 10, 10, 10, 10, 9, 9, 8, 7, 6, 4, 3],
     [7, 9, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 9, 8, 7, 6, 5, 3],
     [8, 9, 10, 11, 11, 11, 11, 11, 11, 11, 10, 10, 9, 8, 7, 5],
+    [6, 8, 9, 10, 10, 10, 10, 10, 10, 10, 9, 9, 8, 7, 6, 5, 4, 3], // 갸름한 달걀형
+    [8, 10, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10, 10, 9, 8, 6], // 동그란 얼굴
   ];
   const FACES_M = [
     [8, 9, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 9, 9, 8, 7, 5],
     [8, 9, 10, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10, 10, 9, 8, 6],
     [7, 9, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 9, 9, 8, 7, 6, 4],
+    [9, 10, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10, 9, 7], // 사각 턱
+    [7, 8, 9, 10, 10, 10, 10, 10, 10, 10, 10, 9, 9, 8, 8, 7, 5, 3], // 갸름한 얼굴
   ];
   const KID = [8, 10, 11, 11, 12, 12, 12, 12, 12, 12, 12, 11, 11, 10, 9, 7, 5];
   const BABY = [9, 11, 12, 12, 13, 13, 13, 13, 13, 13, 12, 12, 11, 9, 7];
-  const rows = st === 'baby' ? BABY : kidish ? KID : (f ? FACES_F : FACES_M)[(gn.face ?? 0) % 3];
+  const rows = st === 'baby' ? BABY : kidish ? KID : (f ? FACES_F : FACES_M)[((gn.face ?? 0) + ((h >>> 17) % 2) * 3) % 5];
   const faceTop = st === 'baby' ? 17 : kidish ? 15 : st === 'teen' ? 13 : 12;
   const eyeY = faceTop + (st === 'baby' ? 7 : kidish ? 7 : 8);
   let style = (f ? FEMALE_STYLES : MALE_STYLES)[era][(gn.hairStyle * 7 + (h >>> 5)) % (f ? 9 : 10)];
@@ -170,7 +175,7 @@ function plan(p: Person, age: number, year: number): Build {
     short: ['short'], side: ['side'], spiky: ['spiky'], buzz: ['none'], twoblock: ['side'], slick: ['none'], curly: ['curl'], bowl: ['bowl'], messy: ['spiky'], mohawk: ['none'], bald: ['none'], baby: ['tuft'],
   };
   const fr = FR[style] ?? ['short'];
-  return { st, f, era, h, cx: 24, faceTop, rows, eyeY, skin, hair: pal(hc, 0.4), eye, accent: ACCENT[(h >>> 7) % ACCENT.length], style, fringe: fr[(h >>> 3) % fr.length] };
+  return { st, f, era, h, cx: 24, faceTop, rows, eyeY, skin, hair: pal(hc, 0.4), eye, accent: ACCENT[(h >>> 7) % ACCENT.length], style, fringe: fr[(h >>> 3) % fr.length], eyeShape: ((gn.eyes ?? 0) + (h >>> 15)) % 4 };
 }
 
 // ───────────────────────── 48×48 초상화 ─────────────────────────
@@ -272,12 +277,30 @@ function paint(p: Person, age: number, year: number, face: Face, blink: boolean)
     g.row(faceTop + 3, cx - 3, cx + 2, skin.sh, 'skin');
   }
   if (!f && st === 'adult' && (h >>> 9) % 3 === 0) for (let x = cx - 5; x <= cx + 4; x += 2) g.set(x, faceBottom - 2, skin.sh, 'skin'); // 수염 자국
-  if (!f && (st === 'elder' || (st === 'adult' && age >= 40)) && (h >>> 11) % 4 === 0) {
+  const beard = !f && (st === 'elder' || (st === 'adult' && age >= 28)) ? (h >>> 13) % 7 : 0; // 0·4·5·6 없음
+  if (!f && (st === 'elder' || (st === 'adult' && age >= 40)) && ((h >>> 11) % 4 === 0 || beard === 3)) {
     // 콧수염
     const m = st === 'elder' ? GRAY : hair.base;
     g.row(eyeY + 7, cx - 3, cx + 2, m, 'hair');
     g.set(cx - 4, eyeY + 8, m, 'hair'), g.set(cx + 3, eyeY + 8, m, 'hair');
   }
+  if (beard === 1 || beard === 3) {
+    // 염소수염
+    const m = st === 'elder' ? GRAY : hair.base;
+    g.row(faceBottom - 1, cx - 2, cx + 1, m, 'hair'), g.row(faceBottom, cx - 1, cx, m, 'hair');
+    g.set(cx - 1, faceBottom + 1, m, 'hair');
+  } else if (beard === 2) {
+    // 턱수염 (덥수룩)
+    const m = st === 'elder' ? GRAY : hair.base;
+    for (let i = rows.length - 5; i < rows.length; i++) {
+      const y = faceTop + i, w = rows[i];
+      if (y >= eyeY + 8 && y <= eyeY + 10) { g.row(y, cx - w, cx - 4, m, 'hair'), g.row(y, cx + 3, cx + w - 1, m, 'hair'); continue; }
+      g.row(y, cx - w, cx + w - 1, m, 'hair');
+    }
+    g.row(faceBottom + 1, cx - 3, cx + 2, m, 'hair');
+    g.row(eyeY + 7, cx - 3, cx + 2, m, 'hair');
+  }
+  if (f && st !== 'baby' && (h >>> 21) % 6 === 0 && mark === 0) g.set(cx - 7, eyeY + 3, '#5a3a30', 'skin'); // 눈물점
   if (f && (st === 'adult' || st === 'teen') && (h >>> 10) % 3 !== 0) {
     // 귀걸이
     const E = (h >>> 12) % 2 ? '#f0c848' : '#f4f0f8';
@@ -456,12 +479,28 @@ function drawFace(g: Grid, B: Build, face: Face, blink: boolean, mouthGene: numb
   else if (st === 'baby') eyes(['.KKKK.', 'KDDHDK', 'KIiiDK', '.KKKK.']);
   else if (kidish) eyes(['.KKKK.', 'KDDDHK', 'KDIIHK', 'KIiiIK', '.KKKK.']);
   else if (st === 'elder') eyes(f ? ['.KKKKK', 'KDDDHW', '.LLLL.'] : ['KKKKKK', '.DDDH.', '.LLLL.']);
-  else if (f) {
+  else if (f && B.eyeShape === 1) {
+    // 고양이눈: 눈꼬리가 바깥 위로
+    eyes(['.KKKKK', 'KKKKKK', 'KDDDHW', 'KDIIHW', '.IiiI.', '..LL..']);
+    g.set(lx - 1, eyeY - 1, K, 'eye'), g.set(rx + 6, eyeY - 1, K, 'eye');
+    g.set(lx - 1, eyeY, K, 'eye'), g.set(rx + 6, eyeY, K, 'eye');
+  } else if (f && B.eyeShape === 2) {
+    // 처진 눈: 순한 인상
+    eyes(['..KKKK', '.KKKKK', 'KDDDHW', 'KDIIHW', 'KIiiIW', '.LiiL.']);
+    g.set(lx - 1, eyeY + 2, K, 'eye'), g.set(rx + 6, eyeY + 2, K, 'eye');
+  } else if (f && B.eyeShape === 3) {
+    // 홑꺼풀: 가늘고 길게
+    eyes(['KKKKKK', 'KDDDHW', 'KIiiIW', '.LLLL.'], 1);
+    g.set(lx - 1, eyeY + 1, K, 'eye'), g.set(rx + 6, eyeY + 1, K, 'eye');
+  } else if (f) {
     eyes(['.KKKK.', 'KKKKKK', 'KDDDHW', 'KDIIHW', 'KIiiIW', '.LiiL.']);
     g.set(lx - 1, eyeY, K, 'eye'), g.set(rx + 6, eyeY, K, 'eye');
     g.set(lx - 1, eyeY + 1, K, 'eye'), g.set(rx + 6, eyeY + 1, K, 'eye');
     g.set(lx + 2, eyeY + 4, '#ffffff', 'eye'), g.set(rx + 3, eyeY + 4, '#ffffff', 'eye');
-  } else eyes(['KKKKKK', 'KDDDHK', 'WDIIHW', 'WIiiIW', '.LLLL.']);
+  } else if (B.eyeShape === 1) eyes(['KKKKKK', 'KDDDHK', 'WIiiIW', '.LLLL.'], 1); // 가는 눈
+  else if (B.eyeShape === 2) eyes(['.KKKK.', 'KDDDHK', 'KDIIHK', 'WIiiIW', '.LLLL.']); // 큰 눈
+  else if (B.eyeShape === 3) eyes(['..KKKK', '.KDDHK', 'KDIIHW', 'WIiiIW', '.LLLL.']); // 처진 눈
+  else eyes(['KKKKKK', 'KDDDHK', 'WDIIHW', 'WIiiIW', '.LLLL.']);
   if (face === 'angry' && !closed) {
     // 눈꼬리가 치켜 올라간다
     g.set(lx + 4, eyeY, skin.base, 'skin'), g.set(rx, eyeY, skin.base, 'skin');
@@ -475,8 +514,23 @@ function drawFace(g: Grid, B: Build, face: Face, blink: boolean, mouthGene: numb
   if (face === 'angry') browL([[0, -1], [1, -1], [2, 0], [3, 0], [4, 1], ...(f ? [] : ([[1, 0], [3, 1]] as [number, number][]))]);
   else if (face === 'sad' || face === 'cry') browL([[0, 1], [1, 0], [2, 0], [3, -1], [4, -1]]);
   else if (face === 'shock') browL([[0, -1], [1, -2], [2, -2], [3, -2], [4, -1]]);
-  else if (f || kidish) browL(browGene % 2 ? [[0, 0], [1, -1], [2, -1], [3, -1]] : [[1, -1], [2, -1], [3, -1], [4, 0]]);
-  else browL(browGene % 2 ? [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [1, -1], [2, -1], [3, -1]] : [[0, 0], [1, -1], [2, -1], [3, -1], [4, 0], [1, 0], [2, 0], [3, 0]]);
+  else if (f || kidish) {
+    const FB: [number, number][][] = [
+      [[0, 0], [1, -1], [2, -1], [3, -1]], // 아치
+      [[1, -1], [2, -1], [3, -1], [4, 0]], // 둥근
+      [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]], // 일자
+      [[0, 1], [1, 0], [2, -1], [3, -1], [4, -1]], // 올라간 눈썹
+    ];
+    browL(FB[browGene % 4]);
+  } else {
+    const MB: [number, number][][] = [
+      [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [1, -1], [2, -1], [3, -1]], // 짙은 일자
+      [[0, 0], [1, -1], [2, -1], [3, -1], [4, 0], [1, 0], [2, 0], [3, 0]], // 짙은 아치
+      [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]], // 가는 일자
+      [[0, 1], [1, 0], [2, 0], [3, -1], [4, -1], [1, 1], [2, 1]], // 송충이 사선
+    ];
+    browL(MB[browGene % 4]);
+  }
   // ── 코 ──
   const ny = eyeY + (kidish ? 5 : 6);
   g.set(cx, ny, skin.sh, 'skin');
@@ -502,8 +556,13 @@ function drawFace(g: Grid, B: Build, face: Face, blink: boolean, mouthGene: numb
   else if (face === 'angry') mouth(['KKKK', 'KwwK', 'KKKK']);
   else if (face === 'smug') mouth(['...K', 'KKK.']);
   else if (face === 'sleep') mouth(['.K.', 'K.K', '.K.']);
-  else if (f) mouth(mouthGene % 3 === 0 ? ['MM'] : mouthGene % 3 === 1 ? ['.MM.', 'M..M'].reverse() : ['MMM']);
-  else mouth(mouthGene % 2 ? ['KKK'] : ['K..K', '.KK.']);
+  else if (f) {
+    const FM = [['MM'], ['M..M', '.MM.'], ['MMM'], ['.M.', 'MrM', '.M.'], ['MMMM', '.MM.']];
+    mouth(FM[(mouthGene + (B.h >>> 19)) % FM.length]);
+  } else {
+    const MM = [['KKK'], ['K..K', '.KK.'], ['KKKK'], ['K...', '.KKK'], ['.KK.', 'K..K'].reverse()];
+    mouth(MM[(mouthGene + (B.h >>> 19)) % MM.length]);
+  }
   // ── 눈물·땀·반짝 ──
   if (face === 'cry') for (let y = eyeY + 2; y < eyeY + 8; y++) g.set(lx + 2, y, '#8ad0ff', 'eye'), g.set(rx + 2, y, '#8ad0ff', 'eye');
   if (face === 'sad') g.set(lx + 4, eyeY + 4, '#8ad0ff', 'eye');
