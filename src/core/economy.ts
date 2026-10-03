@@ -220,6 +220,7 @@ export const jobTitle = (p: Person) => {
 };
 /** "공무원(9급)"처럼 직업명 + 직함 */
 export const jobLabel = (p: Person) => {
+  if (p.flags.includes('in_prison')) return `수감 중 (남은 형기 ${p.flags.find((f) => f.startsWith('prison_term:'))?.slice(12) ?? 1}년)`;
   const co = companyOf(p);
   if (co) return `${co.name}(${jobTitle(p)})`;
   return jobLabelBase(p);

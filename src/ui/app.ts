@@ -33,7 +33,7 @@ import {
   TALENTS,
   WILL_NAMES,
 } from '../core/data';
-import { advisorFee, assessedValue, assetsOf, forecast, formatMoney, jobTitle, levelYears, personWorth, setMoneyYear, setNominal } from '../core/economy';
+import { advisorFee, assessedValue, assetsOf, forecast, formatMoney, jobLabel, jobTitle, levelYears, personWorth, setMoneyYear, setNominal } from '../core/economy';
 import { estateTax, previewAssetGiftTax, previewGiftTax } from '../core/estate';
 import { spendable } from '../core/events';
 import { age, alive, childrenOf, fullName, head, householder, isDescendantOf, isMainline, livingMainlineMinors, parentsOf, relationLabel, siblingsOf, spouseOf } from '../core/people';
@@ -1356,6 +1356,7 @@ function jobShort0(g: GameState, p: Person): string {
   if (!alive(p)) return relationLabel(g, p);
   const a = age(g, p);
   if (p.flags.some((f) => f.startsWith('serving:'))) return '군 복무';
+  if (p.flags.includes('in_prison')) return '수감 중';
   if (a < 8) return '아이';
   if (a < 14 && p.job === 'none') return '초등학생';
   if (a < 17 && p.job === 'none') return '중학생';
@@ -2466,7 +2467,7 @@ function assetsScreen(g: GameState): string {
 
 const AUTO_GIFT_STEPS = [0, 300, 500, 1000, 2500, 5000];
 
-const CAT_ICON: Record<string, string> = { 복무: '🎖', '올해의 기회': '✨', '내 직업': '💼', 가족: '👪', '진로·자기계발': '📚', '자녀 교육': '🎒', 재산: '💰', 사회: '🤝' };
+const CAT_ICON: Record<string, string> = { 복무: '🎖', 수감: '🔒', '올해의 기회': '✨', '내 직업': '💼', 가족: '👪', '진로·자기계발': '📚', '자녀 교육': '🎒', 재산: '💰', 사회: '🤝' };
 
 /** 행동 탭: 턴을 넘기기 전에 직접 하는 일. 분류 칩으로 한 묶음씩 보여 줘서 스크롤을 줄인다 */
 function actionsScreen(g: GameState): string {
@@ -2513,7 +2514,7 @@ function actionsScreen(g: GameState): string {
   };
   return `
   <section class="ap-bar">
-    <div><b>${CAT_ICON[cat] ?? '•'} ${cat}</b> <small>${list.filter((a) => a.cat === cat).length}가지 · ${STAGE_NAMES[stageOf(g, head(g))]}${!['none', 'parttime', 'pension'].includes(me0.job) ? ` · ${esc(jobShort(g, me0))}` : TRACK_NAMES[mainT ?? ''] ? ` · ${TRACK_NAMES[mainT!]}` : ''}${sideJ ? ` · 겸직 ${esc(JOBS[sideJ]?.name ?? '')}` : ''}</small></div>
+    <div><b>${CAT_ICON[cat] ?? '•'} ${cat}</b> <small>${list.filter((a) => a.cat === cat).length}가지 · ${me0.flags.includes('in_prison') ? esc(jobLabel(me0)) : STAGE_NAMES[stageOf(g, head(g))]}${!['none', 'parttime', 'pension'].includes(me0.job) ? ` · ${esc(jobShort(g, me0))}` : TRACK_NAMES[mainT ?? ''] ? ` · ${TRACK_NAMES[mainT!]}` : ''}${sideJ ? ` · 겸직 ${esc(JOBS[sideJ]?.name ?? '')}` : ''}</small></div>
     <span class="ap" title="행동력: 생활 수준 검소 2·보통 3·호화 4${car ? ` + 탈것 ${car}` : ''}">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, apMax(g) - ap))}</span>
   </section>
   ${jobTabs}

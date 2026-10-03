@@ -31,7 +31,7 @@ export function crimeYear(s: GameState): string[] {
       p.happiness = clamp(p.happiness - 10, 0, 100);
 
       if (remaining <= 0) {
-        p.flags = p.flags.filter((f) => f !== 'in_prison');
+        p.flags = p.flags.filter((f) => f !== 'in_prison' && !f.startsWith('merit:') && f !== 'pr_seen_first');
         addFlag(p, 'criminal'); // 전과 기록
         p.job = 'none';
         p.jobLevel = 0;

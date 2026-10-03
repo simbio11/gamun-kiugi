@@ -43,6 +43,7 @@ import { startDating } from './romance';
 import { TALENTS } from './data';
 import type { GameState, Person } from './types';
 import { DUTY_ACTIONS, onDuty } from './duty';
+import { inPrison, PRISON_ACTIONS } from './prison';
 import { charmCap, looksLabel, looksOf } from './looks';
 
 export const AP_PER_YEAR = 3;
@@ -52,7 +53,7 @@ const fillName = (t: string, n: string) => t.replace(/\{n\}\{이\}/g, iga(n)).re
 
 const TRIP_PLACES = ['제주도', '강릉', '부산', '경주', '여수', '가평 펜션', '속초', '오사카', '다낭', '방콕', '캠핑장', '전주 한옥마을'];
 
-export type ActionCat = '복무' | '올해의 기회' | '내 직업' | '가족' | '진로·자기계발' | '자녀 교육' | '재산' | '사회';
+export type ActionCat = '복무' | '수감' | '올해의 기회' | '내 직업' | '가족' | '진로·자기계발' | '자녀 교육' | '재산' | '사회';
 
 /** 인생 단계: 단계마다 할 수 있는 일이 다르다 */
 export type Stage = 'little' | 'elem' | 'teen' | 'univ' | 'prep' | 'adult' | 'senior';
@@ -831,8 +832,9 @@ export const ACTIONS: ActionDef[] = [
 
 /** 지금 가주가 할 수 있는 종류의 행동인가 */
 export function forHead(s: GameState, a: ActionDef): boolean {
-  // 군 복무·해외 파견 중에는 그곳에서 할 수 있는 일만 (duty.ts)
-  if (onDuty(h(s)) !== (a.cat === '복무')) return false;
+  // 군 복무·해외 파견 중(duty.ts)·수감 중(prison.ts)에는 그곳에서 할 수 있는 일만
+  const away = inPrison(h(s)) ? '수감' : onDuty(h(s)) ? '복무' : '';
+  if (away !== (a.cat === '복무' || a.cat === '수감' ? a.cat : '')) return false;
   if (a.show && !a.show(s)) return false;
   if (a.targets && !a.targets(s).length) return false;
   if (a.tracks && !a.tracks.includes(trackOf(s, h(s)) ?? '') && !a.tracks.includes(sideTrackOf(h(s)) ?? '-')) return false;
@@ -1461,7 +1463,7 @@ const STAGE_ACTIONS: ActionDef[] = [
 ];
 // 올해의 기회: 목록 맨 앞 (분류 칩도 맨 앞에 선다)
 ACTIONS.unshift(...oppActions((s) => stageOf(s, h(s))), ...QUEST_ACTIONS, ...jobActions());
-ACTIONS.push(...PHOTO_ACTIONS, ...DUTY_ACTIONS);
+ACTIONS.push(...PHOTO_ACTIONS, ...DUTY_ACTIONS, ...PRISON_ACTIONS);
 ACTIONS.push(...HIST_ACTIONS, ...DEVICE_ACTIONS, ...SPACE_ACTIONS, ...STAGE_ACTIONS, ...STUDENT_ACTIONS, ...INLAW_ACTIONS, ...TRACK_ACTIONS, ...CAREER_ACTIONS, ...RIVAL_ACTIONS, ...MONEY_ACTIONS, CASINO_ACTION, ...AUTONOMY_ACTIONS, {
   id: 'license',
   cat: '진로·자기계발',

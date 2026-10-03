@@ -58,6 +58,7 @@ import { autonomyYear } from './autonomy';
 import { grantLicense, hasAnyLicense, hasLicense, getLicenses, savePreviousLevel, calculateReturnLevel, LICENSED_JOBS } from './licenses';
 import { PUBLIC_EXAMS } from './jobs';
 import { crimeYear } from './crimes';
+import { inPrison, prisonYear } from './prison';
 import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
 import { BOSS_STORIES, selfBoss } from './boss';
@@ -552,6 +553,7 @@ export function simulateYear(s: GameState): void {
   for (const m of superHiddenYear(s)) log(s, m, 'life');
   trackPeak(s);
   scandalYear(s);
+  for (const m of prisonYear(s)) log(s, m, 'life');
   for (const m of crimeYear(s)) log(s, m, 'life');
   woeYear(s);
   for (const m of eggYear(s)) log(s, m, 'money');
@@ -1253,7 +1255,7 @@ function onCooldown(s: GameState, key: string, years: number): boolean {
 
 function randomEvents(s: GameState) {
   const h = head(s);
-  if (age(s, h) < 20 || onDuty(h)) return;
+  if (age(s, h) < 20 || onDuty(h) || inPrison(h)) return; // 담장 안에는 담장 안의 일만 (prison.ts)
   const rolls = chance(s, 0.5) ? (chance(s, 0.15) ? 2 : 1) : 0;
   const used = new Set<string>();
   for (let i = 0; i < rolls; i++) {
@@ -1305,6 +1307,7 @@ const defOf = (s: GameState, id: string) => histOverride(s, id) ?? EVENTS[id];
 /** 근현대사에서 그 시절에 없던 말이 들어가도 건너뛰지 않는 뼈대 사건 (선택지만 거른다) */
 const CORE_IDS = new Set(['notice', 'kinder', 'elementary', 'middle', 'high', 'exam', 'school_year', 'first_job', 'military', 'wedding', 'kid_wedding', 'naming', 'will', 'parent_estate', 'choose_heir', 'leave_home', 'kid_leave', 'house_promise', 'funeral', 'path', 'aptitude', 'dream', 'meet', 'dating_year', 'woe', 'allowance_talk', 'univ']);
 
+const OUTSIDE_ONLY = /^(first_job|sj_|co_|jl_|cp_|hp_step|hid_offer|hid_clue|sh_step|big_ev|gt_)/;
 export function currentEvent(s: GameState): ReturnType<typeof eventView> | undefined {
   bindState(s);
   // 그사이 상황이 바뀐 이벤트(사망·이혼 등)는 건너뛴다
@@ -1313,7 +1316,9 @@ export function currentEvent(s: GameState): ReturnType<typeof eventView> | undef
     const def = defOf(s, ev.defId);
     const p = s.people[ev.personId];
     const ctx: Ctx = { s, p, ev };
-    if (def && p && (alive(p) || FOR_THE_DEAD.has(def.id)) && (def.valid?.(ctx) ?? true)) {
+    // 수감 중인 사람에게 바깥세상 일(취업·부업·회사·숨은 길·대형 이벤트)은 오지 않는다
+    const jailed = !!p && p.flags.includes('in_prison') && OUTSIDE_ONLY.test(ev.defId);
+    if (def && p && !jailed && (alive(p) || FOR_THE_DEAD.has(def.id)) && (def.valid?.(ctx) ?? true)) {
       const v = eventView(ctx);
       // 근현대사: 그 시절에 없던 물건·제도가 나오는 이야기는 건너뛴다
       if (!inHistory(s) || v.def.id.startsWith('hist_') || CORE_IDS.has(v.def.id) || !anachronistic(s, v.title + ' ' + v.text)) return v;

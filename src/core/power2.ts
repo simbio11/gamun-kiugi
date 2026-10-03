@@ -29,6 +29,8 @@ import type { GameState, Person } from './types';
 const hap = (p: Person, d: number) => (p.happiness = clamp(p.happiness + d, 0, 100));
 const up = (p: Person, k: keyof Person['actual'], d: number) => (p.actual[k] = clamp(p.actual[k] + d, 0, 100));
 const who = (c: { p: Person }) => fullName(c.p);
+/** 학생은 하숙집, 결혼했으면 셋집, 아니면 단골 구멍가게 */
+const p_home = (c: { p: Person }) => (c.p.flags.includes('student') ? '하숙집' : c.p.spouseId ? '셋집' : '골목 구멍가게');
 const hist = (s: GameState) => s.era === 'history' && s.year <= 2025;
 const wi = (s: GameState) => wageIndex(s.year);
 const W = (s: GameState, v: number) => Math.max(1, Math.round(v * wi(s)));
@@ -214,13 +216,29 @@ const DEMO: Story[] = [
       { label: '도서관으로 간다', run: (x) => (up(x.p, 'int', 1), hap(x.p, -2), '최루탄 냄새가 도서관까지 스며들었다.') },
     ],
   },
+  // 떡밥: 잡혀가기 전에 먼저 "누군가 지켜보고 있다"는 낌새가 온다. 이 장면을 지나고 해가 바뀐 뒤에야 연행될 수 있다.
+  {
+    id: 'pw_watched', title: '골목 끝의 검은 지프', years: [1972, 1987],
+    ok: (s, p) => hasFlag(p, 'dissident') && age(s, p) >= 19 && !hasFlag(p, 'in_prison') && free(p) && !hasFlag(p, 'jailed_dissident') && !p.flags.some((f) => f.startsWith('watched:')),
+    text: (c) => `${p_home(c)} 주인이 ${who(c)}을(를) 붙잡는다. "어제 양복 입은 사람 둘이 자네 방이 어디냐고 묻고 갔어." 며칠째 골목 끝에 검은 지프가 서 있다. 전화를 들면 딸깍, 하는 소리가 섞인다.`,
+    choices: () => [
+      { label: '몸을 사린다 (유인물·책을 태우고 한동안 조용히)', run: (x) => {
+        up(x.p, 'mor', -1); hap(x.p, -3);
+        if (chance(x.s, 0.65)) { x.p.flags = x.p.flags.filter((f) => f !== 'dissident'); return '아궁이에 책을 넣는 손이 떨렸다. 몇 달 뒤, 골목의 지프가 사라졌다.'; }
+        x.p.flags.push('watched:' + x.s.year);
+        return '책은 태웠지만 이름은 이미 명단에 올라 있었다. 지프는 여전히 그 자리에 있다.';
+      } },
+      { label: '신경 쓰지 않는다', run: (x) => (x.p.flags.push('watched:' + x.s.year), up(x.p, 'mor', 2), '"죄지은 게 없다." 그날 밤에도 등사기를 돌렸다.') },
+      { label: '동지들에게 알리고 연락망을 바꾼다', run: (x) => (x.p.flags.push('watched:' + x.s.year), mark(x.p, 'network', 1), addFlag(x.p, 'tipped'), '암호를 바꾸고 모임 장소를 옮겼다. 잡혀가더라도 동지들은 지킬 수 있다.') },
+    ],
+  },
   {
     id: 'pw_dissident_jail', title: '긴급조치 위반', years: [1974, 1987],
-    ok: (s, p) => hasFlag(p, 'dissident') && age(s, p) >= 20 && !hasFlag(p, 'in_prison') && free(p) && !hasFlag(p, 'jailed_dissident'),
-    text: (c) => `새벽 4시. 낯선 사내들이 ${who(c)}의 집 문을 두드린다. "잠깐 같이 가셔야겠습니다." ${c.s.year < 1980 ? '긴급조치 위반' : '국가보안법 위반'} 혐의다.`,
+    ok: (s, p) => hasFlag(p, 'dissident') && p.flags.some((f) => f.startsWith('watched:') && Number(f.slice(8)) < s.year) && age(s, p) >= 20 && !hasFlag(p, 'in_prison') && free(p) && !hasFlag(p, 'jailed_dissident'),
+    text: (c) => `새벽 4시. 골목에 서 있던 그 검은 지프다. 낯선 사내들이 ${who(c)}의 집 문을 두드린다. "잠깐 같이 가셔야겠습니다." ${c.s.year < 1980 ? '긴급조치 위반' : '국가보안법 위반'} 혐의다.${hasFlag(c.p, 'tipped') ? '\n(미리 연락망을 바꿔 둔 덕에 동지들의 이름은 지킬 수 있다)' : ''}`,
     choices: () => [
       { label: '끝까지 진술을 거부한다', run: (x) => {
-        addFlag(x.p, 'jailed_dissident'); up(x.p, 'mor', 6); x.s.fame += 4; mark(x.p, 'network', 2);
+        addFlag(x.p, 'jailed_dissident'); up(x.p, 'mor', 6); x.s.fame += hasFlag(x.p, 'tipped') ? 6 : 4; mark(x.p, 'network', 2);
         x.p.actual.hp = clamp(x.p.actual.hp - 8, 0, 100);
         return imprison(x.s, x.p, 2, 0, `${x.s.year < 1980 ? '긴급조치 9호' : '국가보안법'} 위반`) + '\n옥중 편지가 몰래 밖으로 나가 복사본으로 돌았다. 재야의 이름이 됐다.';
       } },
