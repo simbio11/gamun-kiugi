@@ -3261,17 +3261,18 @@ function handle(el: HTMLElement) {
       });
       return;
     }
-    case 'data-export': {
-      const text = exportData(load());
-      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `gamun-kiugi-${account.user ?? 'guest'}-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      ui.saveMsg = '📤 데이터 파일을 저장했다.';
-      break;
-    }
+    case 'data-export':
+      void exportData(load()).then((text) => {
+        const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gamun-kiugi-${account.user ?? 'guest'}-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        ui.saveMsg = '📤 데이터 파일을 저장했다 (유산·카드·하던 가문·지난 가문 기록 포함).';
+        render();
+      });
+      return;
     case 'acc-logout':
       logout();
       hasSave = canContinue();
@@ -3310,6 +3311,7 @@ function handle(el: HTMLElement) {
         if (!ag) ui.saveMsg = '이 기록을 찾지 못했다 (다른 기기에서 지웠거나 오프라인).';
         else {
           ui.game = migrate(ag);
+          ui.game.rewards = []; // 기록 보기는 읽기 전용: 남은 보상 알림은 띄우지 않는다
           ui.archiveView = id;
           ui.archives = false;
           ui.overLog = false;

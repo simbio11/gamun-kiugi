@@ -422,6 +422,8 @@ export interface DataFile {
   profile?: Partial<Profile>;
   /** 하던 가문 (이어하기로 들어간다) */
   game?: GameState;
+  /** 지난 가문들 (기록실: 요약 + 가계도·연대기가 담긴 게임 전체) */
+  archives?: { meta: FamilyArchive; game: GameState }[];
 }
 /** 파일을 읽어 지금 주인(손님·계정)의 기록에 더한다. 하던 가문이 있으면 돌려준다 */
 export function importData(text: string): { ok: boolean; msg: string; game?: GameState } {
@@ -436,6 +438,7 @@ export function importData(text: string): { ok: boolean; msg: string; game?: Gam
   if (d.profile) {
     const add = normalize(d.profile);
     add.saves = {};
+    add.archives = []; // 기록실은 아래 archives 로 (가계도·연대기와 함께) 넣는다
     const cur = profile();
     const m = merge(cur, add);
     m.ancestor = add.ancestor ?? cur.ancestor;
@@ -445,12 +448,20 @@ export function importData(text: string): { ok: boolean; msg: string; game?: Gam
     if (add.ancestor) parts.push(`🪦 조상 카드 ${add.ancestor.name}`);
     if (add.perma.length) parts.push(`💠 가문 내력 ${add.perma.length}개`);
   }
+  const arch = (d.archives ?? []).filter((a) => a?.meta?.id && a.game?.people);
+  for (const a of arch) void archiveFamily(a.meta, a.game);
+  if (arch.length) parts.push(`📚 지난 가문 ${arch.map((a) => `${a.meta.family}씨`).join(', ')}`);
   if (d.game) parts.push(`▶ 하던 가문 (${d.game.familyName}씨 ${d.game.generation}대 · ${d.game.year}년)`);
   return { ok: true, msg: `📂 불러왔다: ${parts.join(' · ') || '내용 없음'}${d.note ? `\n${d.note}` : ''}`, game: d.game };
 }
-/** 지금 기록 + 하던 가문을 파일로 */
-export function exportData(game?: GameState | null): string {
+/** 지금 기록 + 하던 가문 + 지난 가문(가계도·연대기까지)을 파일로 */
+export async function exportData(game?: GameState | null): Promise<string> {
   const p = profile();
-  const data: DataFile = { type: 'gamun-kiugi-data', v: 1, profile: { ...p, saves: {}, archives: [] }, game: game ?? undefined };
+  const archives: { meta: FamilyArchive; game: GameState }[] = [];
+  for (const meta of p.archives) {
+    const g = await loadArchive(meta.id).catch(() => undefined);
+    if (g) archives.push({ meta, game: g });
+  }
+  const data: DataFile = { type: 'gamun-kiugi-data', v: 1, profile: { ...p, saves: {}, archives: [] }, game: game ?? undefined, archives };
   return JSON.stringify(data);
 }

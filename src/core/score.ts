@@ -66,7 +66,7 @@ export function trackPeak(s: GameState) {
       // 가장 높았던 자리 (부고·인생 신문용): peakjob:직업:직함
       const title = j.titles?.[p.jobLevel] ?? j.name;
       p.flags = p.flags.filter((f) => !f.startsWith('peakjob:'));
-      p.flags.push(`peakjob:${p.job}:${j.titles ? `${j.name} ${title}` : title}`);
+      p.flags.push(`peakjob:${p.job}:${j.titles && !title.includes(j.name) && !j.name.includes(title) ? `${j.name} ${title}` : title}`);
     }
   }
 }

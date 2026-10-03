@@ -1359,7 +1359,7 @@ describe('부모님 유산', () => {
     const card = CARDS.find((c) => c.id === id)!;
     expect(card.rarity).toBe('legend');
     expect(card.eff).toEqual({ cash: 6000, fame: 6, heat: 4, kid: 'str', sup: 15 }); // sup: 카드 추가 효과(EXTRA_EFF) — 슈퍼 희귀 직업 확률 +15%
-    expect(JOBS[id].base).toBe(60000);
+    expect(JOBS[id].base).toBe(40000); // 2026-10 연봉 현실화 (hidden-data.ts)
     // 2. 3단계 사연의 보상 (단계 성공금 합계)
     const r = SUPER_ROUTES.find((x) => x.id === id)!;
     expect(r.step1.succMoney + r.step2.succMoney + r.step3.succMoney).toBe(52000);
