@@ -2219,12 +2219,8 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 .fp-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; margin: 0 -12px; padding: 10px 12px; background: var(--bg2); box-shadow: var(--drop); }
 .fp-head b { flex: 1; font-size: 16px; }
 .fp-head small { color: var(--sand); }
-.coll-bar { height: 8px; margin: 10px 0 6px; background: var(--bg2); border: 2px solid var(--line); }
+.coll-bar { height: 8px; margin: 6px 0 0; background: var(--bg2); border: 2px solid var(--line); }
 .coll-bar i { display: block; height: 100%; background: var(--gold); transition: width .4s; }
-.coll-chips { position: sticky; top: 50px; z-index: 1; display: flex; gap: 6px; overflow-x: auto; padding: 6px 0; background: var(--bg); scrollbar-width: none; }
-.coll-chips button { flex: none; padding: 6px 10px; border: 2px solid var(--line); background: var(--panel2); color: var(--ink); font: inherit; font-size: 13px; }
-.coll-chips button.on { background: var(--gold); }
-.coll-chips small { color: var(--muted); }
 .coll-h { margin: 16px 0 8px; font-size: 15px; color: var(--cream); }
 .coll-h small { color: var(--sand); font-weight: normal; }
 .coll-page .cdex { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
@@ -2264,3 +2260,20 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 .re.listing .re-stamp { color: var(--blue); }
 .re.listing.found .re-stamp { color: var(--red); }
 .re-price { color: var(--blue); white-space: nowrap; flex: none; }
+
+/* 카드 컬렉션 분야 탭: 한 줄로 넘겨 보는 아이콘 탭 */
+.coll-tabs { position: sticky; top: 50px; z-index: 1; display: flex; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; margin: 0 -12px; padding: 8px 12px; background: var(--bg); box-shadow: 0 2px 0 0 var(--line); }
+.coll-tabs::-webkit-scrollbar { display: none; }
+.coll-tabs button { flex: none; width: 58px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 5px; border: 2px solid var(--line); background: var(--bg2); color: var(--sand); font: inherit; }
+.coll-tabs button.on { background: var(--gold); color: var(--ink); transform: translateY(-2px); box-shadow: var(--drop); }
+.ct-i { font-size: 20px; line-height: 1; }
+.ct-n { font-size: 11px; white-space: nowrap; }
+.ct-bar { display: block; width: 40px; height: 3px; background: color-mix(in srgb, var(--line) 60%, transparent); }
+.ct-bar i { display: block; height: 100%; background: var(--pos-dark); }
+.coll-tabs button.on .ct-bar i { background: var(--pos); }
+.coll-sum { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0 8px; margin: 12px 0 4px; }
+.coll-sum b { color: var(--cream); font-size: 15px; }
+.coll-sum span { color: var(--sand); font-size: 13px; }
+.coll-sum .coll-bar { grid-column: 1 / -1; }
+.acts.enter-r { animation: screen-r .3s var(--ease) backwards; }
+.acts.enter-l { animation: screen-l .3s var(--ease) backwards; }

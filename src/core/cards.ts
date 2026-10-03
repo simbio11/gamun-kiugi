@@ -512,18 +512,18 @@ export const SYN_THEME: Record<string, string> = {
 export const cardNo = (id: string) => CARDS.findIndex((c) => c.id === id) + 1;
 
 /** 카드 컬렉션의 분야 (계정 컬렉션 화면에서 종류별로 모아 본다) */
-export const CARD_GROUPS: { id: string; icon: string; name: string }[] = [
-  { id: 'power', icon: '🏛', name: '권력·법·외교' },
-  { id: 'money', icon: '💰', name: '돈·사업' },
-  { id: 'mind', icon: '🔬', name: '학문·기술·우주' },
-  { id: 'medical', icon: '🩺', name: '의료' },
-  { id: 'culture', icon: '🎭', name: '연예·문화·언론' },
-  { id: 'sports', icon: '🏅', name: '스포츠' },
-  { id: 'craft', icon: '🛠', name: '장인·현장·자연' },
-  { id: 'life', icon: '👪', name: '삶·신념' },
-  { id: 'era', icon: '🕰', name: '시대' },
-  { id: 'hidden', icon: '🌑', name: '히든' },
-  { id: 'super', icon: '🌌', name: '슈퍼 히든' },
+export const CARD_GROUPS: { id: string; icon: string; name: string; short: string }[] = [
+  { id: 'power', icon: '🏛', name: '권력·법·외교', short: '권력' },
+  { id: 'money', icon: '💰', name: '돈·사업', short: '돈' },
+  { id: 'mind', icon: '🔬', name: '학문·기술·우주', short: '학문' },
+  { id: 'medical', icon: '🩺', name: '의료', short: '의료' },
+  { id: 'culture', icon: '🎭', name: '연예·문화·언론', short: '문화' },
+  { id: 'sports', icon: '🏅', name: '스포츠', short: '스포츠' },
+  { id: 'craft', icon: '🛠', name: '장인·현장·자연', short: '장인' },
+  { id: 'life', icon: '👪', name: '삶·신념', short: '삶' },
+  { id: 'era', icon: '🕰', name: '시대', short: '시대' },
+  { id: 'hidden', icon: '🌑', name: '히든', short: '히든' },
+  { id: 'super', icon: '🌌', name: '슈퍼 히든', short: '슈퍼' },
 ];
 const THEME_GROUP: Record<string, string> = {
   power: 'power', law: 'power', military: 'power', diplo: 'power', hero: 'power',

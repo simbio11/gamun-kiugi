@@ -443,7 +443,7 @@ export function mount(el: HTMLElement) {
   root.addEventListener('touchstart', swipeStart, { passive: true });
   root.addEventListener('touchmove', swipeMove, { passive: false });
   root.addEventListener('touchend', swipeEnd, { passive: true });
-  root.addEventListener('touchcancel', () => ((swipe = null), swipeRelease(root.querySelector('.screen'))), { passive: true });
+  root.addEventListener('touchcancel', () => (swipeRelease(swipeEl(!!swipe?.inActs)), (swipe = null)), { passive: true });
   root.addEventListener('pointermove', tilt);
   root.addEventListener('pointerdown', spinStart);
   root.addEventListener('pointermove', spinMove);
@@ -749,9 +749,11 @@ function collectionView(): string {
   const sc = sel ? pf.collection[sel.id] : undefined;
   return `<div class="fullpage coll-page" data-noswipe>
     <header class="fp-head"><button class="mini" data-action="coll-close">◀ 돌아가기</button><b>🃏 카드 컬렉션</b><small>${total}/${CARDS.length}</small></header>
-    <div class="coll-bar"><i style="width:${Math.round((total / CARDS.length) * 100)}%"></i></div>
-    <div class="cat-chips coll-chips"><button class="${!cur ? 'on' : ''}" data-action="coll-group" data-v="">전체</button>${groups.map((gr) => `<button class="${cur?.id === gr.id ? 'on' : ''}" data-action="coll-group" data-v="${gr.id}">${gr.icon} ${gr.name} <small>${gr.n}/${gr.list.length}</small></button>`).join('')}</div>
-    ${cur ? section(cur) : groups.map(section).join('')}
+    <nav class="coll-tabs">${[{ id: '', icon: '🃏', short: '전체', n: total, list: CARDS }, ...groups]
+      .map((gr) => `<button class="${(cur?.id ?? '') === gr.id ? 'on' : ''}" data-action="coll-group" data-v="${gr.id}"><span class="ct-i">${gr.icon}</span><span class="ct-n">${gr.short}</span><i class="ct-bar"><i style="width:${Math.round((gr.n / Math.max(1, gr.list.length)) * 100)}%"></i></i></button>`)
+      .join('')}</nav>
+    <div class="coll-sum"><b>${cur ? `${cur.icon} ${cur.name}` : '🃏 전체'}</b><span>${cur ? cur.n : total} / ${cur ? cur.list.length : CARDS.length}</span><div class="coll-bar"><i style="width:${Math.round(((cur ? cur.n : total) / Math.max(1, cur ? cur.list.length : CARDS.length)) * 100)}%"></i></div></div>
+    ${cur ? `<div class="cdex">${[...cur.list].sort((a, b) => Number(got(b)) - Number(got(a))).map(tile).join('')}</div>` : groups.map(section).join('')}
     <p class="fine">가문이 끝나도 카드는 계정에 남는다. 같은 가문의 같은 사람은 한 번만 센다.</p>
     ${
       sel
@@ -2292,6 +2294,8 @@ function assetsScreen(g: GameState): string {
 
 const AUTO_GIFT_STEPS = [0, 300, 500, 1000, 2500, 5000];
 
+const CAT_ICON: Record<string, string> = { 복무: '🎖', '올해의 기회': '✨', '내 직업': '💼', 가족: '👪', '진로·자기계발': '📚', '자녀 교육': '🎒', 재산: '💰', 사회: '🤝' };
+
 /** 행동 탭: 턴을 넘기기 전에 직접 하는 일. 분류 칩으로 한 묶음씩 보여 줘서 스크롤을 줄인다 */
 function actionsScreen(g: GameState): string {
   const ap = apLeft(g);
@@ -2337,7 +2341,7 @@ function actionsScreen(g: GameState): string {
   };
   return `
   <section class="ap-bar">
-    <div><b>올해의 할 일</b> <small>${STAGE_NAMES[stageOf(g, head(g))]}${!['none', 'parttime', 'pension'].includes(me0.job) ? ` · ${esc(jobShort(g, me0))}` : TRACK_NAMES[mainT ?? ''] ? ` · ${TRACK_NAMES[mainT!]}` : ''}${sideJ ? ` · 겸직 ${esc(JOBS[sideJ]?.name ?? '')}` : ''}</small></div>
+    <div><b>${CAT_ICON[cat] ?? '•'} ${cat}</b> <small>${list.filter((a) => a.cat === cat).length}가지 · ${STAGE_NAMES[stageOf(g, head(g))]}${!['none', 'parttime', 'pension'].includes(me0.job) ? ` · ${esc(jobShort(g, me0))}` : TRACK_NAMES[mainT ?? ''] ? ` · ${TRACK_NAMES[mainT!]}` : ''}${sideJ ? ` · 겸직 ${esc(JOBS[sideJ]?.name ?? '')}` : ''}</small></div>
     <span class="ap" title="행동력: 생활 수준 검소 2·보통 3·호화 4${car ? ` + 탈것 ${car}` : ''}">${'●'.repeat(ap)}${'○'.repeat(Math.max(0, apMax(g) - ap))}</span>
   </section>
   ${jobTabs}
@@ -2345,7 +2349,7 @@ function actionsScreen(g: GameState): string {
   <div class="cat-chips dock" data-noswipe>${cats
     .map((c) => {
       const n = list.filter((a) => a.cat === c).length;
-      return `<button data-action="act-cat" data-v="${c}" class="${c === cat ? 'on' : ''}">${c} <small>${n}</small></button>`;
+      return `<button data-action="act-cat" data-v="${c}" class="${c === cat ? 'on' : ''}">${CAT_ICON[c] ?? ''} ${c} <small>${n}</small></button>`;
     })
     .join('')}</div>
   ${list.some(isFit) ? `<p class="fine fit-note">💡 = ${esc(fullName(head(g)))}의 성향·적성(${[...fits].map((c) => JOB_CATS[c as keyof typeof JOB_CATS]?.split(' ')[1] ?? c).join('·')})에 잘 맞는 활동. 해 볼수록 그 분야로 진로가 열린다.</p>` : ''}
@@ -2912,7 +2916,7 @@ function onClick(e: MouseEvent) {
 // 2) 끄는 동안 화면이 손가락을 절반쯤 따라오고, 갈 곳이 없으면 고무줄처럼 버틴다
 // 3) 화면 폭 22% 이상 끌었거나 빠르게 튕기면 넘어간다 (아니면 제자리로 튕겨 돌아온다)
 const TAB_NAME: Record<Tab, string> = { tree: '가계도', act: '행동', policy: '방침', assets: '자산', log: '연대기', achv: '업적' };
-let swipe: { x: number; y: number; t: number; axis?: 'x' | 'y'; dx: number; lastX: number; lastT: number; v: number; armed: boolean } | null = null;
+let swipe: { x: number; y: number; t: number; axis?: 'x' | 'y'; dx: number; lastX: number; lastT: number; v: number; armed: boolean; inActs: boolean } | null = null;
 let swipeHint: HTMLElement | null = null;
 
 /** 가로로 스크롤되는 상자 안인가 (그 안에서는 상자를 스크롤해야 한다) */
@@ -2926,12 +2930,13 @@ function inHScroller(el: HTMLElement | null): boolean {
   return false;
 }
 /** 이 방향으로 쓸면 어디로 가나 (없으면 undefined) */
-function swipeTarget(dir: 1 | -1): { kind: 'cat' | 'tab'; v: string; label: string } | undefined {
-  if (ui.tab === 'act') {
-    const chips = [...root.querySelectorAll<HTMLElement>('.cat-chips button')];
+function swipeTarget(dir: 1 | -1, inActs = false): { kind: 'cat' | 'tab'; v: string; label: string } | undefined {
+  // 행동 목록 위에서 쓸면 행동 탭 안의 분류만 넘긴다 (끝이면 버틴다) · 그 밖에서 쓸면 다른 탭으로
+  if (ui.tab === 'act' && inActs) {
+    const chips = [...root.querySelectorAll<HTMLElement>('.cat-chips.dock button')];
     const on = chips.findIndex((b) => b.classList.contains('on'));
     const nx = chips[on + dir];
-    if (nx) return { kind: 'cat', v: nx.dataset.v ?? '', label: nx.textContent?.trim() ?? '' };
+    return nx ? { kind: 'cat', v: nx.dataset.v ?? '', label: nx.textContent?.trim().replace(/\s+\d+$/, '') ?? '' } : undefined;
   }
   const t = TAB_ORDER[TAB_ORDER.indexOf(ui.tab) + dir];
   return t ? { kind: 'tab', v: t, label: TAB_NAME[t] } : undefined;
@@ -2948,7 +2953,7 @@ function swipeStart(e: TouchEvent) {
   if (!t || e.touches.length > 1 || !swipeAllowed()) return;
   if (t.clientX < 18 || t.clientX > window.innerWidth - 18) return;
   if (el.closest('.cv-card, .prop-row, .cat-chips, .modal, select, input, textarea, .job-tabs, [data-noswipe]') || inHScroller(el)) return;
-  swipe = { x: t.clientX, y: t.clientY, t: e.timeStamp, dx: 0, lastX: t.clientX, lastT: e.timeStamp, v: 0, armed: false };
+  swipe = { x: t.clientX, y: t.clientY, t: e.timeStamp, dx: 0, lastX: t.clientX, lastT: e.timeStamp, v: 0, armed: false, inActs: ui.tab === 'act' && !!el.closest('.acts') };
 }
 function swipeMove(e: TouchEvent) {
   const sw = swipe;
@@ -2969,8 +2974,8 @@ function swipeMove(e: TouchEvent) {
   sw.lastT = e.timeStamp;
   sw.dx = dx;
   const dir = dx < 0 ? 1 : -1;
-  const target = swipeTarget(dir);
-  const scr = root.querySelector<HTMLElement>('.screen');
+  const target = swipeTarget(dir, sw.inActs);
+  const scr = swipeEl(sw.inActs);
   const w = window.innerWidth;
   const pass = Math.abs(dx) > w * 0.22;
   if (pass !== sw.armed && target) {
@@ -2996,6 +3001,8 @@ function swipeMove(e: TouchEvent) {
     swipeHint.style.setProperty('--p', String(Math.min(1, Math.abs(dx) / (w * 0.22))));
   } else swipeHint?.remove(), (swipeHint = null);
 }
+/** 끌리는 것: 행동 목록 위에서면 목록만, 아니면 화면 전체 */
+const swipeEl = (inActs: boolean) => root.querySelector<HTMLElement>(inActs ? '.acts' : '.screen');
 function swipeRelease(scr: HTMLElement | null) {
   swipeHint?.remove();
   swipeHint = null;
@@ -3008,7 +3015,7 @@ function swipeRelease(scr: HTMLElement | null) {
 function swipeEnd(e: TouchEvent) {
   const sw = swipe;
   swipe = null;
-  const scr = root.querySelector<HTMLElement>('.screen');
+  const scr = swipeEl(!!sw?.inActs);
   if (!sw || sw.axis !== 'x' || !swipeAllowed()) return swipeRelease(scr);
   const t = e.changedTouches[0];
   const dx = t ? t.clientX - sw.x : sw.dx;
@@ -3016,7 +3023,7 @@ function swipeEnd(e: TouchEvent) {
   // 넘어가는 조건: 충분히 끌었거나, 짧아도 빠르게 튕겼다 (그리고 처음 쓴 방향과 마지막 속도가 같은 쪽)
   const flick = Math.abs(sw.v) > 0.45 && Math.abs(dx) > 30 && Math.sign(sw.v) === Math.sign(dx);
   const dir: 1 | -1 = dx < 0 ? 1 : -1;
-  const target = Math.abs(dx) > w * 0.22 || flick ? swipeTarget(dir) : undefined;
+  const target = Math.abs(dx) > w * 0.22 || flick ? swipeTarget(dir, sw.inActs) : undefined;
   if (!target) return swipeRelease(scr);
   swipeHint?.remove();
   swipeHint = null;
@@ -3028,8 +3035,9 @@ function swipeEnd(e: TouchEvent) {
       window.scrollTo(0, 0);
     }
     render();
-    // 분류가 바뀌어도 탭처럼 옆에서 밀려 들어온다
-    if (target.kind === 'cat' && !prefs.calm) root.querySelector('.screen')?.classList.add(dir > 0 ? 'enter-r' : 'enter-l');
+    // 분류가 바뀌면 목록만 옆에서 밀려 들어온다
+    if (target.kind === 'cat' && !prefs.calm) root.querySelector('.acts')?.classList.add(dir > 0 ? 'enter-r' : 'enter-l');
+    if (target.kind === 'cat') root.querySelector('.cat-chips.dock .on')?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: prefs.calm ? 'auto' : 'smooth' });
   };
   if (prefs.calm || !scr) return go();
   // 끌던 방향으로 마저 밀려 나간 뒤 새 화면이 반대편에서 들어온다
