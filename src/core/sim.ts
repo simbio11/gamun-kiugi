@@ -819,11 +819,13 @@ function retirementAndGraduation(s: GameState) {
       retireHonor(s, p);
       settlePension(p, s);
       if (p.id === s.headId) queue(s, 'pension_timing', p.id), queue(s, 'second_life', p.id);
+      addFlag(p, 'retired:' + p.job); // 은퇴 뒤 이야기 (jobdeep 'ret')
       p.job = 'pension';
       p.flags = p.flags.filter((f) => !f.startsWith('prep:') && !f.startsWith('tries:'));
     } else if ((JOBS[p.job].kind === 'creator' || JOBS[p.job].kind === 'business' || p.job === 'politician') && a >= 78) {
       if (hasAnyLicense(p)) savePreviousLevel(p, p.job, p.jobLevel);
       settlePension(p, s);
+      addFlag(p, 'retired:' + p.job);
       p.job = 'pension';
     }
 

@@ -19,6 +19,7 @@ import { hiddenActs } from './job-acts-hidden';
 import { jobDoor } from './hidden-quest';
 import { grantRelic, hasRelic } from './relics';
 import { nextTitle, tryPromote } from './rank';
+import { DEEP } from './jobdeep';
 
 /** cash 수입 · fame 명성 · promo 승진 · skill 능력치 · net 인맥 · care 보람 · risk 한탕 · hp 체력 · (히든) dark 큰 판 · legend 전설 · rest 숨 고르기 · jackpot 일생일대 */
 export type JaKind = 'cash' | 'fame' | 'promo' | 'skill' | 'net' | 'care' | 'risk' | 'hp' | 'dark' | 'legend' | 'rest' | 'jackpot';
@@ -34,6 +35,11 @@ export const JOB_ACTS: Record<string, JA[]> = Object.fromEntries(
   Object.entries(BASE).map(([id, l]) => [id, [...l.map((a, k): JA => (k === 2 ? [a[0], a[1], a[2], a[3], a[4], a[5], 'opp'] : a)), ...(MORE[id] ?? [])]]),
 );
 Object.assign(JOB_ACTS, hiddenActs());
+// 직업 고증 팩: 개연성 없는 행동은 빼고, 그 직업만의 행동을 더한다 (jobdeep/)
+for (const d of DEEP) {
+  const cut = new Set(d.cutActs ?? []);
+  JOB_ACTS[d.job] = [...(JOB_ACTS[d.job] ?? []).filter((a) => !cut.has(a[1])), ...(d.acts ?? [])];
+}
 
 const HINT: Record<JaKind, (st: StatKey) => string> = {
   cash: () => '수입↑',

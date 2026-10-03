@@ -142,6 +142,11 @@ const STEPS: Record<string, number[]> = {
   secretary: [3, 4, 4, 4],
 };
 
+/** 직업 고증 팩(jobdeep)이 승진 햇수를 바로잡는다 */
+export function setSteps(job: string, steps: number[]) {
+  STEPS[job] = steps;
+}
+
 /** 이 직급(lv)에서 다음으로 오르기까지 최소 햇수: 아래는 빨리, 위로 갈수록 오래 */
 export function minYears(lv: number, maxLevel: number, job?: string): number {
   const st = job ? STEPS[job] : undefined;
