@@ -7,6 +7,7 @@ import { chance, int, pick } from './rng';
 import { eun, iga, type Choice, type EventDef } from './ev-util';
 import { addFlag, age, alive, clamp, fullName, hasFlag, head, mark, parentsOf, relationLabel } from './people';
 import { formatWon } from './economy';
+import { calculateReturnLevel, getLicenses, hasAnyLicense, LICENSED_JOBS, savePreviousLevel } from './licenses';
 import type { GameState, Person } from './types';
 
 export type WoeId = 'alcohol' | 'gamble' | 'chronic' | 'injury' | 'depression' | 'loan' | 'guarantee' | 'jobless' | 'shopping' | 'smoking';
@@ -130,6 +131,7 @@ export const WOES: Record<WoeId, Woe> = {
     lines: ['며칠째 출근을 못 했다.', '"다 내 탓이야"라는 말을 자주 한다.', '아이 졸업식에도 오지 못했다.'],
     hit: (s, p) => {
       if (p.job !== 'none' && chance(s, 0.25)) {
+        savePreviousLevel(p, p.job, p.jobLevel);
         p.job = 'none';
         p.jobLevel = 0;
         return '결국 직장을 그만뒀다.';
@@ -194,6 +196,7 @@ export const WOES: Record<WoeId, Woe> = {
     treat: { label: '직업훈련(내일배움카드)·자격증 준비', cost: 100, cure: 0.5, ok: '', fail: '면접에서 번번이 떨어졌다.' },
     free: { label: '국민취업지원제도 신청 (무료)', cost: 0, cure: 0.35, ok: '', fail: '상담만 받고 흐지부지됐다.' },
     setup: (_s, p) => {
+      if (p.job !== 'none') savePreviousLevel(p, p.job, p.jobLevel);
       p.job = 'none';
       p.jobLevel = 0;
     },
@@ -318,6 +321,14 @@ const woeEv: EventDef = {
       fam(x.s, 10);
       mark(h, 'resilient');
       if (w === 'jobless') {
+        if (hasAnyLicense(x.p)) {
+          const targetJob = getLicenses(x.p)[0];
+          const retLvl = calculateReturnLevel(x.p, targetJob, false);
+          x.p.job = targetJob;
+          x.p.jobLevel = retLvl;
+          x.p.jobYears = 0;
+          return `다시 일어섰다. ${LICENSED_JOBS[targetJob]?.name ?? '국가 전문직 면허'}를 살려 ${retLvl}레벨로 현장에 당당히 복직했다!`;
+        }
         x.p.job = pick(x.s, x.p.sex === 'M' ? ['factory', 'courier', 'taxi', 'caregiver'] : ['caregiver', 'nurse_aide', 'factory']);
         x.p.jobLevel = 0;
         x.p.jobYears = 0;

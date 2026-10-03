@@ -21,6 +21,7 @@ import type { LifeDef } from './life';
 import { MORE_STORIES } from './stories-more';
 import { severance } from './economy';
 import { JOBS } from './data';
+import { grantLicense, savePreviousLevel } from './licenses';
 import { acquireCar, affordCar } from './vehicle';
 import { PATH_STORIES } from './stories-path';
 import { pathOf, type Path } from './path';
@@ -161,8 +162,16 @@ function apply(x: Ctx, e: Eff | undefined) {
   if (e.flag === 'laid_off') {
     p.flags = p.flags.filter((f) => f !== 'laid_off');
     severance(x.s, p);
+    if (p.job !== 'none') savePreviousLevel(p, p.job, p.jobLevel);
     p.job = 'none';
     p.jobLevel = 0;
+    p.jobYears = 0;
+  }
+  if (e.flag === 'to_lawyer_partner') {
+    p.flags = p.flags.filter((f) => f !== 'to_lawyer_partner');
+    grantLicense(p, 'lawyer');
+    p.job = 'lawyer';
+    p.jobLevel = Math.max(3, p.jobLevel);
     p.jobYears = 0;
   }
   // 유급: 졸업이 1년 미뤄진다

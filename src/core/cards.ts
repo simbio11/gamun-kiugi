@@ -433,7 +433,7 @@ export const CARD_THEME: Record<string, string> = {
   nobel: 'science', scholar: 'science', star_tutor: 'science',
   astronaut: 'space', space_founder: 'space',
   spymaster: 'tech', cyber_commander: 'tech', turing: 'tech', bigtech: 'tech', gamer_champ: 'tech', esports_owner: 'tech', engineer_award: 'tech',
-  famed_doctor: 'medical', who_hero: 'medical', new_drug: 'medical', msf: 'medical', angel_care: 'medical',
+  famed_doctor: 'medical', who_hero: 'medical', new_drug: 'medical', msf: 'medical', angel_care: 'medical', god_medicine: 'medical', god_acupuncture: 'medical',
   national_mc: 'stage', world_star: 'stage', ent_chair: 'stage', rookie_star: 'stage',
   best_actor: 'screen', webtoon_ip: 'screen', gold_button: 'screen', cannes: 'screen', mega_creator: 'screen',
   national_singer: 'music', billboard: 'music', maestro: 'music', grammy: 'music',
@@ -445,6 +445,17 @@ export const CARD_THEME: Record<string, string> = {
   cardinal: 'faith', conscience: 'faith', good_heart: 'faith',
   star_farmer: 'nature', eco_hero: 'nature', explorer: 'nature', good_driver: 'nature', farm_hero: 'nature',
   philanthropist: 'family', best_teacher: 'family', proud_parent: 'family', centenarian: 'family', filial: 'family',
+  // 히든 직업 카드 테마
+  hj_adventurer: 'nature', hj_magician: 'stage', hj_shaman: 'faith', hj_cult: 'faith',
+  hj_memecoin: 'money', hj_gambler: 'money', hj_natural: 'nature', hj_hermit: 'nature',
+  hj_assassin: 'hero', hj_hacker: 'tech', hj_spy: 'tech', hj_smuggler: 'money',
+  hj_pirate: 'nature', hj_mercenary: 'military', hj_trader: 'money', hj_bounty: 'hero',
+  hj_tarot: 'faith', hj_thief: 'tech', hj_exorcist: 'faith', hj_nomad: 'nature',
+  hj_fighter: 'sports', hj_forger: 'craft', hj_vtuber: 'stage', hj_drifter: 'nature',
+  hj_vampire: 'faith', hj_private_jet: 'service', hj_underground_dealer: 'money', hj_chess_master: 'sports',
+  hj_art_investigator: 'craft', hj_michelin_inspector: 'service', hj_conservator: 'craft', hj_bodyguard: 'hero',
+  hj_detective: 'law', hj_perfumer: 'craft', hj_stargazer: 'space', hj_pope: 'faith',
+  hj_space_analyst: 'space', hj_mafia: 'power', hj_godmother: 'power',
   ...Object.fromEntries(ERA_CARDS.map((c) => [c.id, c.theme])),
 };
 export const SYN_THEME: Record<string, string> = {

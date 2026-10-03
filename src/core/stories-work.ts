@@ -334,7 +334,7 @@ export const WORK_STORIES: Story[] = [
     { label: '작은 것을 내주고 큰 것을', mark: { network: 1 }, text: '', roll: ['cha', 52, [{ promo: 1 }, '원하던 핵심을 지켰다.'], [{ hap: -4 }, '내준 것만 기억됐다.']] },
   ] },
   { id: 'wk_law_revolving', title: '전관예우', age: [35, 70], w: 1, cond: J('judge', 'prosecutor', 'lawyer'), text: '대형 로펌이 {n}에게 연봉 20억을 제시한다. "전관" 대우. 그 대신 친정(법원·검찰)과의 인맥이 필요하다.', choices: [
-    { label: '로펌으로 간다', mark: { cheat: 1 }, text: '연봉이 열 배가 됐다. 동료들의 시선은 싸늘하다.', eff: { cash: 15000, fame: -2, flag: 'laid_off', later: [1, 1, 1, 'first_job'] } },
+    { label: '로펌으로 간다', mark: { cheat: 1 }, text: '연봉이 열 배가 됐다. 동료들의 시선은 싸늘하다.', eff: { cash: 15000, fame: -2, flag: 'to_lawyer_partner' } },
     { label: '공익 변호로 간다', mark: { honest: 2 }, text: '"전관예우를 거부한 법조인" — 존경을 받았다.', eff: { mor: 5, fame: 3 } },
     { label: '지금 자리를 지킨다', text: '제안을 거절했다.', eff: { mor: 2 } },
   ] },

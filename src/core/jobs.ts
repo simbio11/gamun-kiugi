@@ -138,10 +138,11 @@ job('president', '대통령', 'etc', 'fixed', 26000, 0, 0, { fame: 20, color: '#
 
 // ── 사무·금융 ──
 job('office', '회사원', 'office', 'salary', 3000, 600, 5, { promote: 0.14, stats: WORK, titles: OFFICE_T, entry: hire(20, 'free', { text: '작은 회사에서 커리어를 시작했다.' }) });
-job('corp', '대기업 직원', 'office', 'salary', 5200, 1400, 7, { fame: 0.5, color: '#1f3b5c', retireAge: 58, promote: 0.12, stats: WORK, titles: BIG_T, entry: exam('corp', 'study', { univ: true }) });
-job('public_corp', '공기업 직원', 'office', 'salary', 4700, 900, 5, { fame: 0.5, color: '#3e5a7a', promote: 0.12, stats: { int: 0.6, mor: 0.4 }, titles: ['6급', '5급', '4급', '3급', '2급', '1급'], entry: exam('public_corp', 'public', { univ: true }) });
-job('banker', '은행원', 'office', 'salary', 5000, 1300, 6, { fame: 0.5, color: '#2f4f6f', retireAge: 57, promote: 0.12, stats: WORK, titles: ['행원', '계장', '대리', '과장', '차장', '지점장', '본부장'], entry: exam('banker', 'study', { univ: true }) });
-job('analyst', '증권 애널리스트', 'office', 'salary', 6500, 2200, 5, { fame: 1, color: '#243b55', promote: 0.12, stats: { int: 0.8, cha: 0.2 }, titles: ['RA', '애널리스트', '시니어', '팀장', '리서치센터장', '스타 애널리스트'], entry: exam('analyst', 'study', { univ: true }) });
+job('corp', '대기업 직원', 'office', 'salary', 5200, 1400, 7, { fame: 0.5, color: '#1f3b5c', retireAge: 58, promote: 0.12, stats: WORK, titles: BIG_T, entry: exam('corp', 'study', { univ: true, maxAge: 35 }) });
+job('public_corp', '공기업 직원', 'office', 'salary', 4700, 900, 5, { fame: 0.5, color: '#3e5a7a', promote: 0.12, stats: { int: 0.6, mor: 0.4 }, titles: ['6급', '5급', '4급', '3급', '2급', '1급'], entry: exam('public_corp', 'public', { univ: true, maxAge: 40 }) });
+job('banker', '은행원', 'office', 'salary', 5000, 1300, 6, { fame: 0.5, color: '#2f4f6f', retireAge: 57, promote: 0.12, stats: WORK, titles: ['행원', '계장', '대리', '과장', '차장', '지점장', '본부장'], entry: exam('banker', 'study', { univ: true, maxAge: 35 }) });
+job('analyst', '증권 애널리스트', 'office', 'salary', 6500, 2200, 5, { fame: 1, color: '#243b55', promote: 0.12, stats: { int: 0.8, cha: 0.2 }, titles: ['RA', '애널리스트', '시니어', '팀장', '리서치센터장', '스타 애널리스트'], entry: exam('analyst', 'study', { univ: true, maxAge: 35 }) });
+
 job('marketer', '마케터', 'office', 'salary', 3700, 900, 5, { promote: 0.13, stats: { cha: 0.5, int: 0.5 }, titles: OFFICE_T, entry: hire(42, 'business', { univ: true, text: '마케팅팀 막내가 되었다.' }) });
 job('sales', '영업사원', 'office', 'salary', 3200, 1100, 5, { promote: 0.15, stats: { cha: 0.7, mor: 0.3 }, titles: OFFICE_T, entry: hire(30, 'business', { text: '실적이 곧 연봉이다. 명함 백 장을 받았다.' }) });
 job('insurance', '보험설계사', 'office', 'salary', 2800, 1800, 4, { promote: 0.14, stats: { cha: 0.8, mor: 0.2 }, titles: ['설계사', '팀장', '지점장', '본부장', '억대 연봉 MDRT'], entry: hire(28, 'business', { text: '지인 명단부터 정리했다.' }) });
@@ -158,7 +159,8 @@ job('firefighter', '소방관', 'public', 'salary', 3500, 650, 5, { fame: 1.5, c
 job('prison_guard', '교도관', 'public', 'salary', 3300, 650, 5, { fame: 0.5, color: '#3b4a3b', promote: 0.1, pension: 0.5, stats: { str: 0.4, mor: 0.6 }, titles: ['교도', '교사', '교위', '교감', '교정관', '소장'], entry: exam('corrections', 'public') });
 job('mail_carrier', '집배원', 'public', 'salary', 3000, 450, 4, { fame: 0.5, color: '#c83a3a', promote: 0.08, pension: 0.5, risk: 0.03, stats: BODY, titles: ['집배원', '선임', '팀장', '과장', '우체국장'], entry: exam('postal', 'public') });
 job('officer', '직업군인', 'public', 'salary', 3600, 1000, 6, { fame: 1.5, color: '#4b5a2e', retireAge: 56, promote: 0.1, pension: 0.5, risk: 0.02, stats: { str: 0.4, mor: 0.4, int: 0.2 }, titles: ['소위', '중위', '대위', '소령', '중령', '대령', '장군'], entry: school('사관학교·ROTC', 'public') });
-job('diplomat', '외교관', 'public', 'salary', 4500, 1300, 5, { fame: 3, color: '#27405e', retireAge: 62, promote: 0.1, pension: 0.5, stats: { int: 0.6, cha: 0.4 }, titles: ['3등 서기관', '2등 서기관', '1등 서기관', '참사관', '공사', '대사'], entry: exam('diplomat', 'public', { univ: true }) });
+job('diplomat', '외교관', 'public', 'salary', 4500, 1300, 5, { fame: 3, color: '#27405e', retireAge: 62, promote: 0.1, pension: 0.5, stats: { int: 0.6, cha: 0.4 }, titles: ['3등 서기관', '2등 서기관', '1등 서기관', '참사관', '공사', '대사'], entry: exam('diplomat', 'public', { univ: true, maxAge: 40 }) });
+
 job('judge', '판사', 'public', 'salary', 8000, 2000, 5, { fame: 4, color: '#111', retireAge: 70, promote: 0.08, pension: 0.5, stats: { int: 0.7, mor: 0.3 }, titles: ['판사', '부장판사', '고법판사', '법원장', '대법관', '대법원장'], entry: exam('judge', 'study', { needFlags: ['passed:bar'], needNote: '변호사시험 합격' }) });
 job('prosecutor', '검사', 'public', 'salary', 7500, 2000, 5, { fame: 3.5, color: '#151520', retireAge: 63, promote: 0.1, pension: 0.5, stats: { int: 0.6, cha: 0.2, mor: 0.2 }, titles: ['평검사', '부부장', '부장검사', '차장검사', '검사장', '검찰총장'], entry: exam('prosecutor', 'study', { needFlags: ['passed:bar'], needNote: '변호사시험 합격' }) });
 
@@ -211,7 +213,8 @@ job('barista', '바리스타', 'service', 'salary', 2400, 400, 3, { color: '#6f4
 job('hairdresser', '미용사', 'service', 'salary', 2400, 1200, 4, { color: '#c050a0', retireAge: 70, promote: 0.12, stats: { cha: 0.7, mor: 0.3 }, titles: ['스텝', '디자이너', '실장', '원장', '청담동 원장'], entry: hire(20, 'stage', { cost: 500, needNote: '미용 자격증', text: '미용실 스텝으로 샴푸부터 배운다.' }) });
 job('nail_artist', '네일아티스트', 'service', 'salary', 2300, 900, 3, { color: '#e070a0', retireAge: 70, promote: 0.12, stats: { cha: 0.8, mor: 0.2 }, titles: ['네일리스트', '실장', '숍 원장', '브랜드 대표'], entry: hire(15, 'stage', { cost: 300, text: '손끝의 예술을 시작했다.' }) });
 job('hotelier', '호텔리어', 'service', 'salary', 3000, 900, 5, { color: '#2a2a4a', promote: 0.12, stats: { cha: 0.6, mor: 0.4 }, titles: ['프런트', '주임', '지배인', '부장', '총지배인', '호텔 대표'], entry: hire(40, 'free', { text: '특급호텔 로비에서 첫 근무.' }) });
-job('flight_attendant', '승무원', 'service', 'salary', 4000, 900, 4, { fame: 0.5, color: '#3a5a8a', retireAge: 58, promote: 0.1, stats: { cha: 0.6, hp: 0.4 }, titles: ['승무원', '부사무장', '사무장', '선임 사무장', '캐빈 매니저'], entry: exam('attendant', 'free') });
+job('flight_attendant', '승무원', 'service', 'salary', 4000, 900, 4, { fame: 0.5, color: '#3a5a8a', retireAge: 58, promote: 0.1, stats: { cha: 0.6, hp: 0.4 }, titles: ['승무원', '부사무장', '사무장', '선임 사무장', '캐빈 매니저'], entry: exam('attendant', 'free', { maxAge: 32 }) });
+
 job('tour_guide', '여행 가이드', 'service', 'salary', 2600, 800, 3, { color: '#4a8a4a', retireAge: 65, promote: 0.1, stats: { cha: 0.7, hp: 0.3 }, titles: ['가이드', '인솔자', '팀장', '여행사 대표'], entry: hire(35, 'free', { cost: 200, needNote: '관광통역 자격', text: '깃발을 들고 첫 투어에 나섰다.' }) });
 job('wedding_planner', '웨딩플래너', 'service', 'salary', 2800, 1000, 3, { color: '#f0d0e0', promote: 0.12, stats: { cha: 0.7, int: 0.3 }, titles: ['플래너', '실장', '이사', '웨딩업체 대표'], entry: hire(35, 'business', { text: '남의 인생 최고의 날을 준비한다.' }) });
 job('pet_groomer', '반려동물 미용사', 'service', 'salary', 2300, 700, 3, { color: '#c0a080', retireAge: 70, promote: 0.1, stats: { mor: 0.5, cha: 0.5 }, titles: ['미용사', '실장', '숍 원장', '펫 브랜드 대표'], entry: hire(15, 'free', { cost: 300, text: '강아지들의 미용사가 되었다.' }) });
@@ -380,26 +383,35 @@ export interface ExamDef {
   /** 이 플래그가 있으면 +8 */
   bonusFlags?: string[];
   maxTries?: number;
+  maxAge?: number;
+  publicOnly?: boolean;
   desc: string;
 }
+
+/** 국가공무원법상 금고 이상 전과(criminal) 시 결격 대상 공직/교원/사법 시험 */
+export const PUBLIC_EXAMS = new Set([
+  'civil', 'civil5', 'tax_civil', 'police', 'coast_guard', 'firefighter',
+  'corrections', 'postal', 'diplomat', 'judge', 'prosecutor', 'teacher',
+]);
+
 const X = (name: string, job: string, stats: Partial<Stats>, pass: number, desc: string, o: Partial<ExamDef> = {}): ExamDef => ({ name, job, level: 0, stats, pass, desc, ...o });
 export const EXAMS: Record<string, ExamDef> = {
-  corp: X('대기업 공채', 'corp', { int: 0.6, cha: 0.4 }, 60, '서류·인적성·면접. 스펙 싸움이다.', { univ: true, bonusFlags: ['univ_top'] }),
-  public_corp: X('공기업 NCS', 'public_corp', { int: 0.8, mor: 0.2 }, 60, '신의 직장. 경쟁률이 수백 대 일.', { univ: true }),
-  banker: X('은행 공채', 'banker', { int: 0.6, cha: 0.4 }, 60, '금융권 필기와 합숙 면접.', { univ: true, bonusFlags: ['univ_top'] }),
-  analyst: X('증권사 리서치 공채', 'analyst', { int: 0.9, cha: 0.1 }, 66, '숫자로 미래를 맞혀야 한다.', { univ: true, bonusFlags: ['univ_top'] }),
-  civil: X('9급 공무원 시험', 'civil', { int: 0.6, mor: 0.4 }, 54, '철밥통을 향한 공시생의 길.'),
-  civil5: X('5급 행정고시', 'civil', { int: 1 }, 76, '합격하면 바로 사무관.', { level: 4, univ: true, bonusFlags: ['univ_top'] }),
-  tax_civil: X('세무직 9급', 'tax_officer', { int: 0.7, mor: 0.3 }, 54, '회계학이 필수 과목이다.'),
-  police: X('경찰 공무원 시험', 'police', { int: 0.4, str: 0.4, mor: 0.2 }, 50, '필기에 체력 시험까지.', { bonusFlags: ['served'] }),
-  coast_guard: X('해양경찰 시험', 'coast_guard', { str: 0.5, hp: 0.3, int: 0.2 }, 50, '수영 실기가 있다.', { bonusFlags: ['served'] }),
-  firefighter: X('소방 공무원 시험', 'firefighter', { str: 0.5, hp: 0.3, int: 0.2 }, 50, '체력이 곧 실력.', { bonusFlags: ['served'] }),
-  corrections: X('교정직 시험', 'prison_guard', { int: 0.5, mor: 0.5 }, 48, '교도소가 직장이 된다.'),
-  postal: X('우정직 시험', 'mail_carrier', { int: 0.5, hp: 0.5 }, 44, '우체국 집배원 채용.'),
-  diplomat: X('외교관 후보자 시험', 'diplomat', { int: 0.7, cha: 0.3 }, 76, '외교부의 문은 좁다.', { univ: true, bonusFlags: ['univ_top'] }),
-  judge: X('판사 임용', 'judge', { int: 0.8, mor: 0.2 }, 76, '법조 경력과 성적이 모두 필요하다.'),
-  prosecutor: X('검사 임용', 'prosecutor', { int: 0.7, cha: 0.3 }, 72, '로스쿨 성적과 실무수습 평가.'),
-  teacher: X('교원 임용고시', 'teacher', { int: 0.6, mor: 0.4 }, 60, '교대·사범대 출신이 유리하다.', { univ: true, bonusFlags: ['edu_school'] }),
+  corp: X('대기업 공채', 'corp', { int: 0.6, cha: 0.4 }, 60, '서류·인적성·면접. 스펙 싸움이다.', { univ: true, bonusFlags: ['univ_top'], maxAge: 35 }),
+  public_corp: X('공기업 NCS', 'public_corp', { int: 0.8, mor: 0.2 }, 60, '신의 직장. 경쟁률이 수백 대 일.', { univ: true, maxAge: 40 }),
+  banker: X('은행 공채', 'banker', { int: 0.6, cha: 0.4 }, 60, '금융권 필기와 합숙 면접.', { univ: true, bonusFlags: ['univ_top'], maxAge: 35 }),
+  analyst: X('증권사 리서치 공채', 'analyst', { int: 0.9, cha: 0.1 }, 66, '숫자로 미래를 맞혀야 한다.', { univ: true, bonusFlags: ['univ_top'], maxAge: 35 }),
+  civil: X('9급 공무원 시험', 'civil', { int: 0.6, mor: 0.4 }, 54, '철밥통을 향한 공시생의 길.', { publicOnly: true }),
+  civil5: X('5급 행정고시', 'civil', { int: 1 }, 76, '합격하면 바로 사무관.', { level: 4, univ: true, bonusFlags: ['univ_top'], publicOnly: true }),
+  tax_civil: X('세무직 9급', 'tax_officer', { int: 0.7, mor: 0.3 }, 54, '회계학이 필수 과목이다.', { publicOnly: true }),
+  police: X('경찰 공무원 시험', 'police', { int: 0.4, str: 0.4, mor: 0.2 }, 50, '필기에 체력 시험까지.', { bonusFlags: ['served'], maxAge: 40, publicOnly: true }),
+  coast_guard: X('해양경찰 시험', 'coast_guard', { str: 0.5, hp: 0.3, int: 0.2 }, 50, '수영 실기가 있다.', { bonusFlags: ['served'], maxAge: 40, publicOnly: true }),
+  firefighter: X('소방 공무원 시험', 'firefighter', { str: 0.5, hp: 0.3, int: 0.2 }, 50, '체력이 곧 실력.', { bonusFlags: ['served'], maxAge: 40, publicOnly: true }),
+  corrections: X('교정직 시험', 'prison_guard', { int: 0.5, mor: 0.5 }, 48, '교도소가 직장이 된다.', { maxAge: 45, publicOnly: true }),
+  postal: X('우정직 시험', 'mail_carrier', { int: 0.5, hp: 0.5 }, 44, '우체국 집배원 채용.', { publicOnly: true }),
+  diplomat: X('외교관 후보자 시험', 'diplomat', { int: 0.7, cha: 0.3 }, 76, '외교부의 문은 좁다.', { univ: true, bonusFlags: ['univ_top'], maxAge: 40, publicOnly: true }),
+  judge: X('판사 임용', 'judge', { int: 0.8, mor: 0.2 }, 76, '법조 경력과 성적이 모두 필요하다.', { publicOnly: true }),
+  prosecutor: X('검사 임용', 'prosecutor', { int: 0.7, cha: 0.3 }, 72, '로스쿨 성적과 실무수습 평가.', { publicOnly: true }),
+  teacher: X('교원 임용고시', 'teacher', { int: 0.6, mor: 0.4 }, 60, '교대·사범대 출신이 유리하다.', { univ: true, bonusFlags: ['edu_school'], publicOnly: true }),
   accountant: X('CPA (공인회계사)', 'accountant', { int: 1 }, 70, '숫자와의 전쟁.', { univ: true }),
   tax_accountant: X('세무사 시험', 'tax_accountant', { int: 1 }, 66, '세법만 수천 페이지.'),
   patent: X('변리사 시험', 'patent_attorney', { int: 1 }, 74, '공대생들의 고시.', { univ: true, bonusFlags: ['eng_school'] }),
@@ -411,10 +423,10 @@ export const EXAMS: Record<string, ExamDef> = {
   journalist: X('언론고시', 'journalist', { int: 0.5, cha: 0.5 }, 64, '논술·작문·면접.', { univ: true, bonusFlags: ['univ_top'] }),
   pd: X('방송사 PD 공채', 'pd', { int: 0.5, cha: 0.5 }, 68, '기획안 하나로 승부한다.', { univ: true, bonusFlags: ['univ_top'] }),
   announcer: X('아나운서 공채', 'announcer', { cha: 0.7, int: 0.3 }, 72, '경쟁률 1000:1.', { univ: true }),
-  attendant: X('항공사 승무원 공채', 'flight_attendant', { cha: 0.6, hp: 0.4 }, 58, '미소와 체력의 시험.'),
+  attendant: X('항공사 승무원 공채', 'flight_attendant', { cha: 0.6, hp: 0.4 }, 58, '미소와 체력의 시험.', { maxAge: 32 }),
   developer: X('IT 기업 코딩테스트', 'developer', { int: 1 }, 58, '알고리즘 문제를 풀어야 한다.', { bonusFlags: ['bootcamp', 'eng_school'] }),
   electric: X('전기기사 자격시험', 'electrician', { int: 0.7, str: 0.3 }, 46, '필기와 실기.'),
-  pilot: X('항공사 조종사 채용', 'pilot', { hp: 0.4, int: 0.4, str: 0.2 }, 62, '비행 교육 이수 후 채용 시험.', { bonusFlags: ['flight_school', 'served'] }),
+  pilot: X('항공사 조종사 채용', 'pilot', { hp: 0.4, int: 0.4, str: 0.2 }, 62, '비행 교육 이수 후 채용 시험.', { bonusFlags: ['flight_school', 'served'], maxAge: 45 }),
   bar: X('변호사 시험', 'lawyer', { int: 1 }, 60, '로스쿨 졸업 후 5번만 볼 수 있다.', { maxTries: 5 }),
   professor: X('교수 임용', 'professor', { int: 0.8, mor: 0.2 }, 72, '논문 실적과 인맥의 싸움. 자리가 잘 안 난다.'),
   nurse: X('간호사 국가고시', 'nurse', { int: 0.6, mor: 0.4 }, 38, '대부분 붙는다.'),
@@ -427,6 +439,7 @@ export const EXAMS: Record<string, ExamDef> = {
   clinical: X('임상병리사 국가고시', 'clinical', { int: 1 }, 40, '대부분 붙는다.'),
   emt: X('응급구조사 국가고시', 'emt', { int: 0.6, mor: 0.4 }, 36, '대부분 붙는다.'),
 };
+
 
 /** 시험 준비 방식: [이름, 비용(만원), 점수 보너스] */
 export const PREP_TIERS: [string, number, number][] = [

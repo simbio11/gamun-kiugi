@@ -153,7 +153,27 @@ describe('슈퍼 히든 3단계 전직 및 카드 해금 라이프사이클', ()
     expect(hasFlag(p, `refused:${routeId}`)).toBe(true);
     expect(s.storySeen?.[`refused:${routeId}:${p.id}`]).toBe(1);
   });
+
+  it('슈퍼 히든 1단계에 승인(도전)했으나 실패한 경우 refused 플래그가 붙지 않고 재도전 기회가 보존된다', () => {
+    const { s, p } = createTestState();
+    const routeId = 'hj_private_jet';
+    // 스탯을 낮춰서 일부러 실패 유도
+    p.actual.cha = 20;
+
+    const ctx = { s, p, ev: { uid: 1, defId: 'sh_step1', personId: p.id, data: { id: routeId } } } as any;
+    const choices = step1Event.choices(ctx);
+    const yesChoice = choices[0]; // 도전 선택지
+    const res = yesChoice.run(ctx);
+
+    expect(res).toContain('실패');
+    // 거절 플래그는 붙지 않아야 함!
+    expect(hasFlag(p, `refused:${routeId}`)).toBe(false);
+    expect(s.storySeen?.[`refused:${routeId}:${p.id}`]).toBeUndefined();
+    // 실패 타임스탬프는 기록되어야 함
+    expect(s.storySeen?.[`sh_fail:${routeId}:${p.id}`]).toBe(s.year);
+  });
 });
+
 
 describe('히든 카드 UI 렌더링 안전성 검증', () => {
   it('모든 히든 직업에 대해 hiddenCardHTML이 예외 없이 정상 HTML을 생성한다', () => {

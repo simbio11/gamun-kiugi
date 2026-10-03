@@ -22,6 +22,7 @@
 import { chance, int, pick } from './rng';
 import { JOBS } from './data';
 import { addHolding, formatMoney, jobTitle } from './economy';
+import { savePreviousLevel } from './licenses';
 import { eul, eun, gate, iga, who, type Ctx } from './ev-util';
 import { addFlag, age, alive, clamp, fullName, hasFlag, head, isMainline, mark, markOf, parentsOf, spouseOf } from './people';
 import type { GameState, Person } from './types';
@@ -258,7 +259,12 @@ const cheatReturn: LifeDef = {
         fire(x, 'cheat');
         if (chance(x.s, 0.5)) {
           x.s.fame = Math.max(0, x.s.fame - 10);
-          if (JOBS[x.p.job].kind === 'salary') x.p.job = 'none';
+          if (JOBS[x.p.job]?.kind === 'salary') {
+            savePreviousLevel(x.p, x.p.job, x.p.jobLevel);
+            x.p.job = 'none';
+            x.p.jobLevel = 0;
+            x.p.jobYears = 0;
+          }
           return '증거가 나왔다. 해고당했다. (명성 -10)';
         }
         return '이번에도 넘어갔다. …이번에도.';

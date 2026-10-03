@@ -1,8 +1,8 @@
 import type { EventDef } from './ev-util';
-import { gate, who } from './ev-util';
-import { chance } from './rng';
+import { gate, who, schedule } from './ev-util';
+import { chance, int } from './rng';
 import { addFlag, age, alive, clamp, fullName, hasFlag, isMainline } from './people';
-import { hasLicense, revokeLicense } from './licenses';
+import { hasLicense, revokeLicense, savePreviousLevel } from './licenses';
 import type { GameState, Person } from './types';
 import { JOBS } from './jobs';
 
@@ -54,16 +54,18 @@ export function crimeYear(s: GameState): string[] {
 /** 캐릭터 구속 수감 헬퍼 */
 export function imprison(s: GameState, p: Person, years: number, fameLoss: number, reason: string): string {
   addFlag(p, 'in_prison');
-  p.flags = p.flags.filter((f) => !f.startsWith('prison_term:'));
+  p.flags = p.flags.filter((f) => !f.startsWith('prison_term:') && !f.startsWith('prep:') && !f.startsWith('tries:'));
   p.flags.push(`prison_term:${years}`);
   addFlag(p, 'convicted');
 
   // 직업 박탈 (단, 면허 자체는 별도 revokeLicense 호출 시에만 취소)
+  if (p.job !== 'none') savePreviousLevel(p, p.job, p.jobLevel);
   p.job = 'none';
   p.jobLevel = 0;
   p.jobYears = 0;
   p.happiness = clamp(p.happiness - 35, 0, 100);
   s.fame = Math.max(0, s.fame - fameLoss);
+  s.scandal = Math.min(100, (s.scandal ?? 0) + Math.round(fameLoss * 0.8));
 
   return `💥 법정 구속! ${fullName(p)}에게 징역 ${years}년의 실형이 선고되었다. (${reason}) 교도소에 수감되었다. (가문 명성 -${fameLoss})`;
 }
@@ -139,6 +141,7 @@ export const crmDuiPolice: EventDef = {
           x.p.cash -= 600;
           x.p.happiness = clamp(x.p.happiness - 20, 0, 100);
           x.s.fame = Math.max(0, x.s.fame - 4);
+          x.s.scandal = Math.min(100, (x.s.scandal ?? 0) + 10);
           return `삐- 소리와 함께 혈중알코올농도 0.09% 적발. 면허 취소 처분과 벌금 600만 원이 부과되었다. 전과 기록이 남았다.`;
         },
       },
@@ -169,6 +172,7 @@ export const crmDuiCrash: EventDef = {
           x.p.cash -= 2500; // 치료비 및 형사합의금
           x.p.happiness = clamp(x.p.happiness - 25, 0, 100);
           x.s.fame = Math.max(0, x.s.fame - 6);
+          x.s.scandal = Math.min(100, (x.s.scandal ?? 0) + 15);
           return `구호 조치와 자수 덕분에 실형은 면했으나, 피해자 합의금과 벌금으로 2,500만 원을 물어주고 집행유예를 받았다.`;
         },
       },
@@ -214,7 +218,7 @@ export const crmTaxStep1: EventDef = {
           addFlag(x.p, 'crm:tax_fraud');
           x.s.scandal = Math.min(100, (x.s.scandal ?? 0) + 10);
           // 1~2년 뒤 세무조사 큐잉
-          x.s.events.push({ uid: x.s.eventSeq++, defId: 'crm_tax_audit', personId: x.p.id });
+          schedule(x.s, int(x.s, 1, 2), 'crm_tax_audit', x.p.id);
           return '통장에 찍히지 않는 현금 3,500만 원을 챙겼다. 아무도 모를 거라 생각했다.';
         },
       },
@@ -278,7 +282,7 @@ export const crmInsiderStep1: EventDef = {
           addFlag(x.p, 'crm:insider_trade');
           x.s.scandal = Math.min(100, (x.s.scandal ?? 0) + 15);
           // 금감원 이상거래 감시망 포착 큐잉
-          x.s.events.push({ uid: x.s.eventSeq++, defId: 'crm_insider_fss', personId: x.p.id });
+          schedule(x.s, int(x.s, 1, 2), 'crm_insider_fss', x.p.id);
           return '공시가 뜨자마자 상한가 직행! 순식간에 8,000만 원의 차익을 남겼다. 축배를 들었다.';
         },
       },
@@ -346,7 +350,7 @@ export const crmMedicalStep1: EventDef = {
           x.p.actual.mor = clamp(x.p.actual.mor - 15, 0, 100);
           x.s.scandal = Math.min(100, (x.s.scandal ?? 0) + 20);
           // 단속/내부고발 큐잉
-          x.s.events.push({ uid: x.s.eventSeq++, defId: 'crm_medical_bust', personId: x.p.id });
+          schedule(x.s, int(x.s, 1, 2), 'crm_medical_bust', x.p.id);
           return '금고에 현금 다발 1억 2천만 원이 들어찼다. 하지만 수술실 CCTV 화면을 볼 때마다 손이 떨린다.';
         },
       },

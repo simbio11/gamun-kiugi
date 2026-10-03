@@ -187,8 +187,9 @@ export const SUPER_ROUTES: SuperRoute[] = [
         addFlag(x.p, 'no_private_jet');
         addFlag(x.p, 'refused:hj_private_jet');
         (x.s.storySeen ??= {})['refused:hj_private_jet:' + x.p.id] = 1;
-        return '전속 승무원 제의를 정중히 사양했다. 다시는 제안이 오지 않을 것이다.';
+        return `전속 승무원 제의를 정중히 사양했다.\n(※ ${fullName(x.p)} 본인에게는 다시 제안이 오지 않지만, 부모님이나 자녀 등 다른 가족에게는 정상적으로 기회가 찾아옵니다)`;
       },
+
     },
     step2: {
       title: '✈️ 대양 횡단 야간 비행',
@@ -692,6 +693,8 @@ export function superHiddenYear(s: GameState): string[] {
 
       // 3단계 미션 체크
       if (p.flags.includes(f2)) {
+        const lastFail3 = s.storySeen?.['sh_fail_step3:' + r.id + ':' + p.id];
+        if (lastFail3 !== undefined && s.year - lastFail3 < 2) continue; // 실패 후 2년 쿨다운
         if (!s.events.some((e) => e.defId === 'sh_step3' && e.personId === p.id && e.data?.id === r.id)) {
           s.events.push({ uid: s.eventSeq++, defId: 'sh_step3', personId: p.id, data: { id: r.id } });
         }
@@ -700,14 +703,22 @@ export function superHiddenYear(s: GameState): string[] {
 
       // 2단계 미션 체크
       if (p.flags.includes(f1)) {
+        const lastFail2 = s.storySeen?.['sh_fail_step2:' + r.id + ':' + p.id];
+        if (lastFail2 !== undefined && s.year - lastFail2 < 2) continue; // 실패 후 2년 쿨다운
         if (!s.events.some((e) => e.defId === 'sh_step2' && e.personId === p.id && e.data?.id === r.id)) {
           s.events.push({ uid: s.eventSeq++, defId: 'sh_step2', personId: p.id, data: { id: r.id } });
         }
         continue;
       }
 
-      // 1단계 미션 체크 (이미 거절한 라우트는 제외, 희귀 선천 특성 보유 시 100% 즉시 발동, 일반 슈퍼히든 75%)
+      // 1단계 미션 체크 (이미 거절한 라우트는 영구 제외)
       if (s.storySeen?.['refused:' + r.id + ':' + p.id] || p.flags.includes('refused:' + r.id)) continue;
+      // 승인했으나 실패했던 경우: 3년 쿨다운 후 가끔(35%) 다시 기회가 찾아온다
+      const lastFail1 = s.storySeen?.['sh_fail:' + r.id + ':' + p.id];
+      if (lastFail1 !== undefined) {
+        if (s.year - lastFail1 < 3) continue;
+        if (!chance(s, 0.35)) continue;
+      }
       if (r.ready(s, p)) {
         const hasRare = p.traits?.some((t) => ['speed_demon', 'hypnotic_eye', 'dark_artist'].includes(t));
         if ((hasRare || chance(s, 0.75)) && !s.events.some((e) => e.defId === 'sh_step1' && e.personId === p.id)) {
@@ -744,7 +755,8 @@ const step1Event: EventDef = {
             x.p.happiness = clamp(x.p.happiness + 10, 0, 100);
             return `🎉 성공! ${fill(r.step1.succText, x.p)} (+${formatMoney(r.step1.succMoney)})`;
           }
-          return `❌ 실패. ${fill(r.step1.failText, x.p)}`;
+          (x.s.storySeen ??= {})['sh_fail:' + r.id + ':' + x.p.id] = x.s.year;
+          return `❌ 실패. ${fill(r.step1.failText, x.p)}\n(거절한 것이 아니므로, 스탯을 더 단련하면 몇 년 뒤 다시 기회가 찾아올 수 있습니다)`;
         },
       },
       {
@@ -753,9 +765,10 @@ const step1Event: EventDef = {
           (x.s.storySeen ??= {})['refused:' + r.id + ':' + x.p.id] = 1;
           addFlag(x.p, 'refused:' + r.id);
           if (r.step1.onNo) return r.step1.onNo(x);
-          return `도전을 고사했다. ${fullName(x.p)}의 일상은 평화롭게 흘러간다.`;
+          return `도전을 고사했다. ${fullName(x.p)}의 일상은 평화롭게 흘러간다.\n(※ ${fullName(x.p)} 본인에게는 다시 제안이 오지 않지만, 부모님이나 자녀 등 다른 가족에게는 정상적으로 기회가 찾아옵니다)`;
         },
       },
+
     ]);
   },
 };
@@ -782,7 +795,8 @@ const step2Event: EventDef = {
             x.p.happiness = clamp(x.p.happiness + 15, 0, 100);
             return `🎉 대성공! ${fill(r.step2.succText, x.p)} (+${formatMoney(r.step2.succMoney)})`;
           }
-          return `⚠️ 고비를 넘기지 못했다. ${fill(r.step2.failText, x.p)}`;
+          (x.s.storySeen ??= {})['sh_fail_step2:' + r.id + ':' + x.p.id] = x.s.year;
+          return `⚠️ 고비를 넘기지 못했다. ${fill(r.step2.failText, x.p)}\n(스탯을 보강하고 다음 재도전 기회를 노리자)`;
         },
       },
       {
@@ -826,9 +840,11 @@ const step3Event: EventDef = {
             awardCard(x.s, x.p, id, `${HIDDEN_BY_ID[id]?.name ?? id} 등극`);
             return `👑 ${fill(r.step3.succText, x.p)}\n\n✨ [슈퍼 히든 해금] ${HIDDEN_BY_ID[id].icon} ${HIDDEN_BY_ID[id].name} 전직 완료! (+${formatMoney(r.step3.succMoney)})\n🎴 명예의 전당 카드를 획득했습니다!`;
           }
-          return `아쉽게 정점의 문턱에서 물러났다. ${fill(r.step3.failText, x.p)}`;
+          (x.s.storySeen ??= {})['sh_fail_step3:' + r.id + ':' + x.p.id] = x.s.year;
+          return `아쉽게 정점의 문턱에서 물러났다. ${fill(r.step3.failText, x.p)}\n(마지막 기회를 위해 다시 준비하자)`;
         },
       },
+
       {
         label: r.step3.noLabel ?? '마지막 순간 평범한 삶을 택한다',
         run: (x) => {

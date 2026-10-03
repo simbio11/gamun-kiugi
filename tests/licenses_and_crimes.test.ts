@@ -74,17 +74,58 @@ describe('의사 및 전문직 면허 시스템', () => {
 });
 
 describe('범죄 및 수감 시스템', () => {
-  it('구속 시 징역형, 명성 하락, 직업 박탈이 정상 반영된다', () => {
+  it('구속 시 징역형, 명성 하락, 직업 박탈 및 시험 준비 플래그 정리가 정상 반영된다', () => {
     const s = mockState();
     const p = s.people.p1;
     p.job = 'doctor';
     p.jobLevel = 2;
+    p.flags.push('prep:civil', 'tries:2');
 
     const msg = imprison(s, p, 2, 30, '음주운전 뺑소니');
     expect(msg).toContain('징역 2년');
     expect(hasFlag(p, 'in_prison')).toBe(true);
     expect(hasFlag(p, 'prison_term:2')).toBe(true);
+    expect(hasFlag(p, 'prep:civil')).toBe(false);
+    expect(hasFlag(p, 'tries:2')).toBe(false);
     expect(p.job).toBe('none');
     expect(s.fame).toBe(70); // 100 - 30
   });
 });
+
+describe('직업 및 시험 개연성 시스템', () => {
+  it('군 복무자, 수감자, 육아휴직자는 직장 상사 갑질/회식 대상(selfBoss)에서 제외된다', async () => {
+    const { selfBoss } = await import('../src/core/boss');
+    const s = mockState();
+    const p = s.people.p1;
+    p.job = 'office';
+    p.jobLevel = 1;
+
+    // 일반 사원은 selfBoss가 아님 (상사 있음)
+    expect(selfBoss(p)).toBe(false);
+
+    // 군 복무 중
+    p.flags.push('serving:2022');
+    expect(selfBoss(p)).toBe(true);
+    p.flags = p.flags.filter((f) => !f.startsWith('serving:'));
+
+    // 교도소 수감 중
+    p.flags.push('in_prison');
+    expect(selfBoss(p)).toBe(true);
+    p.flags = p.flags.filter((f) => f !== 'in_prison');
+
+    // 육아휴직 중
+    p.flags.push('leave:2020');
+    expect(selfBoss(p)).toBe(true);
+  });
+
+  it('대기업, 공기업, 경찰, 승무원 시험에 현실적인 응시 연령 상한(maxAge)이 적용되어 있다', async () => {
+    const { EXAMS } = await import('../src/core/jobs');
+    expect(EXAMS.corp.maxAge).toBe(35);
+    expect(EXAMS.banker.maxAge).toBe(35);
+    expect(EXAMS.public_corp.maxAge).toBe(40);
+    expect(EXAMS.police.maxAge).toBe(40);
+    expect(EXAMS.attendant.maxAge).toBe(32);
+    expect(EXAMS.pilot.maxAge).toBe(45);
+  });
+});
+

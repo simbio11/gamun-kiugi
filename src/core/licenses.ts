@@ -169,3 +169,67 @@ export function calculateReturnLevel(p: Person, jobId: string, isOpen: boolean):
   const safePrev = Math.max(0, prev > 1 ? prev - 1 : prev);
   return Math.max(meta.minReturnLevel, safePrev);
 }
+
+/** 전문직 복직 및 개원 제안 이벤트 */
+export const licensedRehireEvent = {
+  id: 'licensed_rehire',
+  title: () => '🩺 전문직 면허 복직 / 개원 제안',
+  text: (c: any) => {
+    const p = c.p as Person;
+    const lics = getLicenses(p);
+    const targetJobId = (c.ev.data?.jobId as string) || lics[0] || 'doctor';
+    const meta = LICENSED_JOBS[targetJobId];
+    const prevLvl = getPreviousLevel(p, targetJobId);
+    const prevTitle = prevLvl > 0 ? ` (과거 직급: ${prevLvl}레벨)` : '';
+    return (
+      `${p.surname}${p.name}에게 전문직 헤드헌터와 동료들로부터 연락이 왔다.\n` +
+      `"선생님의 ${meta?.name ?? '국가 면허'}${prevTitle}을 두고 쉬고 계시기엔 너무 아깝습니다.\n` +
+      `병원/기관의 책임 전문직으로 복직하시겠습니까, 아니면 이번 기회에 개인 의원/사무소를 개원하시겠습니까?"`
+    );
+  },
+  choices: (c: any) => {
+    const p = c.p as Person;
+    const lics = getLicenses(p);
+    const targetJobId = (c.ev.data?.jobId as string) || lics[0] || 'doctor';
+    const meta = LICENSED_JOBS[targetJobId];
+    const retLevel = calculateReturnLevel(p, targetJobId, false);
+
+    const out: any[] = [
+      {
+        label: `병원 / 전문기관에 복직한다 (${retLevel}레벨 경력직)`,
+        run: (x: any) => {
+          x.p.job = targetJobId;
+          x.p.jobLevel = retLevel;
+          x.p.jobYears = 0;
+          x.p.happiness = Math.min(100, x.p.happiness + 12);
+          return `🩺 ${x.p.surname}${x.p.name}, 국가 면허를 살려 ${retLevel}레벨 경력직으로 현장에 즉시 복직했다!`;
+        },
+      },
+    ];
+
+    if (meta && meta.openCost > 0) {
+      out.push({
+        label: `개원 / 개업 자금을 들여 독립한다 (비용 ${meta.openCost}만, ${meta.openLevel}레벨 원장)`,
+        cost: meta.openCost,
+        run: (x: any) => {
+          x.p.job = targetJobId;
+          x.p.jobLevel = meta.openLevel;
+          x.p.jobYears = 0;
+          x.s.fame = Math.min(100, x.s.fame + 2);
+          x.p.happiness = Math.min(100, x.p.happiness + 18);
+          return `🏥 ${x.p.surname}${x.p.name}, 개인 ${meta.name.replace(' 면허증', '').replace(' 자격증', '')} 의원/사무소를 성대하게 개원했다! (원장 취임)`;
+        },
+      });
+    }
+
+    out.push({
+      label: '아직은 조금 더 쉬고 싶다 (휴식 유지)',
+      run: () => '잠시 숨을 고르며 재충전의 시간을 조금 더 갖기로 했다.',
+    });
+
+    return out;
+  },
+};
+
+export const LICENSED_EVENTS = [licensedRehireEvent];
+

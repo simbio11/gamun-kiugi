@@ -15,6 +15,7 @@ import { buyPower } from './leverage';
 import { addAsset, formatMoney, jobLabel, jobTitle, pay, personWorth, statScore } from './economy';
 import { estateTax, giveGift } from './estate';
 import { hasLicense, hasAnyLicense, getLicenses, LICENSED_JOBS, calculateReturnLevel, grantLicense } from './licenses';
+import { PUBLIC_EXAMS } from './jobs';
 import {
   addFlag,
   age,
@@ -415,7 +416,12 @@ function examChoice(label: string, examId: string, extra: Partial<Choice> & { pr
   const { pre, ...rest } = extra;
   return {
     label,
-    req: [...Object.keys(e.stats).map((k) => req(k as StatKey, e.pass)), ...(e.univ ? ['대학 졸업'] : [])],
+    req: [
+      ...Object.keys(e.stats).map((k) => req(k as StatKey, e.pass)),
+      ...(e.univ ? ['대학 졸업'] : []),
+      ...(e.maxAge ? [`만 ${e.maxAge}세 이하`] : []),
+      ...(e.publicOnly || PUBLIC_EXAMS.has(examId) ? ['금고 이상 전과 없을 것'] : []),
+    ],
     ...rest,
     run: (x) => {
       pre?.(x);
@@ -446,6 +452,13 @@ const exam: EventDef = {
     const id = examOf(c.p) ?? 'civil';
     const e = EXAMS[id];
     const t = triesOf(c.p);
+    const a = age(c.s, c.p);
+    if (e.maxAge && a > e.maxAge) {
+      return `${who(c)}, ${e.name}의 응시 연령 상한(만 ${e.maxAge}세)을 초과했다. (현재 ${a}세)\n규정상 더 이상 원서를 접수할 수 없다.`;
+    }
+    if (hasFlag(c.p, 'criminal') && (e.publicOnly || PUBLIC_EXAMS.has(id))) {
+      return `${who(c)}, 금고 이상의 형을 선고받은 전과 기록으로 인해 국가공무원법상 결격사유에 해당한다.\n신원조회를 통과할 수 없어 시험 응시가 불가능하다.`;
+    }
     return (
       `${who(c)}, ${e.name} ${t + 1}번째 도전.` +
       (t ? `\n(지난 ${t}번은 불합격. 경험이 쌓여 조금 유리하다)` : `\n${e.desc}`) +
@@ -456,6 +469,32 @@ const exam: EventDef = {
   choices: (c) => {
     const id = examOf(c.p) ?? 'civil';
     const e = EXAMS[id];
+    const a = age(c.s, c.p);
+
+    if (e.maxAge && a > e.maxAge) {
+      return [
+        {
+          label: '연령 제한 초과 (수험 생활 정리)',
+          run: (x) => {
+            clearPrep(x.p);
+            return `⏳ ${who(x)}, 응시 연령 상한(만 ${e.maxAge}세)을 초과하여 ${e.name} 수험 생활을 정리했다.`;
+          },
+        },
+      ];
+    }
+
+    if (hasFlag(c.p, 'criminal') && (e.publicOnly || PUBLIC_EXAMS.has(id))) {
+      return [
+        {
+          label: '공직 결격사유 (수험 생활 정리)',
+          run: (x) => {
+            clearPrep(x.p);
+            return `⚖️ ${who(x)}, 전과 기록으로 인한 공직 결격사유로 인해 수험 생활을 정리했다.`;
+          },
+        },
+      ];
+    }
+
     const tiers: Choice[] = PREP_TIERS.map(([name, cost, bonus]) => ({
       label: `${name}${cost ? '' : ' (돈 안 듦)'}`,
       cost: cost || undefined,

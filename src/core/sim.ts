@@ -14,6 +14,7 @@ import { giveUsedCar } from './vehicle';
 import { debtYear } from './debt';
 import { queueFuneral } from './lifecost';
 import { DECEPTION_EVENTS } from './deception';
+import { K_REALITY_RANDOM } from './k-reality';
 import { fitCats, HOBBY_AGES } from './interests';
 import { buyPower, leverageYear, stockQuote } from './leverage';
 import { bindState } from './school';
@@ -44,6 +45,7 @@ import { medicalYear } from './medical-events';
 import { HIST_BASE, histPrice, histRel } from './histidx';
 import { autonomyYear } from './autonomy';
 import { grantLicense, hasAnyLicense, hasLicense, getLicenses, savePreviousLevel, calculateReturnLevel, LICENSED_JOBS } from './licenses';
+import { PUBLIC_EXAMS } from './jobs';
 import { crimeYear } from './crimes';
 import { lifeReport, trackPeak } from './score';
 import { wageIndex } from './pay';
@@ -126,7 +128,7 @@ function dropRetiredHidden(s: GameState): void {
       p.jobYears = 0;
     }
     p.flags = p.flags.filter((f) => {
-      const m = /^(?:hidden:|sh:|hq:|hp:)(hj_[a-z0-9]+)/.exec(f);
+      const m = /^(?:hidden:|sh:|hq:|hp:)(hj_[a-z0-9_]+)/.exec(f);
       return !(m && gone(m[1]));
     });
   }
@@ -574,7 +576,7 @@ function lifeYear(s: GameState) {
   const pool: [LifeDef, Person, number][] = [];
   romanceYear(s);
   nestYear(s);
-  for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM, ...ROMANCE_RANDOM, ...SEED_EVENTS, ...DECEPTION_EVENTS]) {
+  for (const p of members) for (const d of [...LIFE_RANDOM, ...FATE_RANDOM, ...ROMANCE_RANDOM, ...SEED_EVENTS, ...DECEPTION_EVENTS, ...K_REALITY_RANDOM]) {
     if (onCooldown(s, p.id + ':' + d.id, 6)) continue;
     const w = d.weight?.(s, p) ?? 0;
     if (w > 0) pool.push([d, p, w]);
@@ -644,11 +646,21 @@ function retirementAndGraduation(s: GameState) {
     }
     // 장관 2년, 대통령 5년
     if (p.job === 'minister' && p.jobYears >= 2) {
-      const [pj, pl] = (p.flags.find((f) => f.startsWith('prev:'))?.slice(5) ?? 'pension:0').split(':');
+      const prevFlag = p.flags.find((f) => f.startsWith('prev:'))?.slice(5);
+      let [pj, pl] = (prevFlag ?? '').split(':');
+      if (!pj || pj === 'pension' || pj === 'none') {
+        if (a < 65) {
+          pj = hasLicense(p, 'lawyer') ? 'lawyer' : hasLicense(p, 'doctor') ? 'doctor' : 'politician';
+          pl = '3';
+        } else {
+          pj = 'pension';
+          pl = '0';
+        }
+      }
       p.job = pj;
-      p.jobLevel = Number(pl);
+      p.jobLevel = Number(pl) || 0;
       p.jobYears = 5;
-      log(s, `${fullName(p)} 장관 퇴임`, 'life');
+      log(s, `${fullName(p)} 장관 퇴임 (${JOBS[pj]?.name ?? pj} 복귀)`, 'life');
       ministerLeaves(s, p);
     }
     if (p.job === 'president' && p.jobYears >= 5) {
@@ -696,15 +708,21 @@ function retirementAndGraduation(s: GameState) {
       p.job = 'pension';
     }
 
-    // 전문직 면허가 있는데 무직인 경우: 방계는 자동으로 복직, 메인라인은 행동 탭 및 기회 제공
+    // 전문직 면허가 있는데 무직인 경우: 방계는 자동으로 복직, 메인라인은 복직/개원 이벤트 제안
     if (p.job === 'none' && hasAnyLicense(p) && a < 70 && !hasFlag(p, 'student') && !hasFlag(p, 'in_prison')) {
       const lics = getLicenses(p);
       const targetJob = lics[0];
-      if (!isMainline(s, p) && chance(s, 0.9)) {
-        p.job = targetJob;
-        p.jobLevel = calculateReturnLevel(p, targetJob, false);
-        p.jobYears = 0;
-        log(s, `🩺 ${fullName(p)}, ${LICENSED_JOBS[targetJob]?.name ?? '국가 면허'}를 살려 병원/전문기관에 복직`, 'life');
+      if (!isMainline(s, p)) {
+        if (chance(s, 0.9)) {
+          p.job = targetJob;
+          p.jobLevel = calculateReturnLevel(p, targetJob, false);
+          p.jobYears = 0;
+          log(s, `🩺 ${fullName(p)}, ${LICENSED_JOBS[targetJob]?.name ?? '국가 면허'}를 살려 병원/전문기관에 복직`, 'life');
+        }
+      } else {
+        if (!s.events.some((e) => e.personId === p.id && e.defId === 'licensed_rehire')) {
+          queue(s, 'licensed_rehire', p.id, { jobId: targetJob });
+        }
       }
     }
   }
@@ -782,6 +800,7 @@ function graduate(s: GameState, p: Person, track?: string) {
       return;
     case 'academy_nurse':
       setJob('nurse', 1);
+      grantLicense(p, 'nurse');
       addFlag(p, 'officer_served');
       log(s, `🩺 ${fullName(p)} 간호사 면허 취득 · 간호장교 소위 임관`, 'life');
       return;
@@ -834,7 +853,15 @@ function autoExam(s: GameState, p: Person, id: string) {
   const e = EXAMS[id];
   const tries = Number(p.flags.find((f) => f.startsWith('tries:'))?.slice(6) ?? 0);
   const clear = () => (p.flags = p.flags.filter((f) => !f.startsWith('prep:') && !f.startsWith('tries:')));
+  const a = age(s, p);
+  if ((e.maxAge && a > e.maxAge) || (hasFlag(p, 'criminal') && (e.publicOnly || PUBLIC_EXAMS.has(id)))) {
+    clear();
+    p.job = 'office';
+    p.jobLevel = 0;
+    return;
+  }
   if (check(s, examScore(p, id, 8), e.pass, 7)) {
+
     clear();
     p.job = e.job;
     p.jobLevel = e.level;
@@ -1019,24 +1046,26 @@ function adultEvents(s: GameState) {
     const a = age(s, p);
     if (a < 20 || p.inLaw) continue;
     const pending = (id: string) => s.events.some((e) => e.personId === p.id && e.defId === id);
-    if (p.job === 'none' && !hasFlag(p, 'student') && hasFlag(p, 'failed_pro') && chance(s, 0.6)) {
+    if (p.job === 'none' && !hasFlag(p, 'student') && hasFlag(p, 'failed_pro') && !hasFlag(p, 'in_prison') && !p.flags.some((f) => f.startsWith('serving:')) && chance(s, 0.6)) {
       p.flags = p.flags.filter((f) => f !== 'failed_pro');
       queue(s, 'first_job', p.id);
     }
-    // 시험 준비생은 매년 응시
-    if (p.flags.some((f) => f.startsWith('prep:')) && !pending('exam')) queue(s, 'exam', p.id);
+    // 시험 준비생은 매년 응시 (수감 중이거나 복무 중이면 보류)
+    if (p.flags.some((f) => f.startsWith('prep:')) && !pending('exam') && !hasFlag(p, 'in_prison') && !p.flags.some((f) => f.startsWith('serving:'))) queue(s, 'exam', p.id);
     if (p.job === 'athlete' && a === 34) queue(s, 'athlete_retire', p.id);
     // 창작 직업이 몇 년째 안 뜨면 고민
     if (CREATORS[p.job] && p.jobLevel === 0 && p.jobYears >= 3 && p.jobYears % 3 === 0) queue(s, 'yt_slump', p.id);
-    // 출마 제안 / 재선
-    if (p.job === 'politician' && p.jobYears > 0 && p.jobYears % 4 === 0) queue(s, 'election', p.id);
-    else if (p.job !== 'politician' && a >= 40 && a <= 65 && (s.fame >= 40 || ['lawyer', 'professor', 'journalist'].includes(p.job) || p.jobLevel >= 4) && chance(s, 0.06))
-      queue(s, 'election', p.id);
-    // 소개팅
+    // 출마 제안 / 재선 (수감자 또는 실형 전과자는 피선거권 제한)
+    if (!hasFlag(p, 'in_prison') && !hasFlag(p, 'criminal')) {
+      if (p.job === 'politician' && p.jobYears > 0 && p.jobYears % 4 === 0) queue(s, 'election', p.id);
+      else if (p.job !== 'politician' && a >= 40 && a <= 65 && (s.fame >= 40 || ['lawyer', 'professor', 'journalist'].includes(p.job) || p.jobLevel >= 4) && chance(s, 0.06))
+        queue(s, 'election', p.id);
+    }
+    // 소개팅 (수감 중이거나 군 복무 중이면 제외)
     const single = !p.spouseId || !alive(s.people[p.spouseId]);
     // 소개팅은 같은 사람에게 2년에 한 번까지 (해마다 같은 장면이 반복되지 않게)
     const lastBd = s.storySeen?.['bd:' + p.id];
-    if (single && !p.partnerId && !hasFlag(p, 'single_life') && !pending('blind_date') && !(lastBd !== undefined && s.year - lastBd < 2) && chance(s, dateChance(a, p.id === h.id) * (p.spouseId || hasFlag(p, 'divorced') ? 0.5 : 1))) {
+    if (single && !p.partnerId && !hasFlag(p, 'single_life') && !hasFlag(p, 'in_prison') && !p.flags.some((f) => f.startsWith('serving:')) && !pending('blind_date') && !(lastBd !== undefined && s.year - lastBd < 2) && chance(s, dateChance(a, p.id === h.id) * (p.spouseId || hasFlag(p, 'divorced') ? 0.5 : 1))) {
       (s.storySeen ??= {})['bd:' + p.id] = s.year;
       queue(s, 'blind_date', p.id, { cand: makeDate(s, p) });
     }
@@ -1062,7 +1091,8 @@ function adultEvents(s: GameState) {
 /** 직장 생활 이야기: 일하는 가족에게 그 직업다운 일이 해마다 생긴다 (가주는 자주, 다른 가족은 가끔, 한 해 최대 2건) */
 const WORK_DEFS = STORIES.filter((d) => d.id.startsWith('st_wk_'));
 function workEvents(s: GameState) {
-  const workers = mainlineMembers(s).filter((p) => age(s, p) >= 20 && !['none', 'parttime', 'pension'].includes(p.job) && !p.flags.includes('student'));
+  const workers = mainlineMembers(s).filter((p) => age(s, p) >= 20 && !['none', 'parttime', 'pension'].includes(p.job) && !p.flags.includes('student') && !p.flags.some((f) => f.startsWith('serving:') || f === 'in_prison' || f.startsWith('leave:')));
+
   workers.sort((a, b) => Number(b.id === s.headId) - Number(a.id === s.headId));
   let n = 0;
   for (const p of workers) {

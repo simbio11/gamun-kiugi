@@ -126,7 +126,8 @@ export function hiddenYear(s: GameState): string[] {
   for (const p of people)
     for (const r of ROUTES) {
       if (r.years && (s.year < r.years[0] || s.year > r.years[1])) continue;
-      if ((seen[`hid:${p.id}:${r.id}`] ?? -99) > s.year - 6) continue; // 거절하면 6년은 다시 안 온다
+      if (p.flags.includes('refused:' + r.id) || seen[`refused:${r.id}:${p.id}`]) continue; // 거절한 사람은 절대 다시 오지 않는다
+      if ((seen[`hid:${p.id}:${r.id}`] ?? -99) > s.year - 6) continue;
       if (!r.when(s, p)) continue;
       const boost = r.kin && kinOf(s, p).some(r.kin) ? 2.5 : 1;
       if (chance(s, r.p * boost * lowly(p))) cands.push([r, p]);
@@ -155,15 +156,21 @@ function parentsHidden(s: GameState) {
   if ((seen[k] ?? 0) >= 2) return;
   for (const par of [s.people[hd.fatherId ?? ''], s.people[hd.motherId ?? '']]) {
     if (!par || !alive(par) || par.job.startsWith('hj_') || age(s, par) > 60) continue;
-    if (par.sex === 'F' && chance(s, 0.002)) {
-      const ids = ['hj_vtuber', 'hj_drifter'];
-      s.events.push({ uid: s.eventSeq++, defId: 'sh_step1', personId: par.id, data: { id: pick(s, ids) } });
-      seen[k] = (seen[k] ?? 0) + 1;
-    } else if (chance(s, 0.004)) {
-      const ids = ROUTES.filter((r) => r.id !== 'hj_hermit' && (!r.years || (s.year >= r.years[0] && s.year <= r.years[1]))).map((r) => r.id);
-      s.events.push({ uid: s.eventSeq++, defId: 'hid_offer', personId: par.id, data: { id: pick(s, ids) } });
-      seen[k] = (seen[k] ?? 0) + 1;
+    if (par.sex === 'F' && chance(s, 0.02)) {
+      const ids = ['hj_vtuber', 'hj_drifter'].filter((id) => !par.flags.includes('refused:' + id) && !seen[`refused:${id}:${par.id}`]);
+      if (ids.length) {
+        s.events.push({ uid: s.eventSeq++, defId: 'sh_step1', personId: par.id, data: { id: pick(s, ids) } });
+        seen[k] = (seen[k] ?? 0) + 1;
+      }
+    } else if (chance(s, 0.03)) {
+      const ids = ROUTES.filter((r) => r.id !== 'hj_hermit' && (!r.years || (s.year >= r.years[0] && s.year <= r.years[1])) && !par.flags.includes('refused:' + r.id) && !seen[`refused:${r.id}:${par.id}`]).map((r) => r.id);
+      if (ids.length) {
+        s.events.push({ uid: s.eventSeq++, defId: 'hid_offer', personId: par.id, data: { id: pick(s, ids) } });
+        seen[k] = (seen[k] ?? 0) + 1;
+      }
     }
+
+
   }
 }
 
@@ -188,7 +195,16 @@ const offer: EventDef = {
           return `🌑 ${fill(ROUTE[id].yesText, x.p)}\n\n✨ 히든 직업 달성: ${HIDDEN_BY_ID[id].icon} ${HIDDEN_BY_ID[id].name}\n🎴 명예의 전당 카드를 획득했습니다!`;
         },
       },
-      { label: '거절한다', run: (x) => fill(ROUTE[x.ev.data.id].noText, x.p) },
+      {
+        label: '거절한다',
+        run: (x) => {
+          const id = x.ev.data.id as string;
+          addFlag(x.p, 'refused:' + id);
+          (x.s.storySeen ??= {})[`refused:${id}:${x.p.id}`] = 1;
+          return `${fill(ROUTE[id].noText, x.p)}\n\n(※ ${fullName(x.p)} 본인에게는 다시 제안이 오지 않지만, 부모님이나 자녀 등 다른 가족에게는 정상적으로 기회가 찾아옵니다)`;
+        },
+      },
+
     ]),
 };
 
