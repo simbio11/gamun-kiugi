@@ -2278,3 +2278,25 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 .acts.enter-r { animation: screen-r .3s var(--ease) backwards; }
 .acts.enter-l { animation: screen-l .3s var(--ease) backwards; }
 .file-btn { display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+/* ── 첫 화면 손맛: 고른 버튼이 톡 튀고, 설명은 스며들고, 시작 버튼은 빛이 흐른다 ── */
+.just-on { animation: just-on .34s var(--spring); }
+@keyframes just-on { 0% { transform: scale(.9); filter: brightness(1.25); } 60% { transform: scale(1.04); } 100% { transform: none; filter: none; } }
+.seg button { transition: background-color .18s, color .18s, transform .12s var(--out), box-shadow .12s; }
+.title.still .seg-desc { animation: desc-in .28s var(--out); }
+@keyframes desc-in { from { opacity: 0; transform: translateY(4px); } }
+.start-btn { position: relative; overflow: hidden; letter-spacing: 2px; }
+.start-btn::after { content: ''; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--paper) 55%, transparent), transparent); transform: skewX(-20deg); animation: sheen 3.2s 1s ease-in-out infinite; pointer-events: none; }
+@keyframes sheen { 0%, 60% { left: -40%; } 100% { left: 130%; } }
+.start-btn:not(:disabled):active { transform: translateY(var(--px)) scale(.98); }
+.field input:focus { outline: none; border-color: var(--gold-lo); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 35%, transparent); }
+.title .card { transition: transform .2s var(--out); }
+.title .toast { z-index: 80; }
+#app.calm .start-btn::after, #app.calm .just-on, #app.calm .title.still .seg-desc { animation: none; }
+.start-perks { margin: 8px 0 4px; padding: 8px; border: 2px dashed var(--gold-lo); background: color-mix(in srgb, var(--gold) 12%, var(--paper)); font-size: 12px; }
+.start-perks > div { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.start-perks span { padding: 2px 6px; background: var(--paper); border: 1px solid var(--rule); }
+.lg-how { margin: 8px 0; padding: 8px 10px; font-size: 12px; line-height: 1.55; background: var(--paper); border-left: 4px solid var(--gold); }
+.lg-how ol { margin: 4px 0 0; padding-left: 18px; }
+.cap-bar { height: 6px; margin: -4px 0 8px; background: var(--panel2); border: 1px solid var(--line); }
+.cap-bar i { display: block; height: 100%; background: var(--gold); transition: width .3s var(--out); }
