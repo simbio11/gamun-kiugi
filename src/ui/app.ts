@@ -256,6 +256,8 @@ interface UIState {
   archiveView?: string;
   /** 가문 이야기 마치기 확인 */
   confirmEnd?: boolean;
+  /** 이어할 가문이 있는데 새 가문을 시작하려 할 때 확인 */
+  confirmStart?: boolean;
   /** 부동산: 내 부동산 / 올해 매물 */
   reView?: 'own' | 'market';
   /** 가문이 끝난 뒤 연대기를 보는 중 (결과 창을 잠시 내린다) */
@@ -735,6 +737,12 @@ function titleScreen(): string {
     ${ui.collection ? collectionView() : ''}
     ${ui.archives ? archiveView() : ''}
     ${ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ''}
+    ${ui.confirmStart ? `<div class="modal" data-action="start-cancel"><div class="sheet start-warn" data-stop>
+      <h2>⚠ 새 가문을 시작할까?</h2>
+      <p>지금 이어하던 가문 <b>${esc(continueLabel() ?? '')}</b>이(가) <b>지워진다.</b> 되돌릴 수 없다.</p>
+      <p class="fine">남겨 두고 싶으면 📂 데이터 파일 → 📤 내보내기로 먼저 백업하거나, 이어하기 → 설정 → 📕 가문 이야기 마치기로 끝내면 유산을 받고 기록실에 남는다.</p>
+      <div class="row2"><button class="btn" data-action="start-cancel">아니, 그만둘래</button><button class="btn warn" data-action="start-ok">지우고 새로 시작</button></div>
+    </div></div>` : ''}
   </div>`;
 }
 
@@ -2785,6 +2793,7 @@ function achvScreen(g: GameState): string {
   </section>
   <section class="card">
     <h2>📖 직업 도감 <small class="muted">${g.jobsSeen?.length ?? 0} / ${JOB_IDS.length - 3}</small></h2>
+    <p class="fine">가주와 직계, 부모님·배우자·자녀·손주가 가져 본 직업 (가장 높았던 직업도 남는다)</p>
     <div class="dex">${(g.jobsSeen ?? []).map((id) => `<b class="chip">${JOBS[id].name}</b>`).join(' ') || '<span class="muted">아직 아무도 일하지 않았다</span>'}</div>
   </section>
   <section class="card">
@@ -3369,7 +3378,17 @@ function handle(el: HTMLElement) {
       }
       break;
     }
+    case 'start-cancel':
+      ui.confirmStart = false;
+      break;
+    case 'start-ok':
     case 'start': {
+      // 이어할 가문이 있으면 먼저 묻는다: 새로 시작하면 그 가문은 지워진다
+      if (a === 'start' && hasSave) {
+        ui.confirmStart = true;
+        break;
+      }
+      ui.confirmStart = false;
       const sn = (ui.setup.surname || '김').slice(0, 2);
       const bank = loadBank();
       const legacy = Object.entries(bank.cart).flatMap(([id, n]) => Array.from({ length: Math.max(0, n) }, () => id));

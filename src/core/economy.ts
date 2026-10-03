@@ -1,3 +1,4 @@
+import { companyOf, companyPay } from './companies';
 import { cardPassive } from './cards';
 import { chance, normal, pick } from './rng';
 import { appointedOnly, minYears, rankLine, seatOdds } from './rank';
@@ -147,6 +148,7 @@ export function payOf(s: GameState, p: Person, expected = false): number | undef
   const lv = Math.min(p.jobLevel, d.pay.length - 1);
   let v = d.pay[lv] * Math.pow(1 + d.raise, Math.min(12, levelYears(s, p, !expected)));
   v *= 0.93 + statScore(p, j.stats ?? { int: 1 }) / 700;
+  v *= companyPay(p); // 어느 회사냐 (companies.ts: 글로벌 빅테크 > 삼송·SQ > 대기업 > 중견 > 중소)
   v *= wageIndex(s.year);
   if (!expected) {
     if (d.bonus) v *= clamp(normal(s, 1, d.bonus), 0.6, 1.6);
@@ -217,7 +219,12 @@ export const jobTitle = (p: Person) => {
   return JOBS[p.job].titles?.[p.jobLevel] ?? JOBS[p.job].name;
 };
 /** "공무원(9급)"처럼 직업명 + 직함 */
-export const jobLabel = (p: Person) => (p.job === 'mayor' || p.job === 'minister' || (p.job === 'agent' && p.jobLevel === 5) ? jobTitle(p) : JOBS[p.job].titles ? `${JOBS[p.job].name}(${jobTitle(p)})` : JOBS[p.job].name);
+export const jobLabel = (p: Person) => {
+  const co = companyOf(p);
+  if (co) return `${co.name}(${jobTitle(p)})`;
+  return jobLabelBase(p);
+};
+const jobLabelBase = (p: Person) => (p.job === 'mayor' || p.job === 'minister' || (p.job === 'agent' && p.jobLevel === 5) ? jobTitle(p) : JOBS[p.job].titles ? `${JOBS[p.job].name}(${jobTitle(p)})` : JOBS[p.job].name);
 
 /** 직업 연간 수입 계산 + 커리어 진행. 로그용 메시지를 돌려줌. */
 export function workYear(s: GameState, p: Person): { income: number; msg?: string } {

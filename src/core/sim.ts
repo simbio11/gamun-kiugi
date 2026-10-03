@@ -33,6 +33,7 @@ import { powerYear } from './power';
 import { power2Year, presTerm } from './power2';
 import { applyAncestor, applyLegacy, applyPerma, hasPerma } from './legacy';
 import { handoverYear } from './handover';
+import { companyStoryYear, companyYear } from './companies';
 import { sagaYear, startInheritanceDrama } from './saga';
 import { obituary } from './obituary';
 import { dutyDone, dutyYear, onDuty } from './duty';
@@ -149,6 +150,21 @@ function dropRetiredHidden(s: GameState): void {
   if (s.jobsSeen) s.jobsSeen = s.jobsSeen.filter((j) => !gone(j));
 }
 
+/** 📖 직업 도감: 가주의 부모·배우자·자녀·손주와 직계 모두 (사돈은 빼고, 배우자는 넣는다). 가장 높았던 직업(peakjob)도 */
+export function recordJobs(s: GameState) {
+  const seen = (s.jobsSeen ??= []);
+  const h = s.people[s.headId];
+  const near = new Set<string>(h ? [h.id, h.spouseId ?? '', h.fatherId ?? '', h.motherId ?? '', ...h.childIds] : []);
+  for (const p of Object.values(s.people)) {
+    const mainline = isMainline(s, p);
+    const spouseOfLine = p.inLaw && Object.values(s.people).some((q) => q.spouseId === p.id && !q.inLaw && (isMainline(s, q) || near.has(q.id)));
+    if (!mainline && !near.has(p.id) && !spouseOfLine) continue;
+    const add = (j?: string) => j && JOBS[j] && !['none', 'pension', 'parttime'].includes(j) && !seen.includes(j) && seen.push(j);
+    if (alive(p) && age(s, p) >= 18) add(p.job);
+    add(p.flags.find((f) => f.startsWith('peakjob:'))?.split(':')[1]);
+  }
+}
+
 export function migrate(s: GameState): GameState {
   bindState(s);
   s.achievements ??= [];
@@ -204,6 +220,7 @@ export function migrate(s: GameState): GameState {
     for (const p of Object.values(s.people)) mortgageFromCash(s, p); // 예전 저장: 주담대가 마이너스 현금으로 남아 있었다
   }
   if (!homeOf(s, householder(s))) settleHome(s, householder(s));
+  recordJobs(s); // 예전 저장도 부모·배우자·자녀 직업을 도감에
   return s;
 }
 
@@ -589,8 +606,10 @@ export function simulateYear(s: GameState): void {
 
   for (const p of mainlineMembers(s)) {
     if (age(s, p) >= 20) s.fame += JOBS[p.job].fame * 0.5 * (hasTrait(p, 'ambitious') && JOBS[p.job].fame > 0 ? 1.3 : 1);
-    if (!p.inLaw && age(s, p) >= 18 && !['none', 'pension'].includes(p.job) && !s.jobsSeen!.includes(p.job)) s.jobsSeen!.push(p.job);
   }
+  recordJobs(s);
+  companyYear(s);
+  companyStoryYear(s);
   s.fame = Math.max(0, Math.round(s.fame * 10) / 10);
 
   const after = homeTotal(s);
