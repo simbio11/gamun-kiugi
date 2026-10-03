@@ -38,6 +38,8 @@ export interface Rival {
   lead?: number;
   /** 올해 저쪽이 한 일 (화면 표시용) */
   move?: string;
+  /** 저쪽 집안 사람들 (자식·손주): 세월을 두고 같은 사람이 다시 나온다 (saga.ts) */
+  kin?: { name: string; born: number; sex: 'M' | 'F' }[];
 }
 
 const rv = (s: GameState) => s.rival!;

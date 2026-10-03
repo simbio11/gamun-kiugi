@@ -2245,3 +2245,22 @@ body:has(#theme-bg:not(:empty)) { background: transparent; }
 .perk.perma { background: color-mix(in srgb, var(--blue) 12%, transparent); }
 .perk.locked { opacity: .6; }
 .slot.auto { background: color-mix(in srgb, var(--gold) 18%, transparent); }
+.btn.continue small { display: block; margin-top: 2px; font-size: 12px; opacity: .8; }
+.save-msg { white-space: normal; }
+
+/* ── 부동산: 내 것과 매물을 한눈에 구분 ── */
+.re-seg { margin: 4px 0 8px; }
+.re-seg b { margin-left: 2px; }
+.re-box { padding: 2px 8px 6px; border: 2px solid var(--line); }
+.own-box { background: color-mix(in srgb, var(--green) 10%, var(--paper)); }
+.market-box { background: var(--paper); border-style: dashed; }
+.re-sum { margin: 6px 0; font-size: 12px; color: var(--muted); }
+.re { position: relative; }
+.re-stamp { align-self: flex-start; font-style: normal; font-size: 10px; font-weight: bold; padding: 1px 6px; border: 2px solid currentColor; transform: rotate(-2deg); }
+.re.own { border-top: 0; margin: 6px 0; padding: 8px; background: var(--paper); border-left: 5px solid var(--green); box-shadow: var(--drop); }
+.re.own.prim { border-left-color: var(--gold); }
+.re.own .re-stamp { color: var(--pos); }
+.re.listing { border-top: 0; margin: 6px 0; padding: 8px; background: color-mix(in srgb, var(--blue) 6%, var(--paper)); border: 2px dashed color-mix(in srgb, var(--blue) 45%, transparent); }
+.re.listing .re-stamp { color: var(--blue); }
+.re.listing.found .re-stamp { color: var(--red); }
+.re-price { color: var(--blue); white-space: nowrap; flex: none; }

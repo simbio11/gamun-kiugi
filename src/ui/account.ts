@@ -87,6 +87,8 @@ function write(key: string, v: unknown): boolean {
 
 export const account: Account = read<Account>(ACC_KEY, { mode: 'guest' });
 const who = () => (account.user ? `${account.mode}:${account.user.toLowerCase()}` : 'guest');
+/** 지금 기록의 주인 (손님 또는 계정): 하던 가문(이어하기)도 주인별로 따로 둔다 */
+export const ownerKey = who;
 
 function normalize(p: Partial<Profile> | null | undefined): Profile {
   const e = empty();
@@ -388,9 +390,25 @@ export function delSave(slot: string) {
 /** ☁ 자동 저장: 로그인해 있으면 지금 가문을 계정의 '자동' 칸에 (너무 자주는 말고) */
 let lastAuto = 0;
 export function autoCloudSave(label: string, g: GameState, force = false) {
-  if (!account.user) return;
+  if (account.mode !== 'cloud' || !account.token) return; // 이 기기 계정·손님은 이 기기 저장만으로 충분하다
   const now = Date.now();
   if (!force && now - lastAuto < 20_000) return;
   lastAuto = now;
   void putSave('auto', label, g);
 }
+
+/** 예전 저장 칸(A·B·C)은 없앴다: '자동'(이어하기)만 남기고 지운다 */
+export function dropOldSaveSlots() {
+  const p = profile();
+  const old = Object.keys(p.saves).filter((k) => k !== 'auto');
+  if (!old.length) return;
+  for (const k of old) {
+    const b = p.saves[k].blob;
+    delete p.saves[k];
+    if (b) delBlob(b);
+  }
+  saveProfile(p);
+}
+/** 계정(☁)에 있는 '이어하기'가 이 기기 것보다 새것이면 그 시각을, 아니면 0 */
+export const cloudAutoAt = () => profile().saves.auto?.at ?? 0;
+export const cloudAutoLabel = () => profile().saves.auto?.label;

@@ -32,6 +32,8 @@ import { powerYear } from './power';
 import { power2Year, presTerm } from './power2';
 import { applyAncestor, applyLegacy, applyPerma, hasPerma } from './legacy';
 import { handoverYear } from './handover';
+import { sagaYear, startInheritanceDrama } from './saga';
+import { obituary } from './obituary';
 import { dutyDone, dutyYear, onDuty } from './duty';
 import { GLORY_SCALE, achvRarity, checkHonors, capStats, perkYear, retireHonor } from './rewards';
 import { scanMilestones } from './milestones';
@@ -549,6 +551,7 @@ export function simulateYear(s: GameState): void {
   for (const m of power2Year(s)) log(s, m, 'life');
   dutyYear(s);
   handoverYear(s);
+  sagaYear(s);
   for (const m of cardYear(s)) log(s, m, 'life');
   for (const m of hiddenYear(s)) log(s, m, 'life');
   gateYear(s);
@@ -1024,7 +1027,9 @@ function deaths(s: GameState) {
       if (adopted) addFlag(next, 'adopted_heir');
       transferHeadship(s, next);
       s.policy.lifestyle = 'balance';
+      startInheritanceDrama(s, p, next);
       const text =
+        `🗞 ${obituary(s, p).headline}\n\n` +
         `${iga(fullName(p))} ${cause} 세상을 떠났다. (향년 ${age(s, p)}세)` +
         (hasFlag(p, 'will_written') ? '' : '\n유언장은 남기지 않았다.') +
         (adopted ? `\n뒤를 이을 자손이 없어, 문중 회의 끝에 조카를 양자로 들이기로 했다.` : '') +

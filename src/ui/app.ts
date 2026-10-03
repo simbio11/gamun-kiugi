@@ -204,7 +204,7 @@ import { looksLabel, looksOf, resembleLabel } from '../core/looks';
 import { canHandOver } from '../core/handover';
 import { obituary } from '../core/obituary';
 import { shareObituary } from './obit-card';
-import { account, archiveFamily, autoCloudSave, deleteArchive, delSave, getSave, loadArchive, login, logout, profile, putSave, recordCards, refresh, saveProfile } from './account';
+import { account, archiveFamily, autoCloudSave, cloudAutoAt, cloudAutoLabel, deleteArchive, delSave, dropOldSaveSlots, getSave, loadArchive, login, logout, ownerKey, profile, recordCards, refresh, saveProfile } from './account';
 import type { Asset, AssetKind, Focus, GameState, Home, Lifestyle, Living, MarketKey, Person, Sex, WillMode } from '../core/types';
 import { portraitURL } from '../render/portrait';
 import { sceneArtURL, sceneFor, type SceneKey } from '../render/scene';
@@ -255,6 +255,8 @@ interface UIState {
   archiveView?: string;
   /** 가문 이야기 마치기 확인 */
   confirmEnd?: boolean;
+  /** 부동산: 내 부동산 / 올해 매물 */
+  reView?: 'own' | 'market';
   /** 가문이 끝난 뒤 연대기를 보는 중 (결과 창을 잠시 내린다) */
   overLog?: boolean;
   /** 행동력 남았을 때 턴 넘김 경고 모달 */
@@ -290,7 +292,7 @@ setNominal(prefs.money !== 'real');
 setSound(prefs.sound ?? true);
 setVibe(prefs.vibe ?? true);
 const ui: UIState = {
-  game: load(),
+  game: null,
   tab: 'tree',
   view: prefs.view ?? 'tree',
   zoom: prefs.zoom ?? 'mid',
@@ -312,14 +314,52 @@ export function isTestMode(): boolean {
   return false;
 }
 
+// ───────── 이어하기: 하던 가문 하나만, 주인(손님·계정)별로 ─────────
+//  이 기기: gamun-kiugi-save:<주인> (+ :at 저장 시각) · ☁ 계정: 큰 기록 'save-auto'
+//  로그인하면 그 계정의 가문을, 로그아웃하면 손님 가문을 이어 한다 (서로 덮어쓰지 않는다).
+const saveKey = () => `gamun-kiugi-save:${ownerKey()}`;
+function migrateOldSave() {
+  try {
+    // 예전 단일 저장(주인 없음) → 지금 주인 것으로. 저장 슬롯 1~3은 없앴다.
+    const old = localStorage.getItem(SAVE_KEY);
+    if (old) {
+      if (!localStorage.getItem(saveKey())) localStorage.setItem(saveKey(), old), localStorage.setItem(saveKey() + ':at', String(Date.now()));
+      localStorage.removeItem(SAVE_KEY);
+    }
+    for (const i of [1, 2, 3]) localStorage.removeItem(`gamun-kiugi-slot-${i}`), localStorage.removeItem(`gamun-kiugi-slot-${i}-info`);
+  } catch {
+    /* noop */
+  }
+  dropOldSaveSlots();
+}
 function load(): GameState | null {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    const g = raw ? migrate(JSON.parse(raw) as GameState) : null;
-    return g;
+    const raw = localStorage.getItem(saveKey());
+    return raw ? migrate(JSON.parse(raw) as GameState) : null;
   } catch {
     return null;
   }
+}
+const localSaveAt = () => {
+  try {
+    return localStorage.getItem(saveKey()) ? Number(localStorage.getItem(saveKey() + ':at') ?? 1) : 0;
+  } catch {
+    return 0;
+  }
+};
+/** 이어할 가문이 있나 (이 기기 또는 계정) */
+const canContinue = () => localSaveAt() > 0 || cloudAutoAt() > 0;
+/** 이어하기: 이 기기 것과 계정 것 중 새것 */
+async function loadLatest(): Promise<GameState | null> {
+  if (cloudAutoAt() > localSaveAt() + 2000) {
+    try {
+      const t = await getSave('auto');
+      if (t) return migrate(JSON.parse(t) as GameState);
+    } catch {
+      /* 오프라인이면 이 기기 것으로 */
+    }
+  }
+  return load();
 }
 function loadPrefs(): Prefs {
   try {
@@ -338,7 +378,7 @@ function savePrefs() {
 function save() {
   if (ui.archiveView) return; // 지난 가문 기록을 보는 중엔 아무것도 저장하지 않는다
   try {
-    if (ui.game) localStorage.setItem(SAVE_KEY, JSON.stringify(ui.game));
+    if (ui.game) localStorage.setItem(saveKey(), JSON.stringify(ui.game)), localStorage.setItem(saveKey() + ':at', String(Date.now()));
   } catch {
     /* 저장 불가 환경 */
   }
@@ -348,70 +388,15 @@ function save() {
   // ☁ 로그인해 있으면 계정의 '자동' 칸에도 (다른 기기에서 이어 하기)
   if (g && !g.gameOver) autoCloudSave(slotLabel(g), g);
 }
-// ───────── 저장 슬롯 (자동 저장과 별개로 3칸) · 저장 코드 (다른 기기로 옮기기) ─────────
-const SLOT_KEY = (i: number) => `gamun-kiugi-slot-${i}`;
-interface SlotInfo {
-  label: string;
-  at: number;
-}
-function slotInfo(i: number): SlotInfo | null {
-  try {
-    const raw = localStorage.getItem(SLOT_KEY(i) + '-info');
-    return raw ? (JSON.parse(raw) as SlotInfo) : null;
-  } catch {
-    return null;
-  }
-}
 const slotLabel = (g: GameState) => `${g.familyName}씨 ${g.generation}대 · ${g.year}년 · ${fullName(head(g))} ${age(g, head(g))}세`;
-function saveSlot(i: number): boolean {
-  try {
-    if (!ui.game) return false;
-    localStorage.setItem(SLOT_KEY(i), JSON.stringify(ui.game));
-    localStorage.setItem(SLOT_KEY(i) + '-info', JSON.stringify({ label: slotLabel(ui.game), at: Date.now() }));
-    return true;
-  } catch {
-    return false;
-  }
-}
-function loadSlot(i: number): GameState | null {
-  try {
-    const raw = localStorage.getItem(SLOT_KEY(i));
-    return raw ? migrate(JSON.parse(raw) as GameState) : null;
-  } catch {
-    return null;
-  }
-}
-function deleteSlot(i: number) {
-  try {
-    localStorage.removeItem(SLOT_KEY(i));
-    localStorage.removeItem(SLOT_KEY(i) + '-info');
-  } catch {
-    /* noop */
-  }
-}
-const whenLabel = (at: number) => {
-  const d = new Date(at);
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-};
-/** 슬롯 목록 (설정: 저장·불러오기·삭제 / 첫 화면: 불러오기만) */
-function slotRows(inGame: boolean): string {
-  return [1, 2, 3]
-    .map((i) => {
-      const inf = slotInfo(i);
-      return `<div class="slot ${inf ? '' : 'empty'}">
-        <div class="slot-i"><b>슬롯 ${i}</b><small>${inf ? `${esc(inf.label)}<br>${whenLabel(inf.at)} 저장` : '비어 있음'}</small></div>
-        <div class="slot-b">${inGame ? `<button class="mini" data-action="slot-save" data-v="${i}">${inf ? '덮어쓰기' : '저장'}</button>` : ''}${inf ? `<button class="mini" data-action="slot-load" data-v="${i}">불러오기</button>` : ''}${inf && inGame ? `<button class="mini ghost" data-action="slot-del" data-v="${i}">🗑</button>` : ''}</div>
-      </div>`;
-    })
-    .join('');
-}
-
 function clearSave() {
   try {
-    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(saveKey());
+    localStorage.removeItem(saveKey() + ':at');
   } catch {
     /* noop */
   }
+  if (profile().saves.auto) delSave('auto');
 }
 
 const esc = (t: string) => fixJosa(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -444,8 +429,9 @@ export function mount(el: HTMLElement) {
     save();
     return r;
   };
-  hasSave = !!ui.game;
+  migrateOldSave();
   ui.game = null;
+  hasSave = canContinue();
   root.addEventListener('click', onClick);
   root.addEventListener('touchstart', () => {}, { passive: true }); // iOS에서 :active 눌림 효과 켜기
   root.addEventListener('pointerdown', (e) => {
@@ -467,7 +453,14 @@ export function mount(el: HTMLElement) {
   initHiddenVideos(); // 히든 카드 영상 (한 번만 연결)
   render();
   // 클라우드 계정이면 다른 기기에서 쌓인 유산·카드를 받아 온다
-  void refresh().then((changed) => changed && !ui.game && render());
+  void refresh().then((changed) => {
+    hasSave = canContinue();
+    if (changed && !ui.game) render();
+  });
+  // 앱을 내리거나 닫을 때: 계정 '이어하기'에 바로 올린다 (20초 간격 제한 없이)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && ui.game && !ui.game.gameOver && !ui.archiveView) autoCloudSave(slotLabel(ui.game), ui.game, true);
+  });
 }
 
 // ─────────────────────────── 렌더 ───────────────────────────
@@ -707,9 +700,7 @@ function titleScreen(): string {
     </section>
     ${accountCard()}
     ${account.user ? legacyShop() : ''}
-    ${hasSave ? `<button class="btn big" data-action="continue" style="margin-top:10px;">이어하기</button>` : ''}
-    ${account.user ? cloudSaveCard(false) : ''}
-    ${[1, 2, 3].some((i) => slotInfo(i)) ? `<section class="card"><h2>💾 저장한 가문</h2>${slotRows(false)}</section>` : ''}
+    ${hasSave ? `<button class="btn big continue" data-action="continue" style="margin-top:10px;">▶ 이어하기${continueLabel() ? `<small>${esc(continueLabel()!)}</small>` : ''}</button>` : ''}
     <p class="fine">v0.3 · 다섯 살부터 · 직업 128종 · 수능과 입시 · 인생사 · 업적 70+</p>
     ${ui.collection ? collectionView() : ''}
     ${ui.archives ? archiveView() : ''}
@@ -718,7 +709,7 @@ function titleScreen(): string {
 
 /** 👤 계정 카드: 로그인 전엔 아이디·비밀번호, 로그인 뒤엔 컬렉션·로그아웃 */
 function accountCard(): string {
-  const msg = ui.saveMsg ? `<p class="save-msg">${esc(ui.saveMsg)}</p>` : '';
+  const msg = ui.saveMsg ? `<p class="save-msg">${nl(ui.saveMsg)}</p>` : '';
   if (!account.user)
     return `<section class="card account">
       <h2>👤 로그인</h2>
@@ -801,20 +792,17 @@ function archiveView(): string {
   </div>`;
 }
 
-/** ☁ 계정 저장 칸 3개 (설정: 저장·불러오기·비우기 / 첫 화면: 불러오기) */
-function cloudSaveCard(inGame: boolean): string {
-  const pf = profile();
-  const auto = pf.saves.auto;
-  return `<section class="card cloud-saves"><h3 class="set-h">${account.mode === 'cloud' ? '☁' : '📱'} 계정 저장 칸</h3>${
-    auto && !inGame
-      ? `<div class="slot auto"><div class="slot-i"><b>⏱ 자동</b><small>${esc(auto.label)}<br>${whenLabel(auto.at)} · 마지막으로 하던 가문</small></div><div class="slot-b"><button class="mini do" data-action="cs-load" data-v="auto">이어하기</button></div></div>`
-      : ''
-  }${['A', 'B', 'C']
-    .map((k) => {
-      const cs = pf.saves[k];
-      return `<div class="slot ${cs ? '' : 'empty'}"><div class="slot-i"><b>칸 ${k}</b><small>${cs ? `${esc(cs.label)}<br>${whenLabel(cs.at)} 저장` : '비어 있음'}</small></div><div class="slot-b">${inGame ? `<button class="mini" data-action="cs-save" data-v="${k}">저장</button>` : ''}${cs ? `<button class="mini do" data-action="cs-load" data-v="${k}">불러오기</button>` : ''}${cs && inGame ? `<button class="mini" data-action="cs-del" data-v="${k}">비우기</button>` : ''}</div></div>`;
-    })
-    .join('')}</section>`;
+/** 이어하기 버튼 아래 한 줄: 어느 가문인지 (이 기기 것 또는 계정 것 중 새것) */
+function continueLabel(): string | undefined {
+  if (cloudAutoAt() > localSaveAt() + 2000) return `☁ ${cloudAutoLabel() ?? ''}`;
+  try {
+    const raw = localStorage.getItem(saveKey());
+    if (!raw) return undefined;
+    const g = JSON.parse(raw) as GameState;
+    return `${g.familyName}씨 ${g.generation}대 · ${g.year}년`;
+  } catch {
+    return undefined;
+  }
 }
 
 /** 🏺 유산 상점: 지난 가문이 남긴 유산으로 다음 가문의 시작 혜택을 산다 (가문 시작 버튼을 누르면 적용되고 사라진다) + 💠 가문 내력(영구) */
@@ -1030,7 +1018,8 @@ function realtyCard(g: GameState): string {
         rentable(g, a) ? `<b class="tag">월세 수익률 ${(yieldOf(a) * 100).toFixed(1)}%</b>` : '',
         ...(a.tags ?? []).filter((t) => t !== '주택').map((t) => `<b class="tag">${esc(t)}</b>`),
       ].join('');
-      return `<div class="re">
+      return `<div class="re own ${prim ? 'prim' : ''}">
+        <i class="re-stamp">${prim ? '🔑 우리 집' : '🔑 보유'}</i>
         <div class="re-h"><span>${ASSET_ICONS[a.kind]} ${esc(a.name)}</span><b>${formatMoney(a.value)}${chg(a)}</b></div>
         <div class="re-t">${role}${extra}</div>
         <div class="re-f"><small>${a.cost ? `산 값 ${formatMoney(a.cost)} (${gain >= 0 ? '+' : ''}${formatMoney(gain)}) · ` : ''}팔면 양도세 ${formatMoney(gt.tax)}${gt.note ? ` (${esc(gt.note)})` : ''}</small>
@@ -1045,20 +1034,32 @@ function realtyCard(g: GameState): string {
       const ok = adult && q.cash >= q.need;
       const tx = acqTax(g, h, l);
       return `<div class="re listing ${l.found ? 'found' : ''}">
-        ${l.found ? '<i class="re-found">🔎 임장으로 찾은 매물</i>' : ''}
-        <div class="re-h"><span>${ASSET_ICONS[l.kind]} ${esc(l.name)}</span><b>${formatMoney(l.price)}</b></div>
+        <i class="re-stamp">${l.found ? '🔎 임장 급매' : '📋 매물'}</i>
+        <div class="re-h"><span>${ASSET_ICONS[l.kind]} ${esc(l.name)}</span><b class="re-price">호가 ${formatMoney(l.price)}</b></div>
         <div class="re-t">${l.tags.filter((t) => t !== '주택').map((t) => `<b class="tag ${t === '급매' ? 'hot' : t === '호가 높음' ? 'warn' : t === '알짜' || t === '재건축 확정' || t === 'GTX 개통 예정' ? 'good' : ''}">${esc(t)}</b>`).join('')}${l.yield > 0 && !l.deposit ? `<b class="tag">월세 ${(l.yield * 100).toFixed(1)}%</b>` : ''}${l.house ? (l.kind === 'building' ? '<b class="tag">주택 수 포함</b>' : '') : '<b class="tag">주택 수 제외</b>'}</div>
         <div class="re-f"><small>${l.deposit ? `보증금 ${formatMoney(l.deposit)} 끼고 · ` : ''}취득세 ${formatMoney(q.tax)} (${tx.note}) · 대출 최대 ${formatMoney(q.limit)}${q.ltv ? ` (LTV ${Math.round(q.ltv * 100)}%)` : ''}<br>필요 현금 <b>${formatMoney(Math.max(0, q.need))}</b></small>
           <button class="mini" data-action="buy-l" data-id="${l.id}" ${ok ? '' : 'disabled'}>매수</button></div>
       </div>`;
     })
     .join('');
-  return `<section class="card">
-    <h2>🏠 부동산 <small class="muted">우리 부부 명의 · 주택 ${homes}채</small></h2>
-    ${owned || '<p class="hint">아직 내 집이 없다.</p>'}
-    <h4 class="sub">📋 ${g.year}년 매물 <small class="muted">해마다 바뀐다 · 행동 탭 '임장'으로 급매를 더 찾을 수 있다</small></h4>
-    ${adult ? '' : '<p class="fine">스무 살이 되면 살 수 있다.</p>'}
-    ${listings || '<p class="hint">올해는 매물이 다 나갔다.</p>'}
+  const nList = (g.listings ?? []).length;
+  const view = ui.reView ?? (mine.length ? 'own' : 'market');
+  const total = mine.reduce((t, a) => t + a.value, 0);
+  return `<section class="card realty">
+    <h2>🏠 부동산</h2>
+    <div class="seg re-seg"><button data-action="re-view" data-v="own" class="${view === 'own' ? 'on' : ''}">🔑 내 부동산 <b>${mine.length}</b></button><button data-action="re-view" data-v="market" class="${view === 'market' ? 'on' : ''}">📋 ${g.year}년 매물 <b>${nList}</b></button></div>
+    ${
+      view === 'own'
+        ? `<div class="re-box own-box">
+      <p class="re-sum">우리 부부 명의 · 주택 ${homes}채 · 시세 합계 <b>${formatMoney(total)}</b></p>
+      ${owned || `<p class="hint">아직 가진 부동산이 없다. <button class="mini" data-action="re-view" data-v="market">매물 보러 가기 ›</button></p>`}
+    </div>`
+        : `<div class="re-box market-box">
+      <p class="re-sum">해마다 바뀐다 · 행동 탭 '임장'으로 급매를 더 찾을 수 있다</p>
+      ${adult ? '' : '<p class="fine">스무 살이 되면 살 수 있다.</p>'}
+      ${listings || '<p class="hint">올해는 매물이 다 나갔다.</p>'}
+    </div>`
+    }
     <details class="moves"><summary>부동산 세금·규칙 보기</summary><p class="fine">첫 집(실거주)은 월세가 없는 대신 재산세가 싸고, 2년 넘게 살면 ${formatMoney(120000)}까지 양도세 비과세.<br>두 번째 집부터는 투자: 취득세 8%(3채 이상 12%), 대출 LTV 30%(3채부터 0%), 공시가 ${formatMoney(90000)} 넘으면 종부세, 팔 때 양도세 중과. 월세는 공실이면 0원.<br>전세 낀 매물은 적은 돈으로 살 수 있지만(갭투자), 만기에 세입자가 나가면 보증금을 돌려줘야 한다.</p></details>
   </section>`;
 }
@@ -2372,11 +2373,10 @@ function settingsModal(g: GameState): string {
       <div class="set-info">
         <div class="sh-row"><span>가문</span><span>${esc(g.familyName)}씨 ${g.generation}대 · ${g.year}년</span></div>
         <div class="sh-row"><span>가주</span><span>${esc(fullName(h))} ${age(g, h)}세</span></div>
-        <div class="sh-row"><span>자동 저장</span><span>해마다 이 기기(브라우저)에</span></div>
+        ${g.motto ? `<div class="sh-row"><span>가훈</span><span>「${esc(g.motto)}」</span></div>` : ''}
+        <div class="sh-row"><span>자동 저장</span><span>${account.user ? `계정 ${esc(account.user)}` : '이 기기 (손님)'}</span></div>
       </div>
-      <h3 class="set-h">💾 저장 슬롯</h3>
-      ${slotRows(true)}
-      ${account.user ? cloudSaveCard(true) : `<p class="fine">👤 첫 화면에서 로그인하면 계정 저장 칸·유산 상점·카드 컬렉션이 생긴다 (다른 기기로 옮길 때도 로그인).</p>`}
+      <p class="fine">${account.user ? `${account.mode === 'cloud' ? '☁' : '📱'} ${esc(account.user)} 계정에 자동 저장된다 — ${account.mode === 'cloud' ? '다른 기기에서 로그인해도 첫 화면 "이어하기"로 이어진다.' : '이 기기에서 로그인하면 이어진다.'}` : '👤 손님으로 하는 중 — 이 기기에 자동 저장된다. 첫 화면에서 로그인하면 이 가문이 계정으로 옮겨 간다.'}</p>
       ${ui.saveMsg ? `<p class="save-msg">${esc(ui.saveMsg)}</p>` : ''}
       ${
         canConclude(g)
@@ -3128,46 +3128,62 @@ function handle(el: HTMLElement) {
       ui.setup.origin = v as Difficulty | 'random';
       break;
     case 'continue':
-      ui.game = load();
-      track('continue', '이어하기');
-      break;
-    case 'slot-save':
-      ui.saveMsg = saveSlot(Number(v)) ? `슬롯 ${v}에 저장했다.` : '저장하지 못했다 (저장 공간 부족 또는 비공개 창).';
-      break;
-    case 'slot-load': {
-      const g = loadSlot(Number(v));
-      if (!g) {
-        ui.saveMsg = '불러오지 못했다.';
-        break;
-      }
-      ui.game = g;
-      ui.tab = 'tree';
-      ui.report = ui.outcome = ui.sheet = undefined;
-      ui.settings = ui.confirmReset = false;
       ui.saveMsg = undefined;
-      save();
-      hasSave = true;
-      break;
-    }
-    case 'slot-del':
-      deleteSlot(Number(v));
-      ui.saveMsg = `슬롯 ${v}을 비웠다.`;
-      break;
+      void loadLatest().then((cg) => {
+        if (!cg) {
+          ui.saveMsg = '이어할 가문을 찾지 못했다.';
+          hasSave = canContinue();
+        } else {
+          ui.game = cg;
+          ui.archiveView = undefined;
+          ui.collection = ui.archives = false;
+          ui.tab = 'tree';
+          save();
+        }
+        render();
+      });
+      track('continue', '이어하기');
+      return;
     case 'acc-login':
     case 'acc-signup': {
       const user = root.querySelector<HTMLInputElement>('#acc-user')?.value ?? '';
       const pass = root.querySelector<HTMLInputElement>('#acc-pass')?.value ?? '';
       ui.saveMsg = '확인 중…';
       render();
+      // 손님으로 하던 가문: 계정에 하던 가문이 없으면 계정으로 옮기고, 있으면 손님 칸에 그대로 둔다 (덮어쓰지 않는다)
+      let guestRaw: string | null = null;
+      try {
+        guestRaw = localStorage.getItem(saveKey());
+      } catch {
+        /* noop */
+      }
+      const guestKey = saveKey();
       void login(user, pass, a === 'acc-signup').then((r) => {
         ui.saveMsg = r.msg;
-        if (r.ok && ui.game) save();
+        if (r.ok) {
+          migrateOldSave();
+          if (guestRaw && !canContinue()) {
+            try {
+              localStorage.setItem(saveKey(), guestRaw);
+              localStorage.setItem(saveKey() + ':at', String(Date.now()));
+              localStorage.removeItem(guestKey);
+              localStorage.removeItem(guestKey + ':at');
+              const gg = migrate(JSON.parse(guestRaw) as GameState);
+              autoCloudSave(slotLabel(gg), gg, true);
+              ui.saveMsg += '\n손님으로 하던 가문을 이 계정으로 옮겼다.';
+            } catch {
+              /* noop */
+            }
+          } else if (guestRaw) ui.saveMsg += '\n이 계정에 하던 가문이 있어서 그걸 이어 한다. 손님으로 하던 가문은 로그아웃하면 이어 할 수 있다.';
+          hasSave = canContinue();
+        }
         render();
       });
       return;
     }
     case 'acc-logout':
       logout();
+      hasSave = canContinue();
       ui.saveMsg = '로그아웃했다. 유산과 카드는 계정에 남아 있다.';
       ui.collection = false;
       break;
@@ -3246,43 +3262,6 @@ function handle(el: HTMLElement) {
       }
       break;
     }
-    case 'cs-save': {
-      if (!ui.game) break;
-      const gg = ui.game;
-      ui.saveMsg = '저장하는 중…';
-      void putSave(v, slotLabel(gg), gg).then((ok) => {
-        ui.saveMsg = ok ? `계정 저장 칸 ${v}에 저장했다.` : '저장하지 못했다 (저장 공간이 꽉 찼거나 오프라인).';
-        render();
-      });
-      break;
-    }
-    case 'cs-load': {
-      if (!profile().saves[v]) break;
-      ui.saveMsg = '불러오는 중…';
-      void getSave(v).then((text) => {
-        try {
-          if (!text) throw new Error('none');
-          ui.game = migrate(JSON.parse(text) as GameState);
-        } catch {
-          ui.saveMsg = '저장 데이터를 읽지 못했다.';
-          return render();
-        }
-        ui.archiveView = undefined;
-        ui.tab = 'tree';
-        ui.report = ui.outcome = ui.sheet = undefined;
-        ui.settings = ui.confirmReset = false;
-        ui.collection = ui.archives = false;
-        ui.saveMsg = undefined;
-        save();
-        hasSave = true;
-        render();
-      });
-      break;
-    }
-    case 'cs-del':
-      delSave(v);
-      ui.saveMsg = `계정 저장 칸 ${v}을 비웠다.`;
-      break;
     case 'start': {
       const sn = (ui.setup.surname || '김').slice(0, 2);
       const bank = loadBank();
@@ -3480,6 +3459,9 @@ function handle(el: HTMLElement) {
       }
       break;
     }
+    case 're-view':
+      ui.reView = v as 'own' | 'market';
+      break;
     case 'act-side':
       ui.actSide = v === '1';
       ui.actCat = undefined;

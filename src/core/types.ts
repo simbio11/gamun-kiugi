@@ -285,6 +285,8 @@ export interface GameState {
   /** 지난 전쟁이 끝난 해 */
   lastWarEnd?: number;
   gameOver?: { reason: string; score: number; /** 이 가문이 남긴 유산 (유산 상점, 한 번만 지급) */ legacy?: number; /** 스스로 이야기를 마쳤다 (가문 이야기 마치기) */ voluntary?: boolean };
+  /** 가훈 (saga.ts: 집안이 겪은 일에서 나온다) */
+  motto?: string;
   /** 계정에 영구로 찍은 가문 내력 (legacy.ts PERMA_ITEMS) */
   perma?: string[];
   /** 지난 가문에서 내려온 조상 카드 (legacy.ts) */
